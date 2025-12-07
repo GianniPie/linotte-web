@@ -194,11 +194,9 @@ font-style: normal;
   background-position: 50% 50%;
   background-size: 70% 70%;
   background-repeat: no-repeat;
-}
-
-#p_a1 {
   opacity: 0;
 }
+
 
 .img-bounce {
   animation: bounceIn 0.5s ease-out forwards;
@@ -2419,6 +2417,7 @@ textarea.w-input, textarea.w-select {
   #dd5 {
     background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68ab44a4f55b05cade1_Asset%2010.png");
   }
+
 
   .die.selected {
     width: 88%;
