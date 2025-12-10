@@ -16,41 +16,24 @@ const doneBtn = document.getElementById("doneBtn")
 let rollAnimationID;
 let stopRollID;
 
-const face0 = "";
-const face1 = "https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68a59e44dfdb6cc3dd5_Asset%2011.png";
-const face2 = "https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68a92617b743b2f46bf_Asset%2012.png";
-const face3 = "https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68a233fa935eab3232a_Asset%2013.png";
-const face4 = "https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68acc315641d0266221_Asset%2014.png";
-const face5 = "https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68ab44a4f55b05cade1_Asset%2010.png";
-const face6 = "https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68bf158290c2d161e57_Asset%209.png";
+const face0 = "resources/images/g100.svg";
+const face1 = "resources/images/g107.svg";
+const face2 = "resources/images/g102.svg";
+const face3 = "resources/images/g103.svg";
+const face4 = "resources/images/g104.svg";
+const face5 = "resources/images/g105.svg";
+const face6 = "resources/images/g106.svg";
 
 let faces = [face0, face1, face2, face3, face4, face5, face6];
 
+let numRoll = 3;
 
 function setPos(x,y){
     var floatDiv = document.getElementById("die");
     floatDiv.style.left = x+"px";
     floatDiv.style.top = y+"px";
 }
-  
 
-var interval;
-
-function random(){
-  clearInterval(interval);
-  var len = [5,3,1];
-  var pos = 0;
-  
-  interval = setInterval(function(){
-    var length = len[pos];
-    pos++;
-    var deg = Math.random() * 360 * 0.01745;
-    var xto = Math.cos(deg) * length + 100;
-    var yto = Math.sin(deg) * length + 100;
-    setPos(xto,yto);
-    if(pos==len.length) clearInterval(interval);
-  },30);
-}
 
 
 function roll(){
@@ -61,49 +44,70 @@ function roll(){
 
 document.querySelectorAll(".piece").forEach(el => {
     el.addEventListener("click", function() {
-        let elem = document.getElementById(this.id);
-        
+        let piece = document.getElementById(this.id);
+        let wrapper = document.getElementById(this.parentElement.id);
+
         rndH = (Math.random() * 50)+25;
         rndV = (Math.random() * 50)+25;
-        elem.style.backgroundPosition = rndH + "% " + rndV + "%";
+        piece.style.backgroundPosition = rndH + "% " + rndV + "%";
 
-        if (elem.classList.contains("img-bounce")) {
+        if (piece.classList.contains("img-bounce")) {
+            wrapper.classList.add("img-disappear");
 
-            elem.classList.remove("img-bounce"); // reset
-            document.getElementById(this.parentElement.id).classList.add("img-disappear");
+            wrapper.addEventListener("animationend", function handler(e) {
+                if (e.animationName === "bounceOut") {
+                    piece.classList.remove("img-bounce");
+                    wrapper.classList.remove("img-disappear");
+                    wrapper.removeEventListener("bounceOut", handler);
+                }
+            });
         } else {
-            elem.classList.add("img-bounce");
-            document.getElementById(this.parentElement.id).classList.remove("img-disappear");
+            wrapper.classList.remove("img-disappear");
+            piece.classList.add("img-bounce");
         }
     });
 });
 
 
 
+rollBtn.addEventListener("click", function() {  
 
-rollBtn.addEventListener("click", function() {    
+    if(numRoll < 1)
+    return;
+
+    document.querySelector("#rollBtn .text-button").innerText = "ROLL " + --numRoll;
     rollAnimationID = setInterval(rollAnimation, 100)
     stopRollID = setInterval(stopRoll, 1200)
+
 })
 
 
 function rollAnimation() {
-    const d = 6;
+    const d = 7;
     const e = 10;
 
-
-    wr1.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-    wr2.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-    wr3.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-    wr4.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-    wr5.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-
-    dd1.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
-    dd2.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
-    dd3.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
-    dd4.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
-    dd5.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
+    if(!dd1.classList.contains("selected")) {
+        dd1.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
+        wr1.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
+    }
+    if(!dd2.classList.contains("selected")) {
+        dd2.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
+        wr2.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
+    }
+    if(!dd3.classList.contains("selected")) {
+        dd3.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
+        wr3.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
+    }
+    if(!dd4.classList.contains("selected")) {
+        dd4.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
+        wr4.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
+    }
+    if(!dd5.classList.contains("selected")) {
+        dd5.style.backgroundImage = "url('"+ faces[rndNum(1,6)] + "')";
+        wr5.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
+    }
 } 
+
 
 
 function rndNum(numFrom, numTo) {
@@ -119,21 +123,24 @@ function rndNum(numFrom, numTo) {
 function stopRoll() {
     clearInterval(rollAnimationID);
     clearInterval(stopRollID);
-//non va
-    document.querySelectorAll(".die").forEach(el => {
-        el.classList.remove("selected");
-    });
 }     
 
 
 
 doneBtn.addEventListener("click", function() {    
+    wr1.style.transform = 'rotate(0deg) translate(0px,0px)';
+    wr2.style.transform = 'rotate(0deg) translate(0px,0px)';
+    wr3.style.transform = 'rotate(0deg) translate(0px,0px)';
+    wr4.style.transform = 'rotate(0deg) translate(0px,0px)';
+    wr5.style.transform = 'rotate(0deg) translate(0px,0px)';
 
-    dd1.style.webkitTransform = 'rotate(0deg) translate(0px,0px)';
-    dd2.style.webkitTransform = 'rotate(0deg) translate(0px,0px)';
-    dd3.style.webkitTransform = 'rotate(0deg) translate(0px,0px)';
-    dd4.style.webkitTransform = 'rotate(0deg) translate(0px,0px)';
-    dd5.style.webkitTransform = 'rotate(0deg) translate(0px,0px)';
+    document.querySelectorAll(".die").forEach(el => {
+        el.classList.remove("selected"); // reset
+        el.style.backgroundImage = "url('"+ faces[0] + "')";
+
+        document.querySelector("#rollBtn .text-button").innerText = "ROLL 3";
+        numRoll = 3;
+    });
 })
 
 
@@ -142,6 +149,9 @@ document.querySelectorAll(".die").forEach(el => {
     el.addEventListener("click", function() {
         elem = document.getElementById(this.id);
         
+        if(numRoll === 3)
+            return;
+
         if (elem.classList.contains("selected")) {
             elem.classList.remove("selected"); // reset
         } else {

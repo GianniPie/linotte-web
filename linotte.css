@@ -33,7 +33,7 @@ a {
 
 a:active, a:hover {
   outline: 0;
-}
+}   
 
 abbr[title] {
   border-bottom: 1px dotted;
@@ -190,6 +190,9 @@ font-style: normal;
   width: 100%;
   height: 100%;
   opacity: 1;
+  //border-style: solid;
+  //border-width: 3;
+  //border-color: white;
 }
 
 
@@ -198,7 +201,7 @@ font-style: normal;
   height: 100%;
   background-position: 50% 50%;
   background-size: 70% 70%;
-  background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692dd5796f36c3cfa8306d8f_Asset%206.png");
+  background-image: url("resources/images/p003.svg");
   background-repeat: no-repeat;
   opacity: 0;
 }
@@ -243,6 +246,7 @@ font-style: normal;
 }
 
 
+
 .img-disappear {
   animation: bounceOut 0.2s ease-out forwards;
 }
@@ -254,13 +258,14 @@ font-style: normal;
       transform: scale(1);
     }
 
-    20% {
-      transform: scale(1.1);
+    50% {
+      opacity: 0;
+      transform: scale(2);
     }
 
-    100% {
+    to {
       opacity: 0;
-      transform: scale(.3);
+      transform: scale(1);
     }
 }
 
@@ -2074,8 +2079,8 @@ textarea.w-input, textarea.w-select {
 }
 
 .div-block-2 {
-  border: 5px dashed #000;
-  border-radius: 20px;
+  //border: 5px dashed #000;
+  //border-radius: 20px;
   flex: 1;
   order: 1;
   align-self: flex-start;
@@ -2095,7 +2100,6 @@ textarea.w-input, textarea.w-select {
 
 .div-block-3 {
   clear: none;
-  border: 3px dashed #000;
   flex: 0 auto;
   order: 3;
   align-self: center;
@@ -2291,7 +2295,6 @@ textarea.w-input, textarea.w-select {
 
 
 .div-block-7 {
-  border: 3px solid red;
   width: 90vw;
   height: 18vw;
   margin-left: auto;
@@ -2299,7 +2302,7 @@ textarea.w-input, textarea.w-select {
 }
 
 .div-block-9 {
-  border: 3px solid #00bfff;
+  //border: 3px solid #00bfff;
   width: 90vw;
   height: 30vw;
   margin-left: auto;
@@ -2307,7 +2310,7 @@ textarea.w-input, textarea.w-select {
 }
 
 .div-block-10 {
-  border: 3px dashed #ff21f0;
+  //border: 3px dashed #ff21f0;
 }
 
 .flex-block {
@@ -2412,38 +2415,38 @@ textarea.w-input, textarea.w-select {
   }
 
   .wrapDie {
-    background-position: 50%;
+    aspect-ratio: 1 / 1;
     width: 88%;
-    height: 68%;
+    background-position: 50%;
   }
 
   .die {
-    background-position: 50%;
+    background-position: center;   
     background-repeat: no-repeat;
-    background-size: contain;
+    background-size: contain;    
     width: 100%;
     height: 100%;
-    border-radius: 0.7em;
+    border-radius: 0.75em;
   }
 
   #dd1 {
-    background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68a59e44dfdb6cc3dd5_Asset%2011.png");
+    background-image: url("resources/images/g100.svg");
   }
 
   #dd2 {
-    background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68a92617b743b2f46bf_Asset%2012.png");
+    background-image: url("resources/images/g100.svg");
   }
 
   #dd3 {
-    background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68a233fa935eab3232a_Asset%2013.png");
+    background-image: url("resources/images/g100.svg");
   }
 
   #dd4 {
-    background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68acc315641d0266221_Asset%2014.png");
+    background-image: url("resources/images/g100.svg");
   }
 
   #dd5 {
-    background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db68ab44a4f55b05cade1_Asset%2010.png");
+    background-image: url("resources/images/g100.svg");
   }
 
 
@@ -2472,7 +2475,7 @@ textarea.w-input, textarea.w-select {
 
     to {
         opacity: 1;
-        transform: scale(1)
+        transform: scale(1);
         background-color: rgb(255, 234, 0);
         box-shadow: rgb(255, 234, 0) 0px 0px 0px 0.3em;
     }
@@ -2653,6 +2656,7 @@ textarea.w-input, textarea.w-select {
     margin-left: auto;
     margin-right: auto;
     display: grid;
+    user-select: none;
   }
 
   .button {

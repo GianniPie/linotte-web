@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="138.89734"
+   height="138.89865"
+   viewBox="0 0 138.89734 138.89865"
+   sodipodi:docname="Linotte app main.ai"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath3425">
+      <path
+         d="M 0,1080 H 1920 V 0 H 0 Z"
+         transform="translate(-206.52771,-879.76832)"
+         id="path3425" />
+    </clipPath>
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="138.89734"
+       height="138.89865"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <g
+     id="layer-MC0"
+     inkscape:groupmode="layer"
+     inkscape:label="Livello 1"
+     transform="translate(-139.80618,-197.52628)">
+    <path
+       id="path3424"
+       d="m 0,0 c 0,-27.386 -22.201,-49.587 -49.587,-49.587 -27.386,0 -49.586,22.201 -49.586,49.587 0,27.386 22.2,49.587 49.586,49.587 C -22.201,49.587 0,27.386 0,0"
+       style="fill:#50ade5;fill-opacity:1;fill-rule:nonzero;stroke:#34779c;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1"
+       transform="matrix(1.3333333,0,0,-1.3333333,275.37027,266.9756)"
+       clip-path="url(#clipPath3425)" />
+  </g>
+</svg>

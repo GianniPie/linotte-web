@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="222.40515"
+   height="222.40527"
+   viewBox="0 0 222.40515 222.40527"
+   sodipodi:docname="Linotte app main.ai"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="222.40515"
+       height="222.40527"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <g
+     id="layer-MC0"
+     inkscape:groupmode="layer"
+     inkscape:label="Livello 1"
+     transform="translate(-1110.082,-2296.3921)">
+    <g
+       id="g10476">
+      <rect
+         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:33.6356;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+         id="rect10471-2-4-7-4-3"
+         width="188.76961"
+         height="188.76961"
+         x="1126.8999"
+         y="2313.21"
+         ry="26.602039" />
+      <g
+         id="g10476-1"
+         transform="translate(324.3297,259.71479)"
+         style="fill:#080808;fill-opacity:1">
+        <circle
+           style="fill:#080808;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+           id="path10472-4-5-3-9-8-7"
+           cx="2112.2495"
+           cy="924.25763"
+           r="22.621181"
+           transform="rotate(45)" />
+        <circle
+           style="fill:#080808;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+           id="path10472-4-5-2-1-5-7-1"
+           cx="2071.4458"
+           cy="883.45404"
+           r="22.621181"
+           transform="rotate(45)" />
+        <circle
+           style="fill:#080808;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+           id="path10472-4-5-2-0-0-0-6-24"
+           cx="2154.1069"
+           cy="966.11517"
+           r="22.621181"
+           transform="rotate(45)" />
+      </g>
+      <g
+         id="g10476-8-5"
+         transform="translate(438.1656,259.71479)"
+         style="fill:#010000;fill-opacity:1">
+        <circle
+           style="fill:#010000;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+           id="path10472-4-5-3-9-8-5-1"
+           cx="2112.2495"
+           cy="924.25763"
+           r="22.621181"
+           transform="rotate(45)" />
+        <circle
+           style="fill:#010000;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+           id="path10472-4-5-2-1-5-7-5-3"
+           cx="2071.4458"
+           cy="883.45404"
+           r="22.621181"
+           transform="rotate(45)" />
+        <circle
+           style="fill:#010000;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+           id="path10472-4-5-2-0-0-0-6-2-9"
+           cx="2154.1069"
+           cy="966.11517"
+           r="22.621181"
+           transform="rotate(45)" />
+      </g>
+    </g>
+  </g>
+</svg>

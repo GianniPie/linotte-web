@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="222.40515"
+   height="222.40515"
+   viewBox="0 0 222.40515 222.40515"
+   sodipodi:docname="Linotte app main.ai"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="222.40515"
+       height="222.40515"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <g
+     id="layer-MC0"
+     inkscape:groupmode="layer"
+     inkscape:label="Livello 1"
+     transform="translate(-1101.5566,-2044.3995)">
+    <g
+       id="g10478">
+      <rect
+         style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:33.6356;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+         id="rect10471-2-4-7-4"
+         width="188.76961"
+         height="188.76961"
+         x="1118.3745"
+         y="2061.2173"
+         ry="26.602039" />
+      <circle
+         style="fill:#080808;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+         id="path10472-4-5-2-1-5-7"
+         cx="2300.2136"
+         cy="665.60699"
+         r="22.621181"
+         transform="rotate(45)" />
+      <circle
+         style="fill:#080808;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+         id="path10472-4-5-2-0-0-0-6"
+         cx="2382.8748"
+         cy="748.26813"
+         r="22.621181"
+         transform="rotate(45)" />
+      <circle
+         style="fill:#010000;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+         id="path10472-4-5-2-1-5-7-5"
+         cx="2380.7078"
+         cy="585.11285"
+         r="22.621181"
+         transform="rotate(45)" />
+      <circle
+         style="fill:#010000;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+         id="path10472-4-5-2-0-0-0-6-2"
+         cx="2463.3689"
+         cy="667.77399"
+         r="22.621181"
+         transform="rotate(45)" />
+    </g>
+  </g>
+</svg>
