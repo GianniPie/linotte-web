@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="213"
+   height="213"
+   viewBox="0 0 213 213"
+   sodipodi:docname="Linotte app main.ai"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath3261-7">
+      <path
+         d="M 0,1080 H 1920 V 0 H 0 Z"
+         transform="translate(-832.32025,-221.48881)"
+         id="path3261-9" />
+    </clipPath>
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="0.44394258"
+     inkscape:cx="571.01979"
+     inkscape:cy="1874.1162"
+     inkscape:window-width="1472"
+     inkscape:window-height="844"
+     inkscape:window-x="0"
+     inkscape:window-y="34"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer-MC0">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="213"
+       height="213"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <g
+     id="layer-MC0"
+     inkscape:groupmode="layer"
+     inkscape:label="Livello 1"
+     transform="translate(-552.77002,-1542.7076)">
+    <g
+       id="g10489">
+      <rect
+         style="fill:#4f4f4f;fill-opacity:0;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+         id="rect10482-7-8-4"
+         width="213"
+         height="213"
+         x="552.77002"
+         y="1542.7076"
+         ry="0" />
+      <path
+         id="path3260-4"
+         d="m 0,0 0.193,1.311 c -1.958,-2.728 -3.927,-5.16 -5.908,-7.297 -1.804,-1.958 -4.224,-4.673 -7.261,-8.149 7.415,0.128 11.329,0.218 11.741,0.271 -0.026,0.384 -0.04,0.81 -0.04,1.275 0,1.877 0.426,6.073 1.275,12.589 m 2.588,15.872 c 1.751,0.256 4.197,0.656 7.337,1.197 l 4.595,0.773 c 0.053,-1.597 0.078,-2.704 0.078,-3.322 0,-1.622 -0.143,-4.441 -0.426,-8.458 L 13.401,-4.944 c -0.31,-3.656 -0.54,-6.463 -0.694,-8.418 l 8.726,0.423 c -1.801,-4.351 -3.09,-6.925 -3.86,-7.723 -0.698,-0.72 -1.238,-1.351 -1.625,-1.892 -0.308,-0.464 -1.686,-0.888 -4.132,-1.274 -0.05,-2.885 -0.294,-5.614 -0.731,-8.188 -5.614,-1.905 -10.814,-3.32 -15.604,-4.247 l 1.894,5.174 c 0.437,1.134 0.706,3.334 0.81,6.605 h -1.737 l -6.065,-0.039 -2.006,0.039 -12.398,-0.232 c 0.336,0.798 4.106,6.577 11.317,17.34 L -3.9,5.83 c 0.67,0.978 2.832,4.325 6.488,10.042"
+         style="fill:#593117;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         transform="matrix(1.3333333,0,0,-1.3333333,660.99535,1636.927)"
+         clip-path="url(#clipPath3261-7)" />
+    </g>
+  </g>
+</svg>

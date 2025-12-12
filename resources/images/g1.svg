@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="213.00003"
+   height="213"
+   viewBox="0 0 213.00003 213"
+   sodipodi:docname="Linotte app main inkscape.ai"
+   inkscape:version="1.4.2 (ebf0e940, 2025-05-08)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <clipPath
+       clipPathUnits="userSpaceOnUse"
+       id="clipPath10386-6">
+      <path
+         d="M 0,1920 H 1080 V 0 H 0 Z"
+         transform="translate(-96.198827,-519.04164)"
+         id="path10386-0" />
+    </clipPath>
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="0.38248747"
+     inkscape:cx="515.04956"
+     inkscape:cy="2447.139"
+     inkscape:window-width="1472"
+     inkscape:window-height="844"
+     inkscape:window-x="0"
+     inkscape:window-y="34"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer-MC0">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="213.00003"
+       height="213"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <g
+     id="layer-MC0"
+     inkscape:groupmode="layer"
+     inkscape:label="Livello 1"
+     transform="translate(517.77491,-2111.3394)">
+    <g
+       id="g1"
+       transform="translate(59.448751,-1431.1588)"
+       inkscape:export-filename="/Users/giannipie/Documents/Repositories/linotte-web/resources/images/g1.png"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96">
+      <rect
+         style="fill:#4f4f4f;fill-opacity:0;stroke:#000000;stroke-width:0;stroke-linecap:round;stroke-miterlimit:1.4;stroke-dasharray:none;stroke-opacity:1;paint-order:markers stroke fill"
+         id="rect10482-0-7-2"
+         width="213"
+         height="213"
+         x="-577.22351"
+         y="3542.498"
+         ry="0" />
+      <path
+         id="path10385-1"
+         d="m 0,0 h -12.913 l -2.238,-10.793 h 12.913 z m -31.595,0 v 8.478 h 11.853 l 3.218,14.679 h 8.478 L -11.304,8.478 H 1.609 l 3.14,14.679 h 8.478 L 10.047,8.478 h 6.241 V 0 H 8.438 L 6.201,-10.833 h 10.087 v -8.438 H 4.591 L 1.373,-33.832 h -8.477 l 3.257,14.561 h -13.069 l -3.062,-14.561 h -8.478 l 3.062,14.561 h -6.201 v 8.438 h 8.007 L -21.391,0 Z"
+         style="fill:#fffeff;fill-opacity:1;fill-rule:nonzero;stroke:none"
+         transform="matrix(1.6777605,0,0,-1.6777605,-459.2249,3640.0627)"
+         clip-path="url(#clipPath10386-6)" />
+    </g>
+  </g>
+</svg>

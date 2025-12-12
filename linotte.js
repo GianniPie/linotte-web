@@ -47,9 +47,8 @@ document.querySelectorAll(".piece").forEach(el => {
         let piece = document.getElementById(this.id);
         let wrapper = document.getElementById(this.parentElement.id);
 
-        rndH = (Math.random() * 50)+25;
-        rndV = (Math.random() * 50)+25;
-        piece.style.backgroundPosition = rndH + "% " + rndV + "%";
+        piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
+        wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
 
         if (piece.classList.contains("img-bounce")) {
             wrapper.classList.add("img-disappear");
@@ -75,6 +74,9 @@ rollBtn.addEventListener("click", function() {
     if(numRoll < 1)
     return;
 
+    new Audio("resources/sounds/roll.mp3").play();
+    /*document.getElementById("overlay").classList.add("active");
+    document.getElementById("splash").classList.add("active");*/
     document.querySelector("#rollBtn .text-button").innerText = "ROLL " + --numRoll;
     rollAnimationID = setInterval(rollAnimation, 100)
     stopRollID = setInterval(stopRoll, 1200)
