@@ -195,7 +195,6 @@ td, th {
   height: 100%;
   background-position: 50% 50%;
   background-size: 70% 70%;
-  background-image: url("resources/images/p007.svg");
   background-repeat: no-repeat;
   opacity: 0;
 }
@@ -272,7 +271,7 @@ td, th {
     z-index: 999;     
     pointer-events: none;             
     opacity: 0;   
-    /*transition: opacity 1s ease;*/
+    transition: opacity 1s ease;
 }
 
 
@@ -280,7 +279,6 @@ td, th {
     opacity: 1;
     transform: scale(1);
     animation: spin 1s linear 0s reverse;
-    animation: popup 1s ease-out forwards;
 }
 
 
@@ -2345,9 +2343,10 @@ textarea.w-input, textarea.w-select {
 
 
 .tile_highlited {
-  outline-offset: -3px;
-  outline: 6px solid red;
+  outline-offset: -4px;
+  outline: 8px solid red;
   transform: translate3d(0, 0, 65px);
+  border-radius: 5px;
 }
 
 
@@ -2421,7 +2420,7 @@ textarea.w-input, textarea.w-select {
   .body {
     text-align: center;
     background-color: #6ec03b;
-    background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692dc73c265c66d28b6f5e1e_sun-tornado.svg");
+    background-image: url("/resources/images/sun-tornado.svg");
     background-position: 100% 0;
     background-size: cover;
   }
@@ -2510,8 +2509,7 @@ textarea.w-input, textarea.w-select {
     animation: bounceDie 0.3s ease-out forwards;
   }
 
-
-@keyframes bounceDie {
+  @keyframes bounceDie {
     40%,60%,80%,to {
         animation-timing-function: cubic-bezier(.215,.61,.355,1)
     }
@@ -2522,11 +2520,11 @@ textarea.w-input, textarea.w-select {
 
     60% {
         opacity: 1;
-        transform: scale(1.03)
+        transform: scale(1.1)
     }
 
     80% {
-        transform: scale(.97)
+        transform: scale(.95)
     }
 
     to {
@@ -2535,6 +2533,8 @@ textarea.w-input, textarea.w-select {
         background-color: rgb(255, 234, 0);
         box-shadow: rgb(255, 234, 0) 0px 0px 0px 0.3em;
     }
+  }
+
 }
 
 
@@ -2542,7 +2542,7 @@ textarea.w-input, textarea.w-select {
 @media screen and (max-width: 479px) {
   .body {
     background-color: rgb(110, 192, 59);
-    background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692dc73c265c66d28b6f5e1e_sun-tornado.svg");
+    background-image: url("resources/images/sun-tornado.svg");
     background-position: 100% 0%;
     background-size: cover;
     text-align: center;
@@ -2551,7 +2551,6 @@ textarea.w-input, textarea.w-select {
 
 
   .locker {
-    background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db965cc315641d0276818_DjmRyN.tif.png");
     background-position: 50%;
     background-size: contain;
     width: 0;
@@ -2578,7 +2577,6 @@ textarea.w-input, textarea.w-select {
   .padlock {
     grid-column-gap: 16px;
     grid-row-gap: 16px;
-    background-image: url("https://cdn.prod.website-files.com/692d60554543f993a2e48990/692db965cc315641d0276818_DjmRyN.tif.png");
     background-position: 50%;
     background-repeat: no-repeat;
     background-size: contain;
@@ -2660,7 +2658,7 @@ textarea.w-input, textarea.w-select {
   height: 30%;
   }
 
-  .call.uncheked {
+  .call.selectable {
     background-color: #ffffff5e;
     border: .15em solid #fff;
     border-radius: 20px;
@@ -2668,11 +2666,36 @@ textarea.w-input, textarea.w-select {
   }
 
   .call.checked {
-    background-color: #ffea00;
-    border: .15em solid #ffea00;
-    border-radius: 20px;
-    margin: .5em .25em 3vw;
+    animation: bounceCall 0.3s ease-out forwards;
   }
+
+
+    @keyframes bounceCall {
+    40%,60%,80%,to {
+        animation-timing-function: cubic-bezier(.215,.61,.355,1)
+    }
+
+    40% {
+        transform: scale(.9)
+    }
+
+    60% {
+        opacity: 1;
+        transform: scale(1.3)
+    }
+
+    80% {
+        transform: scale(.97)
+    }
+
+    to {
+      background-color: #ffea00;
+      border: .15em solid #ffea00;
+      border-radius: 20px;
+      margin: .5em .25em 3vw;
+    }
+  }
+
 
   .calls {
     grid-column-gap: .6vw;
