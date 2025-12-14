@@ -55,10 +55,13 @@ while(p2p == p1p) {
 let player2SelectedPiece = pieces[p2p];
 let selectedPiece = [null, player1SelectedPiece, player2SelectedPiece];
 
+let remainingPieces = [null, 12, 12];
+let points = [null, 0, 0];
+
 const p1Color = "#" + player1SelectedPiece.split("_")[1].slice(0, -6);
 const p2Color = "#" + player2SelectedPiece.split("_")[1].slice(0, -6);
 const selectedColor = [null, p1Color, p2Color];
-document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 2px 11px 10px";
+document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 0px 8px 8px";
 
 let combinationaRealized = [0,0,0,0,0,0,0,0];
 let brelan = 0;
@@ -84,9 +87,9 @@ let tidyness = 3;
 
 
 document.getElementById("pawnP1Text").textContent = "12";
-document.getElementById("coinP1Text").textContent = "10";
+document.getElementById("coinP1Text").textContent = "0";
 document.getElementById("pawnP2Text").textContent = "12";
-document.getElementById("coinP2Text").textContent = "10";
+document.getElementById("coinP2Text").textContent = "0";
 
 
 document.querySelectorAll(".player.p1").forEach(tile => {
@@ -105,8 +108,6 @@ document.querySelectorAll(".piece").forEach(el => {
         let piece = document.getElementById(this.id);
         let wrapper = piece.parentElement;
         let tile = wrapper.parentElement;
-        console.log|("moves");
-        console.table(possibleMoves);
 
         if(tableCheck(tile.id) !== 0)  
             return;
@@ -117,7 +118,6 @@ document.querySelectorAll(".piece").forEach(el => {
         if(tableCheck(tile.id) == 0) {
             if (piece.classList.contains("img-bounce")) {
                 //remove the piece
-                console.log("remove piece from " + tile.id);
                 wrapper.classList.add("img-disappear");
 
                 wrapper.addEventListener("animationend", (e) => {
@@ -131,7 +131,7 @@ document.querySelectorAll(".piece").forEach(el => {
             } else {    
                 //place the piece
                 piece.style.backgroundImage = "url('" + selectedPiece[currentPlayer] + "')" ;
-                console.log("place piece on " + tile.id);
+
                 if(tidyness == 1) {wrapper.style.transform = "rotate 0deg"};
                 if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)"};
                 if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)"};
@@ -189,11 +189,20 @@ rollBtn.addEventListener("click", function() {
     doneBtnEnebled = false;
 
     new Audio("resources/sounds/roll.mp3").play();
-    /*document.getElementById("overlay").classList.add("active");
-    document.getElementById("splash").classList.add("active");*/
     document.querySelector("#rollBtn .text-button").innerText = "ROLL " + --numRoll;
     rollAnimationID = setInterval(rollAnimation, 100)
     stopRollID = setInterval(stopRoll, 1200)
+
+    document.querySelectorAll(".tile").forEach(el => {
+        el.classList.remove("tile_highlited"); // reset
+    });
+    possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
+    combinationaRealized.fill(0);
+    brelan = 0;
+    isRealized = false;
+    document.querySelectorAll(".result").forEach(el => {
+        el.classList.remove("higlited"); // reset
+    });
 
     if(selectedTile != null) {
         if(tableCheck(selectedTile.id) == 0) {
@@ -209,16 +218,6 @@ rollBtn.addEventListener("click", function() {
             }, { once: true });
         } 
     }
-
-    document.querySelectorAll(".tile").forEach(el => {
-        el.classList.remove("tile_highlited"); // reset
-    });
-    possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
-    combinationaRealized.fill(0);
-    brelan = 0;
-    document.querySelectorAll(".result").forEach(el => {
-        el.classList.remove("higlited"); // reset
-    });
 });
 
 
@@ -300,10 +299,6 @@ function stopRoll() {
         el.classList.remove("higlited"); // reset
     });
 
-    combinationaRealized.fill(0);
-    possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
-    brelan = 0;
-
     //brelan
     if(c1 >= 3) {
         brelan = 1;
@@ -317,7 +312,7 @@ function stopRoll() {
         combinationaRealized[0] = 1;
     } else if (c3 >= 3) {
         brelan = 3;
-        possibleMovesFill ("b2");
+        possibleMovesFill ("b1");
         possibleMovesFill ("a5");
         combinationaRealized[0] = 1;
     } else if (c4 >= 3) {
@@ -410,6 +405,11 @@ function stopRoll() {
         combinationaRealized[2] = 1;
     }
 
+    if(combinationaRealized[2] == 1) {
+        possibleMovesFill ("c1");
+        possibleMovesFill ("d3");
+    }
+
     resultsHighlite();
     tableHighlite();
     rollBtnEnebled = true;
@@ -449,79 +449,78 @@ function resultsHighlite() {
 function tableHighlite() {
 
     if (combinationaRealized[0] == 1) {
-        console.log("brelan: " + brelan);
         switch (brelan) {
             case 1:
-                if(possibleMovesCheck("a1") || tableCheck("a1") == 0) { document.getElementById("a1").classList.add("tile_highlited");}
-                if(possibleMovesCheck("e4") || tableCheck("e4") == 0) { document.getElementById("e4").classList.add("tile_highlited");}
+                if(possibleMovesCheck("a1") && tableCheck("a1") == 0) { document.getElementById("a1").classList.add("tile_highlited");}
+                if(possibleMovesCheck("e4") && tableCheck("e4") == 0) { document.getElementById("e4").classList.add("tile_highlited");}
                 break;
 
             case 2:
-                if(possibleMovesCheck("a2") || tableCheck("a2") == 0) { document.getElementById("a2").classList.add("tile_highlited");}
-                if(possibleMovesCheck("b5") || tableCheck("b5") == 0) { document.getElementById("b5").classList.add("tile_highlited");}
+                if(possibleMovesCheck("a2") && tableCheck("a2") == 0) { document.getElementById("a2").classList.add("tile_highlited");}
+                if(possibleMovesCheck("b5") && tableCheck("b5") == 0) { document.getElementById("b5").classList.add("tile_highlited");}
                 break;
 
             case 3:
-                if(possibleMovesCheck("b1") || tableCheck("b1") == 0) { document.getElementById("b1").classList.add("tile_highlited");}
-                if(possibleMovesCheck("a5") || tableCheck("a5") == 0) { document.getElementById("a5").classList.add("tile_highlited");}
+                if(possibleMovesCheck("b1") && tableCheck("b1") == 0) { document.getElementById("b1").classList.add("tile_highlited");}
+                if(possibleMovesCheck("a5") && tableCheck("a5") == 0) { document.getElementById("a5").classList.add("tile_highlited");}
                 break;
 
             case 4:
-                if(possibleMovesCheck("d1") || tableCheck("d1") == 0) { document.getElementById("d1").classList.add("tile_highlited");}
-                if(possibleMovesCheck("e5") || tableCheck("e5") == 0) { document.getElementById("e5").classList.add("tile_highlited");}
+                if(possibleMovesCheck("d1") && tableCheck("d1") == 0) { document.getElementById("d1").classList.add("tile_highlited");}
+                if(possibleMovesCheck("e5") && tableCheck("e5") == 0) { document.getElementById("e5").classList.add("tile_highlited");}
                 break;
 
             case 5:
-                if(possibleMovesCheck("e2") || tableCheck("e2") == 0) { document.getElementById("e2").classList.add("tile_highlited");}                 
-                if(possibleMovesCheck("d5") || tableCheck("d5") == 0) { document.getElementById("d5").classList.add("tile_highlited");}
+                if(possibleMovesCheck("e2") && tableCheck("e2") == 0) { document.getElementById("e2").classList.add("tile_highlited");}                 
+                if(possibleMovesCheck("d5") && tableCheck("d5") == 0) { document.getElementById("d5").classList.add("tile_highlited");}
                 break;
 
             case 6:
-                if(possibleMovesCheck("e1") || tableCheck("e1") == 0) { document.getElementById("e1").classList.add("tile_highlited");}
-                if(possibleMovesCheck("a4") || tableCheck("a4") == 0) { document.getElementById("a4").classList.add("tile_highlited");}
+                if(possibleMovesCheck("e1") && tableCheck("e1") == 0) { document.getElementById("e1").classList.add("tile_highlited");}
+                if(possibleMovesCheck("a4") && tableCheck("a4") == 0) { document.getElementById("a4").classList.add("tile_highlited");}
                 break;
         }
     }
 
     //sec
     if (combinationaRealized[1] == 1) {
-        if(possibleMovesCheck("d2") || tableCheck("d2") == 0) { document.getElementById("d2").classList.add("tile_highlited");}
-        if(possibleMovesCheck("b4") || tableCheck("b4") == 0) { document.getElementById("b4").classList.add("tile_highlited");}
+        if(possibleMovesCheck("d2") && tableCheck("d2") == 0) { document.getElementById("d2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("b4") && tableCheck("b4") == 0) { document.getElementById("b4").classList.add("tile_highlited");}
     }   
 
     //appel
     if (combinationaRealized[2] == 1) {
-        if(possibleMovesCheck("c1") || tableCheck("c1") == 0) { document.getElementById("c1").classList.add("tile_highlited");}
-        if(possibleMovesCheck("d3") || tableCheck("d3") == 0) { document.getElementById("d3").classList.add("tile_highlited");}
+        if(possibleMovesCheck("c1") && tableCheck("c1") == 0) { document.getElementById("c1").classList.add("tile_highlited");}
+        if(possibleMovesCheck("d3") && tableCheck("d3") == 0) { document.getElementById("d3").classList.add("tile_highlited");}
     }
 
     //full
     if (combinationaRealized[3] == 1) {
-        if(possibleMovesCheck("c2") || tableCheck("c2") == 0) { document.getElementById("c2").classList.add("tile_highlited");}
-        if(possibleMovesCheck("b3") || tableCheck("b3") == 0) { document.getElementById("b3").classList.add("tile_highlited");}
+        if(possibleMovesCheck("c2") && tableCheck("c2") == 0) { document.getElementById("c2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("b3") && tableCheck("b3") == 0) { document.getElementById("b3").classList.add("tile_highlited");}
     }
 
     //carre
     if (combinationaRealized[4] == 1) {
-        if(possibleMovesCheck("b2") || tableCheck("b2") == 0) { document.getElementById("b2").classList.add("tile_highlited");}
-        if(possibleMovesCheck("c5") || tableCheck("c5") == 0) { document.getElementById("c5").classList.add("tile_highlited");}
+        if(possibleMovesCheck("b2") && tableCheck("b2") == 0) { document.getElementById("b2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("c5") && tableCheck("c5") == 0) { document.getElementById("c5").classList.add("tile_highlited");}
     }
 
     //petit
     if (combinationaRealized[5] == 1) {
-        if(possibleMovesCheck("a3") || tableCheck("a3") == 0) { document.getElementById("a3").classList.add("tile_highlited");}
-        if(possibleMovesCheck("d4") || tableCheck("d4") == 0) { document.getElementById("d4").classList.add("tile_highlited");}
+        if(possibleMovesCheck("a3") && tableCheck("a3") == 0) { document.getElementById("a3").classList.add("tile_highlited");}
+        if(possibleMovesCheck("d4") && tableCheck("d4") == 0) { document.getElementById("d4").classList.add("tile_highlited");}
     }
 
     //suite
     if (combinationaRealized[6] == 1) {
-        if(possibleMovesCheck("e3") || tableCheck("e3") == 0) { document.getElementById("e3").classList.add("tile_highlited");}
-        if(possibleMovesCheck("c4") || tableCheck("c4") == 0) { document.getElementById("c4").classList.add("tile_highlited");}
+        if(possibleMovesCheck("e3") && tableCheck("e3") == 0) { document.getElementById("e3").classList.add("tile_highlited");}
+        if(possibleMovesCheck("c4") && tableCheck("c4") == 0) { document.getElementById("c4").classList.add("tile_highlited");}
     }
 
     //yam
     if (combinationaRealized[7] == 1) {
-        if(possibleMovesCheck("c3") || tableCheck("c3") == 0) { document.getElementById("c3").classList.add("tile_highlited");}         
+        if(possibleMovesCheck("c3") && tableCheck("c3") == 0) { document.getElementById("c3").classList.add("tile_highlited");}         
     }
 
     document.querySelectorAll(".tile_highlited").forEach(el => {
@@ -531,9 +530,12 @@ function tableHighlite() {
 
 
 doneBtn.addEventListener("click", function() {  
-    
-    if(selectedTile != null)
+
+    if(selectedTile != null){
         tableFill(selectedTile.id, currentPlayer);
+        countPieces();
+        countPoint();
+    }
     prewPiece = null;
     prewWrapper = null;
     selectedTile = null;
@@ -565,8 +567,8 @@ doneBtn.addEventListener("click", function() {
     document.querySelectorAll(".tile").forEach(el => {
         el.classList.remove("tile_highlited"); // reset
     });
+
     possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
-    combinationaRealized.fill(0);
 
     numDicesThrowed = 0;
     isRealized = false;
@@ -574,13 +576,12 @@ doneBtn.addEventListener("click", function() {
     if(currentPlayer === 1){
         currentPlayer = 2;
         document.getElementsByClassName("player p1")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p2")[0].style.boxShadow = p2Color + " 0px 2px 11px 10px";
+        document.getElementsByClassName("player p2")[0].style.boxShadow = p2Color + " 0px 0px 8px 8px";
     } else {
         currentPlayer = 1;
         document.getElementsByClassName("player p2")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 2px 11px 10px";
+        document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 0px 8px 8px";
     }
-
 });
 
 
@@ -632,3 +633,62 @@ document.querySelectorAll(".call.selectable").forEach(el => {
         }
     });
 });
+
+
+function countPieces(){
+
+    remainingPieces[1] = 12 - table.flat().filter(v => v == "1").length;
+    remainingPieces[2] = 12 - table.flat().filter(v => v == "2").length;
+
+    document.getElementById("pawnP1Text").textContent = remainingPieces[1];
+    document.getElementById("pawnP2Text").textContent = remainingPieces[2];
+}
+
+
+function countPoint()
+{ 
+    points.fill(0);
+    tableArray = table.flat();
+
+    //check Horizontal
+    for (var y = 0; y < 25; y+=5) {
+        for (var x = 0; x < 3; x++) {
+            const tris = [tableArray[y + x], tableArray[y + x + 1],  tableArray[y + x + 2]].join("");
+            if(tris == "111"){points[1]++;}
+            if(tris == "222"){points[2]++;}
+        }
+    }
+
+
+    //check Vertical 
+    for (var x = 0; x < 5; x++) {
+        for (var y = 0; y < 25; y+=5) {
+            const tris = [tableArray[y + x], tableArray[y + x + 5],  tableArray[y + x + 10]].join("");
+            if(tris == "111"){points[1]++;}
+            if(tris == "222"){points[2]++;}
+        }
+    }
+
+
+    //check Diagonal1 
+    for (var x = 0; x < 3; x++) {
+        for (var y = 0; y < 15; y+=5) {
+            const tris = [tableArray[y + x], tableArray[y + x + 6],  tableArray[y + x + 12]].join("");
+            if(tris == "111"){points[1]++;}
+            if(tris == "222"){points[2]++;}
+        }
+    }
+
+
+    //check Diagonal1 
+    for (var x = 2; x < 5; x++) {
+        for (var y = 0; y < 15; y+=5) {
+            const tris = [tableArray[y + x], tableArray[y + x + 4],  tableArray[y + x + 8]].join("");
+            if(tris == "111"){points[1]++;}
+            if(tris == "222"){points[2]++;}
+        }
+    }
+
+    document.getElementById("coinP1Text").textContent = points[1];
+    document.getElementById("coinP2Text").textContent = points[2];
+}
