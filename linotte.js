@@ -327,7 +327,7 @@ function stopRoll() {
         brelan = 4;
     } else if (c5 >= 3) {
         possibleMovesFill ("e2");
-        possibleMovesFill ("e4");
+        possibleMovesFill ("d5");
         combinationaRealized[0] = 1;
         brelan = 5;
     } else if (c6 >= 3) {
