@@ -25,20 +25,27 @@ const face5 = "resources/images/g105.svg";
 const face6 = "resources/images/g106.svg";
 let faces = [face0, face1, face2, face3, face4, face5, face6];
 
-const piece1 = "resources/images/p001.svg";
-const piece2 = "resources/images/p002.svg";
-const piece3 = "resources/images/p003.svg";
-const piece4 = "resources/images/p004.svg";
-const piece5 = "resources/images/p005.svg";
-const piece6 = "resources/images/p006.svg";
-const piece7 = "resources/images/p007.svg";
-const piece8 = "resources/images/p008.svg";
-const piece9 = "resources/images/p009.svg";
-const piece10 = "resources/images/p010.svg";
-const piece11 = "resources/images/p011.svg";
-const piece12 = "resources/images/p012.svg";
-const piece13 = "resources/images/p013.svg";
-let pieces = [piece1, piece2, piece3, piece4, piece5, piece6, piece7, piece8, piece9, piece10, piece11, piece12, piece13];
+const piece1 = "resources/images/p001_ed1c24ff.svg";
+const piece2 = "resources/images/p002_40b93cff.svg";
+const piece3 = "resources/images/p003_50ade5ff.svg";
+const piece4 = "resources/images/p004_e9dc01ff.svg";
+const piece5 = "resources/images/p005_c240fcff.svg";
+const piece6 = "resources/images/p006_f14be6ff.svg";
+const piece7 = "resources/images/p007_737373ff.svg";
+const piece8 = "resources/images/p008_ff7106ff.svg";
+const piece9 = "resources/images/p009_e3e3e3ff.svg";
+const piece10 = "resources/images/p010_ff0606ff.svg";
+const piece11 = "resources/images/p011_b4aaaaff.svg";
+const piece12 = "resources/images/p012_e1b27cff.svg";
+const piece13 = "resources/images/p013_e06a51ff.svg";
+const piece14 = "resources/images/p014_f7e764ff.svg";
+const piece15 = "resources/images/p015_5c5cddff.svg";
+const piece16 = "resources/images/p016_be1500ff.svg";
+
+let pieces =   [piece1, piece2, piece3, piece4, piece5, 
+                piece6, piece7, piece8, piece9, piece10, 
+                piece11, piece12, piece13, piece14, piece15, 
+                piece16];
 let p1p = rndNum(0, pieces.length - 1);
 let player1SelectedPiece = pieces[p1p];
 let p2p = p1p;
@@ -47,6 +54,11 @@ while(p2p == p1p) {
 }
 let player2SelectedPiece = pieces[p2p];
 let selectedPiece = [null, player1SelectedPiece, player2SelectedPiece];
+
+const p1Color = "#" + player1SelectedPiece.split("_")[1].slice(0, -6);
+const p2Color = "#" + player2SelectedPiece.split("_")[1].slice(0, -6);
+const selectedColor = [null, p1Color, p2Color];
+document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 2px 11px 10px";
 
 let combinationaRealized = [0,0,0,0,0,0,0,0];
 let brelan = 0;
@@ -59,21 +71,48 @@ let currentPlayer = 1;
 let prewWrapper = null;
 let prewPiece = null;
 let selectedTile = null;
-let table = Array.from({ length: 5 }, () => Array(5).fill(0));
+let table =         Array.from({ length: 5 }, () => Array(5).fill(0));
 let possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
 const rows = { a:0, b:1, c:2, d:3, e:4 };
 
 rollBtnEnebled = true;
 doneBtnEnebled = true;
+pieceEnebled = true;
 
 
+let tidyness = 3;
 
+
+document.getElementById("pawnP1Text").textContent = "12";
+document.getElementById("coinP1Text").textContent = "10";
+document.getElementById("pawnP2Text").textContent = "12";
+document.getElementById("coinP2Text").textContent = "10";
+
+
+document.querySelectorAll(".player.p1").forEach(tile => {
+  tile.style.backgroundColor = p1Color;
+});
+
+document.querySelectorAll(".player.p2").forEach(el => {
+    el.style.backgroundColor = p2Color;
+});
 
 document.querySelectorAll(".piece").forEach(el => {
     el.addEventListener("click", function() {
+        if(pieceEnebled == false)
+            return;
+
         let piece = document.getElementById(this.id);
         let wrapper = piece.parentElement;
         let tile = wrapper.parentElement;
+        console.log|("moves");
+        console.table(possibleMoves);
+
+        if(tableCheck(tile.id) !== 0)  
+            return;
+        
+        if(possibleMovesCheck(tile.id) !== 1) 
+            return;
 
         if(tableCheck(tile.id) == 0) {
             if (piece.classList.contains("img-bounce")) {
@@ -85,6 +124,7 @@ document.querySelectorAll(".piece").forEach(el => {
                     if (e.animationName === "bounceOut") {
                         piece.classList.remove("img-bounce");
                         wrapper.classList.remove("img-disappear");
+                        pieceEnebled = true;
                     }
                 }, { once: true });
                 
@@ -92,8 +132,13 @@ document.querySelectorAll(".piece").forEach(el => {
                 //place the piece
                 piece.style.backgroundImage = "url('" + selectedPiece[currentPlayer] + "')" ;
                 console.log("place piece on " + tile.id);
-                wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
-                piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
+                if(tidyness == 1) {wrapper.style.transform = "rotate 0deg"};
+                if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)"};
+                if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)"};
+
+                if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
+                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
+                if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
                 
                 wrapper.classList.remove("img-disappear");
                 piece.classList.add("img-bounce");
@@ -108,6 +153,11 @@ document.querySelectorAll(".piece").forEach(el => {
                 }
                 prewWrapper = wrapper;
                 prewPiece = piece;
+
+                wrapper.addEventListener("animationend", (e) => {
+                    pieceEnebled = true;
+                }, { once: true });
+                
             }
         }
     });
@@ -119,14 +169,12 @@ function tableFill(divId, value) {
     const r = rows[divId[0]];    
     const c = Number(divId[1]) - 1; 
     table[c][r] = value;
-    console.log("filling table " + table.toString());
 }
 
 
 function tableCheck(divId) {
     const r = rows[divId[0]];    
     const c = Number(divId[1]) - 1; 
-    console.log("checking table " + table[c][r]);
     return table[c][r];
 }
 
@@ -165,7 +213,7 @@ rollBtn.addEventListener("click", function() {
     document.querySelectorAll(".tile").forEach(el => {
         el.classList.remove("tile_highlited"); // reset
     });
-    possibleMoves.fill(0);
+    possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
     combinationaRealized.fill(0);
     brelan = 0;
     document.querySelectorAll(".result").forEach(el => {
@@ -175,8 +223,12 @@ rollBtn.addEventListener("click", function() {
 
 
 function rollAnimation() {
-    const d = 7;
-    const e = 10;
+    let d = 0;
+    let e = 0;
+
+    if (tidyness == 1) { d= 0; e=0; }
+    if (tidyness == 2) { d= 0; e=5; }
+    if (tidyness == 3) { d= 7; e=10; }
 
     if(!dd1.classList.contains("selected")) {
         diceResult[0] = rndNum(1,6);
@@ -220,7 +272,6 @@ function possibleMovesFill(coordinates) {
     const r = rows[coordinates[0]];    
     const c = Number(coordinates[1]) - 1; 
     possibleMoves[c][r] = 1;
-    console.log("filling possible moves " + possibleMoves.toString());
 }
 
 
@@ -250,7 +301,7 @@ function stopRoll() {
     });
 
     combinationaRealized.fill(0);
-    possibleMoves.fill(0);
+    possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
     brelan = 0;
 
     //brelan
@@ -337,6 +388,8 @@ function stopRoll() {
     const count = document.querySelectorAll(".die.selected").length;
     if((count === 0) && (isRealized == true))
     {
+        possibleMovesFill ("d2");
+        possibleMovesFill ("b4");
         combinationaRealized[1] = 1;
     }
 
@@ -470,6 +523,10 @@ function tableHighlite() {
     if (combinationaRealized[7] == 1) {
         if(possibleMovesCheck("c3") || tableCheck("c3") == 0) { document.getElementById("c3").classList.add("tile_highlited");}         
     }
+
+    document.querySelectorAll(".tile_highlited").forEach(el => {
+        el.style.outlineColor = selectedColor[currentPlayer];
+    });
 }
 
 
@@ -508,17 +565,22 @@ doneBtn.addEventListener("click", function() {
     document.querySelectorAll(".tile").forEach(el => {
         el.classList.remove("tile_highlited"); // reset
     });
-    possibleMoves.fill(0);
+    possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
     combinationaRealized.fill(0);
 
     numDicesThrowed = 0;
     isRealized = false;
 
-    if(currentPlayer === 1)
+    if(currentPlayer === 1){
         currentPlayer = 2;
-    else
+        document.getElementsByClassName("player p1")[0].style.boxShadow = "black 0px 0px 0px 0px";
+        document.getElementsByClassName("player p2")[0].style.boxShadow = p2Color + " 0px 2px 11px 10px";
+    } else {
         currentPlayer = 1;
-    console.log("current player: " + currentPlayer);
+        document.getElementsByClassName("player p2")[0].style.boxShadow = "black 0px 0px 0px 0px";
+        document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 2px 11px 10px";
+    }
+
 });
 
 
@@ -531,10 +593,8 @@ document.querySelectorAll(".die").forEach(el => {
 
         if (elem.classList.contains("selected")) {
             elem.classList.remove("selected"); // reset
-            console.log("deselect die");
         } else {
             elem.classList.add("selected");
-            console.log("select die");
         }
     });
 });
