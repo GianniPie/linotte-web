@@ -12,6 +12,7 @@ const wr5 = document.getElementById("wr5")
 
 const rollBtn = document.getElementById("rollBtn")
 const doneBtn = document.getElementById("doneBtn")
+const optBtn = document.getElementById("options")
 
 let rollAnimationID;
 let stopRollID;
@@ -85,7 +86,7 @@ pieceEnebled = true;
 
 let tidyness = 3;
 
-
+document.getElementById("optText").textContent = tidyness;
 document.getElementById("pawnP1Text").textContent = "12";
 document.getElementById("coinP1Text").textContent = "0";
 document.getElementById("pawnP2Text").textContent = "12";
@@ -99,6 +100,29 @@ document.querySelectorAll(".player.p1").forEach(tile => {
 document.querySelectorAll(".player.p2").forEach(el => {
     el.style.backgroundColor = p2Color;
 });
+
+
+optBtn.addEventListener("click", function() { 
+    if(tidyness < 3) {
+        tidyness++;
+    } else {
+        tidyness = 1;
+    }
+    document.getElementById("optText").textContent = tidyness;
+
+    document.querySelectorAll(".piece").forEach(el => {
+        let wrapper = el.parentElement;
+        if(tidyness == 1) {wrapper.style.transform = "rotate(0deg)"};
+        if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)"};
+        if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)"};
+
+        if(tidyness == 1) {el.style.backgroundPosition = "50% 50%";}
+        if(tidyness == 2) {el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%"};
+        if(tidyness == 3) {el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%"};
+    });
+});
+
+
 
 document.querySelectorAll(".piece").forEach(el => {
     el.addEventListener("click", function() {
@@ -137,8 +161,8 @@ document.querySelectorAll(".piece").forEach(el => {
                 if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)"};
 
                 if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
-                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
-                if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
+                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%"};
+                if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%"};
                 
                 wrapper.classList.remove("img-disappear");
                 piece.classList.add("img-bounce");
