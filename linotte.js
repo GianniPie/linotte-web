@@ -17,36 +17,41 @@ const optBtn = document.getElementById("options")
 let rollAnimationID;
 let stopRollID;
 
-const face0 = "resources/images/g100.svg";
-const face1 = "resources/images/g107.svg";
-const face2 = "resources/images/g102.svg";
-const face3 = "resources/images/g103.svg";
-const face4 = "resources/images/g104.svg";
-const face5 = "resources/images/g105.svg";
-const face6 = "resources/images/g106.svg";
-let faces = [face0, face1, face2, face3, face4, face5, face6];
+let faces = [
+"resources/images/g100.svg",
+"resources/images/g107.svg",
+"resources/images/g102.svg",
+"resources/images/g103.svg",
+"resources/images/g104.svg",
+"resources/images/g105.svg",
+"resources/images/g106.svg"
+];
 
-const piece1 = "resources/images/p001_ed1c24ff.svg";
-const piece2 = "resources/images/p002_40b93cff.svg";
-const piece3 = "resources/images/p003_50ade5ff.svg";
-const piece4 = "resources/images/p004_e9dc01ff.svg";
-const piece5 = "resources/images/p005_c240fcff.svg";
-const piece6 = "resources/images/p006_f14be6ff.svg";
-const piece7 = "resources/images/p007_737373ff.svg";
-const piece8 = "resources/images/p008_ff7106ff.svg";
-const piece9 = "resources/images/p009_e3e3e3ff.svg";
-const piece10 = "resources/images/p010_ff0606ff.svg";
-const piece11 = "resources/images/p011_b4aaaaff.svg";
-const piece12 = "resources/images/p012_e1b27cff.svg";
-const piece13 = "resources/images/p013_e06a51ff.svg";
-const piece14 = "resources/images/p014_f7e764ff.svg";
-const piece15 = "resources/images/p015_5c5cddff.svg";
-const piece16 = "resources/images/p016_be1500ff.svg";
+let pieces =  [
+"resources/images/p001_ed1c24ff.svg",
+"resources/images/p002_40b93cff.svg",
+"resources/images/p003_50ade5ff.svg",
+"resources/images/p004_e9dc01ff.svg",
+"resources/images/p005_c240fcff.svg",
+"resources/images/p006_f14be6ff.svg",
+"resources/images/p007_737373ff.svg",
+"resources/images/p008_ff7106ff.svg",
+"resources/images/p009_e3e3e3ff.svg",
+"resources/images/p010_ff0606ff.svg",
+"resources/images/p011_b4aaaaff.svg",
+"resources/images/p012_e1b27cff.svg",
+"resources/images/p013_e06a51ff.svg",
+"resources/images/p014_f7e764ff.svg",
+"resources/images/p015_5c5cddff.svg",
+"resources/images/p016_be1500ff.svg",
+"resources/images/p017_fdc97aff.svg",
+"resources/images/p018_fdc5a3ff.svg",
+"resources/images/p019_bbcd46ff.svg",
+"resources/images/p020_e3d74dff.svg",
+"resources/images/p021_f6d74aff.svg"
 
-let pieces =   [piece1, piece2, piece3, piece4, piece5, 
-                piece6, piece7, piece8, piece9, piece10, 
-                piece11, piece12, piece13, piece14, piece15, 
-                piece16];
+];
+
 let p1p = rndNum(0, pieces.length - 1);
 let player1SelectedPiece = pieces[p1p];
 let p2p = p1p;
@@ -62,7 +67,7 @@ let points = [null, 0, 0];
 const p1Color = "#" + player1SelectedPiece.split("_")[1].slice(0, -6);
 const p2Color = "#" + player2SelectedPiece.split("_")[1].slice(0, -6);
 const selectedColor = [null, p1Color, p2Color];
-document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 0px 8px 8px";
+document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 0px 12px 8px";
 
 let combinationaRealized = [0,0,0,0,0,0,0,0];
 let brelan = 0;
