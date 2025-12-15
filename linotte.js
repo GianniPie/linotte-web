@@ -48,8 +48,15 @@ let pieces =  [
 "resources/images/p018_fdc5a3ff.svg",
 "resources/images/p019_bbcd46ff.svg",
 "resources/images/p020_e3d74dff.svg",
-"resources/images/p021_f6d74aff.svg"
-
+"resources/images/p021_f6d74aff.svg",
+"resources/images/p022_a4c037ff.svg",
+"resources/images/p023_ec9843ff.svg",
+"resources/images/p024_e6d448ff.svg",
+"resources/images/p025_ad8a72ff.svg",
+"resources/images/p026_e6d448ff.svg",
+"resources/images/p027_ad8a72ff.svg",
+"resources/images/p028_c5d4eaff.svg",
+"resources/images/p029_fd6c92ff.svg",
 ];
 
 let p1p = rndNum(0, pieces.length - 1);
