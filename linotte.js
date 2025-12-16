@@ -27,45 +27,47 @@ let faces = [
 "resources/images/g106.svg"
 ];
 
+const piecesPath = "resources/images/";
+const imgExtention = ".svg"
 let pieces =  [
-"resources/images/p001_ed1c24ff.svg",
-"resources/images/p002_40b93cff.svg",
-"resources/images/p003_50ade5ff.svg",
-"resources/images/p004_e9dc01ff.svg",
-"resources/images/p005_c240fcff.svg",
-"resources/images/p006_f14be6ff.svg",
-"resources/images/p007_737373ff.svg",
-"resources/images/p008_ff7106ff.svg",
-"resources/images/p009_e3e3e3ff.svg",
-"resources/images/p010_ff0606ff.svg",
-"resources/images/p011_b4aaaaff.svg",
-"resources/images/p012_e1b27cff.svg",
-"resources/images/p013_e06a51ff.svg",
-"resources/images/p014_f7e764ff.svg",
-"resources/images/p015_5c5cddff.svg",
-"resources/images/p016_be1500ff.svg",
-"resources/images/p017_fdc97aff.svg",
-"resources/images/p018_fdc5a3ff.svg",
-"resources/images/p019_bbcd46ff.svg",
-"resources/images/p020_e3d74dff.svg",
-"resources/images/p021_f6d74aff.svg",
-"resources/images/p022_a4c037ff.svg",
-"resources/images/p023_ec9843ff.svg",
-"resources/images/p024_e6d448ff.svg",
-"resources/images/p025_ad8a72ff.svg",
-"resources/images/p026_e6d448ff.svg",
-"resources/images/p027_ad8a72ff.svg",
-"resources/images/p028_c5d4eaff.svg",
-"resources/images/p029_fd6c92ff.svg",
+"p001_ed1c24ff",
+"p002_40b93cff",
+"p003_50ade5ff",
+"p004_e9dc01ff",
+"p005_c240fcff",
+"p006_f14be6ff",
+"p007_737373ff",
+"p008_ff7106ff",
+"p009_e3e3e3ff",
+"p010_ff0606ff",
+"p011_b4aaaaff",
+"p012_e1b27cff",
+"p013_e06a51ff",
+"p014_f7e764ff",
+"p015_5c5cddff",
+"p016_be1500ff",
+"p017_fdc97aff",
+"p018_fdc5a3ff",
+"p019_bbcd46ff",
+"p020_e3d74dff",
+"p021_f6d74aff",
+"p022_a4c037ff",
+"p023_ec9843ff",
+"p024_e6d448ff",
+"p025_ad8a72ff",
+"p026_e6d448ff",
+"p027_ad8a72ff",
+"p028_c5d4eaff",
+"p029_fd6c92ff",
 ];
 
 let p1p = rndNum(0, pieces.length - 1);
-let player1SelectedPiece = pieces[p1p];
+let player1SelectedPiece = piecesPath + pieces[p1p] + imgExtention;
 let p2p = p1p;
 while(p2p == p1p) {
     p2p = rndNum(0, pieces.length - 1);
 }
-let player2SelectedPiece = pieces[p2p];
+let player2SelectedPiece = piecesPath + pieces[p2p] + imgExtention;
 let selectedPiece = [null, player1SelectedPiece, player2SelectedPiece];
 
 let remainingPieces = [null, 12, 12];
