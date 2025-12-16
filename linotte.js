@@ -49,7 +49,7 @@ let pieces =  [
 "p017_fdc97aff",
 "p018_fdc5a3ff",
 "p019_bbcd46ff",
-"p020_e3d74dff",
+"p020_e9a233ff",
 "p021_f6d74aff",
 "p022_a4c037ff",
 "p023_ec9843ff",
