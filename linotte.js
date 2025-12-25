@@ -81,7 +81,7 @@ let faces = diceFaces[getCookie("diceFaces")];
 
 
 const bgPath = "resources/images/backgrounds/";
-const backGrounds = [
+const backgrounds = [
     "diamond-sunset.svg",
     "liquid-cheese.svg",
     "tortoise-shell.svg",
@@ -91,9 +91,9 @@ const backGrounds = [
     "varying-stripes.svg",
     "repeating-triangles.svg"
 ];
-document.getElementById("body").style.backgroundImage = "url('" + bgPath + backGrounds[getCookie("backGround")] + "')" ;
-document.getElementById("modal").style.backgroundImage = "url('" + bgPath + backGrounds[getCookie("backGround")] + "')" ;
-
+document.getElementById("body").style.backgroundImage = "url('" + bgPath + backgrounds[getCookie("background")] + "')" ;
+document.getElementById("modal").style.backgroundImage = "url('" + bgPath + backgrounds[getCookie("background")] + "')" ;
+console.log(getCookie("background"));
 
 const piecesPath = "resources/images/pieces/";
 const imgExtention = ".svg";
@@ -168,6 +168,17 @@ pieceEnebled = true;
 let tidyness = getCookie("tidyness");
 renderTidyness(tidyness)
 
+let selectedDie = getCookie("diceFaces");
+document.getElementById("do" + selectedDie).classList.add("selected");
+document.getElementById("dice-title").textContent =  diceNames[selectedDie];
+
+let selectedBg = getCookie("background");
+document.getElementById("bg" + selectedBg).classList.add("selected");
+document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
+
+
+
+
 
 
 document.getElementById("pawnP1Text").textContent = "12";
@@ -183,6 +194,7 @@ document.querySelectorAll(".player.p1").forEach(tile => {
 document.querySelectorAll(".player.p2").forEach(el => {
     el.style.backgroundColor = p2Color;
 });
+
 
 const overlay = document.getElementById("overlay");
 overlay.addEventListener("click", (e) => {
@@ -226,19 +238,19 @@ function renderTidyness(tidyness){
         let wrapper = el.parentElement;
         if(tidyness == 1) {
             document.getElementById("perfect").classList.add("selected");
-            document.getElementById("board-option").style.backgroundImage = "url('" + "/resources/images/g11853.svg" + "')";
+            document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11853.svg')";
             wrapper.style.transform = "rotate(0deg)";
             el.style.backgroundPosition = "50% 50%";
         }
         if(tidyness == 2) {
             document.getElementById("tidy").classList.add("selected");
-            document.getElementById("board-option").style.backgroundImage = "url('" + "/resources/images/g11852.svg" + "')";
+            document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11852.svg')";
             wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";
             el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";
         }
         if(tidyness == 3) {
             document.getElementById("natural").classList.add("selected");
-            document.getElementById("board-option").style.backgroundImage = "url('" + "/resources/images/g11851.svg" + "')";
+            document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11851.svg')";
             wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
             el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
         }
@@ -256,7 +268,7 @@ dieOptions.forEach(dieOption => {
         dieOption.classList.add("selected");
         
         var dieId = Number(dieOption.id[2]);
-        document.getElementById("dice-title").textContent =  diceNames[dieId] ;
+        document.getElementById("dice-title").textContent =  diceNames[dieId];
         faces = diceFaces[dieId];
         setCookie("diceFaces", dieId);
       }
@@ -272,11 +284,11 @@ bgOptions.forEach(bgOption => {
     bgOption.classList.add("selected");
 
     var bgId = Number(bgOption.id[2]);
-    document.getElementById("bg-title").textContent =  backGrounds[bgId].slice(0, -4); ;  
+    document.getElementById("bg-title").textContent =  backgrounds[bgId].slice(0, -4); 
     
-    document.getElementById("body").style.backgroundImage = "url('" + bgPath + backGrounds[bgId] + "')" ;
-    document.getElementById("modal").style.backgroundImage = "url('" + bgPath + backGrounds[bgId] + "')" ;
-    setCookie("backGround", bgId);
+    document.getElementById("body").style.backgroundImage = "url('" + bgPath + backgrounds[bgId] + "')" ;
+    document.getElementById("modal").style.backgroundImage = "url('" + bgPath + backgrounds[bgId] + "')" ;
+    setCookie("background", bgId);
   });
 });
 
