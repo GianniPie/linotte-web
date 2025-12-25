@@ -1,64 +1,132 @@
-const dd1 = document.getElementById("dd1")
-const dd2 = document.getElementById("dd2")
-const dd3 = document.getElementById("dd3")
-const dd4 = document.getElementById("dd4")
-const dd5 = document.getElementById("dd5")
+const dd1 = document.getElementById("dd1");
+const dd2 = document.getElementById("dd2");
+const dd3 = document.getElementById("dd3");
+const dd4 = document.getElementById("dd4");
+const dd5 = document.getElementById("dd5");
 
-const wr1 = document.getElementById("wr1")
-const wr2 = document.getElementById("wr2")
-const wr3 = document.getElementById("wr3")
-const wr4 = document.getElementById("wr4")
-const wr5 = document.getElementById("wr5")
+const wr1 = document.getElementById("wr1");
+const wr2 = document.getElementById("wr2");
+const wr3 = document.getElementById("wr3");
+const wr4 = document.getElementById("wr4");
+const wr5 = document.getElementById("wr5");
 
-const rollBtn = document.getElementById("rollBtn")
-const doneBtn = document.getElementById("doneBtn")
-const optBtn = document.getElementById("options")
+const rollBtn = document.getElementById("rollBtn");
+const doneBtn = document.getElementById("doneBtn");
+const optBtn = document.getElementById("options");
 
 let rollAnimationID;
 let stopRollID;
 
-let faces = [
-"resources/images/g100.svg",
-"resources/images/g107.svg",
-"resources/images/g102.svg",
-"resources/images/g103.svg",
-"resources/images/g104.svg",
-"resources/images/g105.svg",
-"resources/images/g106.svg"
+const diceNames = [
+    "CLASSIC",
+    "FLAT",
+    "ONE RED",
+    "CHINESE",
+    "PERSIAN",
 ];
 
-const piecesPath = "resources/images/";
-const imgExtention = ".svg"
+const dicePath = "resources/images/dice/";
+const diceClassic = [
+    "c100.svg",
+    "c101.svg",
+    "c102.svg",
+    "c103.svg",
+    "c104.svg",
+    "c105.svg",
+    "c106.svg"
+];
+
+const diceOneRed = [
+    "g100.svg",
+    "g107.svg",
+    "g102.svg",
+    "g103.svg",
+    "g104.svg",
+    "g105.svg",
+    "g106.svg"
+];
+
+const diceFlat = [
+    "g100.svg",
+    "g101.svg",
+    "g102.svg",
+    "g103.svg",
+    "g104.svg",
+    "g105.svg",
+    "g106.svg"
+];
+
+const diceChinese = [
+    "g100.svg",
+    "ch101.svg",
+    "ch102.svg",
+    "ch103.svg",
+    "ch104.svg",
+    "ch105.svg",
+    "ch106.svg"
+];
+
+
+const dicePersian = [
+    "g100.svg",
+    "p101.svg",
+    "p102.svg",
+    "p103.svg",
+    "p104.svg",
+    "p105.svg",
+    "p106.svg"
+];
+const diceFaces = [diceClassic, diceFlat, diceOneRed, diceChinese, dicePersian];
+let faces = diceFaces[getCookie("diceFaces")];
+
+
+const bgPath = "resources/images/backgrounds/";
+const backGrounds = [
+    "diamond-sunset.svg",
+    "liquid-cheese.svg",
+    "tortoise-shell.svg",
+    "sun-tornado.svg",
+    "pattern-randomized.svg",
+    "subtle-prism.svg",
+    "varying-stripes.svg",
+    "repeating-triangles.svg"
+];
+document.getElementById("body").style.backgroundImage = "url('" + bgPath + backGrounds[getCookie("backGround")] + "')" ;
+document.getElementById("modal").style.backgroundImage = "url('" + bgPath + backGrounds[getCookie("backGround")] + "')" ;
+
+
+const piecesPath = "resources/images/pieces/";
+const imgExtention = ".svg";
 let pieces =  [
-"p001_ed1c24ff",
-"p002_40b93cff",
-"p003_50ade5ff",
-"p004_e9dc01ff",
-"p005_c240fcff",
-"p006_f14be6ff",
-"p007_737373ff",
-"p008_ff7106ff",
-"p009_e3e3e3ff",
-"p010_ff0606ff",
-"p011_b4aaaaff",
-"p012_e1b27cff",
-"p013_e06a51ff",
-"p014_f7e764ff",
-"p015_5c5cddff",
-"p016_be1500ff",
-"p017_fdc97aff",
-"p018_fdc5a3ff",
-"p019_bbcd46ff",
-"p020_e9a233ff",
-"p021_f6d74aff",
-"p022_a4c037ff",
-"p023_ec9843ff",
-"p024_e6d448ff",
-"p025_ad8a72ff",
-"p026_e6d448ff",
-"p027_ad8a72ff",
-"p028_c5d4eaff",
-"p029_fd6c92ff",
+    "p001_ed1c24ff",
+    "p002_40b93cff",
+    "p003_50ade5ff",
+    "p004_e9dc01ff",
+    "p005_c240fcff",
+    "p006_f14be6ff",
+    "p007_737373ff",
+    "p008_ff7106ff",
+    "p009_e3e3e3ff",
+    "p010_ff0606ff",
+    "p011_b4aaaaff",
+    "p012_e1b27cff",
+    "p013_e06a51ff",
+    "p014_f7e764ff",
+    "p015_5c5cddff",
+    "p016_be1500ff",
+    "p017_fdc97aff",
+    "p018_fdc5a3ff",
+    "p019_bbcd46ff",
+    "p020_e9a233ff",
+    "p021_f6d74aff",
+    "p022_a4c037ff",
+    "p023_ec9843ff",
+    "p024_e6d448ff",
+    "p025_ad8a72ff",
+    "p026_e6d448ff",
+    "p027_ad8a72ff",
+    "p028_c5d4eaff",
+    "p029_fd6c92ff",
 ];
 
 let p1p = rndNum(0, pieces.length - 1);
@@ -97,10 +165,11 @@ rollBtnEnebled = true;
 doneBtnEnebled = true;
 pieceEnebled = true;
 
+let tidyness = getCookie("tidyness");
+renderTidyness(tidyness)
 
-let tidyness = 3;
 
-document.getElementById("optText").textContent = tidyness;
+
 document.getElementById("pawnP1Text").textContent = "12";
 document.getElementById("coinP1Text").textContent = "0";
 document.getElementById("pawnP2Text").textContent = "12";
@@ -115,27 +184,101 @@ document.querySelectorAll(".player.p2").forEach(el => {
     el.style.backgroundColor = p2Color;
 });
 
+const overlay = document.getElementById("overlay");
+overlay.addEventListener("click", (e) => {
+  if (e.target === overlay) {
+    overlay.style.display = "none";
+  }
+});
+
 
 optBtn.addEventListener("click", function() { 
-    if(tidyness < 3) {
-        tidyness++;
-    } else {
-        tidyness = 1;
+    document.getElementById("overlay").style.display = "flex";
+});
+
+
+
+
+document.querySelectorAll('.board-options-text').forEach(boardText => {
+  boardText.addEventListener('click', () => {
+      
+    if(boardText.id == "natural") {
+        tidyness=3;
     }
-    document.getElementById("optText").textContent = tidyness;
+     if(boardText.id == "tidy") {
+        tidyness=2; 
+     }
+      if(boardText.id == "perfect") {
+        tidyness=1;  
+    }
+
+    renderTidyness(tidyness);
+    setCookie("tidyness", tidyness);
+  });
+});
+    
+
+function renderTidyness(tidyness){
+    const boardTexts = document.querySelectorAll('.board-options-text');
+    boardTexts.forEach(t => t.classList.remove('selected'));
 
     document.querySelectorAll(".piece").forEach(el => {
         let wrapper = el.parentElement;
-        if(tidyness == 1) {wrapper.style.transform = "rotate(0deg)"};
-        if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)"};
-        if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)"};
-
-        if(tidyness == 1) {el.style.backgroundPosition = "50% 50%";}
-        if(tidyness == 2) {el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%"};
-        if(tidyness == 3) {el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%"};
+        if(tidyness == 1) {
+            document.getElementById("perfect").classList.add("selected");
+            document.getElementById("board-option").style.backgroundImage = "url('" + "/resources/images/g11853.svg" + "')";
+            wrapper.style.transform = "rotate(0deg)";
+            el.style.backgroundPosition = "50% 50%";
+        }
+        if(tidyness == 2) {
+            document.getElementById("tidy").classList.add("selected");
+            document.getElementById("board-option").style.backgroundImage = "url('" + "/resources/images/g11852.svg" + "')";
+            wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";
+            el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";
+        }
+        if(tidyness == 3) {
+            document.getElementById("natural").classList.add("selected");
+            document.getElementById("board-option").style.backgroundImage = "url('" + "/resources/images/g11851.svg" + "')";
+            wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
+            el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
+        }
     });
+}
+
+
+const dieOptions = document.querySelectorAll(".die-options");
+
+dieOptions.forEach(dieOption => {
+  dieOption.addEventListener("click", () => {
+      if(!dieOption.classList.contains("empty")) {
+
+        dieOptions.forEach(t => t.classList.remove("selected"));
+        dieOption.classList.add("selected");
+        
+        var dieId = Number(dieOption.id[2]);
+        document.getElementById("dice-title").textContent =  diceNames[dieId] ;
+        faces = diceFaces[dieId];
+        setCookie("diceFaces", dieId);
+      }
+  });
 });
 
+
+const bgOptions = document.querySelectorAll(".bg-options");
+
+bgOptions.forEach(bgOption => {
+  bgOption.addEventListener("click", () => {
+    bgOptions.forEach(t => t.classList.remove("selected"));
+    bgOption.classList.add("selected");
+
+    var bgId = Number(bgOption.id[2]);
+    document.getElementById("bg-title").textContent =  backGrounds[bgId].slice(0, -4); ;  
+    
+    document.getElementById("body").style.backgroundImage = "url('" + bgPath + backGrounds[bgId] + "')" ;
+    document.getElementById("modal").style.backgroundImage = "url('" + bgPath + backGrounds[bgId] + "')" ;
+    setCookie("backGround", bgId);
+  });
+});
 
 
 document.querySelectorAll(".piece").forEach(el => {
@@ -170,13 +313,13 @@ document.querySelectorAll(".piece").forEach(el => {
                 //place the piece
                 piece.style.backgroundImage = "url('" + selectedPiece[currentPlayer] + "')" ;
 
-                if(tidyness == 1) {wrapper.style.transform = "rotate 0deg"};
-                if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)"};
-                if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)"};
+                if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
+                if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
+                if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
 
                 if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
-                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%"};
-                if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%"};
+                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
+                if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
                 
                 wrapper.classList.remove("img-disappear");
                 piece.classList.add("img-bounce");
@@ -228,8 +371,8 @@ rollBtn.addEventListener("click", function() {
 
     new Audio("resources/sounds/roll.mp3").play();
     document.querySelector("#rollBtn .text-button").innerText = "ROLL " + --numRoll;
-    rollAnimationID = setInterval(rollAnimation, 100)
-    stopRollID = setInterval(stopRoll, 1200)
+    rollAnimationID = setInterval(rollAnimation, 100);
+    stopRollID = setInterval(stopRoll, 1200);
 
     document.querySelectorAll(".tile").forEach(el => {
         el.classList.remove("tile_highlited"); // reset
@@ -269,27 +412,27 @@ function rollAnimation() {
 
     if(!dd1.classList.contains("selected")) {
         diceResult[0] = rndNum(1,6);
-        dd1.style.backgroundImage = "url('"+ faces[diceResult[0]] + "')";
+        dd1.style.backgroundImage = "url('"+ dicePath + faces[diceResult[0]] + "')";
         wr1.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd2.classList.contains("selected")) {
         diceResult[1] = rndNum(1,6);
-        dd2.style.backgroundImage = "url('"+ faces[diceResult[1]] + "')";
+        dd2.style.backgroundImage = "url('"+ dicePath + faces[diceResult[1]] + "')";
         wr2.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd3.classList.contains("selected")) {
         diceResult[2] = rndNum(1,6);
-        dd3.style.backgroundImage = "url('"+ faces[diceResult[2]] + "')";
+        dd3.style.backgroundImage = "url('"+ dicePath + faces[diceResult[2]] + "')";
         wr3.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd4.classList.contains("selected")) {
         diceResult[3] = rndNum(1,6);
-        dd4.style.backgroundImage = "url('"+ faces[diceResult[3]] + "')";
+        dd4.style.backgroundImage = "url('"+ dicePath + faces[diceResult[3]] + "')";
         wr4.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd5.classList.contains("selected")) {
         diceResult[4] = rndNum(1,6);
-        dd5.style.backgroundImage = "url('"+ faces[diceResult[4]] + "')";
+        dd5.style.backgroundImage = "url('"+ dicePath + faces[diceResult[4]] + "')";
         wr5.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
 } 
@@ -299,8 +442,8 @@ function rollAnimation() {
 function rndNum(numFrom, numTo) {
     var  spanNum = numTo - numFrom + 1;
     var num = Math.floor(Math.random() * spanNum) + numFrom; // numFrom to numTo
-    if (num < numFrom) {num = numFrom}
-    if (num > numTo) {num = numTo}
+    if (num < numFrom) {num = numFrom;}
+    if (num > numTo) {num = numTo;}
     return num;
 }
 
@@ -586,7 +729,7 @@ doneBtn.addEventListener("click", function() {
 
     document.querySelectorAll(".die").forEach(el => {
         el.classList.remove("selected"); // reset
-        el.style.backgroundImage = "url('"+ faces[0] + "')";
+        el.style.backgroundImage = "url('"+ dicePath + faces[0] + "')";
 
         document.querySelector("#rollBtn .text-button").innerText = "ROLL 3";
         numRoll = 3;
@@ -708,7 +851,7 @@ function countPoint()
     }
 
 
-    //check Diagonal1 
+    //check Diagonal
     for (var x = 0; x < 3; x++) {
         for (var y = 0; y < 15; y+=5) {
             const tris = [tableArray[y + x], tableArray[y + x + 6],  tableArray[y + x + 12]].join("");
@@ -718,7 +861,7 @@ function countPoint()
     }
 
 
-    //check Diagonal1 
+    //check Diagonal
     for (var x = 2; x < 5; x++) {
         for (var y = 0; y < 15; y+=5) {
             const tris = [tableArray[y + x], tableArray[y + x + 4],  tableArray[y + x + 8]].join("");
@@ -729,4 +872,27 @@ function countPoint()
 
     document.getElementById("coinP1Text").textContent = points[1];
     document.getElementById("coinP2Text").textContent = points[2];
+}
+
+
+
+function setCookie(name, value, days = 365) {
+  const d = new Date();
+  d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+
+  document.cookie =
+    name + "=" + encodeURIComponent(value) +
+    ";expires=" + d.toUTCString() +
+    ";path=/";
+}
+
+
+
+function getCookie(name) {
+  const cookies = document.cookie.split("; ");
+  for (const c of cookies) {
+    const [key, value] = c.split("=");
+    if (key === name) return decodeURIComponent(value);
+  }
+  return null;
 }

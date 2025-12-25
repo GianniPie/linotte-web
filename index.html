@@ -1,139 +1,225 @@
-<!DOCTYPE html>
-<head>
-    <meta charset="utf-8" />
-    <title>linotte-web</title>
-    <meta content="width=device-width, initial-scale=1" name="viewport" />
-    <link href="linotte.css" rel="stylesheet" type="text/css" />
-    <link href="https://fonts.googleapis.com" rel="preconnect" />
-    <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin="anonymous" />
-    <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js"></script>
-    <script type="text/javascript">
-    WebFont.load({ google: { families: ["Changa One:400,400italic"] } });
-    </script>
-    <link rel="icon" type="image/png" href="resources/favicon/favicon-96x96.png" sizes="96x96" />
-    <link rel="icon" type="image/svg+xml" href="resources/favicon/favicon.svg" />
-    <link rel="shortcut icon" href="resources/favicon/favicon.ico" />
-    <link rel="apple-touch-icon" sizes="180x180" href="resources/favicon/apple-touch-icon.png" />
-    <meta name="apple-mobile-web-app-title" content="MyWebSite" />
-    <link rel="manifest" href="resources/favicon/site.webmanifest" />
-</head>
+<!doctype html>
+<html dir="ltr" lang="en-gb">
+    <head>
+        <meta charset="utf-8" />
+        <title>linotte-web</title>
+        <meta content="width=device-width, initial-scale=1" name="viewport" />
+        <link href="linotte.css" rel="stylesheet" type="text/css" />
+        <link href="https://fonts.googleapis.com" rel="preconnect" />
+        <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin="anonymous" />
+        <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js"></script>
+        <script type="text/javascript">
+            WebFont.load({ google: { families: ["Changa One:400,400italic"] } });
+        </script>
+        <link rel="icon" type="image/png" href="resources/favicon/favicon-96x96.png" sizes="96x96" />
+        <link rel="icon" type="image/svg+xml" href="resources/favicon/favicon.svg" />
+        <link rel="shortcut icon" href="resources/favicon/favicon.ico" />
+        <link rel="apple-touch-icon" sizes="180x180" href="resources/favicon/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-title" content="MyWebSite" />
+        <link rel="manifest" href="resources/favicon/site.webmanifest" />
+    </head>
 
-<body class="body">
-    <div class="flex-block">
-        <div class="div-info">
-            <div class="div-info-left">
-                <div id="options" class="options"></div>
-                <div id="optText"></div>
-            </div>
-            <div class="players">
-                <div class="player p1">
-                    <div class="div-block-15">
-                        <div class="textPlayer t1">P1</div>
-                        <div class="div-block-17">
-                            <div class="div-block-16">
-                                <div id="pawnp1" class="pawn"></div>
-                                <div id="pawnP1Text" class="textPlayer t2"></div>
+    <body id="body" class="body">
+        <div class="flex-block">
+            <div class="div-info">
+                <div class="div-info-left">
+                    <div id="options" class="options"></div>
+                    <div id="optText"></div>
+                </div>
+                <div class="players">
+                    <div class="player p1">
+                        <div class="div-block-15">
+                            <div class="textPlayer t1">P1</div>
+                            <div class="div-block-17">
+                                <div class="div-block-16">
+                                    <div id="pawnp1" class="pawn"></div>
+                                    <div id="pawnP1Text" class="textPlayer t2"></div>
+                                </div>
+                                <div class="div-block-16">
+                                    <div id="coinp1" class="coin"></div>
+                                    <div id="coinP1Text" class="textPlayer t2"></div>
+                                </div>
                             </div>
-                            <div class="div-block-16">
-                                <div id="coinp1" class="coin"></div>
-                                <div id="coinP1Text" class="textPlayer t2"></div>
+                        </div>
+                    </div>
+                    <div class="vs"></div>
+                    <div class="player p2">
+                        <div class="div-block-15">
+                            <div class="textPlayer t1">P2</div>
+                            <div class="div-block-17">
+                                <div class="div-block-16">
+                                    <div id="pawnp2" class="pawn"></div>
+                                    <div id="pawnP2Text" class="textPlayer t2"></div>
+                                </div>
+                                <div class="div-block-16">
+                                    <div id="coinp2" class="coin"></div>
+                                    <div id="coinP2Text" class="textPlayer t2"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="vs"></div>
-                <div class="player p2">
-                    <div class="div-block-15">
-                        <div class="textPlayer t1">P2</div>
-                        <div class="div-block-17">
-                            <div class="div-block-16">
-                                <div id="pawnp2" class="pawn"></div>
-                                <div id="pawnP2Text" class="textPlayer t2"></div>
-                            </div>
-                            <div class="div-block-16">
-                                <div id="coinp2" class="coin"></div>
-                                <div id="coinP2Text" class="textPlayer t2"></div>
-                            </div>
-                        </div>
+                <div class="div-info-right">
+                    <div class="div-block-14"></div>
+                    <div class="div-block-13">1.14</div>
+                </div>
+            </div>
+            <div class="div-table">
+                <div class="grid">
+                    <div id="a1" class="tile tlc">
+                        <div id="wra1" class="wrapPiece"><div id="piece_a1" class="piece"></div></div>
+                    </div>
+                    <div id="b1" class="tile">
+                        <div id="wra2" class="wrapPiece"><div id="piece_a2" class="piece"></div></div>
+                    </div>
+                    <div id="c1" class="tile">
+                        <div id="wra3" class="wrapPiece"><div id="piece_a3" class="piece"></div></div>
+                    </div>
+                    <div id="d1" class="tile">
+                        <div id="wra4" class="wrapPiece"><div id="piece_a4" class="piece"></div></div>
+                    </div>
+                    <div id="e1" class="tile trc">
+                        <div id="wra5" class="wrapPiece"><div id="piece_a5" class="piece"></div></div>
+                    </div>
+                    <div id="a2" class="tile">
+                        <div id="wrb1" class="wrapPiece"><div id="piece_b1" class="piece"></div></div>
+                    </div>
+                    <div id="b2" class="tile">
+                        <div id="wrb2" class="wrapPiece"><div id="piece_b2" class="piece"></div></div>
+                    </div>
+                    <div id="c2" class="tile">
+                        <div id="wrb3" class="wrapPiece"><div id="piece_b3" class="piece"></div></div>
+                    </div>
+                    <div id="d2" class="tile">
+                        <div id="wrb4" class="wrapPiece"><div id="piece_b4" class="piece"></div></div>
+                    </div>
+                    <div id="e2" class="tile">
+                        <div id="wrb5" class="wrapPiece"><div id="piece_b5" class="piece"></div></div>
+                    </div>
+                    <div id="a3" class="tile">
+                        <div id="wrc1" class="wrapPiece"><div id="piece_c1" class="piece"></div></div>
+                    </div>
+                    <div id="b3" class="tile">
+                        <div id="wrc2" class="wrapPiece"><div id="piece_c2" class="piece"></div></div>
+                    </div>
+                    <div id="c3" class="tile">
+                        <div id="wrc3" class="wrapPiece"><div id="piece_c3" class="piece"></div></div>
+                    </div>
+                    <div id="d3" class="tile">
+                        <div id="wrc4" class="wrapPiece"><div id="piece_c4" class="piece"></div></div>
+                    </div>
+                    <div id="e3" class="tile">
+                        <div id="wrc5" class="wrapPiece"><div id="piece_c5" class="piece"></div></div>
+                    </div>
+                    <div id="a4" class="tile">
+                        <div id="wrd1" class="wrapPiece"><div id="piece_d1" class="piece"></div></div>
+                    </div>
+                    <div id="b4" class="tile">
+                        <div id="wrd2" class="wrapPiece"><div id="piece_d2" class="piece"></div></div>
+                    </div>
+                    <div id="c4" class="tile">
+                        <div id="wrd3" class="wrapPiece"><div id="piece_d3" class="piece"></div></div>
+                    </div>
+                    <div id="d4" class="tile">
+                        <div id="wrd4" class="wrapPiece"><div id="piece_d4" class="piece"></div></div>
+                    </div>
+                    <div id="e4" class="tile">
+                        <div id="wrd5" class="wrapPiece"><div id="piece_d5" class="piece"></div></div>
+                    </div>
+                    <div id="a5" class="tile blc">
+                        <div id="wre1" class="wrapPiece"><div id="piece_e1" class="piece"></div></div>
+                    </div>
+                    <div id="b5" class="tile">
+                        <div id="wre2" class="wrapPiece"><div id="piece_e2" class="piece"></div></div>
+                    </div>
+                    <div id="c5" class="tile">
+                        <div id="wre3" class="wrapPiece"><div id="piece_e3" class="piece"></div></div>
+                    </div>
+                    <div id="d5" class="tile">
+                        <div id="wre4" class="wrapPiece"><div id="piece_e4" class="piece"></div></div>
+                    </div>
+                    <div id="e5" class="tile brc">
+                        <div id="wre5" class="wrapPiece"><div id="piece_e5" class="piece"></div></div>
                     </div>
                 </div>
             </div>
-            <div class="div-info-right">
-                <div class="div-block-14"></div>
-                <div class="div-block-13">1.14</div>
+            <div class="div-resultsAndCalls">
+                <div class="results">
+                    <div id="rr1" class="result"></div>
+                    <div id="rr2" class="result"></div>
+                    <div id="rr3" class="result"></div>
+                    <div id="rr4" class="result selectable"></div>
+                    <div id="rr5" class="result selectable"></div>
+                    <div id="rr6" class="result selectable"></div>
+                    <div id="rr7" class="result selectable"></div>
+                    <div id="rr8" class="result selectable"></div>
+                </div>
+                <div class="calls">
+                    <div id="cc1" class="call"></div>
+                    <div id="cc2" class="call"></div>
+                    <div id="cc3" class="call"></div>
+                    <div id="cc4" class="call selectable"></div>
+                    <div id="cc5" class="call selectable"></div>
+                    <div id="cc6" class="call selectable"></div>
+                    <div id="cc7" class="call selectable"></div>
+                    <div id="cc8" class="call selectable"></div>
+                </div>
+            </div>
+            <div class="div-dice">
+                <div id="wr1" class="wrapDie"><div id="dd1" class="die"></div></div>
+                <div id="wr2" class="wrapDie"><div id="dd2" class="die"></div></div>
+                <div id="wr3" class="wrapDie"><div id="dd3" class="die"></div></div>
+                <div id="wr4" class="wrapDie"><div id="dd4" class="die"></div></div>
+                <div id="wr5" class="wrapDie"><div id="dd5" class="die"></div></div>
+            </div>
+            <div class="div-buttons">
+                <div id="rollBtn" class="button roll">
+                    <div class="text-button">ROLL 3</div>
+                </div>
+                <div id="doneBtn" class="button done">
+                    <div class="text-button">DONE</div>
+                </div>
             </div>
         </div>
-        <div class="div-table">
-            <div class="w-layout-grid grid">
-                <div id="a1" class="tile tlc">              <div id="wra1" class="wrapPiece"><div id="piece_a1" class="piece"></div></div></div>
-                <div id="b1" class="tile">                  <div id="wra2" class="wrapPiece"><div id="piece_a2" class="piece"></div></div></div>
-                <div id="c1" class="tile">                  <div id="wra3" class="wrapPiece"><div id="piece_a3" class="piece"></div></div></div>
-                <div id="d1" class="tile">                  <div id="wra4" class="wrapPiece"><div id="piece_a4" class="piece"></div></div></div>
-                <div id="e1" class="tile trc">              <div id="wra5" class="wrapPiece"><div id="piece_a5" class="piece"></div></div></div>
-                <div id="a2" class="tile" >                 <div id="wrb1" class="wrapPiece"><div id="piece_b1" class="piece"></div></div></div>
-                <div id="b2" class="tile" >                 <div id="wrb2" class="wrapPiece"><div id="piece_b2" class="piece"></div></div></div>
-                <div id="c2" class="tile" >                 <div id="wrb3" class="wrapPiece"><div id="piece_b3" class="piece"></div></div></div>
-                <div id="d2" class="tile" >                 <div id="wrb4" class="wrapPiece"><div id="piece_b4" class="piece"></div></div></div>
-                <div id="e2" class="tile" >                 <div id="wrb5" class="wrapPiece"><div id="piece_b5" class="piece"></div></div></div>
-                <div id="a3" class="tile" >                 <div id="wrc1" class="wrapPiece"><div id="piece_c1" class="piece"></div></div></div>
-                <div id="b3" class="tile" >                 <div id="wrc2" class="wrapPiece"><div id="piece_c2" class="piece"></div></div></div>
-                <div id="c3" class="tile" >                 <div id="wrc3" class="wrapPiece"><div id="piece_c3" class="piece"></div></div></div>
-                <div id="d3" class="tile" >                 <div id="wrc4" class="wrapPiece"><div id="piece_c4" class="piece"></div></div></div>
-                <div id="e3" class="tile" >                 <div id="wrc5" class="wrapPiece"><div id="piece_c5" class="piece"></div></div></div>
-                <div id="a4" class="tile" >                 <div id="wrd1" class="wrapPiece"><div id="piece_d1" class="piece"></div></div></div>
-                <div id="b4" class="tile" >                 <div id="wrd2" class="wrapPiece"><div id="piece_d2" class="piece"></div></div></div>
-                <div id="c4" class="tile" >                 <div id="wrd3" class="wrapPiece"><div id="piece_d3" class="piece"></div></div></div>
-                <div id="d4" class="tile" >                 <div id="wrd4" class="wrapPiece"><div id="piece_d4" class="piece"></div></div></div>
-                <div id="e4" class="tile" >                 <div id="wrd5" class="wrapPiece"><div id="piece_d5" class="piece"></div></div></div>
-                <div id="a5" class="tile blc">              <div id="wre1" class="wrapPiece"><div id="piece_e1" class="piece"></div></div></div>
-                <div id="b5" class="tile" >                 <div id="wre2" class="wrapPiece"><div id="piece_e2" class="piece"></div></div></div>
-                <div id="c5" class="tile" >                 <div id="wre3" class="wrapPiece"><div id="piece_e3" class="piece"></div></div></div>
-                <div id="d5" class="tile" >                 <div id="wre4" class="wrapPiece"><div id="piece_e4" class="piece"></div></div></div>
-                <div id="e5" class="tile brc">              <div id="wre5" class="wrapPiece"><div id="piece_e5" class="piece"></div></div></div>
-            </div>
-        </div>
-        <div class="div-resultsAndCalls">
-            <div class="results">
-                <div id="rr1" class="result"></div>
-                <div id="rr2" class="result"></div>
-                <div id="rr3" class="result"></div>
-                <div id="rr4" class="result selectable"></div>
-                <div id="rr5" class="result selectable"></div>
-                <div id="rr6" class="result selectable"></div>
-                <div id="rr7" class="result selectable"></div>
-                <div id="rr8" class="result selectable"></div>
-            </div>
-            <div class="calls">
-                <div class="call empty"></div>
-                <div class="call empty"></div>
-                <div class="call empty"></div>
-                <div id="cc4" class="call selectable"></div>
-                <div id="cc5" class="call selectable"></div>
-                <div id="cc6" class="call selectable"></div>
-                <div id="cc7" class="call selectable"></div>
-                <div id="cc8" class="call selectable"></div>
-            </div>
-        </div>
-        <div class="div-dice">
-            <div id= "wr1" class="wrapDie"><div id="dd1" class="die"></div></div>
-            <div id= "wr2" class="wrapDie"><div id="dd2" class="die"></div></div>
-            <div id= "wr3" class="wrapDie"><div id="dd3" class="die"></div></div>
-            <div id= "wr4" class="wrapDie"><div id="dd4" class="die"></div></div>
-            <div id= "wr5" class="wrapDie"><div id="dd5" class="die"></div></div>
-        </div>
-        <div class="div-buttons">
-            <div id="rollBtn" class="button roll">
-                <div class="text-button">ROLL 3</div>
-            </div>
-            <div id="doneBtn" class="button done">
-                <div class="text-button">DONE</div>
-            </div>
-        </div>
-    <div id="overlay">
-        <div class="spinner"></div>
-    </div>
-    <div id="splash"></div>
-    <script src="linotte.js"></script>
-</body>
 
+        <div class="overlay" id="overlay">
+            <div id="modal" class="modal">
+                <div class="board-options-container">
+                    <div id="board-option"></div>
+                    <div class="options-flex">
+                        <div id="natural" class="board-options-text natural selected"></div>
+                        <div id="tidy" class="board-options-text tidy"></div>
+                        <div id="perfect" class="board-options-text perfect"></div>
+                    </div>
+                </div>
+                <div class="dice-options-container">
+                    <div id="dice-title" class="title">CLASSIC</div>
+                    <div class="dice-options">
+                        <div id="do0" class="die-options"><img src="resources/images/dice/c101.svg" class="die-img"></div>
+                        <div id="do1" class="die-options"><img src="resources/images/dice/g101.svg" class="die-img"></div>
+                        <div id="do2" class="die-options selected"><img src="resources/images/dice/g107.svg" class="die-img"></div>
+                        <div id="do3" class="die-options"><img src="resources/images/dice/ch101.svg" class="die-img"></div>
+                        <div id="do4" class="die-options"><img src="resources/images/dice/p101.svg" class="die-img"></div>
+                        <div id="do5" class="die-options empty"></div>
+                        <div id="do6" class="die-options empty"></div>
+                        <div id="do7" class="die-options empty"></div>
+                    </div>
+                </div>
+                <div class="background-options-container">
+                    <div id="bg-title" class="title">sun-tornado</div>
+                    <div class="backgrounds-options">
+                        <div id="bg0" class="bg-options"><img src="resources/images/backgrounds/diamond-sunset-prev.png" class="die-img"></div>
+                        <div id="bg1" class="bg-options"><img src="resources/images/backgrounds/liquid-cheese-prev.png" class="die-img"></div>
+                        <div id="bg2" class="bg-options"><img src="resources/images/backgrounds/tortoise-shell-prev.png" class="die-img"></div>
+                        <div id="bg3" class="bg-options selected"><img src="resources/images/backgrounds/sun-tornado-prev.png" class="die-img"></div>
+                        <div id="bg4" class="bg-options"><img src="resources/images/backgrounds/pattern-randomized-prev.png" class="die-img"></div>
+                        <div id="bg5" class="bg-options"><img src="resources/images/backgrounds/subtle-prism-prev.png" class="die-img"></div>                     
+                        <div id="bg6" class="bg-options"><img src="resources/images/backgrounds/varying-stripes-prev.png" class="die-img"></div>
+                        <div id="bg7" class="bg-options"><img src="resources/images/backgrounds/repeating-triangles-prev.png" class="die-img"></div>
+                    </div>
+                </div> 
+            </div>
+        </div>
+        <script src="linotte.js"></script>
+    </body>
 </html>
