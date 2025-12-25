@@ -166,13 +166,16 @@ doneBtnEnebled = true;
 pieceEnebled = true;
 
 let tidyness = getCookie("tidyness");
+if(tidyness == undefined) {tidyness = 1};
 renderTidyness(tidyness)
 
 let selectedDie = getCookie("diceFaces");
+if(selectedDie == undefined) {selectedDie = 2};
 document.getElementById("do" + selectedDie).classList.add("selected");
 document.getElementById("dice-title").textContent =  diceNames[selectedDie];
 
 let selectedBg = getCookie("background");
+if(selectedBg == undefined) {selectedBg = 3};
 document.getElementById("bg" + selectedBg).classList.add("selected");
 document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
 
