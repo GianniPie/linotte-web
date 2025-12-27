@@ -14,8 +14,14 @@ const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
 const optBtn = document.getElementById("options");
 
+const body = document.getElementById("body");
+const modal = document.getElementById("modal");
+const overlay = document.getElementById("overlay");
+
+
 let rollAnimationID;
 let stopRollID;
+
 
 const diceNames = [
     "CLASSIC",
@@ -66,7 +72,6 @@ const diceChinese = [
     "ch106.svg"
 ];
 
-
 const dicePersian = [
     "g100.svg",
     "p101.svg",
@@ -79,7 +84,6 @@ const dicePersian = [
 const diceFaces = [diceClassic, diceFlat, diceOneRed, diceChinese, dicePersian];
 let faces = diceFaces[getCookie("diceFaces")];
 
-
 const bgPath = "resources/images/backgrounds/";
 const backgrounds = [
     "diamond-sunset.svg",
@@ -91,9 +95,8 @@ const backgrounds = [
     "varying-stripes.svg",
     "repeating-triangles.svg"
 ];
-document.getElementById("body").style.backgroundImage = "url('" + bgPath + backgrounds[getCookie("background")] + "')" ;
-document.getElementById("modal").style.backgroundImage = "url('" + bgPath + backgrounds[getCookie("background")] + "')" ;
-console.log(getCookie("background"));
+body.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
+modal.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
 
 const piecesPath = "resources/images/pieces/";
 const imgExtention = ".svg";
@@ -129,23 +132,52 @@ let pieces =  [
     "p029_fd6c92ff",
 ];
 
+//------ PLAYERS ---------------
+var player1 = {
+    name: "",
+    pieceImage: "",
+    color: "",
+    points: 0,
+    remainingPieces: 12,
+    local: true
+};
+
+var player2 = {
+    name: "",
+    pieceImage: "",
+    color: "",
+    points: 0,
+    remainingPieces: 12,
+    local: true
+};
+
 let p1p = rndNum(0, pieces.length - 1);
-let player1SelectedPiece = piecesPath + pieces[p1p] + imgExtention;
+player1.pieceImage = piecesPath + pieces[p1p] + imgExtention;
 let p2p = p1p;
 while(p2p == p1p) {
     p2p = rndNum(0, pieces.length - 1);
 }
-let player2SelectedPiece = piecesPath + pieces[p2p] + imgExtention;
-let selectedPiece = [null, player1SelectedPiece, player2SelectedPiece];
+player2.pieceImage = piecesPath + pieces[p2p] + imgExtention;
 
-let remainingPieces = [null, 12, 12];
-let points = [null, 0, 0];
+player1.color = "#" + player1.pieceImage.split("_")[1].slice(0, -6);
+player2.color = "#" + player2.pieceImage.split("_")[1].slice(0, -6);
+const selectedColor = [null, player1.color, player2.color];
+document.getElementsByClassName("player p1")[0].style.backgroundColor = player1.color;
+document.getElementsByClassName("player p2")[0].style.backgroundColor = player2.color;
+let currentPlayer = 1;
+document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 12px 8px";
 
-const p1Color = "#" + player1SelectedPiece.split("_")[1].slice(0, -6);
-const p2Color = "#" + player2SelectedPiece.split("_")[1].slice(0, -6);
-const selectedColor = [null, p1Color, p2Color];
-document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 0px 12px 8px";
+const LOCAL_PLAYER = 1; // o 2
+/*function isMyTurn() {return currentPlayer === LOCAL_PLAYER;}*/
+function isMyTurn() {return currentPlayer;}
 
+const pawnP1Text = document.getElementById("pawnP1Text").textContent = player1.remainingPieces;
+const coinP1Text = document.getElementById("coinP1Text").textContent = player1.points;
+const pawnP2Text = document.getElementById("pawnP2Text").textContent = player2.remainingPieces;
+const coinP2Text = document.getElementById("coinP2Text").textContent = player2.points;
+
+
+//----------- DICE TABLE AND GAME -----------------
 let combinationaRealized = [0,0,0,0,0,0,0,0];
 let brelan = 0;
 
@@ -153,7 +185,6 @@ let numRoll = 3;
 let diceResult = [0,0,0,0,0];
 let isRealized = false;
 
-let currentPlayer = 1;
 let prewWrapper = null;
 let prewPiece = null;
 let selectedTile = null;
@@ -165,41 +196,33 @@ rollBtnEnebled = true;
 doneBtnEnebled = true;
 pieceEnebled = true;
 
-let tidyness = getCookie("tidyness");
-if(tidyness == undefined) {tidyness = 1};
-renderTidyness(tidyness)
+var gameState = {
+    table,
+    currentPlayer,
+    player1,
+    player2
+}
 
-let selectedDie = getCookie("diceFaces");
-if(selectedDie == undefined) {selectedDie = 2};
+
+//----------- COOCKIES ---------------
+let tidyness = getCookie("tidyness", 1);
+renderTidyness(tidyness);
+
+let selectedDie = getCookie("diceFaces", 2);
 document.getElementById("do" + selectedDie).classList.add("selected");
 document.getElementById("dice-title").textContent =  diceNames[selectedDie];
 
-let selectedBg = getCookie("background");
-if(selectedBg == undefined) {selectedBg = 3};
+let selectedBg = getCookie("background", "3");
 document.getElementById("bg" + selectedBg).classList.add("selected");
 document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
 
 
 
+//----------- PRELOAD IMAGES ------------
 
 
 
-document.getElementById("pawnP1Text").textContent = "12";
-document.getElementById("coinP1Text").textContent = "0";
-document.getElementById("pawnP2Text").textContent = "12";
-document.getElementById("coinP2Text").textContent = "0";
 
-
-document.querySelectorAll(".player.p1").forEach(tile => {
-  tile.style.backgroundColor = p1Color;
-});
-
-document.querySelectorAll(".player.p2").forEach(el => {
-    el.style.backgroundColor = p2Color;
-});
-
-
-const overlay = document.getElementById("overlay");
 overlay.addEventListener("click", (e) => {
   if (e.target === overlay) {
     overlay.style.display = "none";
@@ -208,10 +231,8 @@ overlay.addEventListener("click", (e) => {
 
 
 optBtn.addEventListener("click", function() { 
-    document.getElementById("overlay").style.display = "flex";
+    overlay.style.display = "flex";
 });
-
-
 
 
 document.querySelectorAll('.board-options-text').forEach(boardText => {
@@ -289,8 +310,8 @@ bgOptions.forEach(bgOption => {
     var bgId = Number(bgOption.id[2]);
     document.getElementById("bg-title").textContent =  backgrounds[bgId].slice(0, -4); 
     
-    document.getElementById("body").style.backgroundImage = "url('" + bgPath + backgrounds[bgId] + "')" ;
-    document.getElementById("modal").style.backgroundImage = "url('" + bgPath + backgrounds[bgId] + "')" ;
+    body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+    modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
     setCookie("background", bgId);
   });
 });
@@ -298,19 +319,16 @@ bgOptions.forEach(bgOption => {
 
 document.querySelectorAll(".piece").forEach(el => {
     el.addEventListener("click", function() {
-        if(pieceEnebled == false)
-            return;
+        if (!isMyTurn()) return;
+        if(pieceEnebled == false) return;
 
         let piece = document.getElementById(this.id);
         let wrapper = piece.parentElement;
         let tile = wrapper.parentElement;
 
-        if(tableCheck(tile.id) !== 0)  
-            return;
+        if(tableCheck(tile.id) !== 0) return;
+        if(possibleMovesCheck(tile.id) !== 1) return;
         
-        if(possibleMovesCheck(tile.id) !== 1) 
-            return;
-
         if(tableCheck(tile.id) == 0) {
             if (piece.classList.contains("img-bounce")) {
                 //remove the piece
@@ -326,7 +344,8 @@ document.querySelectorAll(".piece").forEach(el => {
                 
             } else {    
                 //place the piece
-                piece.style.backgroundImage = "url('" + selectedPiece[currentPlayer] + "')" ;
+                if(currentPlayer == 1) {piece.style.backgroundImage = urlOf(player1.pieceImage);}
+                if(currentPlayer == 2) {piece.style.backgroundImage = urlof(player2.pieceImage);}
 
                 if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
                 if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
@@ -353,7 +372,6 @@ document.querySelectorAll(".piece").forEach(el => {
                 wrapper.addEventListener("animationend", (e) => {
                     pieceEnebled = true;
                 }, { once: true });
-                
             }
         }
     });
@@ -375,11 +393,9 @@ function tableCheck(divId) {
 }
 
 rollBtn.addEventListener("click", function() {  
-    if(rollBtnEnebled == false )
-        return;
-
-    if(numRoll < 1)
-        return;
+    if (!isMyTurn()) return;
+    if(rollBtnEnebled == false ) return;
+    if(numRoll < 1) return;
 
     rollBtnEnebled = false;
     doneBtnEnebled = false;
@@ -427,27 +443,27 @@ function rollAnimation() {
 
     if(!dd1.classList.contains("selected")) {
         diceResult[0] = rndNum(1,6);
-        dd1.style.backgroundImage = "url('"+ dicePath + faces[diceResult[0]] + "')";
+        dd1.style.backgroundImage = urlOf(dicePath + faces[diceResult[0]]);
         wr1.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd2.classList.contains("selected")) {
         diceResult[1] = rndNum(1,6);
-        dd2.style.backgroundImage = "url('"+ dicePath + faces[diceResult[1]] + "')";
+        dd2.style.backgroundImage = urlOf(dicePath + faces[diceResult[1]]);
         wr2.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd3.classList.contains("selected")) {
         diceResult[2] = rndNum(1,6);
-        dd3.style.backgroundImage = "url('"+ dicePath + faces[diceResult[2]] + "')";
+        dd3.style.backgroundImage = urlOf(dicePath + faces[diceResult[2]]);
         wr3.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd4.classList.contains("selected")) {
         diceResult[3] = rndNum(1,6);
-        dd4.style.backgroundImage = "url('"+ dicePath + faces[diceResult[3]] + "')";
+        dd4.style.backgroundImage = urlOf(dicePath + faces[diceResult[3]]);
         wr4.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd5.classList.contains("selected")) {
         diceResult[4] = rndNum(1,6);
-        dd5.style.backgroundImage = "url('"+ dicePath + faces[diceResult[4]] + "')";
+        dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
         wr5.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
 } 
@@ -726,6 +742,8 @@ function tableHighlite() {
 
 
 doneBtn.addEventListener("click", function() {  
+    if (!isMyTurn()) return;
+    if(rollBtnEnebled == false ) return;
 
     if(selectedTile != null){
         tableFill(selectedTile.id, currentPlayer);
@@ -744,7 +762,7 @@ doneBtn.addEventListener("click", function() {
 
     document.querySelectorAll(".die").forEach(el => {
         el.classList.remove("selected"); // reset
-        el.style.backgroundImage = "url('"+ dicePath + faces[0] + "')";
+        el.style.backgroundImage = urlOf(dicePath + faces[0]);
 
         document.querySelector("#rollBtn .text-button").innerText = "ROLL 3";
         numRoll = 3;
@@ -772,21 +790,21 @@ doneBtn.addEventListener("click", function() {
     if(currentPlayer === 1){
         currentPlayer = 2;
         document.getElementsByClassName("player p1")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p2")[0].style.boxShadow = p2Color + " 0px 0px 8px 8px";
+        document.getElementsByClassName("player p2")[0].style.boxShadow = player2.color + " 0px 0px 8px 8px";
     } else {
         currentPlayer = 1;
         document.getElementsByClassName("player p2")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p1")[0].style.boxShadow = p1Color + " 0px 0px 8px 8px";
+        document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 8px 8px";
     }
 });
 
 
 document.querySelectorAll(".die").forEach(el => {
     el.addEventListener("click", function() {
+        if (!isMyTurn()) return;
+        if(numRoll === 3) return;
+
         elem = document.getElementById(this.id);
-        
-        if(numRoll === 3)
-            return;
 
         if (elem.classList.contains("selected")) {
             elem.classList.remove("selected"); // reset
@@ -799,6 +817,8 @@ document.querySelectorAll(".die").forEach(el => {
 
 document.querySelectorAll(".result.selectable").forEach(el => {
     el.addEventListener("click", function() {
+        if (!isMyTurn()) return;
+
         const elemId = document.getElementById(this.id).id;
         const targetId = "cc" + elemId.slice(2);
         const targetDiv = document.getElementById(targetId);
@@ -817,6 +837,8 @@ document.querySelectorAll(".result.selectable").forEach(el => {
 
 document.querySelectorAll(".call.selectable").forEach(el => {
     el.addEventListener("click", function() {
+        if (!isMyTurn()) return;
+
         const elemId = document.getElementById(this.id);
 
         if (elemId.classList.contains("checked")) {
@@ -833,25 +855,26 @@ document.querySelectorAll(".call.selectable").forEach(el => {
 
 function countPieces(){
 
-    remainingPieces[1] = 12 - table.flat().filter(v => v == "1").length;
-    remainingPieces[2] = 12 - table.flat().filter(v => v == "2").length;
+    player1.remainingPieces = 12 - table.flat().filter(v => v == "1").length;
+    player2.remainingPieces = 12 - table.flat().filter(v => v == "2").length;
 
-    document.getElementById("pawnP1Text").textContent = remainingPieces[1];
-    document.getElementById("pawnP2Text").textContent = remainingPieces[2];
+    pawnP1Text.textContent = player1.remainingPieces;
+    pawnP2Text.textContent = player2.remainingPieces;
 }
 
 
 function countPoint()
 { 
-    points.fill(0);
+    player1.points = 0;
+    player2.points = 0;
     tableArray = table.flat();
 
     //check Horizontal
     for (var y = 0; y < 25; y+=5) {
         for (var x = 0; x < 3; x++) {
             const tris = [tableArray[y + x], tableArray[y + x + 1],  tableArray[y + x + 2]].join("");
-            if(tris == "111"){points[1]++;}
-            if(tris == "222"){points[2]++;}
+            if(tris == "111"){player1.points++;}
+            if(tris == "222"){player2.points++;}
         }
     }
 
@@ -860,8 +883,8 @@ function countPoint()
     for (var x = 0; x < 5; x++) {
         for (var y = 0; y < 25; y+=5) {
             const tris = [tableArray[y + x], tableArray[y + x + 5],  tableArray[y + x + 10]].join("");
-            if(tris == "111"){points[1]++;}
-            if(tris == "222"){points[2]++;}
+            if(tris == "111"){player1.points++;}
+            if(tris == "222"){player2.points++;}
         }
     }
 
@@ -870,8 +893,8 @@ function countPoint()
     for (var x = 0; x < 3; x++) {
         for (var y = 0; y < 15; y+=5) {
             const tris = [tableArray[y + x], tableArray[y + x + 6],  tableArray[y + x + 12]].join("");
-            if(tris == "111"){points[1]++;}
-            if(tris == "222"){points[2]++;}
+            if(tris == "111"){player1.points++;}
+            if(tris == "222"){player2.points++;}
         }
     }
 
@@ -880,13 +903,13 @@ function countPoint()
     for (var x = 2; x < 5; x++) {
         for (var y = 0; y < 15; y+=5) {
             const tris = [tableArray[y + x], tableArray[y + x + 4],  tableArray[y + x + 8]].join("");
-            if(tris == "111"){points[1]++;}
-            if(tris == "222"){points[2]++;}
+            if(tris == "111"){player1.points++;}
+            if(tris == "222"){player2.points++;}
         }
     }
 
-    document.getElementById("coinP1Text").textContent = points[1];
-    document.getElementById("coinP2Text").textContent = points[2];
+    coinP1Text.textContent = player1.points;
+    coinP2Text.textContent = player2.points;
 }
 
 
@@ -903,11 +926,26 @@ function setCookie(name, value, days = 365) {
 
 
 
-function getCookie(name) {
+function getCookie(name, defaultValue) {
   const cookies = document.cookie.split("; ");
   for (const c of cookies) {
     const [key, value] = c.split("=");
-    if (key === name) return decodeURIComponent(value);
+    if (key === name) {
+        const cookieValue = decodeURIComponent(value);
+        if(cookieValue == "undefined") {
+            setCookie(name, defaultValue);
+            return defaultValue;
+        } else {
+            return cookieValue;
+        } 
+    }
   }
-  return null;
+  setCookie(name, defaultValue);
+  return defaultValue;
+}
+
+
+
+function urlOf(path) {
+    return "url('" + path + "')";
 }
