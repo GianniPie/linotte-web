@@ -345,7 +345,7 @@ document.querySelectorAll(".piece").forEach(el => {
             } else {    
                 //place the piece
                 if(currentPlayer == 1) {piece.style.backgroundImage = urlOf(player1.pieceImage);}
-                if(currentPlayer == 2) {piece.style.backgroundImage = urlof(player2.pieceImage);}
+                if(currentPlayer == 2) {piece.style.backgroundImage = urlOf(player2.pieceImage);}
 
                 if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
                 if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
