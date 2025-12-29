@@ -1,3 +1,5 @@
+const socket = io();
+
 const dd1 = document.getElementById("dd1");
 const dd2 = document.getElementById("dd2");
 const dd3 = document.getElementById("dd3");
@@ -98,39 +100,41 @@ const backgrounds = [
 body.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
 modal.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
 
-const piecesPath = "resources/images/pieces/";
-const imgExtention = ".svg";
-let pieces =  [
-    "p001_ed1c24ff",
-    "p002_40b93cff",
-    "p003_50ade5ff",
-    "p004_e9dc01ff",
-    "p005_c240fcff",
-    "p006_f14be6ff",
-    "p007_737373ff",
-    "p008_ff7106ff",
-    "p009_e3e3e3ff",
-    "p010_ff0606ff",
-    "p011_b4aaaaff",
-    "p012_e1b27cff",
-    "p013_e06a51ff",
-    "p014_f7e764ff",
-    "p015_5c5cddff",
-    "p016_be1500ff",
-    "p017_fdc97aff",
-    "p018_fdc5a3ff",
-    "p019_bbcd46ff",
-    "p020_e9a233ff",
-    "p021_f6d74aff",
-    "p022_a4c037ff",
-    "p023_ec9843ff",
-    "p024_e6d448ff",
-    "p025_ad8a72ff",
-    "p026_e6d448ff",
-    "p027_ad8a72ff",
-    "p028_c5d4eaff",
-    "p029_fd6c92ff",
-];
+// const piecesPath = "resources/images/pieces/";
+// const imgExtention = ".svg";
+// let pieces =  [
+//     "p001_ed1c24ff",
+//     "p002_40b93cff",
+//     "p003_50ade5ff",
+//     "p004_e9dc01ff",
+//     "p005_c240fcff",
+//     "p006_f14be6ff",
+//     "p007_737373ff",
+//     "p008_ff7106ff",
+//     "p009_e3e3e3ff",
+//     "p010_ff0606ff",
+//     "p011_b4aaaaff",
+//     "p012_e1b27cff",
+//     "p013_e06a51ff",
+//     "p014_f7e764ff",
+//     "p015_5c5cddff",
+//     "p016_be1500ff",
+//     "p017_fdc97aff",
+//     "p018_fdc5a3ff",
+//     "p019_bbcd46ff",
+//     "p020_e9a233ff",
+//     "p021_f6d74aff",
+//     "p022_a4c037ff",
+//     "p023_ec9843ff",
+//     "p024_e6d448ff",
+//     "p025_ad8a72ff",
+//     "p026_e6d448ff",
+//     "p027_ad8a72ff",
+//     "p028_c5d4eaff",
+//     "p029_fd6c92ff",
+// ];
+
+
 
 //------ PLAYERS ---------------
 var player1 = {
@@ -151,26 +155,34 @@ var player2 = {
     local: true
 };
 
-let p1p = rndNum(0, pieces.length - 1);
-player1.pieceImage = piecesPath + pieces[p1p] + imgExtention;
-let p2p = p1p;
-while(p2p == p1p) {
-    p2p = rndNum(0, pieces.length - 1);
-}
-player2.pieceImage = piecesPath + pieces[p2p] + imgExtention;
+// let p1p = rndNum(0, pieces.length - 1);
+// player1.pieceImage = piecesPath + pieces[p1p] + imgExtention;
+// let p2p = p1p;
+// while(p2p == p1p) {
+//     p2p = rndNum(0, pieces.length - 1);
+// }
+// player2.pieceImage = piecesPath + pieces[p2p] + imgExtention;
 
-player1.color = "#" + player1.pieceImage.split("_")[1].slice(0, -6);
-player2.color = "#" + player2.pieceImage.split("_")[1].slice(0, -6);
-const selectedColor = [null, player1.color, player2.color];
-document.getElementsByClassName("player p1")[0].style.backgroundColor = player1.color;
-document.getElementsByClassName("player p2")[0].style.backgroundColor = player2.color;
+// player1.color = "#" + player1.pieceImage.split("_")[1].slice(0, -6);
+// player2.color = "#" + player2.pieceImage.split("_")[1].slice(0, -6);
+const selectedColor = [null, null, null];
 let currentPlayer = 1;
-document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 12px 8px";
+const boxPlayer1 = document.querySelector(".player.p1");
+const boxPlayer2 = document.querySelector(".player.p2");
 
-const LOCAL_PLAYER = 1; // o 2
-/*function isMyTurn() {return currentPlayer === LOCAL_PLAYER;}*/
-function isMyTurn() {return currentPlayer;}
+let LOCAL_PLAYER = null;
+socket.on("init", data => {
+  LOCAL_PLAYER = data.playerNumber;
+  currentPlayer = data.gameState.currentPlayer;
+  table = data.gameState.table;
+});
 
+//const LOCAL_PLAYER = 1; // o 2
+function isMyTurn() {return currentPlayer === LOCAL_PLAYER;}
+//function isMyTurn() {return currentPlayer;}
+
+const textPlayerP1 = document.getElementById("textPlayerP1");
+const textPlayerP2 = document.getElementById("textPlayerP2");
 const pawnP1Text = document.getElementById("pawnP1Text").textContent = player1.remainingPieces;
 const coinP1Text = document.getElementById("coinP1Text").textContent = player1.points;
 const pawnP2Text = document.getElementById("pawnP2Text").textContent = player2.remainingPieces;
@@ -747,8 +759,8 @@ doneBtn.addEventListener("click", function() {
 
     if(selectedTile != null){
         tableFill(selectedTile.id, currentPlayer);
-        countPieces();
-        countPoint();
+        //countPieces();
+        //countPoint();
     }
     prewPiece = null;
     prewWrapper = null;
@@ -787,15 +799,17 @@ doneBtn.addEventListener("click", function() {
     numDicesThrowed = 0;
     isRealized = false;
 
-    if(currentPlayer === 1){
-        currentPlayer = 2;
-        document.getElementsByClassName("player p1")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p2")[0].style.boxShadow = player2.color + " 0px 0px 8px 8px";
-    } else {
-        currentPlayer = 1;
-        document.getElementsByClassName("player p2")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 8px 8px";
-    }
+
+    socket.emit("action", {
+        type: "DONE",
+        player: LOCAL_PLAYER,
+        table,
+        players: {
+            1: player1,
+            2: player2
+        }
+    });
+
 });
 
 
@@ -948,4 +962,91 @@ function getCookie(name, defaultValue) {
 
 function urlOf(path) {
     return "url('" + path + "')";
+}
+
+
+
+
+
+
+socket.on("init", data => {
+    MY_PLAYER = data.playerNumber;
+
+
+    if(MY_PLAYER == 1) {
+        textPlayerP1.textContent = "YOU";
+        console.log("You are player 1");
+    } else {
+        textPlayerP2.textContent = "YOU";
+        console.log("You are player 2");
+    }
+
+    player1.pieceImage = data.playersConfig[1].pieceImage;
+    player2.pieceImage = data.playersConfig[2].pieceImage;
+
+    player1.color = data.playersConfig[1].color;
+    player2.color = data.playersConfig[2].color;
+    selectedColor[1] = player1.color;
+    selectedColor[2] = player2.color;
+
+    boxPlayer1.style.backgroundColor = player1.color;
+    boxPlayer2.style.backgroundColor = player2.color;
+    
+    boxPlayer1.style.boxShadow = player1.color + " 0px 0px 8px 8px";
+    boxPlayer2.style.boxShadow = "black 0px 0px 0px 0px";
+
+});
+
+
+socket.on("stateUpdate", state => {
+    table = state.table;
+    currentPlayer = state.currentPlayer;
+
+    player1.points = state.players[1].points;
+    player2.points = state.players[2].points;
+
+    player1.remainingPieces = state.players[1].remainingPieces;
+    player2.remainingPieces = state.players[2].remainingPieces;
+
+    coinP1Text.textContent = player1.points;
+    coinP2Text.textContent = player2.points;
+    pawnP1Text.textContent = player1.remainingPieces;
+    pawnP2Text.textContent = player2.remainingPieces;
+
+    if(currentPlayer === 1){
+        boxPlayer1.style.boxShadow = player1.color + " 0px 0px 8px 8px";
+        boxPlayer2.style.boxShadow = "black 0px 0px 0px 0px";
+    } else {
+        boxPlayer1.style.boxShadow = "black 0px 0px 0px 0px";
+        boxPlayer2.style.boxShadow = player2.color + " 0px 0px 8px 8px";
+    }
+
+  renderBoardFromState(table);
+});
+
+
+function renderBoardFromState(table) {
+  document.querySelectorAll(".tile").forEach(tile => {
+    const id = tile.id;      // es: "b3"
+    const r = rows[id[0]];
+    const c = Number(id[1]) - 1;
+
+    const value = table[c][r];
+    const piece = tile.querySelector(".piece");
+
+    if (value === 0) {
+      piece.style.backgroundImage = "";
+      piece.classList.remove("img-bounce");
+    }
+
+    if (value === 1) {
+      piece.style.backgroundImage = `url('${player1.pieceImage}')`;
+      piece.classList.add("img-bounce");
+    }
+
+    if (value === 2) {
+      piece.style.backgroundImage = `url('${player2.pieceImage}')`;
+      piece.classList.add("img-bounce");
+    }
+  });
 }
