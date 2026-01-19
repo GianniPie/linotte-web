@@ -5,12 +5,35 @@ const dd2 = document.getElementById("dd2");
 const dd3 = document.getElementById("dd3");
 const dd4 = document.getElementById("dd4");
 const dd5 = document.getElementById("dd5");
+const ddElements = [dd1, dd2, dd3, dd4, dd5];
 
 const wr1 = document.getElementById("wr1");
 const wr2 = document.getElementById("wr2");
 const wr3 = document.getElementById("wr3");
 const wr4 = document.getElementById("wr4");
 const wr5 = document.getElementById("wr5");
+const wwElements = [wr1, wr2, wr3, wr4, wr5];
+
+const rr0 = document.getElementById("rr0");
+const rr1 = document.getElementById("rr1");
+const rr2 = document.getElementById("rr2");
+const rr3 = document.getElementById("rr3");
+const rr4 = document.getElementById("rr4");
+const rr5 = document.getElementById("rr5");
+const rr6 = document.getElementById("rr6");
+const rr7 = document.getElementById("rr7");
+const rrElements = [rr0, rr1, rr2, rr3, rr4, rr5, rr6, rr7];
+
+const cc0 = document.getElementById("cc0");
+const cc1 = document.getElementById("cc1");
+const cc2 = document.getElementById("cc2");
+const cc3 = document.getElementById("cc3");
+const cc4 = document.getElementById("cc4");
+const cc5 = document.getElementById("cc5");
+const cc6 = document.getElementById("cc6");
+const cc7 = document.getElementById("cc7");
+const ccElements = [cc0, cc1, cc2, cc3, cc4, cc5, cc6, cc7];
+
 
 const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
@@ -20,10 +43,8 @@ const body = document.getElementById("body");
 const modal = document.getElementById("modal");
 const overlay = document.getElementById("overlay");
 
-
 let rollAnimationID;
 let stopRollID;
-
 
 const diceNames = [
     "CLASSIC",
@@ -100,120 +121,69 @@ const backgrounds = [
 body.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
 modal.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
 
-// const piecesPath = "resources/images/pieces/";
-// const imgExtention = ".svg";
-// let pieces =  [
-//     "p001_ed1c24ff",
-//     "p002_40b93cff",
-//     "p003_50ade5ff",
-//     "p004_e9dc01ff",
-//     "p005_c240fcff",
-//     "p006_f14be6ff",
-//     "p007_737373ff",
-//     "p008_ff7106ff",
-//     "p009_e3e3e3ff",
-//     "p010_ff0606ff",
-//     "p011_b4aaaaff",
-//     "p012_e1b27cff",
-//     "p013_e06a51ff",
-//     "p014_f7e764ff",
-//     "p015_5c5cddff",
-//     "p016_be1500ff",
-//     "p017_fdc97aff",
-//     "p018_fdc5a3ff",
-//     "p019_bbcd46ff",
-//     "p020_e9a233ff",
-//     "p021_f6d74aff",
-//     "p022_a4c037ff",
-//     "p023_ec9843ff",
-//     "p024_e6d448ff",
-//     "p025_ad8a72ff",
-//     "p026_e6d448ff",
-//     "p027_ad8a72ff",
-//     "p028_c5d4eaff",
-//     "p029_fd6c92ff",
-// ];
+
+
+//----------- GAME STATE ---------------
+let gameState = {
+  table: Array.from({ length: 5 }, () => Array(5).fill(0)),
+  possibleMoves: Array.from({ length: 5 }, () => Array(5).fill(0)),
+  currentPlayer: 0,
+  combinationsRealized: [0,0,0,0,0,0,0,0],
+  called: [null,null,null,false,false,false,false,false],
+  players: {
+    1: {
+        name: "",
+        pieceImage: "",
+        color: "",
+        points: 0,
+        remainingPieces: 12,
+        local: true
+    },
+    2: {
+        name: "",
+        pieceImage: "",
+        color: "",
+        points: 0,
+        remainingPieces: 12,
+        local: true
+    },
+  },
+  dice: {
+    values: [0,0,0,0,0],
+    locked: [false,false,false,false,false],
+    rollsLeft: 3
+  },
+};
 
 
 
 //------ PLAYERS ---------------
-var player1 = {
-    name: "",
-    pieceImage: "",
-    color: "",
-    points: 0,
-    remainingPieces: 12,
-    local: true
-};
-
-var player2 = {
-    name: "",
-    pieceImage: "",
-    color: "",
-    points: 0,
-    remainingPieces: 12,
-    local: true
-};
-
-// let p1p = rndNum(0, pieces.length - 1);
-// player1.pieceImage = piecesPath + pieces[p1p] + imgExtention;
-// let p2p = p1p;
-// while(p2p == p1p) {
-//     p2p = rndNum(0, pieces.length - 1);
-// }
-// player2.pieceImage = piecesPath + pieces[p2p] + imgExtention;
-
-// player1.color = "#" + player1.pieceImage.split("_")[1].slice(0, -6);
-// player2.color = "#" + player2.pieceImage.split("_")[1].slice(0, -6);
-const selectedColor = [null, null, null];
-let currentPlayer = 1;
 const boxPlayer1 = document.querySelector(".player.p1");
 const boxPlayer2 = document.querySelector(".player.p2");
 
 let LOCAL_PLAYER = null;
-socket.on("init", data => {
-  LOCAL_PLAYER = data.playerNumber;
-  currentPlayer = data.gameState.currentPlayer;
-  table = data.gameState.table;
-});
 
-//const LOCAL_PLAYER = 1; // o 2
-function isMyTurn() {return currentPlayer === LOCAL_PLAYER;}
-//function isMyTurn() {return currentPlayer;}
+function isMyTurn() {return gameState.currentPlayer == LOCAL_PLAYER;}
 
 const textPlayerP1 = document.getElementById("textPlayerP1");
 const textPlayerP2 = document.getElementById("textPlayerP2");
-const pawnP1Text = document.getElementById("pawnP1Text").textContent = player1.remainingPieces;
-const coinP1Text = document.getElementById("coinP1Text").textContent = player1.points;
-const pawnP2Text = document.getElementById("pawnP2Text").textContent = player2.remainingPieces;
-const coinP2Text = document.getElementById("coinP2Text").textContent = player2.points;
+const pawnP1Text = document.getElementById("pawnP1Text").textContent = gameState.players[1].remainingPieces;
+const coinP1Text = document.getElementById("coinP1Text").textContent = gameState.players[1].points;
+const pawnP2Text = document.getElementById("pawnP2Text").textContent = gameState.players[2].remainingPieces;
+const coinP2Text = document.getElementById("coinP2Text").textContent = gameState.players[2].points;
+
 
 
 //----------- DICE TABLE AND GAME -----------------
-let combinationaRealized = [0,0,0,0,0,0,0,0];
-let brelan = 0;
-
-let numRoll = 3;
-let diceResult = [0,0,0,0,0];
-let isRealized = false;
 
 let prewWrapper = null;
 let prewPiece = null;
 let selectedTile = null;
-let table =         Array.from({ length: 5 }, () => Array(5).fill(0));
-let possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
-const rows = { a:0, b:1, c:2, d:3, e:4 };
 
 rollBtnEnebled = true;
 doneBtnEnebled = true;
 pieceEnebled = true;
 
-var gameState = {
-    table,
-    currentPlayer,
-    player1,
-    player2
-}
 
 
 //----------- COOCKIES ---------------
@@ -230,23 +200,428 @@ document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice
 
 
 
-//----------- PRELOAD IMAGES ------------
+
+
+//----------- ROLL DICE ---------------
+rollBtn.addEventListener("click", function() {  
+    if (!isMyTurn()) return;
+    if(rollBtnEnebled == false ) return;
+    if(gameState.dice.rollsLeft < 1) return;
+    
+    rollBtnEnebled = false;
+    doneBtnEnebled = false;
+
+    new Audio("resources/sounds/roll.mp3").play();
+    document.querySelector("#rollBtn .text-button").innerText = "ROLL " + (gameState.dice.rollsLeft-1);
+
+    //Reset highlights from tiles
+    document.querySelectorAll(".tile").forEach(el => {
+        el.classList.remove("tile_highlited"); // reset
+    });
+
+    //Reset highlights from results
+    document.querySelectorAll(".result").forEach(el => {
+        el.classList.remove("higlited"); // reset
+    });
+
+    if(selectedTile !== null) {
+        //if any piece is pleced and not confirmed, it removes it
+        if(tableCheck(selectedTile.id) == 0) {
+            wrapper = selectedTile.querySelector(".wrapPiece");
+            piece = selectedTile.querySelector(".piece");
+
+            selectedTile.querySelector(".wrapPiece").classList.add("img-disappear");
+            wrapper.addEventListener("animationend", (e) => {
+            if (e.animationName === "bounceOut") {
+                piece.classList.remove("img-bounce");
+                wrapper.classList.remove("img-disappear");
+                selectedTile = null;
+            }
+            }, { once: true });
+        } 
+    }
+
+    //the action is actually realized in socket.on("stopRoll_result"... funcion
+    rollAnimationID = setInterval(rollAnimation, 100);
+    stopRollID = setInterval(stopRoll, 1200);
+
+});
+
+
+
+function rollAnimation() {
+    let d = 0;
+    let e = 0;
+    let rndValues = [0,0,0,0,0];
+
+    if (tidyness == 1) { d= 0; e=0; }
+    if (tidyness == 2) { d= 0; e=5; }
+    if (tidyness == 3) { d= 7; e=10; }
+
+    for(let i =0; i<5; i++) {
+        if(!gameState.dice.locked[i]) {
+            rndValues[i] = rndNum(1,6);
+            ddElements[i].style.backgroundImage = urlOf(dicePath + faces[rndValues[i]]);
+            wwElements[i].style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
+        }
+    }
+} 
+
+
+//--------------- STOP ROLL ------------------
+function stopRoll() {
+    clearInterval(rollAnimationID);
+    clearInterval(stopRollID);
+
+    socket.emit("action", {
+        type: "STOP_ROLL",
+        localPlayer: LOCAL_PLAYER,
+    });
+}
+
+
+socket.on("stopRoll_result", state => {
+    gameState = state;
+
+    let d = 0;
+    let e = 0;
+    if (tidyness == 1) { d= 0; e=0; }
+    if (tidyness == 2) { d= 0; e=5; }
+    if (tidyness == 3) { d= 7; e=10; }
+
+    for(let i=0; i<5; i++) {
+        if(!gameState.dice.locked[i]) {
+            ddElements[i].style.backgroundImage = urlOf(dicePath + faces[gameState.dice.values[i]]);
+            wwElements[i].style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
+        }
+    }
+    //highlite results
+    for(let i = 0; i < 8; i++) {
+        if (gameState.combinationsRealized[0] != 0) {
+            rrElements[0].classList.add("higlited");
+        }
+    }
+
+    tableHighlite();
+    rollBtnEnebled = true;
+    doneBtnEnebled = true;
+});    
 
 
 
 
+//----------- PIECE PLACEMENT ---------------
+document.querySelectorAll(".piece").forEach(el => {
+    el.addEventListener("click", function() {
+        if (!isMyTurn()) return;
+        if(pieceEnebled == false) return;
+
+        let piece = document.getElementById(this.id);
+        let wrapper = piece.parentElement;
+        let tile = wrapper.parentElement;
+
+        if(tableCheck(tile.id) !== 0) return;
+        if(possibleMovesCheck(tile.id) !== 1) return;
+        
+        if(tableCheck(tile.id) == 0) {
+            if (piece.classList.contains("img-bounce")) {
+                //remove the piece
+                wrapper.classList.add("img-disappear");
+
+                wrapper.addEventListener("animationend", (e) => {
+                    if (e.animationName === "bounceOut") {
+                        piece.classList.remove("img-bounce");
+                        wrapper.classList.remove("img-disappear");
+                        pieceEnebled = true;
+                    }
+                }, { once: true });
+                
+            } else {    
+                //place the piece
+                if(gameState.currentPlayer == 1) {piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);}
+                if(gameState.currentPlayer == 2) {piece.style.backgroundImage = urlOf(gameState.players[2].pieceImage);}
+
+                if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
+                if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
+                if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
+
+                if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
+                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
+                if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
+                
+                wrapper.classList.remove("img-disappear");
+                piece.classList.add("img-bounce");
+
+                selectedTile = wrapper.parentElement;
+
+                if(prewPiece !== null) {
+                    if(prewPiece !== piece) {
+                        prewPiece.classList.remove("img-bounce");
+                        prewWrapper.classList.remove("img-disappear");
+                    }
+                }
+                prewWrapper = wrapper;
+                prewPiece = piece;
+
+                wrapper.addEventListener("animationend", (e) => {
+                    pieceEnebled = true;
+                }, { once: true });
+            }
+        }
+    });
+});
+
+
+
+
+function tableHighlite() {
+
+    //brelan
+    if (gameState.combinationsRealized[0] != 0) {
+        switch (gameState.combinationsRealized[0]) {
+            case 1:
+                if(possibleMovesCheck("a1") && tableCheck("a1") == 0) { document.getElementById("a1").classList.add("tile_highlited");}
+                if(possibleMovesCheck("e4") && tableCheck("e4") == 0) { document.getElementById("e4").classList.add("tile_highlited");}
+                break;
+
+            case 2:
+                if(possibleMovesCheck("a2") && tableCheck("a2") == 0) { document.getElementById("a2").classList.add("tile_highlited");}
+                if(possibleMovesCheck("b5") && tableCheck("b5") == 0) { document.getElementById("b5").classList.add("tile_highlited");}
+                break;
+
+            case 3:
+                if(possibleMovesCheck("b1") && tableCheck("b1") == 0) { document.getElementById("b1").classList.add("tile_highlited");}
+                if(possibleMovesCheck("a5") && tableCheck("a5") == 0) { document.getElementById("a5").classList.add("tile_highlited");}
+                break;
+
+            case 4:
+                if(possibleMovesCheck("d1") && tableCheck("d1") == 0) { document.getElementById("d1").classList.add("tile_highlited");}
+                if(possibleMovesCheck("e5") && tableCheck("e5") == 0) { document.getElementById("e5").classList.add("tile_highlited");}
+                break;
+
+            case 5:
+                if(possibleMovesCheck("e2") && tableCheck("e2") == 0) { document.getElementById("e2").classList.add("tile_highlited");}                 
+                if(possibleMovesCheck("d5") && tableCheck("d5") == 0) { document.getElementById("d5").classList.add("tile_highlited");}
+                break;
+
+            case 6:
+                if(possibleMovesCheck("e1") && tableCheck("e1") == 0) { document.getElementById("e1").classList.add("tile_highlited");}
+                if(possibleMovesCheck("a4") && tableCheck("a4") == 0) { document.getElementById("a4").classList.add("tile_highlited");}
+                break;
+        }
+    }
+
+    //sec
+    if (gameState.combinationsRealized[1] == 1) {
+        if(possibleMovesCheck("d2") && tableCheck("d2") == 0) { document.getElementById("d2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("b4") && tableCheck("b4") == 0) { document.getElementById("b4").classList.add("tile_highlited");}
+    }   
+
+    //appel
+    if (gameState.combinationsRealized[2] == 1) {
+        if(possibleMovesCheck("c1") && tableCheck("c1") == 0) { document.getElementById("c1").classList.add("tile_highlited");}
+        if(possibleMovesCheck("d3") && tableCheck("d3") == 0) { document.getElementById("d3").classList.add("tile_highlited");}
+    }
+
+    //full
+    if (gameState.combinationsRealized[3] == 1) {
+        if(possibleMovesCheck("c2") && tableCheck("c2") == 0) { document.getElementById("c2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("b3") && tableCheck("b3") == 0) { document.getElementById("b3").classList.add("tile_highlited");}
+    }
+
+    //carre
+    if (gameState.combinationsRealized[4] == 1) {
+        if(possibleMovesCheck("b2") && tableCheck("b2") == 0) { document.getElementById("b2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("c5") && tableCheck("c5") == 0) { document.getElementById("c5").classList.add("tile_highlited");}
+    }
+
+    //petit
+    if (gameState.combinationsRealized[5] == 1) {
+        if(possibleMovesCheck("a3") && tableCheck("a3") == 0) { document.getElementById("a3").classList.add("tile_highlited");}
+        if(possibleMovesCheck("d4") && tableCheck("d4") == 0) { document.getElementById("d4").classList.add("tile_highlited");}
+    }
+
+    //suite
+    if (gameState.combinationsRealized[6] == 1) {
+        if(possibleMovesCheck("e3") && tableCheck("e3") == 0) { document.getElementById("e3").classList.add("tile_highlited");}
+        if(possibleMovesCheck("c4") && tableCheck("c4") == 0) { document.getElementById("c4").classList.add("tile_highlited");}
+    }
+
+    //yam
+    if (gameState.combinationsRealized[7] == 1) {
+        if(possibleMovesCheck("c3") && tableCheck("c3") == 0) { document.getElementById("c3").classList.add("tile_highlited");}         
+    }
+
+    document.querySelectorAll(".tile_highlited").forEach(el => {
+        el.style.outlineColor = gameState.players[gameState.currentPlayer].color;
+    });
+}
+
+
+//----------- DONE BUTTON ---------------
+doneBtn.addEventListener("click", function() {  
+    if (!isMyTurn()) return;
+    if(rollBtnEnebled == false ) return;
+
+    //send to the server where the player placed the piece
+    socket.emit("action", {
+        type: "DONE",
+        localPlayer: LOCAL_PLAYER,
+        tileId: selectedTile === null ? null : selectedTile.id
+    });
+});
+
+
+function clearForNextTurn() {
+    prewPiece = null;
+    prewWrapper = null;
+    selectedTile = null;
+
+    //dice position reset
+    wr1.style.transform = 'rotate(0deg) translate(0px,0px)';
+    wr2.style.transform = 'rotate(0deg) translate(0px,0px)';
+    wr3.style.transform = 'rotate(0deg) translate(0px,0px)';
+    wr4.style.transform = 'rotate(0deg) translate(0px,0px)';
+    wr5.style.transform = 'rotate(0deg) translate(0px,0px)';
+
+    //dice highlight reset
+    document.querySelectorAll(".die").forEach(el => {
+        el.classList.remove("selected"); // reset
+        el.style.backgroundImage = urlOf(dicePath + faces[0]);
+    });
+
+    //Roll button reset
+    document.querySelector("#rollBtn .text-button").innerText = "ROLL 3";
+
+    //result highlights reset
+    document.querySelectorAll(".result").forEach(el => {
+        el.classList.remove("higlited"); // reset
+    });
+
+    //call highlights reset
+    document.querySelectorAll(".call.selectable").forEach(el => {
+        el.classList.remove("checked"); // reset
+    });
+
+    //table tiles highlights reset
+    document.querySelectorAll(".tile").forEach(el => {
+        el.classList.remove("tile_highlited"); // reset
+    });
+}
+
+
+
+//----------- LOCK DICE ---------------
+document.querySelectorAll(".die").forEach(el => {
+    el.addEventListener("click", function() {
+        if (!isMyTurn()) return;
+
+        elem = document.getElementById(this.id);
+        if (elem.classList.contains("selected")) {
+            gameState.dice.locked[Number(this.id[2]) - 1] = false;
+            elem.classList.remove("selected"); // reset
+        } else {
+            gameState.dice.locked[Number(this.id[2]) - 1] = true;
+            elem.classList.add("selected");
+        }
+
+        socket.emit("action", {
+            type: "LOCK_DICE",
+            localPlayer: LOCAL_PLAYER,
+            lockedDice: gameState.dice.locked
+        });
+    });
+});
+
+socket.on("lockDice_result", state => {
+        gameState.dice.locked = state;
+        diceIds = ["dd1", "dd2", "dd3", "dd4", "dd5"];
+
+        for(let i=0; i<5; i++) {
+            elem = document.getElementById(diceIds[i]);
+
+            if( gameState.dice.locked[i]) {
+                if (!elem.classList.contains("selected")) {
+                    elem.classList.add("selected");
+                }
+
+            } else {
+                elem.classList.remove("selected");
+            }
+                
+        }
+});
+
+
+//----------- SELECT CALL ---------------
+document.querySelectorAll(".result.selectable").forEach(el => {
+    el.addEventListener("click", function() {
+        if (!isMyTurn()) return;
+
+        const elemId = document.getElementById(this.id).id; //relative to the indicator under the icon
+        const targetId = elemId.slice(2);
+
+        gameState.called[targetId] === true ? gameState.called[targetId] = false : gameState.called[targetId] = true;
+        let mem = gameState.called[targetId];
+        gameState.called = [null,null,null,false,false,false,false,false];
+        gameState.called[targetId] = mem;
+        highlighteCall(gameState.called);
+
+        socket.emit("action", {
+            type: "SELEC_CALL",
+            localPlayer: LOCAL_PLAYER,
+            selectedCalls: gameState.called
+        });
+    });
+});
+
+
+document.querySelectorAll(".call.selectable").forEach(el => {
+    el.addEventListener("click", function() {
+        if (!isMyTurn()) return;
+
+        const elemId = document.getElementById(this.id).id;
+        const targetId = elemId.slice(2);
+        gameState.called[targetId] === true ? gameState.called[targetId] = false : gameState.called[targetId] = true;
+        let mem = gameState.called[targetId];
+        gameState.called = [null,null,null,false,false,false,false,false];
+        gameState.called[targetId] = mem;
+        highlighteCall(gameState.called);
+    });
+});
+
+
+function highlighteCall (state) {
+    for(let i=3; i<8; i++) {
+        if( state[i]) {
+            if (!ccElements[i].classList.contains("checked")) {
+                ccElements[i].classList.add("checked");
+            }
+        } else {
+            ccElements[i].classList.remove("checked");
+        }   
+    }
+
+}
+
+
+socket.on("selectCall_result", state => {
+        highlighteCall(state);
+});
+
+//----------- OVERLAY AND OPTIONS ---------------
 overlay.addEventListener("click", (e) => {
   if (e.target === overlay) {
     overlay.style.display = "none";
   }
 });
 
-
 optBtn.addEventListener("click", function() { 
     overlay.style.display = "flex";
 });
 
 
+//----------- TIDYNESS ---------------
 document.querySelectorAll('.board-options-text').forEach(boardText => {
   boardText.addEventListener('click', () => {
       
@@ -294,8 +669,8 @@ function renderTidyness(tidyness){
 }
 
 
+//----------- DIE OPTIONS ---------------
 const dieOptions = document.querySelectorAll(".die-options");
-
 dieOptions.forEach(dieOption => {
   dieOption.addEventListener("click", () => {
       if(!dieOption.classList.contains("empty")) {
@@ -303,7 +678,7 @@ dieOptions.forEach(dieOption => {
         dieOptions.forEach(t => t.classList.remove("selected"));
         dieOption.classList.add("selected");
         
-        var dieId = Number(dieOption.id[2]);
+        let dieId = Number(dieOption.id[2]);
         document.getElementById("dice-title").textContent =  diceNames[dieId];
         faces = diceFaces[dieId];
         setCookie("diceFaces", dieId);
@@ -312,14 +687,14 @@ dieOptions.forEach(dieOption => {
 });
 
 
+//----------- BACKGROUND OPTIONS ---------------
 const bgOptions = document.querySelectorAll(".bg-options");
-
 bgOptions.forEach(bgOption => {
   bgOption.addEventListener("click", () => {
     bgOptions.forEach(t => t.classList.remove("selected"));
     bgOption.classList.add("selected");
 
-    var bgId = Number(bgOption.id[2]);
+    let bgId = Number(bgOption.id[2]);
     document.getElementById("bg-title").textContent =  backgrounds[bgId].slice(0, -4); 
     
     body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
@@ -329,604 +704,45 @@ bgOptions.forEach(bgOption => {
 });
 
 
-document.querySelectorAll(".piece").forEach(el => {
-    el.addEventListener("click", function() {
-        if (!isMyTurn()) return;
-        if(pieceEnebled == false) return;
-
-        let piece = document.getElementById(this.id);
-        let wrapper = piece.parentElement;
-        let tile = wrapper.parentElement;
-
-        if(tableCheck(tile.id) !== 0) return;
-        if(possibleMovesCheck(tile.id) !== 1) return;
-        
-        if(tableCheck(tile.id) == 0) {
-            if (piece.classList.contains("img-bounce")) {
-                //remove the piece
-                wrapper.classList.add("img-disappear");
-
-                wrapper.addEventListener("animationend", (e) => {
-                    if (e.animationName === "bounceOut") {
-                        piece.classList.remove("img-bounce");
-                        wrapper.classList.remove("img-disappear");
-                        pieceEnebled = true;
-                    }
-                }, { once: true });
-                
-            } else {    
-                //place the piece
-                if(currentPlayer == 1) {piece.style.backgroundImage = urlOf(player1.pieceImage);}
-                if(currentPlayer == 2) {piece.style.backgroundImage = urlOf(player2.pieceImage);}
-
-                if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
-                if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
-                if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
-
-                if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
-                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
-                if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
-                
-                wrapper.classList.remove("img-disappear");
-                piece.classList.add("img-bounce");
-
-                selectedTile = wrapper.parentElement;
-
-                if(prewPiece !== null) {
-                    if(prewPiece !== piece) {
-                        prewPiece.classList.remove("img-bounce");
-                        prewWrapper.classList.remove("img-disappear");
-                    }
-                }
-                prewWrapper = wrapper;
-                prewPiece = piece;
-
-                wrapper.addEventListener("animationend", (e) => {
-                    pieceEnebled = true;
-                }, { once: true });
-            }
-        }
-    });
-});
 
 
+//----------- UTILITY FUNCIONS ---------------
 
-function tableFill(divId, value) {
-    const r = rows[divId[0]];    
-    const c = Number(divId[1]) - 1; 
-    table[c][r] = value;
+function urlOf(path) {
+    return "url('" + path + "')";
 }
 
+
+const rows = { a:0, b:1, c:2, d:3, e:4 };
 
 function tableCheck(divId) {
+    if(divId === null) {return -1;}
+
     const r = rows[divId[0]];    
     const c = Number(divId[1]) - 1; 
-    return table[c][r];
+    return gameState.table[c][r];
 }
-
-rollBtn.addEventListener("click", function() {  
-    if (!isMyTurn()) return;
-    if(rollBtnEnebled == false ) return;
-    if(numRoll < 1) return;
-
-    rollBtnEnebled = false;
-    doneBtnEnebled = false;
-
-    new Audio("resources/sounds/roll.mp3").play();
-    document.querySelector("#rollBtn .text-button").innerText = "ROLL " + --numRoll;
-    rollAnimationID = setInterval(rollAnimation, 100);
-    stopRollID = setInterval(stopRoll, 1200);
-
-    document.querySelectorAll(".tile").forEach(el => {
-        el.classList.remove("tile_highlited"); // reset
-    });
-    possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
-    combinationaRealized.fill(0);
-    brelan = 0;
-    isRealized = false;
-    document.querySelectorAll(".result").forEach(el => {
-        el.classList.remove("higlited"); // reset
-    });
-
-    if(selectedTile != null) {
-        if(tableCheck(selectedTile.id) == 0) {
-            wrapper = selectedTile.querySelector(".wrapPiece");
-            piece = selectedTile.querySelector(".piece");
-
-            selectedTile.querySelector(".wrapPiece").classList.add("img-disappear");
-            wrapper.addEventListener("animationend", (e) => {
-            if (e.animationName === "bounceOut") {
-                piece.classList.remove("img-bounce");
-                wrapper.classList.remove("img-disappear");
-            }
-            }, { once: true });
-        } 
-    }
-});
-
-
-function rollAnimation() {
-    let d = 0;
-    let e = 0;
-
-    if (tidyness == 1) { d= 0; e=0; }
-    if (tidyness == 2) { d= 0; e=5; }
-    if (tidyness == 3) { d= 7; e=10; }
-
-    if(!dd1.classList.contains("selected")) {
-        diceResult[0] = rndNum(1,6);
-        dd1.style.backgroundImage = urlOf(dicePath + faces[diceResult[0]]);
-        wr1.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-    }
-    if(!dd2.classList.contains("selected")) {
-        diceResult[1] = rndNum(1,6);
-        dd2.style.backgroundImage = urlOf(dicePath + faces[diceResult[1]]);
-        wr2.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-    }
-    if(!dd3.classList.contains("selected")) {
-        diceResult[2] = rndNum(1,6);
-        dd3.style.backgroundImage = urlOf(dicePath + faces[diceResult[2]]);
-        wr3.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-    }
-    if(!dd4.classList.contains("selected")) {
-        diceResult[3] = rndNum(1,6);
-        dd4.style.backgroundImage = urlOf(dicePath + faces[diceResult[3]]);
-        wr4.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-    }
-    if(!dd5.classList.contains("selected")) {
-        diceResult[4] = rndNum(1,6);
-        dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
-        wr5.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
-    }
-} 
-
 
 
 function rndNum(numFrom, numTo) {
-    var  spanNum = numTo - numFrom + 1;
-    var num = Math.floor(Math.random() * spanNum) + numFrom; // numFrom to numTo
+    let  spanNum = numTo - numFrom + 1;
+    let num = Math.floor(Math.random() * spanNum) + numFrom; // numFrom to numTo
     if (num < numFrom) {num = numFrom;}
     if (num > numTo) {num = numTo;}
     return num;
-}
-
-    
-function possibleMovesFill(coordinates) {
-    const r = rows[coordinates[0]];    
-    const c = Number(coordinates[1]) - 1; 
-    possibleMoves[c][r] = 1;
 }
 
 
 function possibleMovesCheck(coordinates) {
     const r = rows[coordinates[0]];    
     const c = Number(coordinates[1]) - 1; 
-    return possibleMoves[c][r];
+    return gameState.possibleMoves[c][r];
 }
 
 
-function stopRoll() {
-    clearInterval(rollAnimationID);
-    clearInterval(stopRollID);
 
-    let diceSum = diceResult.reduce((diceTotal, diceVal) => diceTotal + diceVal, 0);
-    let diceResultStr = diceResult.join(""); 
-    
-    let c1 = diceResultStr.split("1").length - 1;
-    let c2 = diceResultStr.split("2").length - 1;
-    let c3 = diceResultStr.split("3").length - 1;
-    let c4 = diceResultStr.split("4").length - 1;
-    let c5 = diceResultStr.split("5").length - 1;
-    let c6 = diceResultStr.split("6").length - 1;
 
-    document.querySelectorAll(".result").forEach(el => {
-        el.classList.remove("higlited"); // reset
-    });
-
-    //brelan
-    if(c1 >= 3) {
-        brelan = 1;
-        possibleMovesFill ("a1");
-        possibleMovesFill ("e4");
-        combinationaRealized[0] = 1;
-    } else if (c2 >= 3) {
-        brelan = 2;
-        possibleMovesFill ("a2");
-        possibleMovesFill ("b5");
-        combinationaRealized[0] = 1;
-    } else if (c3 >= 3) {
-        brelan = 3;
-        possibleMovesFill ("b1");
-        possibleMovesFill ("a5");
-        combinationaRealized[0] = 1;
-    } else if (c4 >= 3) {
-        possibleMovesFill ("d1");
-        possibleMovesFill ("e5");
-        combinationaRealized[0] = 1;
-        brelan = 4;
-    } else if (c5 >= 3) {
-        possibleMovesFill ("e2");
-        possibleMovesFill ("d5");
-        combinationaRealized[0] = 1;
-        brelan = 5;
-    } else if (c6 >= 3) {
-        brelan = 6;
-        possibleMovesFill ("e1");
-        possibleMovesFill ("a4");
-        combinationaRealized[0] = 1;
-    } 
-    
-
-    
-    //full
-    if(((c1 == 3) || (c2 == 3) || (c3 == 3) || (c4 == 3) || (c5 == 3) || (c6 == 3)) &&
-        ((c1 == 2) || (c2 == 2) || (c3 == 2) || (c4 == 2) || (c5 == 2) || (c6 == 2))     )
-    {   
-        possibleMovesFill ("c2");
-        possibleMovesFill ("b3");
-        combinationaRealized[3] = 1;
-        isRealized = true;
-    }
-    
-    //carre
-    if((c1 >= 4) || (c2 >= 4) || (c3 >= 4) || (c4 >= 4) || (c5 >= 4) || (c6 >= 4))
-    {
-        possibleMovesFill ("b2");
-        possibleMovesFill ("c5");
-        combinationaRealized[4] = 1;
-        isRealized = true;
-    }
-    
-    //petit
-    if(diceSum < 9){
-        possibleMovesFill ("a3");
-        possibleMovesFill ("d4");
-        combinationaRealized[5] = 1;
-        isRealized = true;
-    }
-
-    //suite
-    if(((c1 == 1) && (c2 == 1) && (c3 == 1) && (c4 == 1) && (c5 == 1) && (c6 == 0)) ||
-        ((c1 == 0) && (c2 == 1) && (c3 == 1) && (c4 == 1) && (c5 == 1) && (c6 == 1))     )
-    {
-        possibleMovesFill ("e3");
-        possibleMovesFill ("c4");
-        combinationaRealized[6] = 1;
-        isRealized = true;
-    }
-
-    //yam
-    if((c1 == 5) || (c2 == 5) || (c3 == 5) || (c4 == 5) || (c5 == 5) || (c6 == 5))
-    {
-        possibleMovesFill ("c3");
-        combinationaRealized[7] = 1;
-        isRealized = true;
-    }
-
-    //sec
-    const count = document.querySelectorAll(".die.selected").length;
-    if((count === 0) && (isRealized == true))
-    {
-        possibleMovesFill ("d2");
-        possibleMovesFill ("b4");
-        combinationaRealized[1] = 1;
-    }
-
-    //appel
-    if(document.getElementById("cc4").classList.contains("checked") && combinationaRealized[3] == 1) {
-        combinationaRealized[2] = 1;
-    }
-    if(document.getElementById("cc5").classList.contains("checked") && combinationaRealized[4] == 1) {
-        combinationaRealized[2] = 1;
-    }
-    if(document.getElementById("cc6").classList.contains("checked") && combinationaRealized[5] == 1) {
-        combinationaRealized[2] = 1;
-    }
-    if(document.getElementById("cc7").classList.contains("checked") && combinationaRealized[6] == 1) {
-        combinationaRealized[2] = 1;
-    }
-    if(document.getElementById("cc8").classList.contains("checked") && combinationaRealized[7] == 1) {
-        combinationaRealized[2] = 1;
-    }
-
-    if(combinationaRealized[2] == 1) {
-        possibleMovesFill ("c1");
-        possibleMovesFill ("d3");
-    }
-
-    resultsHighlite();
-    tableHighlite();
-    rollBtnEnebled = true;
-    doneBtnEnebled = true;
-}     
-
-
-
-function resultsHighlite() {
-    if (combinationaRealized[0] == 1) {
-        document.getElementById("rr1").classList.add("higlited");
-    }
-    if (combinationaRealized[1] == 1) {
-        document.getElementById("rr2").classList.add("higlited");
-    }
-    if (combinationaRealized[2] == 1) {
-        document.getElementById("rr3").classList.add("higlited");
-    }
-    if (combinationaRealized[3] == 1) {
-        document.getElementById("rr4").classList.add("higlited");
-    }
-    if (combinationaRealized[4] == 1) {
-        document.getElementById("rr5").classList.add("higlited");
-    }
-    if (combinationaRealized[5] == 1) {
-        document.getElementById("rr6").classList.add("higlited");
-    }
-    if (combinationaRealized[6] == 1) {
-        document.getElementById("rr7").classList.add("higlited");
-    }
-    if (combinationaRealized[7] == 1) {
-        document.getElementById("rr8").classList.add("higlited");
-    }
-}
-
-
-function tableHighlite() {
-
-    if (combinationaRealized[0] == 1) {
-        switch (brelan) {
-            case 1:
-                if(possibleMovesCheck("a1") && tableCheck("a1") == 0) { document.getElementById("a1").classList.add("tile_highlited");}
-                if(possibleMovesCheck("e4") && tableCheck("e4") == 0) { document.getElementById("e4").classList.add("tile_highlited");}
-                break;
-
-            case 2:
-                if(possibleMovesCheck("a2") && tableCheck("a2") == 0) { document.getElementById("a2").classList.add("tile_highlited");}
-                if(possibleMovesCheck("b5") && tableCheck("b5") == 0) { document.getElementById("b5").classList.add("tile_highlited");}
-                break;
-
-            case 3:
-                if(possibleMovesCheck("b1") && tableCheck("b1") == 0) { document.getElementById("b1").classList.add("tile_highlited");}
-                if(possibleMovesCheck("a5") && tableCheck("a5") == 0) { document.getElementById("a5").classList.add("tile_highlited");}
-                break;
-
-            case 4:
-                if(possibleMovesCheck("d1") && tableCheck("d1") == 0) { document.getElementById("d1").classList.add("tile_highlited");}
-                if(possibleMovesCheck("e5") && tableCheck("e5") == 0) { document.getElementById("e5").classList.add("tile_highlited");}
-                break;
-
-            case 5:
-                if(possibleMovesCheck("e2") && tableCheck("e2") == 0) { document.getElementById("e2").classList.add("tile_highlited");}                 
-                if(possibleMovesCheck("d5") && tableCheck("d5") == 0) { document.getElementById("d5").classList.add("tile_highlited");}
-                break;
-
-            case 6:
-                if(possibleMovesCheck("e1") && tableCheck("e1") == 0) { document.getElementById("e1").classList.add("tile_highlited");}
-                if(possibleMovesCheck("a4") && tableCheck("a4") == 0) { document.getElementById("a4").classList.add("tile_highlited");}
-                break;
-        }
-    }
-
-    //sec
-    if (combinationaRealized[1] == 1) {
-        if(possibleMovesCheck("d2") && tableCheck("d2") == 0) { document.getElementById("d2").classList.add("tile_highlited");}
-        if(possibleMovesCheck("b4") && tableCheck("b4") == 0) { document.getElementById("b4").classList.add("tile_highlited");}
-    }   
-
-    //appel
-    if (combinationaRealized[2] == 1) {
-        if(possibleMovesCheck("c1") && tableCheck("c1") == 0) { document.getElementById("c1").classList.add("tile_highlited");}
-        if(possibleMovesCheck("d3") && tableCheck("d3") == 0) { document.getElementById("d3").classList.add("tile_highlited");}
-    }
-
-    //full
-    if (combinationaRealized[3] == 1) {
-        if(possibleMovesCheck("c2") && tableCheck("c2") == 0) { document.getElementById("c2").classList.add("tile_highlited");}
-        if(possibleMovesCheck("b3") && tableCheck("b3") == 0) { document.getElementById("b3").classList.add("tile_highlited");}
-    }
-
-    //carre
-    if (combinationaRealized[4] == 1) {
-        if(possibleMovesCheck("b2") && tableCheck("b2") == 0) { document.getElementById("b2").classList.add("tile_highlited");}
-        if(possibleMovesCheck("c5") && tableCheck("c5") == 0) { document.getElementById("c5").classList.add("tile_highlited");}
-    }
-
-    //petit
-    if (combinationaRealized[5] == 1) {
-        if(possibleMovesCheck("a3") && tableCheck("a3") == 0) { document.getElementById("a3").classList.add("tile_highlited");}
-        if(possibleMovesCheck("d4") && tableCheck("d4") == 0) { document.getElementById("d4").classList.add("tile_highlited");}
-    }
-
-    //suite
-    if (combinationaRealized[6] == 1) {
-        if(possibleMovesCheck("e3") && tableCheck("e3") == 0) { document.getElementById("e3").classList.add("tile_highlited");}
-        if(possibleMovesCheck("c4") && tableCheck("c4") == 0) { document.getElementById("c4").classList.add("tile_highlited");}
-    }
-
-    //yam
-    if (combinationaRealized[7] == 1) {
-        if(possibleMovesCheck("c3") && tableCheck("c3") == 0) { document.getElementById("c3").classList.add("tile_highlited");}         
-    }
-
-    document.querySelectorAll(".tile_highlited").forEach(el => {
-        el.style.outlineColor = selectedColor[currentPlayer];
-    });
-}
-
-
-doneBtn.addEventListener("click", function() {  
-    if (!isMyTurn()) return;
-    if(rollBtnEnebled == false ) return;
-
-    if(selectedTile != null){
-        tableFill(selectedTile.id, currentPlayer);
-        //countPieces();
-        //countPoint();
-    }
-    prewPiece = null;
-    prewWrapper = null;
-    selectedTile = null;
-
-    wr1.style.transform = 'rotate(0deg) translate(0px,0px)';
-    wr2.style.transform = 'rotate(0deg) translate(0px,0px)';
-    wr3.style.transform = 'rotate(0deg) translate(0px,0px)';
-    wr4.style.transform = 'rotate(0deg) translate(0px,0px)';
-    wr5.style.transform = 'rotate(0deg) translate(0px,0px)';
-
-    document.querySelectorAll(".die").forEach(el => {
-        el.classList.remove("selected"); // reset
-        el.style.backgroundImage = urlOf(dicePath + faces[0]);
-
-        document.querySelector("#rollBtn .text-button").innerText = "ROLL 3";
-        numRoll = 3;
-    });
-
-    brelan = 0;
-    combinationaRealized.fill(0);
-    document.querySelectorAll(".result").forEach(el => {
-        el.classList.remove("higlited"); // reset
-    });
-
-    document.querySelectorAll(".call.selectable").forEach(el => {
-        el.classList.remove("checked"); // reset
-    });
-
-    document.querySelectorAll(".tile").forEach(el => {
-        el.classList.remove("tile_highlited"); // reset
-    });
-
-    possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
-
-    numDicesThrowed = 0;
-    isRealized = false;
-
-
-    socket.emit("action", {
-        type: "DONE",
-        player: LOCAL_PLAYER,
-        table,
-        players: {
-            1: player1,
-            2: player2
-        }
-    });
-
-});
-
-
-document.querySelectorAll(".die").forEach(el => {
-    el.addEventListener("click", function() {
-        if (!isMyTurn()) return;
-        if(numRoll === 3) return;
-
-        elem = document.getElementById(this.id);
-
-        if (elem.classList.contains("selected")) {
-            elem.classList.remove("selected"); // reset
-        } else {
-            elem.classList.add("selected");
-        }
-    });
-});
-
-
-document.querySelectorAll(".result.selectable").forEach(el => {
-    el.addEventListener("click", function() {
-        if (!isMyTurn()) return;
-
-        const elemId = document.getElementById(this.id).id;
-        const targetId = "cc" + elemId.slice(2);
-        const targetDiv = document.getElementById(targetId);
-
-        if (targetDiv.classList.contains("checked")) {
-            targetDiv.classList.remove("checked"); 
-        } else {
-            document.querySelectorAll(".call.selectable").forEach(el => {
-                el.classList.remove("checked"); // reset
-            });
-            targetDiv.classList.add("checked");
-        }
-    });
-});
-
-
-document.querySelectorAll(".call.selectable").forEach(el => {
-    el.addEventListener("click", function() {
-        if (!isMyTurn()) return;
-
-        const elemId = document.getElementById(this.id);
-
-        if (elemId.classList.contains("checked")) {
-            elemId.classList.remove("checked"); 
-        } else {
-            document.querySelectorAll(".call.selectable").forEach(el => {
-                el.classList.remove("checked"); // reset
-            });
-            elemId.classList.add("checked");
-        }
-    });
-});
-
-
-function countPieces(){
-
-    player1.remainingPieces = 12 - table.flat().filter(v => v == "1").length;
-    player2.remainingPieces = 12 - table.flat().filter(v => v == "2").length;
-
-    pawnP1Text.textContent = player1.remainingPieces;
-    pawnP2Text.textContent = player2.remainingPieces;
-}
-
-
-function countPoint()
-{ 
-    player1.points = 0;
-    player2.points = 0;
-    tableArray = table.flat();
-
-    //check Horizontal
-    for (var y = 0; y < 25; y+=5) {
-        for (var x = 0; x < 3; x++) {
-            const tris = [tableArray[y + x], tableArray[y + x + 1],  tableArray[y + x + 2]].join("");
-            if(tris == "111"){player1.points++;}
-            if(tris == "222"){player2.points++;}
-        }
-    }
-
-
-    //check Vertical 
-    for (var x = 0; x < 5; x++) {
-        for (var y = 0; y < 25; y+=5) {
-            const tris = [tableArray[y + x], tableArray[y + x + 5],  tableArray[y + x + 10]].join("");
-            if(tris == "111"){player1.points++;}
-            if(tris == "222"){player2.points++;}
-        }
-    }
-
-
-    //check Diagonal
-    for (var x = 0; x < 3; x++) {
-        for (var y = 0; y < 15; y+=5) {
-            const tris = [tableArray[y + x], tableArray[y + x + 6],  tableArray[y + x + 12]].join("");
-            if(tris == "111"){player1.points++;}
-            if(tris == "222"){player2.points++;}
-        }
-    }
-
-
-    //check Diagonal
-    for (var x = 2; x < 5; x++) {
-        for (var y = 0; y < 15; y+=5) {
-            const tris = [tableArray[y + x], tableArray[y + x + 4],  tableArray[y + x + 8]].join("");
-            if(tris == "111"){player1.points++;}
-            if(tris == "222"){player2.points++;}
-        }
-    }
-
-    coinP1Text.textContent = player1.points;
-    coinP2Text.textContent = player2.points;
-}
-
-
+//----------- COOCKIES FUNCIONS ---------------
 
 function setCookie(name, value, days = 365) {
   const d = new Date();
@@ -937,7 +753,6 @@ function setCookie(name, value, days = 365) {
     ";expires=" + d.toUTCString() +
     ";path=/";
 }
-
 
 
 function getCookie(name, defaultValue) {
@@ -960,69 +775,69 @@ function getCookie(name, defaultValue) {
 
 
 
-function urlOf(path) {
-    return "url('" + path + "')";
-}
 
 
-
-
-
+//----------- SERVER SIDE ---------------
 
 socket.on("init", data => {
-    MY_PLAYER = data.playerNumber;
+    LOCAL_PLAYER = data.playerNumber;
+    gameState = data.gameState;
+    console.log("You are player " + LOCAL_PLAYER);
 
-
-    if(MY_PLAYER == 1) {
+    if(LOCAL_PLAYER == 1) {
         textPlayerP1.textContent = "YOU";
-        console.log("You are player 1");
     } else {
         textPlayerP2.textContent = "YOU";
-        console.log("You are player 2");
     }
 
-    player1.pieceImage = data.playersConfig[1].pieceImage;
-    player2.pieceImage = data.playersConfig[2].pieceImage;
-
-    player1.color = data.playersConfig[1].color;
-    player2.color = data.playersConfig[2].color;
-    selectedColor[1] = player1.color;
-    selectedColor[2] = player2.color;
-
-    boxPlayer1.style.backgroundColor = player1.color;
-    boxPlayer2.style.backgroundColor = player2.color;
-    
-    boxPlayer1.style.boxShadow = player1.color + " 0px 0px 8px 8px";
-    boxPlayer2.style.boxShadow = "black 0px 0px 0px 0px";
-
+    boxPlayer1.style.backgroundColor = gameState.players[1].color;
+    boxPlayer2.style.backgroundColor = gameState.players[2].color;
 });
 
 
 socket.on("stateUpdate", state => {
-    table = state.table;
-    currentPlayer = state.currentPlayer;
+    gameState = state;
 
-    player1.points = state.players[1].points;
-    player2.points = state.players[2].points;
+    clearForNextTurn();
+    divsOpacity(state);
+    divPlayerShadow(state.currentPlayer);
+});
 
-    player1.remainingPieces = state.players[1].remainingPieces;
-    player2.remainingPieces = state.players[2].remainingPieces;
 
-    coinP1Text.textContent = player1.points;
-    coinP2Text.textContent = player2.points;
-    pawnP1Text.textContent = player1.remainingPieces;
-    pawnP2Text.textContent = player2.remainingPieces;
 
-    if(currentPlayer === 1){
-        boxPlayer1.style.boxShadow = player1.color + " 0px 0px 8px 8px";
+
+
+
+function stateUpdate() {
+
+    coinP1Text.textContent = gameState.players[1].points;
+    coinP2Text.textContent = gameState.players[2].points;
+    pawnP1Text.textContent = gameState.players[1].remainingPieces;
+    pawnP2Text.textContent = gameState.players[2].remainingPieces;
+
+    divPlayerShadow(gameState.currentPlayer); 
+    renderBoardFromState(gameState.table);
+}
+
+
+function divsOpacity(state) {
+    if (!state) return;
+
+    const opacity = (state.currentPlayer === LOCAL_PLAYER) ? 1 : 0.5;
+    document.getElementById("div-dice").style.opacity = opacity;
+    document.getElementById("div-resultsAndCalls").style.opacity = opacity;
+}
+
+
+function divPlayerShadow (player){
+    if(player== 1){
+        boxPlayer1.style.boxShadow = gameState.players[1].color + " 0px 0px 8px 8px";
         boxPlayer2.style.boxShadow = "black 0px 0px 0px 0px";
     } else {
         boxPlayer1.style.boxShadow = "black 0px 0px 0px 0px";
-        boxPlayer2.style.boxShadow = player2.color + " 0px 0px 8px 8px";
+        boxPlayer2.style.boxShadow = gameState.players[2].color + " 0px 0px 8px 8px";
     }
-
-  renderBoardFromState(table);
-});
+}
 
 
 function renderBoardFromState(table) {
@@ -1040,12 +855,12 @@ function renderBoardFromState(table) {
     }
 
     if (value === 1) {
-      piece.style.backgroundImage = `url('${player1.pieceImage}')`;
+      piece.style.backgroundImage = `url('${gameState.players[1].pieceImage}')`;
       piece.classList.add("img-bounce");
     }
 
     if (value === 2) {
-      piece.style.backgroundImage = `url('${player2.pieceImage}')`;
+      piece.style.backgroundImage = `url('${gameState.players[2].pieceImage}')`;
       piece.classList.add("img-bounce");
     }
   });
