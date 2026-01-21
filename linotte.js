@@ -92,7 +92,7 @@ const backgrounds = [
     "sun-tornado.svg",
     "pattern-randomized.svg",
     "subtle-prism.svg",
-    "varying-stripes.svg",
+    "parabolic-ellipse.svg",
     "repeating-triangles.svg"
 ];
 body.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
@@ -130,6 +130,7 @@ let pieces =  [
     "p027_ad8a72ff",
     "p028_c5d4eaff",
     "p029_fd6c92ff",
+    "p030_e49c5dff",
 ];
 
 //------ PLAYERS ---------------
@@ -165,18 +166,22 @@ const selectedColor = [null, player1.color, player2.color];
 document.getElementsByClassName("player p1")[0].style.backgroundColor = player1.color;
 document.getElementsByClassName("player p2")[0].style.backgroundColor = player2.color;
 let currentPlayer = 1;
-document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 12px 8px";
+document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 5px";
 
 const LOCAL_PLAYER = 1; // o 2
 /*function isMyTurn() {return currentPlayer === LOCAL_PLAYER;}*/
 function isMyTurn() {return currentPlayer;}
 
-const pawnP1Text = document.getElementById("pawnP1Text").textContent = player1.remainingPieces;
-const coinP1Text = document.getElementById("coinP1Text").textContent = player1.points;
-const pawnP2Text = document.getElementById("pawnP2Text").textContent = player2.remainingPieces;
-const coinP2Text = document.getElementById("coinP2Text").textContent = player2.points;
+const pawnP1Text = document.getElementById("pawnP1Text");
+const coinP1Text = document.getElementById("coinP1Text");
+const pawnP2Text = document.getElementById("pawnP2Text");
+const coinP2Text = document.getElementById("coinP2Text");
 
-
+pawnP1Text.textContent = player1.remainingPieces;
+coinP1Text.textContent = player1.points;
+pawnP2Text.textContent = player2.remainingPieces;
+coinP2Text.textContent = player2.points;
+ 
 //----------- DICE TABLE AND GAME -----------------
 let combinationaRealized = [0,0,0,0,0,0,0,0];
 let brelan = 0;
@@ -333,6 +338,7 @@ document.querySelectorAll(".piece").forEach(el => {
             if (piece.classList.contains("img-bounce")) {
                 //remove the piece
                 wrapper.classList.add("img-disappear");
+                selectedTile = null;
 
                 wrapper.addEventListener("animationend", (e) => {
                     if (e.animationName === "bounceOut") {
@@ -380,6 +386,8 @@ document.querySelectorAll(".piece").forEach(el => {
 
 
 function tableFill(divId, value) {
+    if(!divId) return;
+
     const r = rows[divId[0]];    
     const c = Number(divId[1]) - 1; 
     table[c][r] = value;
@@ -499,7 +507,7 @@ function stopRoll() {
 
     let diceSum = diceResult.reduce((diceTotal, diceVal) => diceTotal + diceVal, 0);
     let diceResultStr = diceResult.join(""); 
-    
+
     let c1 = diceResultStr.split("1").length - 1;
     let c2 = diceResultStr.split("2").length - 1;
     let c3 = diceResultStr.split("3").length - 1;
@@ -543,8 +551,6 @@ function stopRoll() {
         possibleMovesFill ("a4");
         combinationaRealized[0] = 1;
     } 
-    
-
     
     //full
     if(((c1 == 3) || (c2 == 3) || (c3 == 3) || (c4 == 3) || (c5 == 3) || (c6 == 3)) &&
@@ -741,6 +747,7 @@ function tableHighlite() {
 }
 
 
+//------------------DONE BUTTON----------------------
 doneBtn.addEventListener("click", function() {  
     if (!isMyTurn()) return;
     if(rollBtnEnebled == false ) return;
@@ -790,13 +797,14 @@ doneBtn.addEventListener("click", function() {
     if(currentPlayer === 1){
         currentPlayer = 2;
         document.getElementsByClassName("player p1")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p2")[0].style.boxShadow = player2.color + " 0px 0px 8px 8px";
+        document.getElementsByClassName("player p2")[0].style.boxShadow = player2.color + " 0px 0px 0px 6px";
     } else {
         currentPlayer = 1;
         document.getElementsByClassName("player p2")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 8px 8px";
+        document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 6px";
     }
 });
+
 
 
 document.querySelectorAll(".die").forEach(el => {
@@ -855,13 +863,14 @@ document.querySelectorAll(".call.selectable").forEach(el => {
 
 function countPieces(){
 
+    console.log("table " + table.flat());
     player1.remainingPieces = 12 - table.flat().filter(v => v == "1").length;
     player2.remainingPieces = 12 - table.flat().filter(v => v == "2").length;
+    console.log("P1 PIECES " + player1.remainingPieces);
 
     pawnP1Text.textContent = player1.remainingPieces;
     pawnP2Text.textContent = player2.remainingPieces;
 }
-
 
 function countPoint()
 { 
