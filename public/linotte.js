@@ -317,59 +317,68 @@ document.querySelectorAll(".piece").forEach(el => {
         if(pieceEnebled == false) return;
 
         let piece = document.getElementById(this.id);
-        let wrapper = piece.parentElement;
-        let tile = wrapper.parentElement;
-
-        if(tableCheck(tile.id) !== 0) return;
-        if(possibleMovesCheck(tile.id) !== 1) return;
-        
-        if(tableCheck(tile.id) == 0) {
-            if (piece.classList.contains("img-bounce")) {
-                //remove the piece
-                wrapper.classList.add("img-disappear");
-
-                wrapper.addEventListener("animationend", (e) => {
-                    if (e.animationName === "bounceOut") {
-                        piece.classList.remove("img-bounce");
-                        wrapper.classList.remove("img-disappear");
-                        pieceEnebled = true;
-                    }
-                }, { once: true });
-                
-            } else {    
-                //place the piece
-                if(gameState.currentPlayer == 1) {piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);}
-                if(gameState.currentPlayer == 2) {piece.style.backgroundImage = urlOf(gameState.players[2].pieceImage);}
-
-                if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
-                if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
-                if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
-
-                if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
-                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
-                if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
-                
-                wrapper.classList.remove("img-disappear");
-                piece.classList.add("img-bounce");
-
-                selectedTile = wrapper.parentElement;
-
-                if(prewPiece !== null) {
-                    if(prewPiece !== piece) {
-                        prewPiece.classList.remove("img-bounce");
-                        prewWrapper.classList.remove("img-disappear");
-                    }
-                }
-                prewWrapper = wrapper;
-                prewPiece = piece;
-
-                wrapper.addEventListener("animationend", (e) => {
-                    pieceEnebled = true;
-                }, { once: true });
-            }
-        }
+        placePiece(piece.id);
     });
 });
+
+
+function placePiece(pieceId) {
+    if(!pieceId) return;
+
+    console.log("Piece " + pieceId + " player " + gameState.currentPlayer);
+    let piece = document.getElementById(pieceId);
+    let wrapper = piece.parentElement;
+    let tile = wrapper.parentElement;
+
+    if(tableCheck(tile.id) !== 0) return;
+    if(possibleMovesCheck(tile.id) !== 1) return;
+    
+    if(tableCheck(tile.id) == 0) {
+        if (piece.classList.contains("img-bounce")) {
+            //remove the piece
+            wrapper.classList.add("img-disappear");
+
+            wrapper.addEventListener("animationend", (e) => {
+                if (e.animationName === "bounceOut") {
+                    piece.classList.remove("img-bounce");
+                    wrapper.classList.remove("img-disappear");
+                    pieceEnebled = true;
+                }
+            }, { once: true });
+            
+        } else {    
+            //place the piece
+            if(gameState.currentPlayer == 1) {piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);}
+            if(gameState.currentPlayer == 2) {piece.style.backgroundImage = urlOf(gameState.players[2].pieceImage);}
+
+            if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
+            if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
+            if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
+
+            if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
+            if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
+            if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
+            
+            wrapper.classList.remove("img-disappear");
+            piece.classList.add("img-bounce");
+
+            selectedTile = wrapper.parentElement;
+
+            if(prewPiece !== null) {
+                if(prewPiece !== piece) {
+                    prewPiece.classList.remove("img-bounce");
+                    prewWrapper.classList.remove("img-disappear");
+                }
+            }
+            prewWrapper = wrapper;
+            prewPiece = piece;
+
+            wrapper.addEventListener("animationend", (e) => {
+                pieceEnebled = true;
+            }, { once: true });
+        }
+    }
+}
 
 
 
@@ -463,6 +472,7 @@ doneBtn.addEventListener("click", function() {
     if (!isMyTurn()) return;
     if(rollBtnEnebled == false ) return;
 
+    console.log("done_click");
     //send to the server where the player placed the piece
     socket.emit("action", {
         type: "DONE",
@@ -473,9 +483,13 @@ doneBtn.addEventListener("click", function() {
 
 
 function clearForNextTurn() {
+    console.log;("clearForNextTurn");
+
     prewPiece = null;
     prewWrapper = null;
     selectedTile = null;
+
+    console.log;("Tranform before is " + wr1.style.transform);
 
     //dice position reset
     wr1.style.transform = 'rotate(0deg) translate(0px,0px)';
@@ -483,6 +497,8 @@ function clearForNextTurn() {
     wr3.style.transform = 'rotate(0deg) translate(0px,0px)';
     wr4.style.transform = 'rotate(0deg) translate(0px,0px)';
     wr5.style.transform = 'rotate(0deg) translate(0px,0px)';
+
+    console.log;("Tranform after is " + wr1.style.transform);
 
     //dice highlight reset
     document.querySelectorAll(".die").forEach(el => {
@@ -605,9 +621,69 @@ function highlighteCall (state) {
 }
 
 
+function stateUpdate() {
+
+    coinP1Text.textContent = gameState.players[1].points;
+    coinP2Text.textContent = gameState.players[2].points;
+    pawnP1Text.textContent = gameState.players[1].remainingPieces;
+    pawnP2Text.textContent = gameState.players[2].remainingPieces;
+
+    divPlayerShadow(gameState.currentPlayer); 
+    renderBoardFromState(gameState.table);
+}
+
+
+function divsOpacity(state) {
+    if (!state) return;
+
+    const opacity = (state.currentPlayer === LOCAL_PLAYER) ? 1 : 0.5;
+    document.getElementById("div-dice").style.opacity = opacity;
+    document.getElementById("div-resultsAndCalls").style.opacity = opacity;
+}
+
+
+function divPlayerShadow (player){
+    if(player== 1){
+        boxPlayer1.style.boxShadow = gameState.players[1].color + " 0px 0px 8px 8px";
+        boxPlayer2.style.boxShadow = "black 0px 0px 0px 0px";
+    } else {
+        boxPlayer1.style.boxShadow = "black 0px 0px 0px 0px";
+        boxPlayer2.style.boxShadow = gameState.players[2].color + " 0px 0px 8px 8px";
+    }
+}
+
+
+function renderBoardFromState(table) {
+  document.querySelectorAll(".tile").forEach(tile => {
+    const id = tile.id;      // es: "b3"
+    const r = rows[id[0]];
+    const c = Number(id[1]) - 1;
+
+    const value = table[c][r];
+    const piece = tile.querySelector(".piece");
+
+    if (value === 0) {
+      piece.style.backgroundImage = "";
+      piece.classList.remove("img-bounce");
+    }
+
+    if (value === 1) {
+      piece.style.backgroundImage = `url('${gameState.players[1].pieceImage}')`;
+      piece.classList.add("img-bounce");
+    }
+
+    if (value === 2) {
+      piece.style.backgroundImage = `url('${gameState.players[2].pieceImage}')`;
+      piece.classList.add("img-bounce");
+    }
+  });
+}
+
+
 socket.on("selectCall_result", state => {
         highlighteCall(state);
 });
+
 
 //----------- OVERLAY AND OPTIONS ---------------
 overlay.addEventListener("click", (e) => {
@@ -716,7 +792,7 @@ function urlOf(path) {
 const rows = { a:0, b:1, c:2, d:3, e:4 };
 
 function tableCheck(divId) {
-    if(divId === null) {return -1;}
+    if(!divId) {return -1;}
 
     const r = rows[divId[0]];    
     const c = Number(divId[1]) - 1; 
@@ -795,73 +871,19 @@ socket.on("init", data => {
 });
 
 
-socket.on("stateUpdate", state => {
+socket.on("state_update", state => {
     gameState = state;
-
     clearForNextTurn();
     divsOpacity(state);
     divPlayerShadow(state.currentPlayer);
 });
 
 
+socket.on("place_piece", state => {
+    console.log("place_piece" + state);
+    placePiece(state);
+});
 
 
 
 
-function stateUpdate() {
-
-    coinP1Text.textContent = gameState.players[1].points;
-    coinP2Text.textContent = gameState.players[2].points;
-    pawnP1Text.textContent = gameState.players[1].remainingPieces;
-    pawnP2Text.textContent = gameState.players[2].remainingPieces;
-
-    divPlayerShadow(gameState.currentPlayer); 
-    renderBoardFromState(gameState.table);
-}
-
-
-function divsOpacity(state) {
-    if (!state) return;
-
-    const opacity = (state.currentPlayer === LOCAL_PLAYER) ? 1 : 0.5;
-    document.getElementById("div-dice").style.opacity = opacity;
-    document.getElementById("div-resultsAndCalls").style.opacity = opacity;
-}
-
-
-function divPlayerShadow (player){
-    if(player== 1){
-        boxPlayer1.style.boxShadow = gameState.players[1].color + " 0px 0px 8px 8px";
-        boxPlayer2.style.boxShadow = "black 0px 0px 0px 0px";
-    } else {
-        boxPlayer1.style.boxShadow = "black 0px 0px 0px 0px";
-        boxPlayer2.style.boxShadow = gameState.players[2].color + " 0px 0px 8px 8px";
-    }
-}
-
-
-function renderBoardFromState(table) {
-  document.querySelectorAll(".tile").forEach(tile => {
-    const id = tile.id;      // es: "b3"
-    const r = rows[id[0]];
-    const c = Number(id[1]) - 1;
-
-    const value = table[c][r];
-    const piece = tile.querySelector(".piece");
-
-    if (value === 0) {
-      piece.style.backgroundImage = "";
-      piece.classList.remove("img-bounce");
-    }
-
-    if (value === 1) {
-      piece.style.backgroundImage = `url('${gameState.players[1].pieceImage}')`;
-      piece.classList.add("img-bounce");
-    }
-
-    if (value === 2) {
-      piece.style.backgroundImage = `url('${gameState.players[2].pieceImage}')`;
-      piece.classList.add("img-bounce");
-    }
-  });
-}

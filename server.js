@@ -119,7 +119,7 @@ io.on("connection", socket => {
     gameState
   });
 
-  socket.emit("stateUpdate", gameState);
+  socket.emit("state_update", gameState);
 
 
   //------------- HANDLE ACTIONS --------------
@@ -160,6 +160,7 @@ io.on("connection", socket => {
       gameState.called = [null,null,null,false,false,false,false,false];
       gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
       io.emit("state_update", gameState);
+      socket.broadcast.emit("place_piece", data.tileId);
     }
 
   });
