@@ -1159,6 +1159,10 @@ label {
   width: 14vw;
   aspect-ratio: 1/1;
   border-radius: 0.8em;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: transparent;
 }
 
 .die-options.empty {

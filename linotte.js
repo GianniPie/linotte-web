@@ -25,15 +25,7 @@ let rollAnimationID;
 let stopRollID;
 
 
-const diceNames = [
-    "CLASSIC",
-    "FLAT",
-    "ONE RED",
-    "CHINESE",
-    "PERSIAN",
-];
 
-const dicePath = "resources/images/dice/";
 const diceClassic = [
     "c100.svg",
     "c101.svg",
@@ -44,19 +36,9 @@ const diceClassic = [
     "c106.svg"
 ];
 
-const diceOneRed = [
-    "g100.svg",
-    "g107.svg",
-    "g102.svg",
-    "g103.svg",
-    "g104.svg",
-    "g105.svg",
-    "g106.svg"
-];
-
 const diceFlat = [
     "g100.svg",
-    "g101.svg",
+    "g107.svg",
     "g102.svg",
     "g103.svg",
     "g104.svg",
@@ -83,8 +65,43 @@ const dicePersian = [
     "p105.svg",
     "p106.svg"
 ];
-const diceFaces = [diceClassic, diceFlat, diceOneRed, diceChinese, dicePersian];
+
+const diceTraditional = [
+    "tr100.png",
+    "tr101.png",
+    "tr102.png",
+    "tr103.png",
+    "tr104.png",
+    "tr105.png",
+    "tr106.png"
+];
+
+const diceRed = [
+    "re100.jpg",
+    "re101.jpg",
+    "re102.jpg",
+    "re103.jpg",
+    "re104.jpg",
+    "re105.jpg",
+    "re106.jpg"
+];
+
+const diceNames = [
+    "TRADITIONAL",
+    "CLASSIC",
+    "RED",
+    "FLAT",
+    "CHINESE",
+];
+
+const dicePath = "resources/images/dice/";
+const diceFaces = [diceTraditional, diceClassic, diceRed, diceFlat, diceChinese];
 let faces = diceFaces[getCookie("diceFaces")];
+document.getElementById("do0").style.backgroundImage = urlOf(dicePath + diceFaces[0][1]);
+document.getElementById("do1").style.backgroundImage = urlOf(dicePath + diceFaces[1][1]);
+document.getElementById("do2").style.backgroundImage = urlOf(dicePath + diceFaces[2][1]);
+document.getElementById("do3").style.backgroundImage = urlOf(dicePath + diceFaces[3][1]);
+document.getElementById("do4").style.backgroundImage = urlOf(dicePath + diceFaces[4][1]);
 
 const bgPath = "resources/images/backgrounds/";
 const backgrounds = [
@@ -292,18 +309,23 @@ function renderTidyness(tidyness){
 const dieOptions = document.querySelectorAll(".die-options");
 
 dieOptions.forEach(dieOption => {
-  dieOption.addEventListener("click", () => {
-      if(!dieOption.classList.contains("empty")) {
+    dieOption.addEventListener("click", () => {
+        if(!dieOption.classList.contains("empty")) {
 
-        dieOptions.forEach(t => t.classList.remove("selected"));
-        dieOption.classList.add("selected");
-        
-        var dieId = Number(dieOption.id[2]);
-        document.getElementById("dice-title").textContent =  diceNames[dieId];
-        faces = diceFaces[dieId];
-        setCookie("diceFaces", dieId);
-      }
-  });
+            dieOptions.forEach(t => t.classList.remove("selected"));
+            dieOption.classList.add("selected");
+
+            var dieId = Number(dieOption.id[2]);
+            document.getElementById("dice-title").textContent =  diceNames[dieId];
+            faces = diceFaces[dieId];
+            dd1.style.backgroundImage = urlOf(dicePath + faces[diceResult[0]]);
+            dd2.style.backgroundImage = urlOf(dicePath + faces[diceResult[1]]);
+            dd3.style.backgroundImage = urlOf(dicePath + faces[diceResult[2]]);
+            dd4.style.backgroundImage = urlOf(dicePath + faces[diceResult[3]]);
+            dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
+            setCookie("diceFaces", dieId);
+        }
+    });
 });
 
 
@@ -762,6 +784,7 @@ doneBtn.addEventListener("click", function() {
     prewPiece = null;
     prewWrapper = null;
     selectedTile = null;
+    diceResult = [0,0,0,0,0];
 
     wr1.style.transform = 'rotate(0deg) translate(0px,0px)';
     wr2.style.transform = 'rotate(0deg) translate(0px,0px)';
