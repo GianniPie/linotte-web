@@ -1,3 +1,4 @@
+//npm start //nella root per avviare il server
 //http://localhost:3000
 
 
@@ -149,10 +150,11 @@ io.on("connection", socket => {
     }
 
     else if (data.type === "DONE") {
-      tableFill(data.tileId, data.localPlayer); //tableFill updates gameState
+      tableFill(data.tileCoordinate, data.localPlayer); //tableFill updates gameState
       countPoints(gameState);
       countPieces(gameState);
-
+      socket.broadcast.emit("place_piece", data.tileCoordinate);
+    
       gameState.dice.rollsLeft = 3;
       gameState.dice.locked.fill(false);
       gameState.combinationsRealized.fill(0);
@@ -160,7 +162,6 @@ io.on("connection", socket => {
       gameState.called = [null,null,null,false,false,false,false,false];
       gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
       io.emit("state_update", gameState);
-      socket.broadcast.emit("place_piece", data.tileId);
     }
 
   });

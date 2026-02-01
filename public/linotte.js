@@ -317,70 +317,80 @@ document.querySelectorAll(".piece").forEach(el => {
         if(pieceEnebled == false) return;
 
         let piece = document.getElementById(this.id);
-        placePiece(piece.id);
+        console.log("piece clicked: " + piece.id);
+        handlePiece(piece.id);
     });
 });
 
 
-function placePiece(pieceId) {
+function handlePiece(pieceId) {
     if(!pieceId) return;
 
-    console.log("Piece " + pieceId + " player " + gameState.currentPlayer);
     let piece = document.getElementById(pieceId);
     let wrapper = piece.parentElement;
     let tile = wrapper.parentElement;
 
-    if(tableCheck(tile.id) !== 0) return;
+
     if(possibleMovesCheck(tile.id) !== 1) return;
-    
+    if(tableCheck(tile.id) !== 0) return;
+ 
     if(tableCheck(tile.id) == 0) {
-        if (piece.classList.contains("img-bounce")) {
-            //remove the piece
-            wrapper.classList.add("img-disappear");
+        if (piece.classList.contains("img-bounce"))  {
+            wrapper.classList.add("img-disappear"); //remove the piece
 
             wrapper.addEventListener("animationend", (e) => {
                 if (e.animationName === "bounceOut") {
                     piece.classList.remove("img-bounce");
                     wrapper.classList.remove("img-disappear");
                     pieceEnebled = true;
+                    selectedTile = null;
                 }
             }, { once: true });
-            
+        
         } else {    
             //place the piece
-            if(gameState.currentPlayer == 1) {piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);}
-            if(gameState.currentPlayer == 2) {piece.style.backgroundImage = urlOf(gameState.players[2].pieceImage);}
-
-            if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
-            if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
-            if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
-
-            if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
-            if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
-            if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
-            
-            wrapper.classList.remove("img-disappear");
-            piece.classList.add("img-bounce");
-
-            selectedTile = wrapper.parentElement;
-
-            if(prewPiece !== null) {
-                if(prewPiece !== piece) {
-                    prewPiece.classList.remove("img-bounce");
-                    prewWrapper.classList.remove("img-disappear");
-                }
-            }
-            prewWrapper = wrapper;
-            prewPiece = piece;
-
-            wrapper.addEventListener("animationend", (e) => {
-                pieceEnebled = true;
-            }, { once: true });
+            placePiece(pieceId);
         }
     }
 }
 
 
+function placePiece(pieceId) {
+
+    let piece = document.getElementById(pieceId);
+    let wrapper = piece.parentElement;
+    let tile = wrapper.parentElement;
+
+    if(gameState.currentPlayer == 1) {piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);}
+    if(gameState.currentPlayer == 2) {piece.style.backgroundImage = urlOf(gameState.players[2].pieceImage);}
+
+    if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
+    if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
+    if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
+
+    if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
+    if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
+    if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
+    
+    wrapper.classList.remove("img-disappear");
+    piece.classList.add("img-bounce");
+
+    selectedTile = wrapper.parentElement;
+
+    if(prewPiece !== null) {
+        if(prewPiece !== piece) {
+            prewPiece.classList.remove("img-bounce");
+            prewWrapper.classList.remove("img-disappear");
+        }
+    }
+    prewWrapper = wrapper;
+    prewPiece = piece;
+
+    wrapper.addEventListener("animationend", (e) => {
+        pieceEnebled = true;
+    }, { once: true });
+
+}
 
 
 function tableHighlite() {
@@ -477,7 +487,7 @@ doneBtn.addEventListener("click", function() {
     socket.emit("action", {
         type: "DONE",
         localPlayer: LOCAL_PLAYER,
-        tileId: selectedTile === null ? null : selectedTile.id
+        tileCoordinate: selectedTile === null ? null : selectedTile.id
     });
 });
 
@@ -879,9 +889,8 @@ socket.on("state_update", state => {
 });
 
 
-socket.on("place_piece", state => {
-    console.log("place_piece" + state);
-    placePiece(state);
+socket.on("place_piece", tileCoordinate => {
+    if(tileCoordinate) placePiece("piece_" + tileCoordinate);
 });
 
 
