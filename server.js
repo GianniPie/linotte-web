@@ -12,14 +12,6 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-io.on("connection", socket => {
-  console.log("Client connected:", socket.id);
-
-  socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
-  });
-});
-
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log("Server running on port", PORT);
@@ -34,7 +26,7 @@ const rows = { a:0, b:1, c:2, d:3, e:4 };
 let gameState = {
   table: Array.from({ length: 5 }, () => Array(5).fill(0)),
   possibleMoves: Array.from({ length: 5 }, () => Array(5).fill(0)),
-  currentPlayer: 0,
+  currentPlayer: 1,
   combinationsRealized: [0,0,0,0,0,0,0,0],
   called: [null,null,null,false,false,false,false,false],
   players: {
@@ -113,26 +105,39 @@ let pieces =  [
 
 
 //------------- HANDLE CONNECTIONS --------------
+
+const sockets = {};
+
 io.on("connection", socket => {
- let playerNumber = null;
+  console.log("CONNECT", socket.id, "sockets:", Object.keys(sockets));
+
+  let playerNumber = null;
 
   if (!sockets[1]) {
     playerNumber = 1;
-    gameState.currentPlayer = 1;
-    sockets[1] = socket.id;
+    sockets[1] = socket;
   } else if (!sockets[2]) {
     playerNumber = 2;
-    sockets[2] = socket.id;
+    sockets[2] = socket;
   } else {
-    socket.emit("full");
-    socket.disconnect();
+    socket.emit("roomFull");
     return;
   }
 
-  socket.emit("init", {
-    playerNumber,
-    gameState
+  console.log("ASSIGNED player", playerNumber);
+
+  socket.playerNumber = playerNumber;
+
+  socket.on("disconnect", () => {
+    console.log("DISCONNECT", socket.id, "player", socket.playerNumber);
+    delete sockets[socket.playerNumber];
   });
+
+
+socket.emit("init", {
+  playerNumber,
+  gameState
+});
 
   socket.emit("state_update", gameState);
 
