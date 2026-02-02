@@ -9,10 +9,24 @@ const { Server } = require("socket.io");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
 app.use(express.static("public"));
 
-let sockets = {};
-server.listen(3000);
+io.on("connection", socket => {
+  console.log("Client connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});
+
+
+
 
 const rows = { a:0, b:1, c:2, d:3, e:4 };
 
