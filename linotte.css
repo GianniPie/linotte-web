@@ -1,9 +1,14 @@
+
+
 * {
   box-sizing: border-box;
   /*outline: black solid 1px;*/
 }
 
 
+/* ============================================
+   BODY & MAIN CONTAINER
+   ============================================ */
 
 html {
   -webkit-text-size-adjust: 100%;
@@ -14,112 +19,89 @@ html {
 html, body {
   margin: 0;
   width: 100%;
+  min-height: 100dvh;
+  height: auto;
+  
+}
+
+.body {
+  text-align: center;
+  background-color: #333333;
+  background-image: url("resources/images/backgrounds/sun-tornado.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 100v;
+  overflow-x: hidden;
+}
+
+
+.flex-block {
+  display: flex;
+  flex-flow: column;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100vw;
+  height: 98vh;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+
+
+/* ============================================
+   INFO SECTION (Top bar)
+   ============================================ */
+
+.div-info {
+  display: grid;
+  grid-template-rows: auto;
+  grid-template-columns: 50px 1fr 50px;
+  place-items: center;
+  align-items: center;
+  width: 95%;
+  height: auto;
+  margin: 1vh auto;
+  user-select: none;
+  order: 1;
+}
+
+.div-info-left,
+.div-info-right {
+  width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
-article, aside, details, figcaption, figure, footer, header, hgroup, main, menu, nav, section, summary {
-  display: block;
+.options {
+  background-image: url("resources/images/g10455.svg");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  width: 40px;
+  height: 40px;
 }
 
-audio, canvas, progress, video {
-  vertical-align: baseline;
-  display: inline-block;
+.div-block-14 {
+  background-image: url("resources/images/g10457.svg");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  width: 40px;
+  height: 40px;
 }
 
-audio:not([controls]) {
-  height: 0;
-  display: none;
+.div-block-13 {
+  margin-top: 5px;
+  font-size: 14px;
 }
-
-[hidden], template {
-  display: none;
-}
-
-a {
-  background-color: #0000;
-}
-
-a:active, a:hover {
-  outline: 0;
-}   
-
-abbr[title] {
-  border-bottom: 1px dotted;
-}
-
-b, strong {
-  font-weight: bold;
-}
-
-dfn {
-  font-style: italic;
-}
-
-h1 {
-  margin: .67em 0;
-  font-size: 2em;
-}
-
-mark {
-  color: #000;
-  background: #ff0;
-}
-
-small {
-  font-size: 80%;
-}
-
-sub, sup {
-  vertical-align: baseline;
-  font-size: 75%;
-  line-height: 0;
-  position: relative;
-}
-
-sup {
-  top: -.5em;
-}
-
-sub {
-  bottom: -.25em;
-}
-
-img {
-  border: 0;
-}
-
-svg:not(:root) {
-  overflow: hidden;
-}
-
-hr {
-  box-sizing: content-box;
-  height: 0;
-}
-
-pre {
-  overflow: auto;
-}
-
-code, kbd, pre, samp {
-  font-family: monospace;
-  font-size: 1em;
-}
-
-
-
 
 table {
   border-collapse: collapse;
   border-spacing: 0;
 }
-
-td, th {
-  padding: 0;
-}
-
-
-
 
 .wrapPiece {
   display: block;
@@ -127,7 +109,6 @@ td, th {
   height: 100%;
   opacity: 1;
 }
-
 
 .piece {
   width: 100%;
@@ -138,11 +119,9 @@ td, th {
   opacity: 0;
 }
 
-
 .img-bounce {
   animation: bounceIn 0.5s ease-out forwards;
 }
-
 
 @keyframes bounceIn {
     0%,20%,40%,60%,80%,to {
@@ -177,12 +156,9 @@ td, th {
     }
 }
 
-
-
 .img-disappear {
   animation: bounceOut 0.2s ease-out forwards;
 }
-
 
 @keyframes bounceOut {
     0% {
@@ -203,6 +179,9 @@ td, th {
 
 
 
+/* ============================================
+   OVERLAY
+   ============================================ */
 
 #overlay {
   position: fixed;
@@ -213,7 +192,6 @@ td, th {
   align-items: center;
   z-index: 10;
 }
-
 
 .modal {  
   position: fixed;
@@ -243,7 +221,6 @@ td, th {
   transition: opacity 1s ease;
 }
 
-
 .board-options-container {
   width: 90%;
   height: 15vh;
@@ -261,15 +238,6 @@ td, th {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-}
-
-.options-flex{
-  width: 80vw;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content:space-around;
-  justify-items: left;
 }
 
 .board-options-text.natural {
@@ -331,136 +299,13 @@ td, th {
 }
 
 
-html {
-  height: 100%;
-}
-
-
-img {
-  vertical-align: middle;
-  max-width: 100%;
-  display: inline-block;
-}
-
-
-h1, h2, h3, h4, h5, h6 {
-  margin-bottom: 10px;
-  font-weight: bold;
-}
-
-h1 {
-  margin-top: 20px;
-  font-size: 38px;
-  line-height: 44px;
-}
-
-h2 {
-  margin-top: 20px;
-  font-size: 32px;
-  line-height: 36px;
-}
-
-h3 {
-  margin-top: 20px;
-  font-size: 24px;
-  line-height: 30px;
-}
-
-h4 {
-  margin-top: 10px;
-  font-size: 18px;
-  line-height: 24px;
-}
-
-h5 {
-  margin-top: 10px;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-h6 {
-  margin-top: 10px;
-  font-size: 12px;
-  line-height: 18px;
-}
-
-p {
-  margin-top: 0;
-  margin-bottom: 10px;
-}
-
-blockquote {
-  border-left: 5px solid #e2e2e2;
-  margin: 0 0 10px;
-  padding: 10px 20px;
-  font-size: 18px;
-  line-height: 22px;
-}
-
-figure {
-  margin: 0 0 10px;
-}
-
-figcaption {
-  text-align: center;
-  margin-top: 5px;
-}
-
-ul, ol {
-  margin-top: 0;
-  margin-bottom: 10px;
-  padding-left: 40px;
-}
-
-fieldset {
-  border: 0;
-  margin: 0;
-  padding: 0;
-}
-
 button, [type="button"], [type="reset"] {
   cursor: pointer;
   appearance: button;
   border: 0;
 }
 
-label {
-  margin-bottom: 5px;
-  font-weight: bold;
-  display: block;
-}
 
-*{
-  border-style: black solid 1px;
-}
-
-.flex-block {
-  display: flex;
-  flex-flow: column;
-  justify-content: center;
-  align-items: center;
-  width: 100vw;
-  height: 98vh;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.div-info {
-  display: grid;
-  grid-template-rows: auto;
-  grid-template-columns: 15% auto 15%;
-  grid-auto-columns: 0;
-  place-items: center;
-  align-self: flex-start;
-  justify-content: center;
-  align-items: center;
-  width: 90%;
-  height: auto;
-  margin: auto;
-  margin-top: 4vw;
-  user-select: none;
-  order: 1;
-}
 
 
 .div-table {
@@ -542,6 +387,7 @@ label {
   margin: -10em;
   display: block;
 }
+
 
 .tile.tlc {
   border-top-left-radius: 1.1em;
@@ -662,29 +508,15 @@ label {
 
 
 .tile_highlited {
-  outline-offset: -4px;
-  /*outline-color: red;*/
-  outline-width:  8px;
   outline-style: solid;
-  transform: translate3d(0, 0, 65px);
-  border-radius: 5px;
+  transform: translate3d(0, 0, 1em);
+  border-radius: 0.3em;
+  outline-offset: -0.3em;
+  outline-width:  0.6em;
+  @media screen and (min-width: 568px) {
+    outline-width:  0.9em;
+  }
 }
-
-
-
-
-
-.body {
-  text-align: center;
-  background-color: #252525;
-  background-image: url("resources/images/backgrounds/sun-tornado.svg");
-  background-position: 0,0;
-  background-repeat: no-repeat;
-  background-size: cover;
-}
-
-
-
 
 
 .grid {
@@ -692,13 +524,6 @@ label {
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
   position: static;
 }
-
-.tile {
-  border-width: .15em;
-}
-
-
-
 
 
 
@@ -709,14 +534,24 @@ label {
   background-position: 50%;
 }
 
+
+
 .die {
   background-position: center;   
   background-repeat: no-repeat;
   background-size: contain;    
   width: 100%;
   aspect-ratio: 1/1;
-  border-radius: 0.75em;
+  border-radius: 1.5em;
+  @media screen and (max-width: 568px) {
+    border-radius: 0.9em;
+  }
+  @media screen and (max-width: 368px) {
+    border-radius: 0.5em;
+  }
 }
+
+
 
 #dd1 {
   background-image: url("resources/images/dice/g100.svg");
@@ -739,9 +574,12 @@ label {
 }
 
 
+
 .die.selected {
   animation: bounceDie 0.3s ease-out forwards;
 }
+
+
 
 @keyframes bounceDie {
   40%,60%,80%,to {
@@ -765,7 +603,7 @@ label {
       opacity: 1;
       transform: scale(1);
       background-color: rgb(255, 234, 0);
-      box-shadow: rgb(255, 234, 0) 0 0 0 0.3em;
+      box-shadow: rgb(255, 234, 0) 0 0 0 1vw;
   }
 }
 
@@ -791,35 +629,35 @@ label {
   border-radius: 8px;
 }
 
-#rr1 {
+#rr0 {
   background-image: url("resources/images/g1.svg");
 }
 
-#rr2 {
+#rr1 {
   background-image: url("resources/images/g2.svg");
 }
 
-#rr3 {
+#rr2 {
   background-image: url("resources/images/g3.svg");
 }
 
-#rr4 {
+#rr3 {
   background-image: url("resources/images/g4.svg");
 }
 
-#rr5 {
+#rr4 {
   background-image: url("resources/images/g5.svg");
 }
 
-#rr6 {
+#rr5 {
   background-image: url("resources/images/g6.svg");
 }
 
-#rr7 {
+#rr6 {
   background-image: url("resources/images/g7.svg");
 }
 
-#rr8 {
+#rr7 {
   background-image: url("resources/images/g8.svg");
 }
 
@@ -904,9 +742,9 @@ label {
 
 
 .button {
-  border-radius: 9px;
+  border-radius: 1.1em;
   width: 40vw;
-  height: 50px;
+  min-height: fit-content;
   margin: auto;
   align-items: center; 
   justify-content: center;  
@@ -978,42 +816,6 @@ label {
 
 
 
-.div-info-left {
-  width: 40px;
-  height: 100%;
-  justify-content: left;
-}
-
-.div-info-right {
-  width: 40px;
-  height: 100%;
-  justify-content: right;
-}
-
-.div-block-14 {
-  background-image: url("resources/images/g10457.svg");
-  background-repeat: no-repeat;
-  background-size: contain;
-  width: 80%;
-  height: 80%;
-  margin-left: 15px;
-  margin-top: 20px;
-}
-
-.div-block-13 {
-  margin-right: -25px;
-  margin-top: -75px;
-}
-
-.options{
-  background-image: url("resources/images/g10455.svg");
-  background-repeat: no-repeat;
-  background-size: contain;
-  width: 90%;
-  height: 90%;
-  margin-left: -20px;
-}
-
 #optText {
   margin-top: -20px;
   margin-left: -40px;
@@ -1022,12 +824,7 @@ label {
 .textPlayer {
   color: color-contrast(var(--bg) vs black, white);
   font-family: Changa One, Impact, sans-serif;
-  font-size: 4vw;
-
-}
-
-.textPlayer.t1 {
-  font-size: 11vw;
+  font-size: 3em;
 }
 
 .div-block-15 {
@@ -1055,7 +852,7 @@ label {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 3px;
+  gap: 0.2em;
 }
 
 .div-block-17 {
@@ -1063,7 +860,7 @@ label {
   justify-content: center;
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 1em;
 }
 
 .pawn {
@@ -1073,10 +870,9 @@ label {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  width: 12px;
-  height: 12px;
+  width: 1em;
+  height: 1em;
 }
-
 
 .coin {
   background-image: url("resources/images/p105-coin.svg");
@@ -1084,10 +880,9 @@ label {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  width: 12px;
-  height: 12px;
+  width: 1em;
+  height: 1em;
 }
-
 
 .image-4 {
   opacity: 1;
@@ -1097,15 +892,9 @@ label {
   height: 1.1em;
 }
 
-
-
-
 #pawnp2, #coinp2 {
   place-self: center;
 }
-
-
-
 
 @media screen and (max-width: 479px) {
 }
@@ -1159,10 +948,6 @@ label {
   width: 14vw;
   aspect-ratio: 1/1;
   border-radius: 0.8em;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-color: transparent;
 }
 
 .die-options.empty {
@@ -1200,3 +985,47 @@ label {
 .die-img {
   border-radius: 0.6em;
 }
+
+
+
+
+/* ============================================
+   LANDSCAPE MODE - SPLIT LAYOUT
+   ============================================ */
+
+@media screen and (orientation: landscape) {
+  
+}
+
+
+
+/* ============================================
+   MOBILE PORTRAIT OPTIMIZATION
+   ============================================ */
+
+@media screen and (max-width: 480px) and (orientation: portrait) {
+
+}
+
+
+
+/* ============================================
+   TABLET OPTIMIZATION
+   ============================================ */
+
+@media screen and (min-width: 768px) {
+  
+}
+
+
+
+/* ============================================
+   LARGE SCREENS
+   ============================================ */
+
+@media screen and (min-width: 1200px) {
+  
+}
+
+
+
