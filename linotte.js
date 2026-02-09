@@ -126,9 +126,9 @@ let pieces =  [
     "p004_e9dc01ff",
     "p005_c240fcff",
     "p006_f14be6ff",
-    "p007_737373ff",
+    "p007_e3e3e3ff",
     "p008_ff7106ff",
-    "p009_e3e3e3ff",
+    "p009_737373ff",
     "p010_ff0606ff",
     "p011_b4aaaaff",
     "p012_e1b27cff",
@@ -142,7 +142,7 @@ let pieces =  [
     "p020_e9a233ff",
     "p021_f6d74aff",
     "p022_a4c037ff",
-    "p023_ec9843ff",
+    "p023_dc5443ff",
     "p024_e6d448ff",
     "p025_ad8a72ff",
     "p026_e6d448ff",
@@ -150,6 +150,10 @@ let pieces =  [
     "p028_c5d4eaff",
     "p029_fd6c92ff",
     "p030_e49c5dff",
+    "p031_00a0d7ff",
+    "p032_eead46ff",
+    "p033_8b59d3ff",
+    "p034_8f542bff"
 ];
 
 //------ PLAYERS ---------------
@@ -171,11 +175,11 @@ var player2 = {
     local: true
 };
 
-let p1p = rndNum(0, pieces.length - 1);
+let p1p = rndNum(8, pieces.length - 1);
 player1.pieceImage = piecesPath + pieces[p1p] + imgExtention;
 let p2p = p1p;
 while(p2p == p1p) {
-    p2p = rndNum(0, pieces.length - 1);
+    p2p = rndNum(8, pieces.length - 1);
 }
 player2.pieceImage = piecesPath + pieces[p2p] + imgExtention;
 

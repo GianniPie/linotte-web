@@ -1,9 +1,7 @@
-* {
-  box-sizing: border-box;
-  /*outline: black solid 1px;*/
+
+:root {
+  color-scheme: light;
 }
-
-
 
 html {
   -webkit-text-size-adjust: 100%;
@@ -88,9 +86,6 @@ img {
   border: 0;
 }
 
-svg:not(:root) {
-  overflow: hidden;
-}
 
 hr {
   box-sizing: content-box;
