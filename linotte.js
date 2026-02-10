@@ -197,6 +197,9 @@ while(p2p == p1p) {
 }
 player2.pieceImage = piecesPath + pieces[p2p] + imgExtention;
 
+preload(player1.pieceImage);
+preload(player2.pieceImage);
+
 player1.color = "#" + player1.pieceImage.split("_")[1].slice(0, -6);
 player2.color = "#" + player2.pieceImage.split("_")[1].slice(0, -6);
 const selectedColor = [null, player1.color, player2.color];
@@ -206,7 +209,6 @@ let currentPlayer = 1;
 document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 5px";
 
 const LOCAL_PLAYER = 1; // o 2
-/*function isMyTurn() {return currentPlayer === LOCAL_PLAYER;}*/
 function isMyTurn() {return currentPlayer;}
 
 const pawnP1Text = document.getElementById("pawnP1Text");
@@ -228,7 +230,11 @@ renderTidyness(tidyness); //it shows the selection in the option section
 let selectedDie = getCookie("diceFaces", 3);
 document.getElementById("do" + selectedDie).classList.add("selected"); //otion section
 document.getElementById("dice-title").textContent =  diceNames[selectedDie];
-let faces = diceFaces[selectedDie];  //non ricordo
+let faces = diceFaces[selectedDie];  //faces of the selected die
+
+for(let i = 0; i < diceResult.length; i++) {
+    preload(urlOf(dicePath + faces[i]));
+}
 
 let selectedBg = getCookie("background", 3);
 document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
@@ -236,7 +242,6 @@ document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice
 
 body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
 modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
-
 
 
 
@@ -448,6 +453,8 @@ function tableCheck(divId) {
     const c = Number(divId[1]) - 1; 
     return table[c][r];
 }
+
+
 
 rollBtn.addEventListener("click", function() {  
     if (!isMyTurn()) return;
