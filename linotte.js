@@ -15,6 +15,8 @@ const wr5 = document.getElementById("wr5");
 const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
 const optBtn = document.getElementById("options");
+const volumeBtn = document.getElementById("volume");
+
 
 const body = document.getElementById("body");
 const modal = document.getElementById("modal");
@@ -223,7 +225,8 @@ coinP2Text.textContent = player2.points;
  
 
 
-//----------- COOCKIES ---------------
+//----------- COOKIES ---------------
+
 let tidyness = getCookie("tidyness", 3);
 renderTidyness(tidyness); //it shows the selection in the option section
 
@@ -243,6 +246,11 @@ document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice
 body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
 modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
 
+let isVolumeOff = false;
+// isVolumeOff = getCookie("volume", false);
+// if(isVolumeOff == "true") {
+//     volumeBtn.classList.add("off");
+// }
 
 
 //----------- DICE TABLE AND GAME -----------------
@@ -286,6 +294,18 @@ overlay.addEventListener("click", (e) => {
 
 optBtn.addEventListener("click", function() { 
     overlay.style.display = "flex";
+});
+
+
+volumeBtn.addEventListener("click", function() { 
+    if(isVolumeOff) {
+        isVolumeOff = false;
+        this.classList.remove("off");
+    } else {
+        isVolumeOff = true;
+        this.classList.add("off");
+    }
+    setCookie("volume", isVolumeOff);
 });
 
 
@@ -464,7 +484,9 @@ rollBtn.addEventListener("click", function() {
     rollBtnEnebled = false;
     doneBtnEnebled = false;
 
-    new Audio("resources/sounds/roll.mp3").play();
+    if(!isVolumeOff) {
+        new Audio("resources/sounds/roll.mp3").play();
+    }
     document.querySelector("#rollBtn .text-button").innerText = "ROLL " + --numRoll;
     rollAnimationID = setInterval(rollAnimation, 100);
     stopRollID = setInterval(stopRoll, 1200);
