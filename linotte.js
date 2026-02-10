@@ -25,15 +25,14 @@ let rollAnimationID;
 let stopRollID;
 
 
-function setRealVH() {
-  document.documentElement.style.setProperty(
-    '--vh',
-    window.innerHeight * 0.01 + 'px'
-  );
+function setRealVh() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
 }
 
-setRealVH();
-window.addEventListener('resize', setRealVH);
+setRealVh();
+window.addEventListener('resize', setRealVh);
+window.addEventListener('orientationchange', setRealVh);
 
 
 const diceClassic = [

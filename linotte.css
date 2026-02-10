@@ -193,7 +193,7 @@ label {
   justify-content: center;
   align-items: center;
   width: 100%;
-  min-height: 100dvh;
+  min-height: calc(var(--vh) * 100);
   padding: 1dvh 2dvw;
   margin-left: auto;
   margin-right: auto;
@@ -302,7 +302,7 @@ label {
   position: fixed;
   z-index: 11;
   width: 90%;
-  height: 90%;
+  height: calc(var(--vh) * 90);
   margin: auto;
   opacity: 1;
   border-radius: 20px;
