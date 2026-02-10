@@ -14,30 +14,18 @@
   print-color-adjust: exact !important;
 }
 
+body {
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  background-blend-mode: normal !important;
+}
+
 /* Prevent dark mode from affecting images and SVGs */
 @media (prefers-color-scheme: dark) {
   img, svg {
     filter: none !important;
     -webkit-filter: none !important;
   }
-
-  /* Force text colors to stay as defined */
-  .textPlayer,
-  .text-button,
-  .div-block-13 {
-    color: inherit !important;
-    -webkit-text-fill-color: initial !important;
-  }
-  
-  /* Prevent background color changes */
-  .body,
-  .tile,
-  .result,
-  .call,
-  .player {
-    background-color: inherit !important;
-  }
-  
 }
 
 /* Force SVG images to display correctly */
@@ -64,6 +52,7 @@ html, body {
   width: 100%;
   height: 100%;
 }
+
 
 article, aside, details, figcaption, figure, footer, header, hgroup, main, menu, nav, section, summary {
   display: block;
@@ -260,7 +249,7 @@ ul, ol {
 
 .body {
   text-align: center;
-  background-color: #6ec03b;
+  background-color: whitesmoke;
   background-image: url("resources/images/backgrounds/sun-tornado.svg");
   background-position: center center;
   background-repeat: no-repeat;
@@ -268,6 +257,8 @@ ul, ol {
   min-height: 100vh;
   overflow-x: hidden;
 }
+
+
 
 /* PORTRAIT MODE - VERTICAL LAYOUT */
 .flex-block {
@@ -844,18 +835,6 @@ label {
 
 
 
-.body {
-  text-align: center;
-  background-color: #252525;
-  background-image: url("resources/images/backgrounds/sun-tornado.svg");
-  background-position: 0,0;
-  background-repeat: no-repeat;
-  background-size: cover;
-}
-
-
-
-
 
 .grid {
   grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
@@ -1190,7 +1169,7 @@ label {
 }
 
 .textPlayer {
-  color: color-contrast(var(--bg) vs black, white);
+  color: black;
   font-family: Changa One, Impact, sans-serif;
   font-size: 4vw;
 
