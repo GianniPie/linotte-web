@@ -3,11 +3,7 @@
    ============================================ */
 
 :root {
-  color-scheme: light only !important;
-}
-
-html {
-  color-scheme: light only !important;
+  color-scheme: light !important;
 }
 
 * {
@@ -16,43 +12,21 @@ html {
   color-adjust: exact !important;
   -webkit-print-color-adjust: exact !important;
   print-color-adjust: exact !important;
-  color-scheme: light only !important;
 }
 
-
-
-/* Prevent dark mode from affecting anything */
+/* Prevent dark mode from affecting images and SVGs */
 @media (prefers-color-scheme: dark) {
-  html, body, * {
+  img, svg {
+    filter: none !important;
     -webkit-filter: none !important;
-    background-color: inherit !important;
-  }
-  
-  :root {
-    color-scheme: light only !important;
   }
 }
 
-/* Specific overrides for images and backgrounds */
-img, svg, 
+/* Force SVG images to display correctly */
 img[src$=".svg"],
-img[src*=".svg"],
-[style*="background-image"] {
+img[src*=".svg"] {
   filter: none !important;
   -webkit-filter: none !important;
-}
-
-/* Ensure solid background colors are not transparent */
-.button,
-.button.done,
-.button.roll,
-.player,
-.result,
-.call,
-.div-table,
-.grid,
-.tile {
-  opacity: 1 !important;
 }
 
 
@@ -287,6 +261,11 @@ ul, ol {
   min-height: 100vh;
   padding: 1vh 2vw;
 }
+
+
+
+
+
 
 
 table {
