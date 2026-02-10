@@ -54,7 +54,7 @@ html {
   font-family: sans-serif;
   height: 100vh;
   height: 100dvh;
-  width: 100vh;
+  width: 100vw;
   width: 100dvw;
 }
 
@@ -269,23 +269,18 @@ ul, ol {
 
 }
 
-
-
-/* PORTRAIT MODE - VERTICAL LAYOUT */
 .flex-block {
   display: flex;
   flex-flow: column;
-  justify-content: flex-start;
+  justify-content: flex-start; 
+  /* justify-content: center; */
   align-items: center;
   width: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 1vh 2vw;
+  margin-left: auto;
+  margin-right: auto;
 }
-
-
-
-
-
 
 
 table {
@@ -600,16 +595,7 @@ label {
 }
 
 
-.flex-block {
-  display: flex;
-  flex-flow: column;
-  justify-content: center;
-  align-items: center;
-  width: 100vw;
-  height: 98vh;
-  margin-left: auto;
-  margin-right: auto;
-}
+
 
 .div-info {
   display: grid;
