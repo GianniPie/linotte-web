@@ -6,13 +6,9 @@
   color-scheme: light !important;
 }
 
-/* * {
+* {
   box-sizing: border-box;
-  forced-color-adjust: none !important;
-  color-adjust: exact !important;
-  -webkit-print-color-adjust: exact !important;
-  print-color-adjust: exact !important;
-} */
+}
 
 body {
   filter: none !important;
