@@ -42,6 +42,18 @@ img[src*=".svg"],
   -webkit-filter: none !important;
 }
 
+/* Ensure solid background colors are not transparent */
+.button,
+.button.done,
+.button.roll,
+.player,
+.result,
+.call,
+.div-table,
+.grid,
+.tile {
+  opacity: 1 !important;
+}
 
 
 /* ============================================
