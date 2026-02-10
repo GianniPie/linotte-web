@@ -232,8 +232,8 @@ document.getElementById("do" + selectedDie).classList.add("selected"); //otion s
 document.getElementById("dice-title").textContent =  diceNames[selectedDie];
 let faces = diceFaces[selectedDie];  //faces of the selected die
 
-for(let i = 0; i < diceResult.length; i++) {
-    preload(urlOf(dicePath + faces[i]));
+for(let i = 0; i < faces.length; i++) {
+    preload(dicePath + faces[i]);
 }
 
 let selectedBg = getCookie("background", 3);
