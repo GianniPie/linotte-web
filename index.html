@@ -5,8 +5,9 @@
         <title>linotte-web</title>
 
         <!-- Force light theme and prevent color scheme adjustments -->
-        <meta name="color-scheme" content="light">
+        <meta name="color-scheme" content="light only">
         <meta name="theme-color" content="#6ec03b">
+        <meta name="supported-color-schemes" content="light">
 
         <!-- Prevent Android Chrome from adjusting colors -->
         <meta name="mobile-web-app-capable" content="yes">
@@ -14,6 +15,22 @@
         <!-- iOS Safari specific -->
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+        <!-- Prevent auto dark mode on various browsers -->
+        <style>
+        html {
+            color-scheme: light only !important;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            html, body, * {
+            color-scheme: light only !important;
+            filter: none !important;
+            -webkit-filter: none !important;
+            }
+        }
+        </style>
+
 
         <meta content="width=device-width, initial-scale=1" name="viewport" />
         <link href="linotte.css" rel="stylesheet" type="text/css" />
@@ -31,7 +48,7 @@
         <link rel="manifest" href="resources/favicon/site.webmanifest" />
     </head>
 
-    <body id="body" class="body no-dark">
+    <body id="body" class="body" style="color-scheme: light only; filter: none !important;">
         <div class="flex-block">
             <div class="div-info">
                 <div class="div-info-left">

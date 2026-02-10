@@ -3,44 +3,51 @@
    ============================================ */
 
 :root {
-  color-scheme: light !important;
+  color-scheme: light only !important;
+}
+
+html {
+  color-scheme: light only !important;
 }
 
 * {
   box-sizing: border-box;
-  color-scheme: light !important;
-  filter: none !important;
   forced-color-adjust: none !important;
-  print-color-adjust: exact !important;
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
   color-adjust: exact !important;
-  -webkit-appearance: none !important;
   -webkit-print-color-adjust: exact !important;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-user-modify: read-only !important;
-  -webkit-text-fill-color: initial !important;
+  print-color-adjust: exact !important;
+  color-scheme: light only !important;
 }
 
-.no-dark {
-  background: #ffffff;
-  color-scheme: light !important;
-  forced-color-adjust: none !important;
-}
-
-/* Prevent dark mode from affecting images and SVGs */
-@media (prefers-color-scheme: dark) {
-  img, svg {
-    filter: brightness(1) contrast(1) !important;
-  }
-}
-
-/* Force SVG images to display correctly */
-img[src$=".svg"],
-img[src*=".svg"] {
+/* Aggressively prevent dark mode filters */
+html, body, * {
   filter: none !important;
   -webkit-filter: none !important;
 }
+
+/* Prevent dark mode from affecting anything */
+@media (prefers-color-scheme: dark) {
+  html, body, * {
+    filter: none !important;
+    -webkit-filter: none !important;
+    background-color: inherit !important;
+  }
+  
+  :root {
+    color-scheme: light only !important;
+  }
+}
+
+/* Specific overrides for images and backgrounds */
+img, svg, 
+img[src$=".svg"],
+img[src*=".svg"],
+[style*="background-image"] {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+
 
 /* ============================================
    RESET & BASE STYLES
@@ -50,6 +57,7 @@ html {
   -webkit-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
   font-family: sans-serif;
+  height: 100%;
 }
 
 html, body {
@@ -77,12 +85,12 @@ audio:not([controls]) {
 }
 
 a {
-  background-color: #0000;
+  background-color: transparent;
 }
 
 a:active, a:hover {
   outline: 0;
-}   
+}
 
 abbr[title] {
   border-bottom: 1px dotted;
@@ -127,8 +135,14 @@ sub {
 
 img {
   border: 0;
+  vertical-align: middle;
+  max-width: 100%;
+  display: inline-block;
 }
 
+svg:not(:root) {
+  overflow: hidden;
+}
 
 hr {
   box-sizing: content-box;
@@ -144,9 +158,6 @@ code, kbd, pre, samp {
   font-size: 1em;
 }
 
-
-
-
 table {
   border-collapse: collapse;
   border-spacing: 0;
@@ -156,8 +167,125 @@ td, th {
   padding: 0;
 }
 
+fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+button, [type="button"], [type="reset"] {
+  cursor: pointer;
+  appearance: button;
+  border: 0;
+}
+
+label {
+  margin-bottom: 5px;
+  font-weight: bold;
+  display: block;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+h1 {
+  margin-top: 20px;
+  font-size: 38px;
+  line-height: 44px;
+}
+
+h2 {
+  margin-top: 20px;
+  font-size: 32px;
+  line-height: 36px;
+}
+
+h3 {
+  margin-top: 20px;
+  font-size: 24px;
+  line-height: 30px;
+}
+
+h4 {
+  margin-top: 10px;
+  font-size: 18px;
+  line-height: 24px;
+}
+
+h5 {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+h6 {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+blockquote {
+  border-left: 5px solid #e2e2e2;
+  margin: 0 0 10px;
+  padding: 10px 20px;
+  font-size: 18px;
+  line-height: 22px;
+}
+
+figure {
+  margin: 0 0 10px;
+}
+
+figcaption {
+  text-align: center;
+  margin-top: 5px;
+}
+
+ul, ol {
+  margin-top: 0;
+  margin-bottom: 10px;
+  padding-left: 40px;
+}
 
 
+/* ============================================
+   BODY & MAIN CONTAINER
+   ============================================ */
+
+.body {
+  text-align: center;
+  background-color: #6ec03b;
+  background-image: url("resources/images/backgrounds/sun-tornado.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* PORTRAIT MODE - VERTICAL LAYOUT */
+.flex-block {
+  display: flex;
+  flex-flow: column;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  min-height: 100vh;
+  padding: 1vh 2vw;
+}
+
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
 
 .wrapPiece {
   display: block;
