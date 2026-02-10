@@ -3,6 +3,30 @@
   color-scheme: light;
 }
 
+* {
+  forced-color-adjust: none !important;
+  -webkit-text-fill-color: initial;
+}
+
+.no-dark {
+  background: #ffffff;
+  color-scheme: light;
+  forced-color-adjust: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  img, svg {
+    filter: brightness(1) contrast(1) !important;
+  }
+}
+
+img[src$=".svg"] {
+  filter: none !important;
+  -webkit-filter: none !important;
+  forced-color-adjust: none !important;
+  color-adjust: exact !important;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
