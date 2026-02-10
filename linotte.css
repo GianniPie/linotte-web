@@ -20,6 +20,24 @@
     filter: none !important;
     -webkit-filter: none !important;
   }
+
+  /* Force text colors to stay as defined */
+  .textPlayer,
+  .text-button,
+  .div-block-13 {
+    color: inherit !important;
+    -webkit-text-fill-color: initial !important;
+  }
+  
+  /* Prevent background color changes */
+  .body,
+  .tile,
+  .result,
+  .call,
+  .player {
+    background-color: inherit !important;
+  }
+  
 }
 
 /* Force SVG images to display correctly */
