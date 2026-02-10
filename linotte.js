@@ -153,7 +153,12 @@ let pieces =  [
     "p031_00a0d7ff",
     "p032_eead46ff",
     "p033_8b59d3ff",
-    "p034_8f542bff"
+    "p034_8f542bff",
+    "p035_40b93cff",
+    "p036_ff8f23ff",
+    "p037_fcfcfaff",
+    "p038_5d6c7cff",
+    "p039_f14be6ff"
 ];
 
 //------ PLAYERS ---------------
