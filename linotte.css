@@ -19,11 +19,7 @@ html {
   color-scheme: light only !important;
 }
 
-/* Aggressively prevent dark mode filters */
-html, body, * {
-  filter: none !important;
-  -webkit-filter: none !important;
-}
+
 
 /* Prevent dark mode from affecting anything */
 @media (prefers-color-scheme: dark) {
