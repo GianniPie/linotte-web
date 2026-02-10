@@ -6,9 +6,10 @@
   color-scheme: light !important;
 }
 
-* {
-  box-sizing: border-box;
+html {
+  background-color: whitesmoke;
 }
+
 
 body {
   filter: none !important;
@@ -38,6 +39,14 @@ img[src*=".svg"] {
 /* ============================================
    RESET & BASE STYLES
    ============================================ */
+
+.fullscreen {
+  height: calc(var(--vh) * 100);
+}
+
+* {
+  box-sizing: border-box;
+}
 
 html {
   -webkit-text-size-adjust: 100%;
