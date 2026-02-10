@@ -28,7 +28,6 @@ html, body, * {
 /* Prevent dark mode from affecting anything */
 @media (prefers-color-scheme: dark) {
   html, body, * {
-    filter: none !important;
     -webkit-filter: none !important;
     background-color: inherit !important;
   }
