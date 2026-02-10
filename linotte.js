@@ -25,6 +25,16 @@ let rollAnimationID;
 let stopRollID;
 
 
+function setRealVH() {
+  document.documentElement.style.setProperty(
+    '--vh',
+    window.innerHeight * 0.01 + 'px'
+  );
+}
+
+setRealVH();
+window.addEventListener('resize', setRealVH);
+
 
 const diceClassic = [
     "c100.svg",
