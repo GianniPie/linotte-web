@@ -103,9 +103,11 @@ const diceNames = [
     "CHINESE",
 ];
 
+
 const dicePath = "resources/images/dice/";
 const diceFaces = [diceTraditional, diceClassic, diceRed, diceFlat, diceChinese];
-let faces = diceFaces[getCookie("diceFaces")];
+
+//dice in options section (it shows the number 1)
 document.getElementById("do0").style.backgroundImage = urlOf(dicePath + diceFaces[0][1]);
 document.getElementById("do1").style.backgroundImage = urlOf(dicePath + diceFaces[1][1]);
 document.getElementById("do2").style.backgroundImage = urlOf(dicePath + diceFaces[2][1]);
@@ -123,8 +125,6 @@ const backgrounds = [
     "parabolic-ellipse.svg",
     "repeating-triangles.svg"
 ];
-body.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
-modal.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
 
 const piecesPath = "resources/images/pieces/";
 const imgExtention = ".svg";
@@ -219,6 +219,27 @@ coinP1Text.textContent = player1.points;
 pawnP2Text.textContent = player2.remainingPieces;
 coinP2Text.textContent = player2.points;
  
+
+
+//----------- COOCKIES ---------------
+let tidyness = getCookie("tidyness", 3);
+renderTidyness(tidyness); //it shows the selection in the option section
+
+let selectedDie = getCookie("diceFaces", 3);
+document.getElementById("do" + selectedDie).classList.add("selected"); //otion section
+document.getElementById("dice-title").textContent =  diceNames[selectedDie];
+let faces = diceFaces[selectedDie];  //non ricordo
+
+let selectedBg = getCookie("background", 3);
+document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
+document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
+
+body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+
+
+
+
 //----------- DICE TABLE AND GAME -----------------
 let combinationaRealized = [0,0,0,0,0,0,0,0];
 let brelan = 0;
@@ -246,21 +267,7 @@ var gameState = {
 }
 
 
-//----------- COOCKIES ---------------
-let tidyness = getCookie("tidyness", 1);
-renderTidyness(tidyness);
 
-let selectedDie = getCookie("diceFaces", 2);
-document.getElementById("do" + selectedDie).classList.add("selected");
-document.getElementById("dice-title").textContent =  diceNames[selectedDie];
-
-let selectedBg = getCookie("background", "3");
-document.getElementById("bg" + selectedBg).classList.add("selected");
-document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
-
-
-
-//----------- PRELOAD IMAGES ------------
 
 
 
@@ -1000,4 +1007,10 @@ function getCookie(name, defaultValue) {
 
 function urlOf(path) {
     return "url('" + path + "')";
+}
+
+
+function preload(url) {
+  const img = new Image();
+  img.src = url;
 }
