@@ -8,9 +8,18 @@
 
 * {
   box-sizing: border-box;
-  forced-color-adjust: none !important;
-  -webkit-text-fill-color: initial !important;
   color-scheme: light !important;
+  filter: none !important;
+  forced-color-adjust: none !important;
+  print-color-adjust: exact !important;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  color-adjust: exact !important;
+  -webkit-appearance: none !important;
+  -webkit-print-color-adjust: exact !important;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-modify: read-only !important;
+  -webkit-text-fill-color: initial !important;
 }
 
 .no-dark {
@@ -24,34 +33,14 @@
   img, svg {
     filter: brightness(1) contrast(1) !important;
   }
-  
-  body, .body {
-    filter: none !important;
-  }
 }
 
 /* Force SVG images to display correctly */
-img[src$=".svg"], img[src*=".svg"] {
+img[src$=".svg"],
+img[src*=".svg"] {
   filter: none !important;
   -webkit-filter: none !important;
-  forced-color-adjust: none !important;
-  color-adjust: exact !important;
 }
-
-/* Android-specific fixes for WebView and Chrome */
-@supports (-webkit-touch-callout: none) {
-  img, svg, [style*="background-image"] {
-    -webkit-user-modify: read-only !important;
-  }
-}
-
-/* Prevent Samsung Internet and other browsers from modifying colors */
-body, .body, .modal, .tile, .die, .result, .call {
-  -webkit-tap-highlight-color: transparent;
-  -webkit-appearance: none !important;
-}
-
-
 
 /* ============================================
    RESET & BASE STYLES
