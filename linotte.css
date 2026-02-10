@@ -43,8 +43,10 @@ html {
   -webkit-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
   font-family: sans-serif;
-  height: 100%;
-  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  width: 100vh;
+  width: 100dvw;
 }
 
 
@@ -255,8 +257,7 @@ ul, ol {
   background-position: center center;
   background-repeat: no-repeat;
   background-size: cover;
-  min-height: 100vh;
-  overflow-x: hidden;
+
 }
 
 
