@@ -253,6 +253,36 @@ let isVolumeOff = false;
 // }
 
 
+
+//----------- TIMER -----------------
+
+const TURN_SECONDS = 30;
+let timeLeft = TURN_SECONDS;
+let turnTimer = null;
+let timerDiv = document.getElementById("timer");
+
+startTurnTimer();
+
+function startTurnTimer() {
+  clearInterval(turnTimer);
+  timeLeft = TURN_SECONDS;
+  timerDiv.textContent = timeLeft;
+
+  turnTimer = setInterval(() => {
+    timeLeft--;
+    timerDiv.textContent = timeLeft;
+
+    if (timeLeft <= 0) {
+      clearInterval(turnTimer);
+      doneButton();
+    }
+  }, 1000);
+}
+
+
+
+
+
 //----------- DICE TABLE AND GAME -----------------
 let combinationaRealized = [0,0,0,0,0,0,0,0];
 let brelan = 0;
@@ -475,7 +505,7 @@ function tableCheck(divId) {
 }
 
 
-
+//----------- ROLL BUTTON -----------------
 rollBtn.addEventListener("click", function() {  
     if (!isMyTurn()) return;
     if(rollBtnEnebled == false ) return;
@@ -483,6 +513,8 @@ rollBtn.addEventListener("click", function() {
 
     rollBtnEnebled = false;
     doneBtnEnebled = false;
+
+    startTurnTimer();
 
     if(!isVolumeOff) {
         new Audio("resources/sounds/roll.mp3").play();
@@ -579,6 +611,7 @@ function possibleMovesCheck(coordinates) {
 }
 
 
+//----------- STOP ROLL -----------------
 function stopRoll() {
     clearInterval(rollAnimationID);
     clearInterval(stopRollID);
@@ -632,7 +665,7 @@ function stopRoll() {
     
     //full
     if(((c1 == 3) || (c2 == 3) || (c3 == 3) || (c4 == 3) || (c5 == 3) || (c6 == 3)) &&
-        ((c1 == 2) || (c2 == 2) || (c3 == 2) || (c4 == 2) || (c5 == 2) || (c6 == 2))     )
+       ((c1 == 2) || (c2 == 2) || (c3 == 2) || (c4 == 2) || (c5 == 2) || (c6 == 2))     )
     {   
         possibleMovesFill ("c2");
         possibleMovesFill ("b3");
@@ -826,7 +859,9 @@ function tableHighlite() {
 
 
 //------------------DONE BUTTON----------------------
-doneBtn.addEventListener("click", function() {  
+doneBtn.addEventListener("click", doneButton);
+    
+function doneButton(e) {  
     if (!isMyTurn()) return;
     if(rollBtnEnebled == false ) return;
 
@@ -882,7 +917,9 @@ doneBtn.addEventListener("click", function() {
         document.getElementsByClassName("player p2")[0].style.boxShadow = "black 0px 0px 0px 0px";
         document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 6px";
     }
-});
+
+    startTurnTimer();
+}
 
 
 
@@ -902,9 +939,18 @@ document.querySelectorAll(".die").forEach(el => {
 });
 
 
-document.querySelectorAll(".result.selectable").forEach(el => {
+
+document.querySelectorAll(".result").forEach(el => {
     el.addEventListener("click", function() {
         if (!isMyTurn()) return;
+
+        el.classList.add("tip-on");
+        setTimeout(() => {
+        el.classList.remove("tip-on");
+        }, 800); // durata visibilità
+
+        //Only for selectable results
+        if (!el.classList.contains("selectable")) return;
 
         const elemId = document.getElementById(this.id).id;
         const targetId = "cc" + elemId.slice(2);
