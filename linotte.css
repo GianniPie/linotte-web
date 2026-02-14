@@ -142,10 +142,6 @@ html, body {
   display: grid;
 }
 
-/* .playing {
-  box-shadow: yellow 0 2px 11px 10px;
-} */
-
 .player {
   border-radius: 10px;
   width: 25vw;
@@ -613,199 +609,131 @@ html, body {
 
 
 
-
-
 /* ============================================
-  OVERLAY & MODAL
+    OPTIONS OVERLAY
    ============================================ */
 
-#overlay {
+.opt-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.5);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+}
+
+.hidden {
   display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 10;
 }
 
-.modal {  
-  position: fixed;
-  z-index: 11;
-  width: 90%;
-  min-height: calc(var(--vh) * 90);
-  margin: auto;
-  opacity: 1;
-  border-radius: 20px;
-  border-style: rgba(0,0,0,.5) solid 11px;
-  
-  background-image: url("resources/images/backgrounds/sun-tornado.svg");
-  background-position: 0,0;
-  background-repeat: no-repeat;
-  background-size: cover;
-  backdrop-filter: blur(10px);
-  
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  align-items: center;
+/* sfondo svg */
+.opt-bg {
+  position: absolute;
+  inset: 0;
+  background: url(resources/images/backgrounds/sun-tornado.svg) center/cover no-repeat;
+  z-index: -1;
 }
 
-.modal::after {
-  opacity: 0;
-  transition: opacity 1s ease;
-}
-
-/* ------ BOARD OPTIONS ---------- */
-
-.board-options-container {
-  width: 90%;
-  height: 15dvh;
-  margin: auto;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content:center;
-}
-
-#board-option {
-  height: 100%;
-  aspect-ratio: 1/1;
-  background-image: url("resources/images/g11851.svg");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-}
-
-.options-flex{
-  width: 80vw;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content:space-evenly;
-  justify-items: left;
-}
-
-.board-options-text {
-  /* border: #000 solid 1px;  */
-  height: 25%;
-  width: auto;
-  margin-left: 2dvw;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: left;
-  opacity: 0.5;
-
-}
-
-.board-options-text.natural {
-  background-image: url("resources/images/text50-9-4.svg");
-}
-
-.board-options-text.tidy {
-  background-image: url("resources/images/text50-9.svg");
-}
-
-.board-options-text.perfect {
-  background-image: url("resources/images/text11848.svg");
-}
-
-.board-options-text.selected {
-  opacity: 1;
-}
-
-/* ------ DICE OPTIONS ---------- */
-
-.dice-options-container {
-  width: 90%;
-  height: 30dvh;
-  margin: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content:center;
-}
-
-.title {
-  height: 38px;
-  width: 100%;
-  border-radius:10px;
-  border: rgba(0,0,0,.5) solid 3px;
-  display: flex;
-  justify-content: center;
-  align-content: center;
-  font-family: Changa One, Impact, sans-serif;
-  font-size: 7vw;
-  color: rgba(0, 0, 0, 0.5);
-}
-
-.dice-options {
-  width: 100%;
-  height: 80%;
+/* header icone */
+.opt-header {
+  position: relative;
   display: grid;
-  grid-column-gap: 0;
-  grid-row-gap: 0;
-  grid-template-rows: 1fr 1fr;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  justify-content: center;
-  place-items: center;
-}
-
-.die-options {
-  width: 14vw;
-  aspect-ratio: 1/1;
-  border-radius: 0.6em;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-color: transparent;
-}
-
-.die-options.empty {
-  border: rgba(0,0,0,.8) dashed 3px;
-}
-
-.die-options.selected {
-  box-shadow: rgb(255, 234, 0) 0 0 0 0.3em;
-}
-
-.die-img {
-  border-radius: 0.6em;
-}
-
-/* ------ BACKGROUND OPTIONS ---------- */
-
-.background-options-container {
-  width: 90%;
-  height: 30dvh;
-  margin: auto;
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: 60px 1fr 1fr 1fr;
   align-items: center;
-  justify-content:center;
+  height: 60px;
 }
 
-.backgrounds-options {
-  width: 100%;
-  height: 80%;
-  display: grid;
-  grid-column-gap: 0;
-  grid-row-gap: 0;
-  grid-template-rows: 1fr 1fr;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
+.icon {
+  text-align: center;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* indicatore sotto icone */
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  height: 4px;
+  width: 25%;
+  left: 25%;
+  background: yellow;
+  transition: left .25s ease;
+}
+
+/* pagine */
+.opt-pages {
+  flex: 1;
+  overflow: hidden;
+}
+
+.opt-page {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* sezioni */
+section {
+  margin-bottom: 24px;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+}
+
+/* card cliccabili */
+.card {
+  height: 60px;
+  flex: 1;
+  border-radius: 12px;
+  background: rgba(255,255,255,.2);
+}
+
+/* carosello */
+.carousel {
+  display: flex;
+  align-items: center;
   justify-content: center;
-  place-items: center;
+  gap: 12px;
 }
 
-.bg-options {
-  width: 14vw;
-  aspect-ratio: 1/1;
-  border-radius: 0.6em;
+.carViewport {
+  width: 22vw;
+  max-width: 140px;
+  aspect-ratio: 1 / 1;   /* quadrato */
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.1);
 }
 
-.bg-options.selected {
-  box-shadow: rgb(255, 234, 0) 0 0 0 0.3em;
+.carViewport img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
+
+.carArrow {
+  font-size: 28px;
+  cursor: pointer;
+  user-select: none;
+  padding: 6px 10px;
+}
+
+.carousel > div {
+  min-width: 120px;
+  height: 80px;
+  scroll-snap-align: center;
+  border-radius: 12px;
+  background: rgba(255,255,255,.2);
+}
+
+/* help scroll */
+.help-scroll {
+  max-width: 700px;
+  margin: auto;
+  line-height: 1.5;
+}
+
 
 
 

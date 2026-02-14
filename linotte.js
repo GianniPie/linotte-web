@@ -14,13 +14,13 @@ const wr5 = document.getElementById("wr5");
 
 const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
-const optBtn = document.getElementById("options");
+const openBtn = document.getElementById("options");
 const volumeBtn = document.getElementById("volume");
 
 
 const body = document.getElementById("body");
-const modal = document.getElementById("modal");
-const overlay = document.getElementById("overlay");
+const overlay = document.getElementById("optionsOverlay");
+const optionsOverlay = document.getElementById("optionsOverlay");
 
 
 let rollAnimationID;
@@ -109,12 +109,13 @@ const diceNames = [
 const dicePath = "resources/images/dice/";
 const diceFaces = [diceTraditional, diceClassic, diceRed, diceFlat, diceChinese];
 
-//dice in options section (it shows the number 1)
-document.getElementById("do0").style.backgroundImage = urlOf(dicePath + diceFaces[0][1]);
-document.getElementById("do1").style.backgroundImage = urlOf(dicePath + diceFaces[1][1]);
-document.getElementById("do2").style.backgroundImage = urlOf(dicePath + diceFaces[2][1]);
-document.getElementById("do3").style.backgroundImage = urlOf(dicePath + diceFaces[3][1]);
-document.getElementById("do4").style.backgroundImage = urlOf(dicePath + diceFaces[4][1]);
+const diceImages = [
+    "resources/images/dice/c101.svg",
+    "resources/images/dice/tr101.png",
+    "resources/images/dice/re101.jpg",
+    "resources/images/dice/g107.svg",
+    "resources/images/dice/ch101.svg"
+];
 
 const bgPath = "resources/images/backgrounds/";
 const backgrounds = [
@@ -127,6 +128,21 @@ const backgrounds = [
     "parabolic-ellipse.svg",
     "repeating-triangles.svg"
 ];
+
+const bgImages = [
+    "resources/images/backgrounds/diamond-sunset.svg",
+    "resources/images/backgrounds/liquid-cheese.svg",
+    "resources/images/backgrounds/tortoise-shell.svg",
+    "resources/images/backgrounds/sun-tornado.svg",
+    "resources/images/backgrounds/pattern-randomized.svg",
+    "resources/images/backgrounds/subtle-prism.svg",
+    "resources/images/backgrounds/parabolic-ellipse.svg",
+    "resources/images/backgrounds/repeating-triangles.svg"
+];
+
+fillCarousel("diceCarousel", diceImages);
+fillCarousel("bgCarousel", bgImages);
+
 
 const piecesPath = "resources/images/pieces/";
 const imgExtention = ".svg";
@@ -231,8 +247,8 @@ let tidyness = getCookie("tidyness", 3);
 renderTidyness(tidyness); //it shows the selection in the option section
 
 let selectedDie = getCookie("diceFaces", 3);
-document.getElementById("do" + selectedDie).classList.add("selected"); //otion section
-document.getElementById("dice-title").textContent =  diceNames[selectedDie];
+//document.getElementById("do" + selectedDie).classList.add("selected"); //otion section
+//document.getElementById("dice-title").textContent =  diceNames[selectedDie];
 let faces = diceFaces[selectedDie];  //faces of the selected die
 
 for(let i = 0; i < faces.length; i++) {
@@ -240,11 +256,11 @@ for(let i = 0; i < faces.length; i++) {
 }
 
 let selectedBg = getCookie("background", 3);
-document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
-document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
+//document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
+//document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
 
-body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
-modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+// body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+// modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
 
 let isVolumeOff = false;
 // isVolumeOff = getCookie("volume", false);
@@ -314,17 +330,85 @@ var gameState = {
 
 
 
+//----------- OPTIONS OVERLAY -----------------
+openBtn.onclick = () => overlay.classList.remove("hidden");
 
-overlay.addEventListener("click", (e) => {
-  if (e.target === overlay) {
-    overlay.style.display = "none";
+document.querySelectorAll(".icon").forEach(icon => {
+  icon.onclick = () => handleTab(icon.dataset.page);
+});
+
+function handleTab(page) {
+  if (page === "back") {
+    overlay.classList.add("hidden");
+    return;
+  }
+
+  // cambia pagina
+  document.querySelectorAll(".opt-page").forEach(p => p.classList.add("hidden"));
+  document.getElementById("page-" + page).classList.remove("hidden");
+
+  moveIndicator(page);
+}
+
+function moveIndicator(page) {
+  const map = {
+    game: 20,
+    options: 45,
+    help: 70
+  };
+  document.getElementById("tabIndicator").style.left = map[page] + "%";
+}
+
+
+function fillCarousel(id, items) {
+  const el = document.getElementById(id);
+  items.forEach(src => {
+    const d = document.createElement("div");
+    d.style.backgroundImage = `url(${src})`;
+    d.style.backgroundSize = "contain";
+    d.style.backgroundRepeat = "no-repeat";
+    d.style.backgroundPosition = "center";
+    el.appendChild(d);
+  });
+}
+
+
+
+let diceIndex = 0;
+
+const prev = document.getElementById("dicePrev");
+const next = document.getElementById("diceNext");
+
+function renderDice() {
+  diceImg.src = diceImages[diceIndex];
+}
+
+prev.onclick = () => {
+  diceIndex = (diceIndex - 1 + diceImages.length) % diceImages.length;
+  renderDice();
+};
+
+next.onclick = () => {
+  diceIndex = (diceIndex + 1) % diceImages.length;
+  renderDice();
+};
+
+renderDice();
+
+
+
+
+
+optionsOverlay.addEventListener("click", (e) => {
+  if (e.target === optionsOverlay) {
+    optionsOverlay.style.display = "none";
   }
 });
 
 
-optBtn.addEventListener("click", function() { 
-    overlay.style.display = "flex";
-});
+// optBtn.addEventListener("click", function() { 
+//     optionsOverlay.style.display = "flex";
+// });
 
 
 volumeBtn.addEventListener("click", function() { 
@@ -365,20 +449,20 @@ function renderTidyness(tidyness){
     document.querySelectorAll(".piece").forEach(el => {
         let wrapper = el.parentElement;
         if(tidyness == 1) {
-            document.getElementById("perfect").classList.add("selected");
-            document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11853.svg')";
+            //document.getElementById("perfect").classList.add("selected");
+            //document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11853.svg')";
             wrapper.style.transform = "rotate(0deg)";
             el.style.backgroundPosition = "50% 50%";
         }
         if(tidyness == 2) {
-            document.getElementById("tidy").classList.add("selected");
-            document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11852.svg')";
+            //document.getElementById("tidy").classList.add("selected");
+            //document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11852.svg')";
             wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";
             el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";
         }
         if(tidyness == 3) {
-            document.getElementById("natural").classList.add("selected");
-            document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11851.svg')";
+            //document.getElementById("natural").classList.add("selected");
+            //document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11851.svg')";
             wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
             el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
         }
@@ -420,7 +504,7 @@ bgOptions.forEach(bgOption => {
     document.getElementById("bg-title").textContent =  backgrounds[bgId].slice(0, -4); 
     
     body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
-    modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+    //modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
     setCookie("background", bgId);
   });
 });

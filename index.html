@@ -194,44 +194,94 @@
             </div>
         </div>
 
-        <div class="overlay" id="overlay">
-            <div id="modal" class="modal">
-                <div class="board-options-container">
-                    <div id="board-option"></div>
-                    <div class="options-flex">
-                        <div id="natural" class="board-options-text natural selected"></div>
-                        <div id="tidy" class="board-options-text tidy"></div>
-                        <div id="perfect" class="board-options-text perfect"></div>
+        <!-- overlay -->
+        <div id="optionsOverlay" class="opt-overlay hidden">
+            <div class="opt-bg"></div>
+
+            <!-- header -->
+            <div class="opt-header">
+                <div class="icon back" data-page="back">←</div>
+                <div class="icon tab" data-page="game">GAME</div>
+                <div class="icon tab" data-page="options">OPTIONS</div>
+                <div class="icon tab" data-page="help">HELP</div>
+
+                <div id="tabIndicator" class="tab-indicator"></div>
+            </div>
+
+            <!-- pagine -->
+            <div class="opt-pages">
+
+                <!-- GAME -->
+                <div class="opt-page" id="page-game">
+                    <section>
+                        <h3>Same table</h3>
+                        <div class="card"></div>
+                    </section>
+
+                    <section>
+                        <h3>Online</h3>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                    </section>
+
+                    <section class="row">
+                        <h3>AI opponent</h3>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                    </section>
+                </div>
+
+                <!-- OPTIONS -->
+                <div class="opt-page hidden" id="page-options">
+                    <section class="row">
+                        <h3>Sound</h3>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                    </section>
+
+                    <section class="row">
+                        <h3>Table style</h3>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                    </section>
+
+                    <section>
+                        <h3>Dice style</h3>
+                        <div class="carousel">
+                            <div class="carArrow" id="dicePrev">◀</div>
+
+                            <div class="carViewport">
+                                <img id="diceImg">
+                            </div>
+
+                            <div class="carArrow" id="diceNext">▶</div>
+                            </div>
+                    </section>
+
+                    <section>
+                        <h3>Background</h3>
+                        <div class="carousel" id="bgCarousel"></div>
+                    </section>
+                </div>
+
+                <!-- HELP -->
+                <div class="opt-page hidden" id="page-help">
+                    <div class="help-scroll">
+                        <p>Goal: <br />Create as many alignments as possible (horizontal, vertical, or diagonal).</p>
+                        <p>How to play:<br />On your turn, roll 5 dice. You may roll up to three times, keeping any dice you want after each roll and re-rolling the others.<br />If you make a valid combination, place one of your tokens on a matching empty space on the board. Then the turn passes to the next player.<br />If no combination is made after three rolls, your turn ends.<br />You are never forced to place a token. If a combination matches multiple spaces, you may choose where to place it.<br />The game ends when a player has placed all their tokens or completes a line of five tokens<br />Highest score wins.</p>
+                        <p>Main combinations:<br /> &bull; Brelan: 3 of a kind <br /> (numbers 1&ndash;6 on the grid)<br /> &bull; Carr&egrave;: 4 of a kind<br /> &bull; Yam: 5 of a kind<br /> &bull; Full: Full house<br /> &bull; Suite: Straight (1&ndash;5 or 2&ndash;6)<br /> &bull; Petit: total of dice less than 9<br /> <br />Special combinations:<br /> &bull; Sec: any main combination in a single roll (brelan not included)<br /> &bull; Appel: a declared combination after the <br /> first roll<br /> - Brelan not included <br /> - Must re-roll at least one die<br /> - Not possible to call carr&egrave; on carr&egrave;</p>
+                        <p>Scoring:<br /> &bull; 3 in a row = 1 point<br /> &bull; 4 in a row = 2 points<br /> &bull; 5 in a row = 3 points</p>
+                        <p>.</p>
+                        <p>&nbsp;</p>
                     </div>
                 </div>
-                <div class="dice-options-container">
-                    <div id="dice-title" class="title">CLASSIC</div>
-                    <div class="dice-options">
-                        <div id="do0" class="die-options" class="die-img"></div>
-                        <div id="do1" class="die-options" class="die-img"></div>
-                        <div id="do2" class="die-options" class="die-img"></div>
-                        <div id="do3" class="die-options" class="die-img"></div>
-                        <div id="do4" class="die-options" class="die-img"></div>
-                        <div id="do5" class="die-options empty"></div>
-                        <div id="do6" class="die-options empty"></div>
-                        <div id="do7" class="die-options empty"></div>
-                    </div>
-                </div>
-                <div class="background-options-container">
-                    <div id="bg-title" class="title">sun-tornado</div>
-                    <div class="backgrounds-options">
-                        <div id="bg0" class="bg-options"><img src="resources/images/backgrounds/diamond-sunset-prev.png" class="die-img"></div>
-                        <div id="bg1" class="bg-options"><img src="resources/images/backgrounds/liquid-cheese-prev.png" class="die-img"></div>
-                        <div id="bg2" class="bg-options"><img src="resources/images/backgrounds/tortoise-shell-prev.png" class="die-img"></div>
-                        <div id="bg3" class="bg-options"><img src="resources/images/backgrounds/sun-tornado-prev.png" class="die-img"></div>
-                        <div id="bg4" class="bg-options"><img src="resources/images/backgrounds/pattern-randomized-prev.png" class="die-img"></div>
-                        <div id="bg5" class="bg-options"><img src="resources/images/backgrounds/subtle-prism-prev.png" class="die-img"></div>                     
-                        <div id="bg6" class="bg-options"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png" class="die-img"></div>
-                        <div id="bg7" class="bg-options"><img src="resources/images/backgrounds/repeating-triangles-prev.png" class="die-img"></div>
-                    </div>
-                </div> 
+
             </div>
         </div>
+
         <script src="linotte.js"></script>
     </body>
 </html>
