@@ -428,8 +428,11 @@ bgOptions.forEach(bgOption => {
 
 document.querySelectorAll(".piece").forEach(el => {
     el.addEventListener("click", function() {
+        console.log("piece function");
         if (!isMyTurn()) return;
+        console.log("piece turn");
         if(pieceEnebled == false) return;
+        console.log("piece enabled");
 
         let piece = document.getElementById(this.id);
         let wrapper = piece.parentElement;
