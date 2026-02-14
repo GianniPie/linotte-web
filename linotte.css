@@ -113,6 +113,7 @@ html, body {
 
 
 
+
 /* ============================================
    INFO SECTION
    ============================================ */
@@ -356,6 +357,105 @@ html, body {
 }
 
 
+#a1 {
+  background-image: url("resources/images/g10481.svg");
+}
+
+#b1 {
+  background-image: url("resources/images/g10483.svg");
+}
+
+#c1 {
+  background-image: url("resources/images/g10495.svg");
+}
+
+#d1 {
+  background-image: url("resources/images/g10484.svg")
+}
+
+#e1 {
+  background-image: url("resources/images/g10486.svg")}
+
+
+#a2 {
+  background-image: url("resources/images/g10482.svg")
+}
+
+#b2 {
+  background-image: url("resources/images/g10492.svg")
+}
+
+#c2 {
+  background-image: url("resources/images/g10491.svg")
+}
+
+#d2 {
+  background-image: url("resources/images/g10496.svg")
+}
+
+#e2 {
+  background-image: url("resources/images/g10485.svg")
+}
+
+#a3 {
+  background-image: url("resources/images/g10493.svg")
+}
+
+#b3 {
+  background-image: url("resources/images/g10491.svg")
+}
+
+#c3 {
+  background-image: url("resources/images/g10498.svg")
+}
+
+#d3 {
+  background-image: url("resources/images/g10495.svg")
+}
+
+#e3 {
+  background-image: url("resources/images/g10497.svg")
+}
+
+#a4 {
+  background-image: url("resources/images/g10486.svg")
+}
+
+#b4 {
+  background-image: url("resources/images/g10496.svg")
+}
+
+#c4 {
+  background-image: url("resources/images/g10497.svg")
+}
+
+#d4 {
+  background-image: url("resources/images/g10493.svg")
+}
+
+#e4 {
+  background-image: url("resources/images/g10481.svg")
+}
+
+#a5 {
+  background-image: url("resources/images/g10483.svg");
+}
+
+#b5 {
+  background-image: url("resources/images/g10482.svg")
+}
+
+#c5 {
+  background-image: url("resources/images/g10492.svg")
+}
+
+#d5 {
+  background-image: url("resources/images/g10485.svg")
+}
+
+#e5 {
+  background-image: url("resources/images/g10484.svg")
+}
 
 
 
