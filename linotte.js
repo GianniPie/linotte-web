@@ -1,4 +1,7 @@
-//21 january
+//Version
+const VERSION = "1.51";
+document.getElementById("help-scroll").innerHTML += VERSION;
+
 
 const dd1 = document.getElementById("dd1");
 const dd2 = document.getElementById("dd2");
@@ -97,6 +100,10 @@ const diceRed = [
     "re106.jpg"
 ];
 
+
+const dicePath = "resources/images/dice/";
+const diceFaces = [diceTraditional, diceClassic, diceRed, diceFlat, diceChinese];
+
 const diceNames = [
     "TRADITIONAL",
     "CLASSIC",
@@ -105,16 +112,12 @@ const diceNames = [
     "CHINESE",
 ];
 
-
-const dicePath = "resources/images/dice/";
-const diceFaces = [diceTraditional, diceClassic, diceRed, diceFlat, diceChinese];
-
 const diceImages = [
-    "resources/images/dice/c101.svg",
-    "resources/images/dice/tr101.png",
-    "resources/images/dice/re101.jpg",
-    "resources/images/dice/g107.svg",
-    "resources/images/dice/ch101.svg"
+    "tr101.png",
+    "c101.svg",
+    "re101.jpg",
+    "g107.svg",
+    "ch101.svg"
 ];
 
 const bgPath = "resources/images/backgrounds/";
@@ -129,19 +132,9 @@ const backgrounds = [
     "repeating-triangles.svg"
 ];
 
-const bgImages = [
-    "resources/images/backgrounds/diamond-sunset.svg",
-    "resources/images/backgrounds/liquid-cheese.svg",
-    "resources/images/backgrounds/tortoise-shell.svg",
-    "resources/images/backgrounds/sun-tornado.svg",
-    "resources/images/backgrounds/pattern-randomized.svg",
-    "resources/images/backgrounds/subtle-prism.svg",
-    "resources/images/backgrounds/parabolic-ellipse.svg",
-    "resources/images/backgrounds/repeating-triangles.svg"
-];
 
-fillCarousel("diceCarousel", diceImages);
-fillCarousel("bgCarousel", bgImages);
+fillCarousel("diceCarousel", dicePath, diceImages);
+fillCarousel("bgCarousel", bgPath, backgrounds);
 
 
 const piecesPath = "resources/images/pieces/";
@@ -271,30 +264,66 @@ let isVolumeOff = false;
 
 
 //----------- TIMER -----------------
+const MAX_TIMER = 42;
+let value = MAX_TIMER;
+let timerId = null;
 
-const TURN_SECONDS = 30;
-let timeLeft = TURN_SECONDS;
-let turnTimer = null;
-let timerDiv = document.getElementById("timer");
+function flip(tile, newVal){
+    const top = tile.querySelector(".top span");
+    const bottom = tile.querySelector(".bottom span");
+    if (top.textContent === newVal) return;
 
-startTurnTimer();
+    const oldVal = top.textContent;
 
-function startTurnTimer() {
-  clearInterval(turnTimer);
-  timeLeft = TURN_SECONDS;
-  timerDiv.textContent = timeLeft;
+    const topFlip = tile.querySelector(".top").cloneNode(true);
+    const bottomFlip = tile.querySelector(".bottom").cloneNode(true);
 
-  turnTimer = setInterval(() => {
-    timeLeft--;
-    timerDiv.textContent = timeLeft;
+    topFlip.querySelector("span").textContent = oldVal;
+    bottomFlip.querySelector("span").textContent = newVal;
 
-    if (timeLeft <= 0) {
-      clearInterval(turnTimer);
-      doneButton();
-    }
-  }, 1000);
+    topFlip.classList.add("flipTop");
+    bottomFlip.classList.add("flipBottom");
+
+    tile.appendChild(topFlip);
+    tile.appendChild(bottomFlip);
+
+    top.textContent = newVal;
+
+    setTimeout(()=>{
+        topFlip.remove();
+        bottomFlip.remove();
+        bottom.textContent = newVal;
+    },300);
 }
 
+function tick(){
+    const [t,u] = String(value).padStart(2,"0").split("");
+    flip(document.getElementById("tens"), t);
+    flip(document.getElementById("units"), u);
+    if(value === 0){
+        timerId = null;
+        doneButton();
+        return;
+    }
+    value--;
+    timerId = setTimeout(tick,1000);
+}
+
+function startTurnTimer() {
+    value = MAX_TIMER;
+    if(timerId !== null){
+        clearTimeout(timerId);
+        timerId = null;
+    }
+    startTimer();
+}
+
+function startTimer(){
+    if(timerId !== null) return;
+    tick();
+}
+
+tick();
 
 
 
@@ -359,12 +388,13 @@ function moveIndicator(page) {
   document.getElementById("tabIndicator").style.left = map[page] + "%";
 }
 
-
-function fillCarousel(id, items) {
+function fillCarousel(id, url, items) {
   const el = document.getElementById(id);
+
+  console.log(id  + " " +  url + " " +  items);
   items.forEach(src => {
     const d = document.createElement("div");
-    d.style.backgroundImage = `url(${src})`;
+    d.style.backgroundImage = `url(${url + src})`;
     d.style.backgroundSize = "contain";
     d.style.backgroundRepeat = "no-repeat";
     d.style.backgroundPosition = "center";
@@ -598,7 +628,7 @@ rollBtn.addEventListener("click", function() {
     rollBtnEnebled = false;
     doneBtnEnebled = false;
 
-    startTurnTimer();
+    //startTurnTimer();
 
     if(!isVolumeOff) {
         new Audio("resources/sounds/roll.mp3").play();
