@@ -201,16 +201,18 @@
             </div>
         </div>
 
-        <!-- overlay -->
-        <div id="optionsOverlay" class="opt-overlay hidden">
+<!-- =================== OVERLAYS ================= -->
+
+        <!-- options overlay -->
+        <div id="options-overlay" class="options-overlay hidden">
             <div class="opt-bg"></div>
 
             <!-- header -->
             <div class="opt-header">
-                <div class="icon back" data-page="back">←</div>
-                <div class="icon tab" data-page="game">GAME</div>
-                <div class="icon tab" data-page="options">OPTIONS</div>
-                <div class="icon tab" data-page="help">HELP</div>
+                <div class="icon" id="icon-back" data-page="back"></div>
+                <div class="icon" id="icon-tab1" data-page="game"></div>
+                <div class="icon" id="icon-tab2" data-page="options"></div>
+                <div class="icon" id="icon-tab3" data-page="help"></div>
 
                 <div id="tabIndicator" class="tab-indicator"></div>
             </div>
@@ -220,9 +222,13 @@
 
                 <!-- GAME -->
                 <div class="opt-page" id="page-game">
+
                     <section>
-                        <div class="title">Same table</div>
-                        <div class="card"></div>
+                        <div class="separator"></div>
+                        <div class="title selected">Same table</div>
+                        <div class="card">
+                            <div class="opt-btn flipped higlight">FLIP</div>`
+                        </div>
                     </section>
 
                     <section>
@@ -262,40 +268,169 @@
                         </div>
                         
                     </section>
-
+    
                     <section>
                         <div class="title">Dice style</div>
-                        <div id="diceCarousel" class="carousel">
-                            <div class="carArrow" id="dicePrev">◀</div>
-
-                            <div class="carViewport">
-                                <img id="diceImg">
-                            </div>
-
-                            <div class="carArrow" id="diceNext">▶</div>
-                            </div>
+                        <ul class="list">
+                            <li class="item"><div class="content die"><img src="resources/images/dice/tr101.png"></div></li>
+                            <li class="item"><div class="content die"><img src="resources/images/dice/c101.svg" ></div></li>
+                            <li class="item"><div class="content die"><img src="resources/images/dice/re101.jpg"></div></li>
+                            <li class="item"><div class="content die"><img src="resources/images/dice/g107.svg" ></div></li>
+                            <li class="item"><div class="content die"><img src="resources/images/dice/ch101.svg"></div></li>
+                        </ul>
                     </section>
 
                     <section>
                         <div class="title">Background</div>
-                        <div class="carousel" id="bgCarousel"></div>
+                        <ul class="list">
+                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/diamond-sunset-prev.png"></div></li>
+                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/liquid-cheese-prev.png"></div></li>
+                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/tortoise-shell-prev.png"></div></li>
+                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/sun-tornado-prev.png"></div></li>
+                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/pattern-randomized-prev.png"></div></li>
+                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/subtle-prism-prev.png"></div></li>
+                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png"></div></li>
+                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/repeating-triangles-prev.png"></div></li>
+                        </ul>
                     </section>
                 </div>
 
                 <!-- HELP -->
                 <div class="opt-page hidden" id="page-help">
                     <div id="help-scroll" class="help-scroll">
-                        <p>Goal: <br />Create as many alignments as possible (horizontal, vertical, or diagonal).</p>
-                        <p>How to play:<br />On your turn, roll 5 dice. You may roll up to three times, keeping any dice you want after each roll and re-rolling the others.<br />If you make a valid combination, place one of your tokens on a matching empty space on the board. Then the turn passes to the next player.<br />If no combination is made after three rolls, your turn ends.<br />You are never forced to place a token. If a combination matches multiple spaces, you may choose where to place it.<br />The game ends when a player has placed all their tokens or completes a line of five tokens<br />Highest score wins.</p>
-                        <p>Main combinations:<br /> &bull; Brelan: 3 of a kind <br /> (numbers 1&ndash;6 on the grid)<br /> &bull; Carr&egrave;: 4 of a kind<br /> &bull; Yam: 5 of a kind<br /> &bull; Full: Full house<br /> &bull; Suite: Straight (1&ndash;5 or 2&ndash;6)<br /> &bull; Petit: total of dice less than 9<br /> <br />Special combinations:<br /> &bull; Sec: any main combination in a single roll (brelan not included)<br /> &bull; Appel: a declared combination after the <br /> first roll<br /> - Brelan not included <br /> - Must re-roll at least one die<br /> - Not possible to call carr&egrave; on carr&egrave;</p>
-                        <p>Scoring:<br /> &bull; 3 in a row = 1 point<br /> &bull; 4 in a row = 2 points<br /> &bull; 5 in a row = 3 points</p>
-                        <p>.</p>
-                        <p>&nbsp;</p>
+
+                        <div class="separator"></div>
+                        <div class="title">Linotte</div>
+
+                        <div class="vertical-div">
+                            <div class="instruction-title">Goal</div>
+                            <div>Create as many alignments as possible (horizontal, vertical, or diagonal).</div>
+                            <div></div>
+                        </div>
+
+                        <div class="vertical-div white">
+                            <div class="instruction-title">How to play</div>
+                            <div class="text-how">On your turn, roll 5 dice. You may roll up to three times, keeping any dice you want after each roll and re-rolling the others.</div>
+                            <div class="text-how">If you make a valid combination, place one of your tokens on one and just one matching empty space on the board. Then the turn passes to the next player.</div>
+                            <div class="text-how">If no combination is made after three rolls, your turn ends.</div>
+                            <div class="text-how">You are never forced to place a token.</div>
+                            <div class="text-how">The game ends when a player has placed all their tokens or completes a line of five tokens</div>
+                            <div class="text-how">Highest score wins.</div>
+                        </div>
+
+                        <div class="vertical-div">
+                            <div class="instruction-title">Main combinations</div>
+
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g1.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Brelan</div>
+                                    <div class="img-expl">3 of a kind</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g5.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Carrè</div>
+                                    <div class="img-expl">4 of a kind</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g8.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Yam</div>
+                                    <div class="img-expl">5 of a kind</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g4.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Full</div>
+                                    <div class="img-expl">full house (3 +2)</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g7.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Suite</div>
+                                    <div class="img-expl">Straight (1 to 5 or 2 to 6)</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g6.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Petite</div>
+                                    <div class="img-expl">sum of dice less than 9</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="vertical-div">
+                            <div class="instruction-title">Special combinations</div>
+
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g2.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Sec</div>
+                                    <div class="img-expl">Any main combination in a single roll</div>
+                                    <div class="img-expl">- brelan not included</div>
+                                </div>
+                            </div>
+
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g3.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Appel</div>
+                                    <div class="img-expl">A declared combination after the</div>
+                                    <div class="img-expl">first roll</div>
+                                    <div class="img-expl">- brelan not included</div>
+                                    <div class="img-expl">- Must re-roll at least one die</div>
+                                    <div class="img-expl">- Not possible to call carrè on carrè</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="vertical-div white">
+                            <div class="instruction-title">Scoring</div>
+                            <div>3 in a row = 1 point </div>
+                            <div>4 in a row = 2 points</div>
+                            <div>5 in a row = 3 points</div>
+                            <div class="separator"></div>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="separator"></div>
                     </div>
                 </div>
 
             </div>
         </div>
+
+
+        <!-- winner overlay -->
+         <div>
+            <div id="winner-overlay" class="winner-overlay">
+            <div class="modal" id="modal">
+                <div class="winner-container">
+
+                    <div class="v-winner-table">
+                        <div class="h-winner-table">
+                            <div class="icon" id="winner-icon-back"></div>
+                            <div class="piece-popup-container">
+                                <div class="piece-popup-wrap">
+                                    <div class="piece-popup" id="piece-popup"></div>
+                                </div>
+                            </div>
+                            <div class="winner-right"></div>
+                        </div>
+                        <div class="winner-text"></div>
+                        <div class="winne-button"></div>
+                    </div>
+                </div>
+
+            </div>
+
+
+         </div>
 
         <script src="linotte.js"></script>
     </body>

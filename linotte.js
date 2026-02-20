@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.51";
+const VERSION = "1.52";
 document.getElementById("help-scroll").innerHTML += VERSION;
 
 
@@ -22,8 +22,7 @@ const volumeBtn = document.getElementById("volume");
 
 
 const body = document.getElementById("body");
-const overlay = document.getElementById("optionsOverlay");
-const optionsOverlay = document.getElementById("optionsOverlay");
+const optionsOverlay = document.getElementById("options-overlay");
 
 
 let rollAnimationID;
@@ -132,11 +131,6 @@ const backgrounds = [
     "repeating-triangles.svg"
 ];
 
-
-fillCarousel("diceCarousel", dicePath, diceImages);
-fillCarousel("bgCarousel", bgPath, backgrounds);
-
-
 const piecesPath = "resources/images/pieces/";
 const imgExtention = ".svg";
 let pieces =  [
@@ -216,8 +210,18 @@ player2.color = "#" + player2.pieceImage.split("_")[1].slice(0, -6);
 const selectedColor = [null, player1.color, player2.color];
 document.getElementsByClassName("player p1")[0].style.backgroundColor = player1.color;
 document.getElementsByClassName("player p2")[0].style.backgroundColor = player2.color;
+
 let currentPlayer = 1;
-document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 5px";
+// document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 5px";
+document.getElementsByClassName("player p1")[0].style.setProperty("--glow", player1.color);
+document.getElementsByClassName("player p1")[0].classList.add("current"); 
+
+
+//to be deleted
+document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", player1.color);
+document.getElementById("piece-popup").style.backgroundImage = urlOf(player1.pieceImage);
+
+
 
 const LOCAL_PLAYER = 1; // o 2
 function isMyTurn() {return currentPlayer;}
@@ -360,7 +364,7 @@ var gameState = {
 
 
 //----------- OPTIONS OVERLAY -----------------
-openBtn.onclick = () => overlay.classList.remove("hidden");
+openBtn.onclick = () => optionsOverlay.classList.remove("hidden");
 
 document.querySelectorAll(".icon").forEach(icon => {
   icon.onclick = () => handleTab(icon.dataset.page);
@@ -368,7 +372,7 @@ document.querySelectorAll(".icon").forEach(icon => {
 
 function handleTab(page) {
   if (page === "back") {
-    overlay.classList.add("hidden");
+    optionsOverlay.classList.add("hidden");
     return;
   }
 
@@ -379,51 +383,19 @@ function handleTab(page) {
   moveIndicator(page);
 }
 
+
 function moveIndicator(page) {
-  const map = {
-    game: 20,
-    options: 45,
-    help: 70
-  };
-  document.getElementById("tabIndicator").style.left = map[page] + "%";
+    const rect1 = document.getElementById("icon-tab1").getBoundingClientRect();
+    const rect2 = document.getElementById("icon-tab2").getBoundingClientRect();
+    const rect3 = document.getElementById("icon-tab3").getBoundingClientRect();
+
+    const map = {
+        game: rect1.left - 10,
+        options: rect2.left - 10,
+        help: rect3.left - 10
+    };
+    document.getElementById("tabIndicator").style.left = map[page] + "px";
 }
-
-function fillCarousel(id, url, items) {
-  const el = document.getElementById(id);
-
-  console.log(id  + " " +  url + " " +  items);
-  items.forEach(src => {
-    const d = document.createElement("div");
-    d.style.backgroundImage = `url(${url + src})`;
-    d.style.backgroundSize = "contain";
-    d.style.backgroundRepeat = "no-repeat";
-    d.style.backgroundPosition = "center";
-    el.appendChild(d);
-  });
-}
-
-
-
-let diceIndex = 0;
-
-const prev = document.getElementById("dicePrev");
-const next = document.getElementById("diceNext");
-
-function renderDice() {
-  diceImg.src = diceImages[diceIndex];
-}
-
-prev.onclick = () => {
-  diceIndex = (diceIndex - 1 + diceImages.length) % diceImages.length;
-  renderDice();
-};
-
-next.onclick = () => {
-  diceIndex = (diceIndex + 1) % diceImages.length;
-  renderDice();
-};
-
-renderDice();
 
 
 
@@ -441,16 +413,16 @@ optionsOverlay.addEventListener("click", (e) => {
 // });
 
 
-volumeBtn.addEventListener("click", function() { 
-    if(isVolumeOff) {
-        isVolumeOff = false;
-        this.classList.remove("off");
-    } else {
-        isVolumeOff = true;
-        this.classList.add("off");
-    }
-    setCookie("volume", isVolumeOff);
-});
+// volumeBtn.addEventListener("click", function() { 
+//     if(isVolumeOff) {
+//         isVolumeOff = false;
+//         this.classList.remove("off");
+//     } else {
+//         isVolumeOff = true;
+//         this.classList.add("off");
+//     }
+//     setCookie("volume", isVolumeOff);
+// });
 
 
 document.querySelectorAll('.board-options-text').forEach(boardText => {
@@ -539,6 +511,21 @@ bgOptions.forEach(bgOption => {
   });
 });
 
+
+//----------- WINNER OVERLAY -----------------
+winnerOverlay = document.getElementById("winner-icon-back");
+
+winnerOverlay.addEventListener("click", (e) => {
+  if (e.target === overlay) {
+    overlay.style.display = "none";
+  }
+});
+
+
+
+
+
+//----------- PIECES AND TABLE -----------------
 
 document.querySelectorAll(".piece").forEach(el => {
     el.addEventListener("click", function() {
@@ -1024,12 +1011,21 @@ function doneButton(e) {
 
     if(currentPlayer === 1){
         currentPlayer = 2;
+        // document.getElementsByClassName("player p2")[0].style.boxShadow = player2.color + " 0px 0px 0px 6px";
+        document.getElementsByClassName("player p2")[0].style.setProperty("--glow", player2.color);
         document.getElementsByClassName("player p1")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p2")[0].style.boxShadow = player2.color + " 0px 0px 0px 6px";
+
+        document.getElementsByClassName("player p2")[0].classList.add("current");
+        document.getElementsByClassName("player p1")[0].classList.remove("current");           
     } else {
         currentPlayer = 1;
+        
+        // document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 6px";
+        document.getElementsByClassName("player p1")[0].style.setProperty("--glow", player1.color);
         document.getElementsByClassName("player p2")[0].style.boxShadow = "black 0px 0px 0px 0px";
-        document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 6px";
+
+        document.getElementsByClassName("player p1")[0].classList.add("current");
+        document.getElementsByClassName("player p2")[0].classList.remove("current");
     }
 
     startTurnTimer();
@@ -1065,17 +1061,24 @@ document.querySelectorAll(".result").forEach(el => {
 
         //Only for selectable results
         if (!el.classList.contains("selectable")) return;
+        //Only if not firts throw
+        if(numRoll === 3) return;
 
         const elemId = document.getElementById(this.id).id;
         const targetId = "cc" + elemId.slice(2);
         const targetDiv = document.getElementById(targetId);
-
+         console.log(targetId);
         if (targetDiv.classList.contains("checked")) {
             targetDiv.classList.remove("checked"); 
         } else {
             document.querySelectorAll(".call.selectable").forEach(el => {
                 el.classList.remove("checked"); // reset
             });
+            //Not possible to call carre on carre
+            if(combinationaRealized[4] === 1 && targetId === "cc5") return;
+            //Only if at least one die is rolled
+            if(document.querySelectorAll(".die.selected").length === 5) return;
+
             targetDiv.classList.add("checked");
         }
     });
