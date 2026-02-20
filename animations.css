@@ -1,0 +1,197 @@
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+
+/* highlight current player */
+@keyframes pulseShadow {
+    0% {
+        box-shadow: var(--glow) 0 0 0 4px;
+    }
+
+    50% {
+        box-shadow: var(--glow) 0 0 0 8px;
+    }
+
+    100% {
+        box-shadow: var(--glow) 0 0 0 4px;
+    }
+}
+
+
+@keyframes spinOut {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  40% {
+    transform: rotate(20deg);
+  }
+
+  65% {
+    transform: rotate(11deg);
+  }
+
+  82% {
+    transform: rotate(14deg);
+  }
+
+  100% {
+    transform: rotate(12deg);
+  }
+}
+
+@keyframes springOut {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  14% {
+    transform: translate(-3%, 4%) scale(0.92);
+  }
+
+  32% {
+    transform: translate(26%, -46%) scale(2.25);
+  }
+
+  52% {
+    transform: translate(18%, -31%) scale(1.72);
+  }
+
+  70% {
+    transform: translate(22%, -37%) scale(1.98);
+  }
+
+  86% {
+    transform: translate(20%, -35%) scale(1.88);
+  }
+
+  100% {
+    transform: translate(20%, -34%) scale(1.8);
+  }
+}
+
+/* piece placement */
+@keyframes bounceIn {
+
+  0%,20%,40%,60%,80%,to {
+    animation-timing-function: cubic-bezier(.215, .61, .355, 1)
+  }
+
+  0% {
+    opacity: 0;
+    transform: scale(.3);
+  }
+
+  20% {
+    transform: scale(1.1);
+  }
+
+  40% {
+    transform: scale(.9);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+
+  80% {
+    transform: scale(.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* piece romoved */
+@keyframes bounceOut {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0;
+        transform: scale(2);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(1);
+    }
+}
+
+/* die selection */
+@keyframes bounceDie {
+40%,60%,80%,to {
+    animation-timing-function: cubic-bezier(.215, .61, .355, 1)
+  }
+
+  40% {
+    transform: scale(.9)
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.1)
+  }
+
+  80% {
+    transform: scale(.95)
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+    background-color: rgb(255, 234, 0);
+    box-shadow: rgb(255, 234, 0) 0 0 0 0.3em;
+  }
+}
+
+/* clock top tile */
+@keyframes flipTop {
+  to {
+    transform: rotateX(-180deg);
+  }
+}
+
+/* clock bottom tile */
+@keyframes flipBottom {
+  from {
+    transform: scale(1.1, 0.8) rotateX(180deg);
+  }
+
+  to {
+    transform: rotateX(0deg);
+  }
+}
+
+/* call selection */
+@keyframes bounceCall {
+  40%,60%,80%,to {
+    animation-timing-function: cubic-bezier(.215, .61, .355, 1)
+  }
+
+  40% {
+    transform: scale(.9)
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.3)
+  }
+
+  80% {
+    transform: scale(.97)
+  }
+
+  to {
+    background-color: #ffea00;
+    border: .15em solid #ffea00;
+    border-radius: 20px;
+    margin: .5em .25em 3vw;
+  }
+}

@@ -215,11 +215,14 @@ let currentPlayer = 1;
 // document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 5px";
 document.getElementsByClassName("player p1")[0].style.setProperty("--glow", player1.color);
 document.getElementsByClassName("player p1")[0].classList.add("current"); 
+document.getElementById("winner-text").textContent = "Player 1 won!";
+
 
 
 //to be deleted
 document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", player1.color);
 document.getElementById("piece-popup").style.backgroundImage = urlOf(player1.pieceImage);
+startConfetti();
 
 
 
@@ -513,10 +516,11 @@ bgOptions.forEach(bgOption => {
 
 
 //----------- WINNER OVERLAY -----------------
-winnerOverlay = document.getElementById("winner-icon-back");
+const closeWinnerOverlay = document.getElementById("winner-icon-back");
+const overlay = document.getElementById("winner-overlay");
 
-winnerOverlay.addEventListener("click", (e) => {
-  if (e.target === overlay) {
+closeWinnerOverlay.addEventListener("click", (e) => {
+  if (e.target === closeWinnerOverlay) {
     overlay.style.display = "none";
   }
 });
