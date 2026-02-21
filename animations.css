@@ -18,7 +18,6 @@
     }
 }
 
-
 @keyframes spinOut {
   0% {
     transform: rotate(0deg);
@@ -46,24 +45,36 @@
     transform: translate(0, 0) scale(1);
   }
 
-  14% {
-    transform: translate(-3%, 4%) scale(0.92);
+  10% {
+    transform: translate(-4%, 6%) scale(0.88);
   }
 
-  32% {
-    transform: translate(26%, -46%) scale(2.25);
+  26% {
+    transform: translate(28%, -48%) scale(2.45);
   }
 
-  52% {
-    transform: translate(18%, -31%) scale(1.72);
+  40% {
+    transform: translate(17%, -29%) scale(1.65);
   }
 
-  70% {
-    transform: translate(22%, -37%) scale(1.98);
+  54% {
+    transform: translate(24%, -40%) scale(2.15);
   }
 
-  86% {
-    transform: translate(20%, -35%) scale(1.88);
+  66% {
+    transform: translate(19.5%, -33.5%) scale(1.82);
+  }
+
+  78% {
+    transform: translate(21.5%, -36.8%) scale(1.98);
+  }
+
+  88% {
+    transform: translate(20.2%, -34.6%) scale(1.86);
+  }
+
+  94% {
+    transform: translate(20.1%, -34.2%) scale(1.82);
   }
 
   100% {

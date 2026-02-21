@@ -825,6 +825,12 @@ body {
   background-image: url("resources/images/t004.svg");
 }
 
+#icon-tab1.disabled {
+  opacity: 0.35;
+  pointer-events: none; /* blocca click */
+  cursor: default;
+}
+
 /* indicatore sotto icone */
 .tab-indicator {
   margin-top: 70px;
@@ -869,6 +875,7 @@ body {
 /* sezioni */
 section {
   margin-bottom: 24px;
+  justify-items: center;
 }
 
 .row {
@@ -876,49 +883,10 @@ section {
   gap: 12px;
 }
 
-/* card  */
-.card {
-  display: flex;
-  height: 60px;
-  flex: 1;
-  border-radius: 12px;
-  /* background: rgba(255,255,255,.2); */
-  justify-content: center;
-  align-items: center;
-}
-
-.list {
-  display: flex;
-  gap: 12px;
-  padding: 16px;
-  list-style: none;
-  overflow-x: scroll;
-  scroll-snap-type: x mandatory;
-}
-
-.item {
-  height: 75px;
-  aspect-ratio: 1/1;
-  background-color: transparent;
-  scroll-snap-align: center;
-}
-
-/* help scroll */
-.help-scroll {
-  margin: auto;
-  color: rgba(0, 0, 0, 0.5);
-  font-weight: 700;
-  font-size: 4vw;
-  margin-bottom: 20px;
-}
-
-.help-scroll strong {
-  font-weight: 900;
-}
-
 .title {
   height: 38px;
-  width: 100%;
+  width: 90%;
+  margin: auto;
   border-radius: 10px;
   border: rgba(0, 0, 0, .5) solid 3px;
   display: flex;
@@ -978,7 +946,6 @@ section {
   text-align: center;
 }
 
-
 .v-div {
   display: flex;
   flex-direction: column;
@@ -994,7 +961,67 @@ section {
   text-align: left;
 }
 
+/* carosello */
 
+.car-list {
+  display: flex;
+  gap: 16px;
+  padding: 15px 0;
+  min-height: 90px;
+  min-width: 90%;
+  margin: auto;
+
+  list-style: none;
+  overflow-x: scroll;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  border: blue solid 1px;
+}
+
+.car-item {
+  height: 70px;
+  aspect-ratio: 1/1;
+  background-color: transparent;
+  scroll-snap-align: center;
+  border-radius: 1em;
+}
+
+.car-item-content {
+  height: 100%;
+  overflow: hidden;
+}
+
+.car-button {
+  top: 50%;
+  width: 2em;
+  height: 2em;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.car-button .previous {
+  left: .5em;
+}
+
+.car-button .next {
+  right: .5eem;
+}
+
+.board-options {
+  border-radius: .35em;
+}
+
+.die-options {
+  border-radius: 1em;
+}
+
+.bg-options {
+  border-radius: 1em;
+}
+
+.selected {
+  box-shadow: rgb(255, 234, 0) 0 0 0 0.3em;
+}
 
 
 /* ============================================
@@ -1008,12 +1035,13 @@ section {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 65;
+  z-index: 70;
+  backdrop-filter: blur(5px);
 }
 
 .modal {
   position: fixed;
-  z-index: 66;
+  z-index: 100;
   width: 90%;
   aspect-ratio: 1/1;
   margin: auto;
@@ -1025,7 +1053,6 @@ section {
   background-position: 0, 0;
   background-repeat: no-repeat;
   background-size: cover;
-  backdrop-filter: blur(10px);
 
   display: flex;
   flex-direction: column;
@@ -1064,9 +1091,15 @@ section {
 }
 
 #winner-icon-back {
+  display: block;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  height: 40px;
+  aspect-ratio: 1/1;
   background-image: url("resources/images/t001.svg");
-  margin-top: -120px;
-  margin-left: -2vh;
+  margin-top: -135px;
+  margin-left: -1vh;
 }
 
 .piece-popup-container {
@@ -1132,9 +1165,15 @@ section {
   border: .1em solid #1f2e7c;
 }
 
-
-
-
+#confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9050;
+}
 /* ============================================
    BASE STYLES
    ============================================ */

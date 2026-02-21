@@ -206,12 +206,12 @@
 
         <!-- options overlay -->
         <div id="options-overlay" class="options-overlay hidden">
-            <div class="opt-bg"></div>
+            <div class="opt-bg" id="opt-bg"></div>
 
             <!-- header -->
             <div class="opt-header">
                 <div class="icon" id="icon-back" data-page="back"></div>
-                <div class="icon" id="icon-tab1" data-page="game"></div>
+                <div class="icon disabled" id="icon-tab1" data-page="game"></div>
                 <div class="icon" id="icon-tab2" data-page="options"></div>
                 <div class="icon" id="icon-tab3" data-page="help"></div>
 
@@ -261,37 +261,43 @@
                     </section>
 
                     <section>
-                        <div class="title">Table style</div>
-                        <div class="row">
-                            <div class="card"></div>
-                            <div class="card"></div>
-                            <div class="card"></div>    
+                        <div class="title" id="board-title">Table style</div>
+                        <div class="car-list-wrapper">
+                            <div class="car-list">
+                                <div class="car-item board-options" id="bo0"><img src="resources/images/board_p.svg"></div>
+                                <div class="car-item board-options" id="bo1"><img src="resources/images/board_t.svg"></div>
+                                <div class="car-item board-options" id="bo2"><img src="resources/images/board_n.svg"></div>    
+                            </div>
                         </div>
-                        
-                    </section>
-    
-                    <section>
-                        <div class="title">Dice style</div>
-                        <ul class="list">
-                            <li class="item"><div class="content die"><img src="resources/images/dice/tr101.png"></div></li>
-                            <li class="item"><div class="content die"><img src="resources/images/dice/c101.svg" ></div></li>
-                            <li class="item"><div class="content die"><img src="resources/images/dice/re101.jpg"></div></li>
-                            <li class="item"><div class="content die"><img src="resources/images/dice/g107.svg" ></div></li>
-                            <li class="item"><div class="content die"><img src="resources/images/dice/ch101.svg"></div></li>
-                        </ul>
                     </section>
 
                     <section>
-                        <div class="title">Background</div>
-                        <ul class="list">
-                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/diamond-sunset-prev.png"></div></li>
-                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/liquid-cheese-prev.png"></div></li>
-                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/tortoise-shell-prev.png"></div></li>
-                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/sun-tornado-prev.png"></div></li>
-                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/pattern-randomized-prev.png"></div></li>
-                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/subtle-prism-prev.png"></div></li>
-                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png"></div></li>
-                            <li class="item"><div class="content bg"><img src="resources/images/backgrounds/repeating-triangles-prev.png"></div></li>
+                        <div class="car-list-wrapper">
+                            <div class="title" id="dice-title">Dice style</div>
+                            <ul class="car-list">
+                                <li class="car-item"><div class="car-item-content die-options" id="do0"><img src="resources/images/dice/tr101.png"></div></li>
+                                <li class="car-item"><div class="car-item-content die-options" id="do1"><img src="resources/images/dice/c101.svg" ></div></li>
+                                <li class="car-item"><div class="car-item-content die-options" id="do2"><img src="resources/images/dice/red1.png"></div></li>
+                                <li class="car-item"><div class="car-item-content die-options" id="do3"><img src="resources/images/dice/g107.svg" ></div></li>
+                                <li class="car-item"><div class="car-item-content die-options" id="do4"><img src="resources/images/dice/ch101.svg"></div></li>
+                            </ul>
+                            <!-- We're calling `handleClick` with a direction argument when the buttons are clicked -->
+                            <button onclick="handleClick('previous')" class="car-button previous" type="button">-</button>
+                            <button onclick="handleClick('next')" class="car-button next" type="button">-</button>
+                        </div>
+                    </section>
+
+                    <section>
+                        <div class="title" id="bg-title">Background</div>
+                        <ul class="car-list">
+                            <li class="car-item"><div class="car-item-content bg-options" id="bg0"><img src="resources/images/backgrounds/diamond-sunset-prev.png"></div></li>
+                            <li class="car-item"><div class="car-item-content bg-options" id="bg1"><img src="resources/images/backgrounds/liquid-cheese-prev.png"></div></li>
+                            <li class="car-item"><div class="car-item-content bg-options" id="bg2"><img src="resources/images/backgrounds/tortoise-shell-prev.png"></div></li>
+                            <li class="car-item"><div class="car-item-content bg-options" id="bg3"><img src="resources/images/backgrounds/sun-tornado-prev.png"></div></li>
+                            <li class="car-item"><div class="car-item-content bg-options" id="bg4"><img src="resources/images/backgrounds/pattern-randomized-prev.png"></div></li>
+                            <li class="car-item"><div class="car-item-content bg-options" id="bg5"><img src="resources/images/backgrounds/subtle-prism-prev.png"></div></li>
+                            <li class="car-item"><div class="car-item-content bg-options" id="bg6"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png"></div></li>
+                            <li class="car-item"><div class="car-item-content bg-options" id="bg7"><img src="resources/images/backgrounds/repeating-triangles-prev.png"></div></li>
                         </ul>
                     </section>
                 </div>
@@ -410,12 +416,12 @@
         <!-- winner overlay -->
          <div>
             <div id="winner-overlay" class="winner-overlay">
+            <canvas id="confetti-canvas"></canvas>
             <div class="modal" id="modal">
                 <div class="winner-container">
-
                     <div class="v-winner-table">
                         <div class="h-winner-table">
-                            <div class="icon" id="winner-icon-back"></div>
+                            <div id="winner-icon-back"></div>
                             <div class="piece-popup-container">
                                 <div class="piece-popup-wrap">
                                     <div class="piece-popup" id="piece-popup"></div>
@@ -427,13 +433,12 @@
                         <div class="winner-button">NEW GAME</div>
                     </div>
                 </div>
-
             </div>
-
-
          </div>
 
         <script src="confetti.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
         <script src="linotte.js"></script>
+
     </body>
 </html>

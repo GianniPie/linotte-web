@@ -2,7 +2,6 @@
 const VERSION = "1.52";
 document.getElementById("help-scroll").innerHTML += VERSION;
 
-
 const dd1 = document.getElementById("dd1");
 const dd2 = document.getElementById("dd2");
 const dd3 = document.getElementById("dd3");
@@ -90,13 +89,13 @@ const diceTraditional = [
 ];
 
 const diceRed = [
-    "re100.jpg",
-    "re101.jpg",
-    "re102.jpg",
-    "re103.jpg",
-    "re104.jpg",
-    "re105.jpg",
-    "re106.jpg"
+    "red0.png",
+    "red1.png",
+    "red2.png",
+    "red3.png",
+    "red4.png",
+    "red5.png",
+    "red6.png"
 ];
 
 
@@ -114,7 +113,7 @@ const diceNames = [
 const diceImages = [
     "tr101.png",
     "c101.svg",
-    "re101.jpg",
+    "red1.jpg",
     "g107.svg",
     "ch101.svg"
 ];
@@ -218,12 +217,42 @@ document.getElementsByClassName("player p1")[0].classList.add("current");
 document.getElementById("winner-text").textContent = "Player 1 won!";
 
 
-
 //to be deleted
 document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", player1.color);
 document.getElementById("piece-popup").style.backgroundImage = urlOf(player1.pieceImage);
-startConfetti();
 
+
+// startConfetti();
+// const canvas = document.getElementById("confetti-canvas");
+// canvas.width = window.innerWidth;
+// canvas.height = window.innerHeight;
+
+fireWinnerConfetti();
+
+function fireWinnerConfetti() {
+  const duration = 3000;
+  const end = Date.now() + duration;
+
+  (function frame() {
+    confetti({
+      particleCount: 6,
+      angle: 85,
+      spread: 60,
+      origin: { x: 0 }
+    });
+
+    confetti({
+      particleCount: 6,
+      angle: 95,
+      spread: 60,
+      origin: { x: 1 }
+    });
+
+    if (Date.now() < end) {
+      requestAnimationFrame(frame);
+    }
+  })();
+}
 
 
 const LOCAL_PLAYER = 1; // o 2
@@ -244,11 +273,11 @@ coinP2Text.textContent = player2.points;
 //----------- COOKIES ---------------
 
 let tidyness = getCookie("tidyness", 3);
-renderTidyness(tidyness); //it shows the selection in the option section
+document.getElementById("bo" + tidyness).classList.add("selected"); //option section
 
 let selectedDie = getCookie("diceFaces", 3);
-//document.getElementById("do" + selectedDie).classList.add("selected"); //otion section
-//document.getElementById("dice-title").textContent =  diceNames[selectedDie];
+document.getElementById("do" + selectedDie).classList.add("selected"); //otion section
+document.getElementById("dice-title").textContent =  diceNames[selectedDie];
 let faces = diceFaces[selectedDie];  //faces of the selected die
 
 for(let i = 0; i < faces.length; i++) {
@@ -256,11 +285,13 @@ for(let i = 0; i < faces.length; i++) {
 }
 
 let selectedBg = getCookie("background", 3);
-//document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
-//document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
+document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
+document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
 
-// body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
-// modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+document.getElementById("opt-bg").style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+document.getElementById("modal").style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+
 
 let isVolumeOff = false;
 // isVolumeOff = getCookie("volume", false);
@@ -361,16 +392,24 @@ var gameState = {
     player2
 }
 
-
-
-
+dd1.style.backgroundImage = urlOf(dicePath + faces[diceResult[0]]);
+dd2.style.backgroundImage = urlOf(dicePath + faces[diceResult[1]]);
+dd3.style.backgroundImage = urlOf(dicePath + faces[diceResult[2]]);
+dd4.style.backgroundImage = urlOf(dicePath + faces[diceResult[3]]);
+dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
 
 
 //----------- OPTIONS OVERLAY -----------------
-openBtn.onclick = () => optionsOverlay.classList.remove("hidden");
+openBtn.onclick = () => {
+    optionsOverlay.classList.remove("hidden");
+    handleTab("options");
+}
 
 document.querySelectorAll(".icon").forEach(icon => {
-  icon.onclick = () => handleTab(icon.dataset.page);
+  icon.onclick = () => {
+    if (icon.classList.contains("disabled")) return;
+    handleTab(icon.dataset.page);
+  };
 });
 
 function handleTab(page) {
@@ -402,18 +441,12 @@ function moveIndicator(page) {
 
 
 
-
-
 optionsOverlay.addEventListener("click", (e) => {
   if (e.target === optionsOverlay) {
     optionsOverlay.style.display = "none";
   }
 });
 
-
-// optBtn.addEventListener("click", function() { 
-//     optionsOverlay.style.display = "flex";
-// });
 
 
 // volumeBtn.addEventListener("click", function() { 
@@ -428,24 +461,34 @@ optionsOverlay.addEventListener("click", (e) => {
 // });
 
 
-document.querySelectorAll('.board-options-text').forEach(boardText => {
-  boardText.addEventListener('click', () => {
-      
-    if(boardText.id == "natural") {
-        tidyness=3;
-    }
-     if(boardText.id == "tidy") {
-        tidyness=2; 
-     }
-      if(boardText.id == "perfect") {
-        tidyness=1;  
-    }
 
-    renderTidyness(tidyness);
-    setCookie("tidyness", tidyness);
-  });
+const boardOptions = document.querySelectorAll(".board-options");
+const boardTitle = document.getElementById("board-title");
+
+boardOptions.forEach(boardOption => {
+    boardOption.addEventListener("click", () => {
+        boardOptions.forEach(t => t.classList.remove("selected"));
+        boardOption.classList.add("selected");
+
+        var tydeId = Number(boardOption.id[2]);
+
+        if(tydeId == 0) {
+            tidyness=0;
+            boardTitle.textContent = "Perfect";
+        }
+        if(tydeId == 1) {
+            tidyness=1;
+            boardTitle.textContent = "Tidy";
+        }
+        if(tydeId == 2) {
+            tidyness=2;
+            boardTitle.textContent = "Natural";
+        }
+
+        renderTidyness(tidyness);
+        setCookie("tidyness", tidyness);
+    });
 });
-    
 
 function renderTidyness(tidyness){
     const boardTexts = document.querySelectorAll('.board-options-text');
@@ -453,47 +496,37 @@ function renderTidyness(tidyness){
 
     document.querySelectorAll(".piece").forEach(el => {
         let wrapper = el.parentElement;
-        if(tidyness == 1) {
-            //document.getElementById("perfect").classList.add("selected");
-            //document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11853.svg')";
+        if(tidyness == 0) {
             wrapper.style.transform = "rotate(0deg)";
             el.style.backgroundPosition = "50% 50%";
         }
-        if(tidyness == 2) {
-            //document.getElementById("tidy").classList.add("selected");
-            //document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11852.svg')";
+        if(tidyness == 1) {
             wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";
             el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";
         }
-        if(tidyness == 3) {
-            //document.getElementById("natural").classList.add("selected");
-            //document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11851.svg')";
+        if(tidyness == 2) {
             wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
             el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
         }
     });
 }
 
-
 const dieOptions = document.querySelectorAll(".die-options");
 
 dieOptions.forEach(dieOption => {
     dieOption.addEventListener("click", () => {
-        if(!dieOption.classList.contains("empty")) {
+        dieOptions.forEach(t => t.classList.remove("selected"));
+        dieOption.classList.add("selected");
 
-            dieOptions.forEach(t => t.classList.remove("selected"));
-            dieOption.classList.add("selected");
-
-            var dieId = Number(dieOption.id[2]);
-            document.getElementById("dice-title").textContent =  diceNames[dieId];
-            faces = diceFaces[dieId];
-            dd1.style.backgroundImage = urlOf(dicePath + faces[diceResult[0]]);
-            dd2.style.backgroundImage = urlOf(dicePath + faces[diceResult[1]]);
-            dd3.style.backgroundImage = urlOf(dicePath + faces[diceResult[2]]);
-            dd4.style.backgroundImage = urlOf(dicePath + faces[diceResult[3]]);
-            dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
-            setCookie("diceFaces", dieId);
-        }
+        var dieId = Number(dieOption.id[2]);
+        document.getElementById("dice-title").textContent =  diceNames[dieId];
+        faces = diceFaces[dieId];
+        dd1.style.backgroundImage = urlOf(dicePath + faces[diceResult[0]]);
+        dd2.style.backgroundImage = urlOf(dicePath + faces[diceResult[1]]);
+        dd3.style.backgroundImage = urlOf(dicePath + faces[diceResult[2]]);
+        dd4.style.backgroundImage = urlOf(dicePath + faces[diceResult[3]]);
+        dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
+        setCookie("diceFaces", dieId);
     });
 });
 
@@ -509,7 +542,7 @@ bgOptions.forEach(bgOption => {
     document.getElementById("bg-title").textContent =  backgrounds[bgId].slice(0, -4); 
     
     body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
-    //modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+    document.getElementById("opt-bg").style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
     setCookie("background", bgId);
   });
 });
@@ -660,9 +693,9 @@ function rollAnimation() {
     let d = 0;
     let e = 0;
 
-    if (tidyness == 1) { d= 0; e=0; }
-    if (tidyness == 2) { d= 0; e=5; }
-    if (tidyness == 3) { d= 7; e=10; }
+    if (tidyness == 0) { d= 0; e=0; }
+    if (tidyness == 1) { d= 0; e=5; }
+    if (tidyness == 2) { d= 7; e=10; }
 
     if(!dd1.classList.contains("selected")) {
         diceResult[0] = rndNum(1,6);
