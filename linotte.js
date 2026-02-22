@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.6";
+const VERSION = "1.61";
 document.getElementById("version").innerHTML += VERSION;
 
 const dd1 = document.getElementById("dd1");
@@ -333,7 +333,9 @@ function stopTimer() {
   }
 }
 
-tick();
+document.addEventListener("DOMContentLoaded", () => {
+    tick();
+});
 
 
 
