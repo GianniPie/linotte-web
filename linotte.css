@@ -138,14 +138,13 @@ body {
   margin: auto;
   user-select: none;
   order: 1;
+  margin-left: -.1vw;
 }
 
 .players {
-  overflow-wrap: normal;
   flex-flow: row;
   grid-template-rows: auto;
-  grid-template-columns: auto 12% auto;
-  grid-auto-columns: 1fr;
+  grid-template-columns: auto 11% auto;
   grid-auto-flow: row;
   justify-content: stretch;
   place-items: center;
@@ -154,7 +153,7 @@ body {
 
 .player {
   border-radius: 10px;
-  width: 25vw;
+  width: 24vw;
   max-width: 200px;
   height: 100%;
   max-height: 200px;
@@ -175,7 +174,7 @@ body {
 }
 
 .textPlayer.t2 {
-  font-size: 1em;
+  font-size: .9em;
 }
 
 .pawn {
@@ -741,6 +740,10 @@ body {
   align-items: center;
 }
 
+.button:active {
+  animation: bounceButton 0.2s ease-out forwards;
+}
+
 .button.done {
   background-color: #465ee4;
   border: .25em solid #1f2e7c;
@@ -802,7 +805,7 @@ body {
   display: block;
   background-position: center;
   background-repeat: no-repeat;
-  background-size: cover;
+  background-size: contain;
   height: 40px;
   aspect-ratio: 1/1;
   margin: 1em;
@@ -866,9 +869,36 @@ body {
   font-size: 1.5em;
 }
 
+.car-btn {
+  height: 40px;
+  background-color: transparent;
+  scroll-snap-align: center;
+  border-radius: 1em;
+}
+
+.sound-btn {
+  display: block;
+  height: 32px;
+  width: 80px;
+  border-radius: .4em;
+  line-height: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+#sound-on {
+  background-image: url("resources/images/sound-on.svg");
+}
+
+#sound-off {
+  background-image: url("resources/images/sound-off.svg");
+}
+
 section {
-  margin-bottom: 24px;
+  margin-bottom: 1vh;
   justify-items: center;
+  margin-bottom: 2vh;
 }
 
 .title {
@@ -881,7 +911,6 @@ section {
   justify-content: center;
   align-content: center;
   font-size: 7vw;
-  color: rgba(0, 0, 0, 0.5);
 }
 
 .horizontal-div {
@@ -940,6 +969,12 @@ section {
   align-content: center;
 }
 
+.h-div {
+  display: flex;
+  flex-direction: row;
+  align-content: center;
+}
+
 .bold {
   color: rgba(0, 0, 0, 0.7);
 }
@@ -953,12 +988,11 @@ section {
   display: flex;
   flex-direction: column;
   width: 100%;
-  padding-bottom: 1em;
+  padding-bottom: 4vh;
   font-family: sans-serif;
   font-size: 0.8em;
   line-height: 1.5;
 }
-
 
 /* carousel */
 .car-list-wrapper {
@@ -969,10 +1003,8 @@ section {
 
 .car-list {
   display: flex;
- 
-  gap: 16px;
-  padding: 15px 0;
-  min-height: 90px;
+  gap: 15px;
+  padding: 2vh 0;
   min-width: 90%;
   margin: auto;
   list-style: none;
@@ -1050,7 +1082,6 @@ section {
 }
 
 .selected {
-  /* box-shadow: rgb(255, 234, 0) 0 0 0 0.3em; */
   animation: bounceDie 0.3s ease-out forwards;
 }
 
@@ -1063,7 +1094,7 @@ section {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, .6);
-  display: flex;
+  display: none;
   justify-content: center;
   align-items: center;
   z-index: 70;
@@ -1139,16 +1170,16 @@ section {
   border: 0.25em solid rgba(0, 0, 0, 0.35);
   margin: auto;
   margin-top: 70px;
-
+  margin-right: 2em;
   background-color: var(--glow);
   animation: pulseShadow 2s infinite ease-in-out;
+
 }
 
 .piece-popup-wrap {
   display: block;
   width: 100%;
   height: 100%;
-  opacity: 1;
   transform-origin: center;
   animation: springOut 700ms cubic-bezier(.22, 1.25, .32, 1) forwards;
   will-change: transform;
@@ -1176,7 +1207,7 @@ section {
 }
 
 .winner-text {
-  font-size: 3em;
+  font-size: 2.8em;
   color: rgba(0, 0, 0, .5);
 }
 
@@ -1184,15 +1215,19 @@ section {
   border-radius: 9px;
   width: 100%;
   min-height: 1em;
-  max-height: 6em;
   margin: auto;
   display: flex;
   justify-content: center;
   align-items: center;
+  cursor: pointer;
   font-size: 2em;
   color: white;
   background-color: #409ff8;
   border: .1em solid #1f2e7c;
+}
+
+.winner-button:active {
+  animation: bounceButton 0.2s ease-out forwards;
 }
 
 #confetti-canvas {

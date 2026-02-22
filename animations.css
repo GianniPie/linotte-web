@@ -157,7 +157,7 @@
   to {
     opacity: 1;
     transform: scale(1);
-    background-color: rgb(255, 234, 0);
+    /* background-color: rgb(255, 234, 0); */
     box-shadow: rgb(255, 234, 0) 0 0 0 0.3em;
   }
 }
@@ -204,5 +204,21 @@
     border: .15em solid #ffea00;
     border-radius: 20px;
     margin: .5em .25em 3vw;
+  }
+}
+
+
+/* call selection */
+@keyframes bounceButton {
+  40%,60%,80%,to {
+    animation-timing-function: cubic-bezier(.215, .61, .355, 1)
+  }
+
+  40% {
+    transform: scale(.9)
+  }
+
+  to {
+    transform: scale(1);
   }
 }

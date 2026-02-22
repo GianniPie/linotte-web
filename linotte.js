@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.53";
+const VERSION = "1.6";
 document.getElementById("version").innerHTML += VERSION;
 
 const dd1 = document.getElementById("dd1");
@@ -17,7 +17,6 @@ const wr5 = document.getElementById("wr5");
 const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
 const openBtn = document.getElementById("options");
-const volumeBtn = document.getElementById("volume");
 
 
 const body = document.getElementById("body");
@@ -195,6 +194,7 @@ var player2 = {
     remainingPieces: 12,
     local: true
 };
+var players = [player1, player2];
 
 let p1p = rndNum(8, pieces.length - 1);
 player1.pieceImage = piecesPath + pieces[p1p] + imgExtention;
@@ -214,49 +214,8 @@ document.getElementsByClassName("player p1")[0].style.backgroundColor = player1.
 document.getElementsByClassName("player p2")[0].style.backgroundColor = player2.color;
 
 let currentPlayer = 1;
-// document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 5px";
 document.getElementsByClassName("player p1")[0].style.setProperty("--glow", player1.color);
 document.getElementsByClassName("player p1")[0].classList.add("current"); 
-document.getElementById("winner-text").textContent = "Player 1 won!";
-
-
-//to be deleted
-document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", player1.color);
-document.getElementById("piece-popup").style.backgroundImage = urlOf(player1.pieceImage);
-
-
-// startConfetti();
-// const canvas = document.getElementById("confetti-canvas");
-// canvas.width = window.innerWidth;
-// canvas.height = window.innerHeight;
-
-fireWinnerConfetti();
-
-function fireWinnerConfetti() {
-  const duration = 3000;
-  const end = Date.now() + duration;
-
-  (function frame() {
-    confetti({
-      particleCount: 6,
-      angle: 85,
-      spread: 60,
-      origin: { x: 0 }
-    });
-
-    confetti({
-      particleCount: 6,
-      angle: 95,
-      spread: 60,
-      origin: { x: 1 }
-    });
-
-    if (Date.now() < end) {
-      requestAnimationFrame(frame);
-    }
-  })();
-}
-
 
 const LOCAL_PLAYER = 1; // o 2
 function isMyTurn() {return currentPlayer;}
@@ -275,7 +234,7 @@ coinP2Text.textContent = player2.points;
 
 //----------- COOKIES ---------------
 
-let tidyness = getCookie("tidyness", 3);
+let tidyness = getCookie("tidyness", 2);
 document.getElementById("bo" + tidyness).classList.add("selected"); //option section
 renderTidyness(tidyness);
 
@@ -297,16 +256,18 @@ document.getElementById("opt-bg").style.backgroundImage = urlOf(bgPath + backgro
 document.getElementById("modal").style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
 
 
-let isVolumeOff = false;
-// isVolumeOff = getCookie("volume", false);
-// if(isVolumeOff == "true") {
-//     volumeBtn.classList.add("off");
-// }
+let isVolumeOn = true;
+isVolumeOn = toBoolean(getCookie("volumeOn", "true"));
+if(isVolumeOn == true) {
+    document.getElementById("sound-on").classList.add("selected"); 
+} else {
+    document.getElementById("sound-off").classList.add("selected");
+}
 
 
 
 //----------- TIMER -----------------
-const MAX_TIMER = 42;
+const MAX_TIMER = 60;
 let value = MAX_TIMER;
 let timerId = null;
 
@@ -363,6 +324,13 @@ function startTurnTimer() {
 function startTimer(){
     if(timerId !== null) return;
     tick();
+}
+
+function stopTimer() {
+  if (timerId !== null) {
+    clearTimeout(timerId);
+    timerId = null;
+  }
 }
 
 tick();
@@ -453,17 +421,21 @@ function moveIndicator(page) {
 
 
 
-// volumeBtn.addEventListener("click", function() { 
-//     if(isVolumeOff) {
-//         isVolumeOff = false;
-//         this.classList.remove("off");
-//     } else {
-//         isVolumeOff = true;
-//         this.classList.add("off");
-//     }
-//     setCookie("volume", isVolumeOff);
-// });
+const volumeOptions = document.querySelectorAll(".sound-btn");
 
+volumeOptions.forEach(volumeOption => {
+    volumeOption.addEventListener("click", () => {
+        volumeOptions.forEach(t => t.classList.remove("selected"));
+        volumeOption.classList.add("selected");
+
+        if(volumeOption.id == "sound-off") {
+            isVolumeOn = false;
+        } else {
+            isVolumeOn = true;
+        }
+        setCookie("volumeOn", isVolumeOn);
+    });
+});
 
 
 const boardOptions = document.querySelectorAll(".board-options");
@@ -572,6 +544,8 @@ document.querySelectorAll('.car-button').forEach(btn => {
 
 
 //----------- WINNER OVERLAY -----------------
+
+//icon back
 const closeWinnerOverlay = document.getElementById("winner-icon-back");
 const overlay = document.getElementById("winner-overlay");
 
@@ -581,8 +555,49 @@ closeWinnerOverlay.addEventListener("click", (e) => {
   }
 });
 
+//winner popup 
+function showWinnerPopup(winner) {
+    document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", players[winner-1].color);
+    document.getElementById("piece-popup").style.backgroundImage = urlOf(players[winner-1].pieceImage);
+    document.getElementById("winner-text").textContent = "Player " + winner + " won!";
+    document.getElementById("winner-overlay").style.display = "flex";
 
+    // startConfetti();
+    // const canvas = document.getElementById("confetti-canvas");
+    // canvas.width = window.innerWidth;
+    // canvas.height = window.innerHeight;
 
+    fireWinnerConfetti();
+}
+
+function fireWinnerConfetti() {
+    const duration = 3000;
+    const end = Date.now() + duration;
+
+    (function frame() {
+        confetti({
+        particleCount: 6,
+        angle: 85,
+        spread: 60,
+        origin: { x: 0 }
+        });
+
+        confetti({
+        particleCount: 6,
+        angle: 95,
+        spread: 60,
+        origin: { x: 1 }
+        });
+
+        if (Date.now() < end) {
+        requestAnimationFrame(frame);
+        }
+    })();
+}
+
+document.getElementById("winner-button").addEventListener("click", () => {
+  location.reload();
+});
 
 
 //----------- PIECES AND TABLE -----------------
@@ -618,13 +633,13 @@ document.querySelectorAll(".piece").forEach(el => {
                 if(currentPlayer == 1) {piece.style.backgroundImage = urlOf(player1.pieceImage);}
                 if(currentPlayer == 2) {piece.style.backgroundImage = urlOf(player2.pieceImage);}
 
-                if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
-                if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
-                if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
+                if(tidyness == 0) {wrapper.style.transform = "rotate 0deg";}
+                if(tidyness == 1) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
+                if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
 
-                if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
-                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
-                if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
+                if(tidyness == 0) {piece.style.backgroundPosition = "50% 50%";}
+                if(tidyness == 1) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
+                if(tidyness == 2) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
                 
                 wrapper.classList.remove("img-disappear");
                 piece.classList.add("img-bounce");
@@ -677,7 +692,7 @@ rollBtn.addEventListener("click", function() {
 
     //startTurnTimer();
 
-    if(!isVolumeOff) {
+    if(isVolumeOn) {
         new Audio("resources/sounds/roll.mp3").play();
     }
     document.querySelector("#rollBtn .text-button").innerText = "ROLL " + --numRoll;
@@ -1022,15 +1037,22 @@ function tableHighlite() {
 //------------------DONE BUTTON----------------------
 doneBtn.addEventListener("click", doneButton);
     
-function doneButton(e) {  
+function doneButton(e) {   
     if (!isMyTurn()) return;
     if(rollBtnEnebled == false ) return;
 
     if(selectedTile != null){
         tableFill(selectedTile.id, currentPlayer);
         countPieces();
-        countPoint();
+        var isFive =countPoint();
     }
+
+    //end of the game
+    if(countPieces() == 0 || isFive == true) {
+        stopTimer()
+        showWinnerPopup(currentPlayer)
+    }
+
     prewPiece = null;
     prewWrapper = null;
     selectedTile = null;
@@ -1065,13 +1087,11 @@ function doneButton(e) {
     });
 
     possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
-
     numDicesThrowed = 0;
     isRealized = false;
 
     if(currentPlayer === 1){
         currentPlayer = 2;
-        // document.getElementsByClassName("player p2")[0].style.boxShadow = player2.color + " 0px 0px 0px 6px";
         document.getElementsByClassName("player p2")[0].style.setProperty("--glow", player2.color);
         document.getElementsByClassName("player p1")[0].style.boxShadow = "black 0px 0px 0px 0px";
 
@@ -1079,8 +1099,6 @@ function doneButton(e) {
         document.getElementsByClassName("player p1")[0].classList.remove("current");           
     } else {
         currentPlayer = 1;
-        
-        // document.getElementsByClassName("player p1")[0].style.boxShadow = player1.color + " 0px 0px 0px 6px";
         document.getElementsByClassName("player p1")[0].style.setProperty("--glow", player1.color);
         document.getElementsByClassName("player p2")[0].style.boxShadow = "black 0px 0px 0px 0px";
 
@@ -1090,8 +1108,6 @@ function doneButton(e) {
 
     startTurnTimer();
 }
-
-
 
 document.querySelectorAll(".die").forEach(el => {
     el.addEventListener("click", function() {
@@ -1107,8 +1123,6 @@ document.querySelectorAll(".die").forEach(el => {
         }
     });
 });
-
-
 
 document.querySelectorAll(".result").forEach(el => {
     el.addEventListener("click", function() {
@@ -1127,7 +1141,7 @@ document.querySelectorAll(".result").forEach(el => {
         const elemId = document.getElementById(this.id).id;
         const targetId = "cc" + elemId.slice(2);
         const targetDiv = document.getElementById(targetId);
-         console.log(targetId);
+
         if (targetDiv.classList.contains("checked")) {
             targetDiv.classList.remove("checked"); 
         } else {
@@ -1162,14 +1176,9 @@ document.querySelectorAll(".call.selectable").forEach(el => {
     });
 });
 
-
 function countPieces(){
-
-    console.log("table " + table.flat());
     player1.remainingPieces = 12 - table.flat().filter(v => v == "1").length;
     player2.remainingPieces = 12 - table.flat().filter(v => v == "2").length;
-    console.log("P1 PIECES " + player1.remainingPieces);
-
     pawnP1Text.textContent = player1.remainingPieces;
     pawnP2Text.textContent = player2.remainingPieces;
 }
@@ -1221,6 +1230,33 @@ function countPoint()
 
     coinP1Text.textContent = player1.points;
     coinP2Text.textContent = player2.points;
+
+    //check 5 in a row
+    var five = 0;
+    //check Horizontal
+    for (var i = 0; i < 25; i+=5) {
+        five = [tableArray[i + 0], tableArray[i + 1],  tableArray[i + 2], tableArray[i + 3],  tableArray[i + 4]].join("");
+        if(five == "11111"){return true;}
+        if(five == "22222"){return true;}  
+    }
+
+    //check Vertical 
+    for (var i = 0; i < 25; i++) {
+        five = [tableArray[i + 0], tableArray[i + 5],  tableArray[i + 10], tableArray[i + 15],  tableArray[i + 20]].join("");
+        if(five == "11111"){return true;}
+        if(five == "22222"){return true;}  
+    }
+
+    //check Diagonal
+        five = [tableArray[0], tableArray[6],  tableArray[12], tableArray[18],  tableArray[24]].join("");
+        if(five == "11111"){return true;}
+        if(five == "22222"){return true;}  
+
+        five = [tableArray[4], tableArray[8],  tableArray[12], tableArray[16],  tableArray[20]].join("");
+        if(five == "11111"){return true;}
+        if(five == "22222"){return true;}  
+    
+        return false;
 }
 
 
@@ -1265,4 +1301,8 @@ function urlOf(path) {
 function preload(url) {
   const img = new Image();
   img.src = url;
+}
+
+function toBoolean(val) {
+  return String(val).toLowerCase() === "true";
 }
