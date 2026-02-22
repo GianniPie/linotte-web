@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.63";
+const VERSION = "1.64";
 document.getElementById("version").innerHTML += VERSION;
 
 const dd1 = document.getElementById("dd1");
@@ -173,7 +173,9 @@ let pieces =  [
     "p036_ff8f23ff",
     "p037_fcfcfaff",
     "p038_5d6c7cff",
-    "p039_f14be6ff"
+    "p039_f14be6ff",
+    "p040_f9e6d2ff",
+    "p041_faebaaff"
 ];
 
 //------ PLAYERS ---------------
@@ -557,6 +559,24 @@ closeWinnerOverlay.addEventListener("click", (e) => {
     overlay.style.display = "none";
   }
 });
+
+
+function restartAnimation() {
+    const wrap = document.querySelector(".piece-popup-wrap");
+    const piece = document.querySelector(".piece-popup");
+    wrap.classList.remove("animate-wrap");
+    piece.classList.remove("animate-piece");
+    void wrap.offsetWidth;
+    void piece.offsetWidth;
+    wrap.classList.add("animate-wrap");
+    piece.classList.add("animate-piece");
+}
+
+const piecePopup = document.getElementById("piece-popup");
+piecePopup.addEventListener("click", (e) => {
+    restartAnimation();
+});
+
 
 //winner popup 
 function showWinnerPopup(winner) {
@@ -1109,6 +1129,8 @@ function doneButton(e) {
     //end of the game
     if(player1.remainingPieces == 0 ||  player2.remainingPieces == 0 || isFive == true) { 
         stopTimer()
+        rollBtnEnebled = false;
+
         if(player1.points > player2.points) {   
             showWinnerPopup(1);
         } else {
@@ -1156,6 +1178,8 @@ document.querySelectorAll(".result").forEach(el => {
             document.querySelectorAll(".call.selectable").forEach(el => {
                 el.classList.remove("checked"); // reset
             });
+            //Not possible to call carre if 4 dice are locked
+            if(document.querySelectorAll(".die.selected").length === 4 && targetId === "cc5") return;
             //Not possible to call carre on carre
             if(combinationaRealized[4] === 1 && targetId === "cc5") return;
             //Only if at least one die is rolled

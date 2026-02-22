@@ -92,7 +92,7 @@ body {
   min-height: calc(var(--vh) * 100);
   margin-left: auto;
   margin-right: auto;
-  padding: 1dvh 1dvw;
+
 }
 
 .wrapPiece {
@@ -130,7 +130,7 @@ body {
 .div-info {
   display: grid;
   grid-template-rows: auto;
-  grid-template-columns: 15% auto 15%;
+  grid-template-columns: 12% auto 12%;
   grid-auto-columns: 0;
   align-self: flex-start;
   height: 10dvh;
@@ -138,13 +138,12 @@ body {
   margin: auto;
   user-select: none;
   order: 1;
-  margin-left: -.1vw;
 }
 
 .players {
   flex-flow: row;
   grid-template-rows: auto;
-  grid-template-columns: auto 11% auto;
+  grid-template-columns: auto 10% auto;
   grid-auto-flow: row;
   justify-content: stretch;
   place-items: center;
@@ -153,7 +152,7 @@ body {
 
 .player {
   border-radius: 10px;
-  width: 24vw;
+  width: 27vw;
   max-width: 200px;
   height: 100%;
   max-height: 200px;
@@ -174,7 +173,7 @@ body {
 }
 
 .textPlayer.t2 {
-  font-size: .9em;
+  font-size: 1em;
 }
 
 .pawn {
@@ -387,7 +386,7 @@ body {
 
 .tile_highlited {
   outline-offset: -4px;
-  outline-width: 8px;
+  outline-width: .7em;
   outline-style: solid;
   transform: translate3d(0, 0, 65px);
   border-radius: 5px;
@@ -1181,8 +1180,11 @@ section {
   width: 100%;
   height: 100%;
   transform-origin: center;
-  animation: springOut 700ms cubic-bezier(.22, 1.25, .32, 1) forwards;
   will-change: transform;
+}
+
+.animate-wrap {
+  animation: springOut 700ms cubic-bezier(.22, 1.25, .32, 1) forwards;
 }
 
 .piece-popup {
@@ -1194,8 +1196,11 @@ section {
   background-repeat: no-repeat;
   opacity: 1;
   filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.5));
-  animation: spinOut 700ms cubic-bezier(.22, .9, .3, 1) forwards;
   will-change: transform;
+}
+
+.animate-piece {
+  animation: spinOut 700ms cubic-bezier(.22, .9, .3, 1) forwards;
 }
 
 .winner-right {
