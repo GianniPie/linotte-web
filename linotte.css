@@ -779,7 +779,6 @@ body {
   display: none;
 }
 
-/* sfondo svg */
 .opt-bg {
   position: absolute;
   inset: 0;
@@ -790,7 +789,7 @@ body {
   z-index: -1;
 }
 
-/* header icone */
+/* options overlay header */
 .opt-header {
   position: relative;
   display: grid;
@@ -827,11 +826,10 @@ body {
 
 #icon-tab1.disabled {
   opacity: 0.35;
-  pointer-events: none; /* blocca click */
+  pointer-events: none; /* click disabled*/
   cursor: default;
 }
 
-/* indicatore sotto icone */
 .tab-indicator {
   margin-top: 70px;
   position: absolute;
@@ -843,7 +841,7 @@ body {
   transition: left .25s ease;
 }
 
-/* pagine */
+/* pages */
 .opt-pages {
   flex: 1;
   overflow: hidden;
@@ -868,19 +866,9 @@ body {
   font-size: 1.5em;
 }
 
-.flipped {
-  transform: rotate(180deg);
-}
-
-/* sezioni */
 section {
   margin-bottom: 24px;
   justify-items: center;
-}
-
-.row {
-  display: flex;
-  gap: 12px;
 }
 
 .title {
@@ -961,21 +949,46 @@ section {
   text-align: left;
 }
 
-/* carosello */
+.footer-div {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding-bottom: 1em;
+  font-family: sans-serif;
+  font-size: 0.8em;
+  line-height: 1.5;
+}
+
+
+/* carousel */
+.car-list-wrapper {
+  position: relative;
+  width: 90%;
+  display: block;
+}
 
 .car-list {
   display: flex;
+ 
   gap: 16px;
   padding: 15px 0;
   min-height: 90px;
   min-width: 90%;
   margin: auto;
-
   list-style: none;
   overflow-x: scroll;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  border: blue solid 1px;
+}
+
+.car-list::before,
+.car-list::after {
+  content: "";
+  flex: 0 0 12px;
+}
+
+.list-centered {
+  justify-content: center;
 }
 
 .car-item {
@@ -992,19 +1005,36 @@ section {
 }
 
 .car-button {
+  position: absolute;
   top: 50%;
-  width: 2em;
-  height: 2em;
-  border-radius: 50%;
   transform: translateY(-50%);
+  z-index: 10;
+
+  width: 2em;
+  aspect-ratio: 1/1;
+
+  background-color: transparent; 
+  border: none;                   
+  padding: 0;
+  cursor: pointer;
+
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
-.car-button .previous {
-  left: .5em;
+.car-button.previous {
+  left: -6px;
+  background-image: url("resources/images/arl.svg");
 }
 
-.car-button .next {
-  right: .5eem;
+.car-button.next {
+  right: -6px;
+  background-image: url("resources/images/arr.svg");
+}
+
+.flipped {
+  transform: rotate(180deg);
 }
 
 .board-options {
@@ -1020,7 +1050,8 @@ section {
 }
 
 .selected {
-  box-shadow: rgb(255, 234, 0) 0 0 0 0.3em;
+  /* box-shadow: rgb(255, 234, 0) 0 0 0 0.3em; */
+  animation: bounceDie 0.3s ease-out forwards;
 }
 
 
@@ -1047,7 +1078,6 @@ section {
   margin: auto;
   opacity: 1;
   border-radius: 20px;
-  border-style: rgba(0, 0, 0, .5) solid 11px;
 
   background-image: url("resources/images/backgrounds/sun-tornado.svg");
   background-position: 0, 0;

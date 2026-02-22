@@ -1,6 +1,6 @@
 //Version
-const VERSION = "1.52";
-document.getElementById("help-scroll").innerHTML += VERSION;
+const VERSION = "1.53";
+document.getElementById("version").innerHTML += VERSION;
 
 const dd1 = document.getElementById("dd1");
 const dd2 = document.getElementById("dd2");
@@ -98,7 +98,6 @@ const diceRed = [
     "red6.png"
 ];
 
-
 const dicePath = "resources/images/dice/";
 const diceFaces = [diceTraditional, diceClassic, diceRed, diceFlat, diceChinese];
 
@@ -129,6 +128,10 @@ const backgrounds = [
     "parabolic-ellipse.svg",
     "repeating-triangles.svg"
 ];
+
+for(let i = 0; i < backgrounds.length; i++) {
+    preload(bgPath + backgrounds[i]);
+}
 
 const piecesPath = "resources/images/pieces/";
 const imgExtention = ".svg";
@@ -274,6 +277,7 @@ coinP2Text.textContent = player2.points;
 
 let tidyness = getCookie("tidyness", 3);
 document.getElementById("bo" + tidyness).classList.add("selected"); //option section
+renderTidyness(tidyness);
 
 let selectedDie = getCookie("diceFaces", 3);
 document.getElementById("do" + selectedDie).classList.add("selected"); //otion section
@@ -403,11 +407,19 @@ dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
 openBtn.onclick = () => {
     optionsOverlay.classList.remove("hidden");
     handleTab("options");
+    centerLists();
 }
+
+optionsOverlay.addEventListener("click", (e) => {
+  if (e.target === optionsOverlay) {
+    optionsOverlay.style.display = "none";
+  }
+});
 
 document.querySelectorAll(".icon").forEach(icon => {
   icon.onclick = () => {
     if (icon.classList.contains("disabled")) return;
+
     handleTab(icon.dataset.page);
   };
 });
@@ -425,7 +437,6 @@ function handleTab(page) {
   moveIndicator(page);
 }
 
-
 function moveIndicator(page) {
     const rect1 = document.getElementById("icon-tab1").getBoundingClientRect();
     const rect2 = document.getElementById("icon-tab2").getBoundingClientRect();
@@ -439,13 +450,6 @@ function moveIndicator(page) {
     document.getElementById("tabIndicator").style.left = map[page] + "px";
 }
 
-
-
-optionsOverlay.addEventListener("click", (e) => {
-  if (e.target === optionsOverlay) {
-    optionsOverlay.style.display = "none";
-  }
-});
 
 
 
@@ -463,53 +467,16 @@ optionsOverlay.addEventListener("click", (e) => {
 
 
 const boardOptions = document.querySelectorAll(".board-options");
-const boardTitle = document.getElementById("board-title");
 
 boardOptions.forEach(boardOption => {
     boardOption.addEventListener("click", () => {
         boardOptions.forEach(t => t.classList.remove("selected"));
         boardOption.classList.add("selected");
-
-        var tydeId = Number(boardOption.id[2]);
-
-        if(tydeId == 0) {
-            tidyness=0;
-            boardTitle.textContent = "Perfect";
-        }
-        if(tydeId == 1) {
-            tidyness=1;
-            boardTitle.textContent = "Tidy";
-        }
-        if(tydeId == 2) {
-            tidyness=2;
-            boardTitle.textContent = "Natural";
-        }
-
+        tidyness = Number(boardOption.id[2]);
         renderTidyness(tidyness);
         setCookie("tidyness", tidyness);
     });
 });
-
-function renderTidyness(tidyness){
-    const boardTexts = document.querySelectorAll('.board-options-text');
-    boardTexts.forEach(t => t.classList.remove('selected'));
-
-    document.querySelectorAll(".piece").forEach(el => {
-        let wrapper = el.parentElement;
-        if(tidyness == 0) {
-            wrapper.style.transform = "rotate(0deg)";
-            el.style.backgroundPosition = "50% 50%";
-        }
-        if(tidyness == 1) {
-            wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";
-            el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";
-        }
-        if(tidyness == 2) {
-            wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
-            el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
-        }
-    });
-}
 
 const dieOptions = document.querySelectorAll(".die-options");
 
@@ -530,7 +497,6 @@ dieOptions.forEach(dieOption => {
     });
 });
 
-
 const bgOptions = document.querySelectorAll(".bg-options");
 
 bgOptions.forEach(bgOption => {
@@ -546,6 +512,63 @@ bgOptions.forEach(bgOption => {
     setCookie("background", bgId);
   });
 });
+
+function renderTidyness(tidyness){
+    const boardTitle = document.getElementById("board-title");
+    const boardTexts = document.querySelectorAll('.board-options-text');
+    boardTexts.forEach(t => t.classList.remove('selected'));
+
+    document.querySelectorAll(".piece").forEach(el => {
+        let wrapper = el.parentElement;
+        if(tidyness == 0) {
+            boardTitle.textContent = "Perfect";
+            wrapper.style.transform = "rotate(0deg)";
+            el.style.backgroundPosition = "50% 50%";
+        }
+        if(tidyness == 1) {
+            boardTitle.textContent = "Tidy";
+            wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";
+            el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";
+        }
+        if(tidyness == 2) {
+            boardTitle.textContent = "Natural";
+            wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
+            el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
+        }
+    });
+}
+
+// It centers the selected item in the carousels in the options overlay 
+function centerLists() {
+    document.querySelectorAll(".car-list").forEach(list => {
+        const selected = list.querySelector(".selected");
+        if (selected) {
+            selected.scrollIntoView({
+            behavior: "smooth",
+            inline: "center",
+            block: "nearest"
+            });
+        }
+    });
+}
+
+//Buttons carousels handler
+document.querySelectorAll('.car-button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const wrapper = btn.closest('.car-list-wrapper');
+    const track = wrapper?.querySelector('.car-list');
+    const direction = btn.dataset.direction;
+    if (!track) return;
+
+    const scrollAmount = track.clientWidth;
+
+    track.scrollBy({
+      left: direction === 'next' ? scrollAmount : -scrollAmount,
+      behavior: 'smooth'
+    });
+  });
+});
+
 
 
 //----------- WINNER OVERLAY -----------------

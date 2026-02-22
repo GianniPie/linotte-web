@@ -228,7 +228,7 @@
                         <div class="separator"></div>
                         <div class="title selected">Same table</div>
                         <div class="card">
-                            <div class="opt-btn flipped higlight">FLIP</div>`
+                        <div class="opt-btn flipped higlight">FLIP</div>
                         </div>
                     </section>
 
@@ -241,7 +241,7 @@
 
                     <section>
                         <div class="title">AI opponent</div>
-                        <div class="row">
+                        <div class="h-div">
                             <div class="card"></div>
                             <div class="card"></div>
                             <div class="card"></div>
@@ -253,17 +253,16 @@
                 <div class="opt-page hidden" id="page-options">
                     <section>
                         <div class="title">Sound</div>
-                        <div class="row">
+                        <div class="h-div">
                             <div class="card"></div>
                             <div class="card"></div>    
                         </div>
-                        
                     </section>
 
                     <section>
                         <div class="title" id="board-title">Table style</div>
                         <div class="car-list-wrapper">
-                            <div class="car-list">
+                            <div class="car-list list-centered">
                                 <div class="car-item board-options" id="bo0"><img src="resources/images/board_p.svg"></div>
                                 <div class="car-item board-options" id="bo1"><img src="resources/images/board_t.svg"></div>
                                 <div class="car-item board-options" id="bo2"><img src="resources/images/board_n.svg"></div>    
@@ -272,8 +271,8 @@
                     </section>
 
                     <section>
+                        <div class="title" id="dice-title">Dice style</div>
                         <div class="car-list-wrapper">
-                            <div class="title" id="dice-title">Dice style</div>
                             <ul class="car-list">
                                 <li class="car-item"><div class="car-item-content die-options" id="do0"><img src="resources/images/dice/tr101.png"></div></li>
                                 <li class="car-item"><div class="car-item-content die-options" id="do1"><img src="resources/images/dice/c101.svg" ></div></li>
@@ -281,24 +280,28 @@
                                 <li class="car-item"><div class="car-item-content die-options" id="do3"><img src="resources/images/dice/g107.svg" ></div></li>
                                 <li class="car-item"><div class="car-item-content die-options" id="do4"><img src="resources/images/dice/ch101.svg"></div></li>
                             </ul>
-                            <!-- We're calling `handleClick` with a direction argument when the buttons are clicked -->
-                            <button onclick="handleClick('previous')" class="car-button previous" type="button">-</button>
-                            <button onclick="handleClick('next')" class="car-button next" type="button">-</button>
+                            <button class="car-button previous" data-carousel="die" data-direction="previous" type="button"></button>
+                            <button class="car-button next" data-carousel="die" data-direction="next" type="button"></button>
+
                         </div>
                     </section>
 
                     <section>
                         <div class="title" id="bg-title">Background</div>
-                        <ul class="car-list">
-                            <li class="car-item"><div class="car-item-content bg-options" id="bg0"><img src="resources/images/backgrounds/diamond-sunset-prev.png"></div></li>
-                            <li class="car-item"><div class="car-item-content bg-options" id="bg1"><img src="resources/images/backgrounds/liquid-cheese-prev.png"></div></li>
-                            <li class="car-item"><div class="car-item-content bg-options" id="bg2"><img src="resources/images/backgrounds/tortoise-shell-prev.png"></div></li>
-                            <li class="car-item"><div class="car-item-content bg-options" id="bg3"><img src="resources/images/backgrounds/sun-tornado-prev.png"></div></li>
-                            <li class="car-item"><div class="car-item-content bg-options" id="bg4"><img src="resources/images/backgrounds/pattern-randomized-prev.png"></div></li>
-                            <li class="car-item"><div class="car-item-content bg-options" id="bg5"><img src="resources/images/backgrounds/subtle-prism-prev.png"></div></li>
-                            <li class="car-item"><div class="car-item-content bg-options" id="bg6"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png"></div></li>
-                            <li class="car-item"><div class="car-item-content bg-options" id="bg7"><img src="resources/images/backgrounds/repeating-triangles-prev.png"></div></li>
-                        </ul>
+                        <div class="car-list-wrapper">
+                            <ul class="car-list">
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg0"><img src="resources/images/backgrounds/diamond-sunset-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg1"><img src="resources/images/backgrounds/liquid-cheese-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg2"><img src="resources/images/backgrounds/tortoise-shell-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg3"><img src="resources/images/backgrounds/sun-tornado-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg4"><img src="resources/images/backgrounds/pattern-randomized-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg5"><img src="resources/images/backgrounds/subtle-prism-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg6"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg7"><img src="resources/images/backgrounds/repeating-triangles-prev.png"></div></li>
+                            </ul>
+                            <button class="car-button previous" data-carousel="bg" data-direction="previous" type="button"></button>
+                            <button class="car-button next" data-carousel="bg" data-direction="next" type="button"></button>
+                        </div>
                     </section>
                 </div>
 
@@ -406,6 +409,9 @@
                         </div>
                         <div class="separator"></div>
                         <div class="separator"></div>
+                        <div class="footer-div">Linotte</div>
+                        <div class="footer-div">This WebApp is created by Giannipie, inspired by the original French game.</div>
+                        <div class="footer-div" id="version">Version:</div>
                     </div>
                 </div>
 
