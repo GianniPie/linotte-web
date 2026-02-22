@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.61";
+const VERSION = "1.62";
 document.getElementById("version").innerHTML += VERSION;
 
 const dd1 = document.getElementById("dd1");
@@ -347,6 +347,7 @@ let brelan = 0;
 let numRoll = 3;
 let diceResult = [0,0,0,0,0];
 let isRealized = false;
+var isFive = false;
 
 let prewWrapper = null;
 let prewPiece = null;
@@ -1046,13 +1047,17 @@ function doneButton(e) {
     if(selectedTile != null){
         tableFill(selectedTile.id, currentPlayer);
         countPieces();
-        var isFive =countPoint();
+        countPoint();
     }
 
     //end of the game
-    if(countPieces() == 0 || isFive == true) {
+    if(player1.remainingPieces == 0 ||  player2.remainingPieces == 0 || isFive == true) { 
         stopTimer()
-        showWinnerPopup(currentPlayer)
+        if(player1.points > player2.points) {   
+            showWinnerPopup(1);
+        } else {
+            showWinnerPopup(2);
+        }
     }
 
     prewPiece = null;
@@ -1238,27 +1243,25 @@ function countPoint()
     //check Horizontal
     for (var i = 0; i < 25; i+=5) {
         five = [tableArray[i + 0], tableArray[i + 1],  tableArray[i + 2], tableArray[i + 3],  tableArray[i + 4]].join("");
-        if(five == "11111"){return true;}
-        if(five == "22222"){return true;}  
+        if(five == "11111"){isFive = true; break;}
+        if(five == "22222"){isFive = true; break;}  
     }
 
     //check Vertical 
     for (var i = 0; i < 25; i++) {
         five = [tableArray[i + 0], tableArray[i + 5],  tableArray[i + 10], tableArray[i + 15],  tableArray[i + 20]].join("");
-        if(five == "11111"){return true;}
-        if(five == "22222"){return true;}  
+        if(five == "11111"){isFive = true; break;}
+        if(five == "22222"){isFive = true; break;}  
     }
 
     //check Diagonal
         five = [tableArray[0], tableArray[6],  tableArray[12], tableArray[18],  tableArray[24]].join("");
-        if(five == "11111"){return true;}
-        if(five == "22222"){return true;}  
+        if(five == "11111"){isFive = true; break;}
+        if(five == "22222"){isFive = true; break;}  
 
         five = [tableArray[4], tableArray[8],  tableArray[12], tableArray[16],  tableArray[20]].join("");
-        if(five == "11111"){return true;}
-        if(five == "22222"){return true;}  
-    
-        return false;
+        if(five == "11111"){isFive = true; break;}
+        if(five == "22222"){isFive = true; break;}  
 }
 
 
