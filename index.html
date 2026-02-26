@@ -6,7 +6,7 @@
 
         <!-- Force light theme and prevent color scheme adjustments -->
         <meta name="color-scheme" content="light">
-        <meta name="theme-color" content="#6ec03b">
+        <meta name="theme-color" content="#000000">
 
         <!-- Prevent Android Chrome from adjusting colors -->
         <meta name="mobile-web-app-capable" content="yes">
@@ -16,23 +16,26 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+        <link href="animations.css" rel="stylesheet" type="text/css" />
         <link href="linotte.css" rel="stylesheet" type="text/css" />
-        <link rel="stylesheet" href="animations.css">
+  
         <link href="https://fonts.googleapis.com" rel="preconnect" />
         <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin="anonymous" />
         <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js"></script>
         <script type="text/javascript">
             WebFont.load({ google: { families: ["Changa One:400,400italic"] } });
         </script>
+
         <link rel="icon" type="image/png" href="resources/favicon/favicon-96x96.png" sizes="96x96" />
         <link rel="icon" type="image/svg+xml" href="resources/favicon/favicon.svg" />
         <link rel="shortcut icon" href="resources/favicon/favicon.ico" />
         <link rel="apple-touch-icon" sizes="180x180" href="resources/favicon/apple-touch-icon.png" />
-        <meta name="apple-mobile-web-app-title" content="MyWebSite" />
+        <meta name="apple-mobile-web-app-title" content="Linotte=web" />
         <link rel="manifest" href="resources/favicon/site.webmanifest" />
     </head>
 
-    <body id="body" class="body" style="color-scheme: light only; filter: none !important;">
+    <body id="body" class="body" style="color-scheme: only light; filter: none !important;">
         <div class="flex-block">
             <div class="div-info">
                 <div class="div-info-left">
@@ -292,14 +295,15 @@
                         <div class="title" id="bg-title">Background</div>
                         <div class="car-list-wrapper">
                             <ul class="car-list">
-                                <li class="car-item"><div class="car-item-content bg-options" id="bg0"><img src="resources/images/backgrounds/diamond-sunset-prev.png"></div></li>
-                                <li class="car-item"><div class="car-item-content bg-options" id="bg1"><img src="resources/images/backgrounds/liquid-cheese-prev.png"></div></li>
-                                <li class="car-item"><div class="car-item-content bg-options" id="bg2"><img src="resources/images/backgrounds/tortoise-shell-prev.png"></div></li>
-                                <li class="car-item"><div class="car-item-content bg-options" id="bg3"><img src="resources/images/backgrounds/sun-tornado-prev.png"></div></li>
-                                <li class="car-item"><div class="car-item-content bg-options" id="bg4"><img src="resources/images/backgrounds/pattern-randomized-prev.png"></div></li>
-                                <li class="car-item"><div class="car-item-content bg-options" id="bg5"><img src="resources/images/backgrounds/subtle-prism-prev.png"></div></li>
-                                <li class="car-item"><div class="car-item-content bg-options" id="bg6"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png"></div></li>
-                                <li class="car-item"><div class="car-item-content bg-options" id="bg7"><img src="resources/images/backgrounds/repeating-triangles-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg0"><img src="resources/images/backgrounds/confetti-doodles-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg1"><img src="resources/images/backgrounds/diamond-sunset-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg2"><img src="resources/images/backgrounds/liquid-cheese-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg3"><img src="resources/images/backgrounds/tortoise-shell-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg4"><img src="resources/images/backgrounds/sun-tornado-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg5"><img src="resources/images/backgrounds/pattern-randomized-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg6"><img src="resources/images/backgrounds/subtle-prism-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg7"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg8"><img src="resources/images/backgrounds/repeating-triangles-prev.png"></div></li>
                             </ul>
                             <button class="car-button previous" data-carousel="bg" data-direction="previous" type="button"></button>
                             <button class="car-button next" data-carousel="bg" data-direction="next" type="button"></button>
@@ -426,7 +430,7 @@
             <div id="winner-overlay" class="winner-overlay">
             <canvas id="confetti-canvas"></canvas>
             <div class="modal" id="modal">
-                <div class="winner-container">
+                <div class="winner-container" id="winner-container">
                     <div class="v-winner-table">
                         <div class="h-winner-table">
                             <div id="winner-icon-back"></div>
@@ -443,7 +447,8 @@
                 </div>
             </div>
          </div>
-
+         
+        <script src="assets.js"></script>
         <script src="confetti.js" defer></script>
         <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
         <script src="linotte.js" defer></script>

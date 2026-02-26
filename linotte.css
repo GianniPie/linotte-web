@@ -7,16 +7,24 @@
 }
 
 html {
-  background-color: whitesmoke;
+  background-color: white;
+  color-scheme: light;
 }
 
 body {
-  filter: none !important;
+  /* filter: none !important; */
   mix-blend-mode: normal !important;
   background-blend-mode: normal !important;
-  color-scheme: light;
-  background-color: whitesmoke;
+  /* color-scheme: light !important; */
+  forced-color-adjust: none;
+  background-color: white;
   font-family: "Changa One", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  
+}
+
+* {
+  forced-color-adjust: none !important;
 }
 
 /* Prevent dark mode from affecting images and SVGs */
@@ -29,6 +37,7 @@ body {
     mix-blend-mode: normal;
   }
 }
+
 
 /* Force SVG images to display correctly */
 img[src$=".svg"],
@@ -48,6 +57,8 @@ img[src*=".svg"] {
 
 * {
   box-sizing: border-box;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 html {
@@ -179,7 +190,6 @@ body {
 .pawn {
   display: block;
   background-image: url("resources/images/p105-pawn.svg");
-  mix-blend-mode: invert;
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
@@ -189,7 +199,6 @@ body {
 
 .coin {
   background-image: url("resources/images/p105-coin.svg");
-  mix-blend-mode: darken;
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
@@ -236,13 +245,13 @@ body {
   justify-content: center;
   gap: 0.2em;
   width: 100%;
-  height: 100%;
+  height: 90%;
 }
 
 .clock-tile {
   position: relative;
   width: 2em;
-  height: 45px;
+  height: 40px;
 }
 
 .half {
@@ -254,7 +263,7 @@ body {
   color: #fdb800cc;
   display: flex;
   justify-content: center;
-  font-size: 2em;
+  font-size: 1.8em;
   font-weight: bold;
   font-family: sans-serif;
 }
@@ -267,7 +276,7 @@ body {
   top: 0;
   transform-origin: bottom;
   border-radius: 0.1em 0.1em 0 0;
-  line-height: 45px;
+  line-height: 40px;
   background: #2d1a09;
   border-bottom: 2px solid rgba(54, 33, 14, 0.2);
 }
@@ -329,8 +338,8 @@ body {
    ============================================ */
 
 .div-table {
-  background-color: #603813;
-  border: .75vw solid #603813;
+  background-color: rgb(96, 56, 19);
+  border: .75vw solid rgb(96, 56, 19);
   border-width: .3em;
   border-radius: 1.3em;
   width: 95%;
@@ -343,7 +352,7 @@ body {
 .grid {
   grid-column-gap: 0;
   grid-row-gap: 0;
-  background-color: #613915;
+  background-color: rgb(97, 57, 21);
   border-radius: 1.3em;
   grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
@@ -356,7 +365,7 @@ body {
 }
 
 .tile {
-  background-color: #e4d1bb;
+  background-color: rgb(228, 209, 187);
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
@@ -367,6 +376,7 @@ body {
   margin: 0;
   display: block;
 }
+
 
 .tile.tlc {
   border-top-left-radius: 1.1em;
@@ -412,72 +422,71 @@ body {
 }
 
 #d1 {
-  background-image: url("resources/images/g10484.svg")
+  background-image: url("resources/images/g10484.svg");
 }
 
 #e1 {
-  background-image: url("resources/images/g10486.svg")
+  background-image: url("resources/images/g10486.svg");
 }
 
-
 #a2 {
-  background-image: url("resources/images/g10482.svg")
+  background-image: url("resources/images/g10482.svg");
 }
 
 #b2 {
-  background-image: url("resources/images/g10492.svg")
+  background-image: url("resources/images/g10492.svg");
 }
 
 #c2 {
-  background-image: url("resources/images/g10491.svg")
+  background-image: url("resources/images/g10496.svg");
 }
 
 #d2 {
-  background-image: url("resources/images/g10496.svg")
+  background-image: url("resources/images/g10491.svg");
 }
 
 #e2 {
-  background-image: url("resources/images/g10485.svg")
+  background-image: url("resources/images/g10485.svg");
 }
 
 #a3 {
-  background-image: url("resources/images/g10493.svg")
+  background-image: url("resources/images/g10493.svg");
 }
 
 #b3 {
-  background-image: url("resources/images/g10491.svg")
+  background-image: url("resources/images/g10491.svg");
 }
 
 #c3 {
-  background-image: url("resources/images/g10498.svg")
+  background-image: url("resources/images/g10498.svg");
 }
 
 #d3 {
-  background-image: url("resources/images/g10495.svg")
+  background-image: url("resources/images/g10495.svg");
 }
 
 #e3 {
-  background-image: url("resources/images/g10497.svg")
+  background-image: url("resources/images/g10497.svg");
 }
 
 #a4 {
-  background-image: url("resources/images/g10486.svg")
+  background-image: url("resources/images/g10486.svg");
 }
 
 #b4 {
-  background-image: url("resources/images/g10496.svg")
+  background-image: url("resources/images/g10496.svg");
 }
 
 #c4 {
-  background-image: url("resources/images/g10497.svg")
+  background-image: url("resources/images/g10497.svg");
 }
 
 #d4 {
-  background-image: url("resources/images/g10493.svg")
+  background-image: url("resources/images/g10493.svg");
 }
 
 #e4 {
-  background-image: url("resources/images/g10481.svg")
+  background-image: url("resources/images/g10481.svg");
 }
 
 #a5 {
@@ -485,19 +494,19 @@ body {
 }
 
 #b5 {
-  background-image: url("resources/images/g10482.svg")
+  background-image: url("resources/images/g10482.svg");
 }
 
 #c5 {
-  background-image: url("resources/images/g10492.svg")
+  background-image: url("resources/images/g10492.svg");
 }
 
 #d5 {
-  background-image: url("resources/images/g10485.svg")
+  background-image: url("resources/images/g10485.svg");
 }
 
 #e5 {
-  background-image: url("resources/images/g10484.svg")
+  background-image: url("resources/images/g10484.svg");
 }
 
 
@@ -509,7 +518,7 @@ body {
 
 .div-resultsAndCalls {
   width: 95%;
-  aspect-ratio: 5.5 / 1;
+  aspect-ratio: 5.45 / 1;
   order: 3;
   margin: auto;
   margin-top: 1dvh;
@@ -637,6 +646,7 @@ body {
   border-radius: 20px;
   margin: .5em .25em 1em;
   visibility: hidden;
+  margin-top: 1dvh;
 }
 
 .call.selectable {
@@ -665,6 +675,7 @@ body {
   margin-top: 1dvh;
   display: grid;
   order: 4;
+  margin-top: 0;
 }
 
 .wrapDie {
@@ -672,35 +683,26 @@ body {
   width: 85%;
   background-position: 50%;
   transition: 0.18s ease;
+
 }
 
 .die {
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
-  width: 100%;
-  aspect-ratio: 1/1;
   border-radius: 0.75em;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-repeat: no-repeat;
+  /* 7 faces */
+  background-size: 700% 100%;
+  transform: translateZ(0);
+  will-change: background-position, transform;
 }
 
-#dd1 {
-  background-image: url("resources/images/dice/g100.svg");
+.die.black-shadow {
+  box-shadow:rgb(0, 0, 0, .4) 2px 5px 7px 3px;
 }
 
-#dd2 {
-  background-image: url("resources/images/dice/g100.svg");
-}
-
-#dd3 {
-  background-image: url("resources/images/dice/g100.svg");
-}
-
-#dd4 {
-  background-image: url("resources/images/dice/g100.svg");
-}
-
-#dd5 {
-  background-image: url("resources/images/dice/g100.svg");
+.die.red-shadow {
+  box-shadow:rgba(255, 59, 59, 0.6) 5px 5px 10px 2px;
 }
 
 .die.selected {
@@ -744,13 +746,13 @@ body {
 }
 
 .button.done {
-  background-color: #465ee4;
-  border: .25em solid #1f2e7c;
+  background-color: rgb(70, 94, 228);
+  border: .25em solid rgb(31, 46, 124);
 }
 
 .button.roll {
-  background-color: #fa3b97;
-  border: .25em solid #aa2465;
+  background-color: rgb(250, 59, 151);
+  border: .25em solid rgb(170, 36, 101);
 }
 
 .text-button {
@@ -910,6 +912,13 @@ section {
   justify-content: center;
   align-content: center;
   font-size: 7vw;
+
+    color: #000;
+  -webkit-text-fill-color: #000;
+  transform: translateZ(0);
+  isolation: isolate;
+    backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 .horizontal-div {
@@ -1171,8 +1180,10 @@ section {
   margin-top: 70px;
   margin-right: 2em;
   background-color: var(--glow);
-  animation: pulseShadow 2s infinite ease-in-out;
+}
 
+.pulse {
+  animation: pulseShadow 2s infinite ease-in-out;
 }
 
 .piece-popup-wrap {

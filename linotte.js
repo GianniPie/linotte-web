@@ -1,6 +1,7 @@
 //Version
-const VERSION = "1.64";
+const VERSION = "1.65";
 document.getElementById("version").innerHTML += VERSION;
+
 
 const dd1 = document.getElementById("dd1");
 const dd2 = document.getElementById("dd2");
@@ -18,165 +19,24 @@ const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
 const openBtn = document.getElementById("options");
 
-
-const body = document.getElementById("body");
+// const body = document.getElementById("body");
 const optionsOverlay = document.getElementById("options-overlay");
 
+const body = document.getElementById('body');
+const tile = document.querySelector('.tile');
 
 let rollAnimationID;
 let stopRollID;
-
 
 function setRealVh() {
   const vh = window.innerHeight * 0.01;
   document.documentElement.style.setProperty('--vh', `${vh}px`);
 }
-
 setRealVh();
 window.addEventListener('resize', setRealVh);
 window.addEventListener('orientationchange', setRealVh);
 
 
-const diceClassic = [
-    "c100.svg",
-    "c101.svg",
-    "c102.svg",
-    "c103.svg",
-    "c104.svg",
-    "c105.svg",
-    "c106.svg"
-];
-
-const diceFlat = [
-    "g100.svg",
-    "g107.svg",
-    "g102.svg",
-    "g103.svg",
-    "g104.svg",
-    "g105.svg",
-    "g106.svg"
-];
-
-const diceChinese = [
-    "g100.svg",
-    "ch101.svg",
-    "ch102.svg",
-    "ch103.svg",
-    "ch104.svg",
-    "ch105.svg",
-    "ch106.svg"
-];
-
-const dicePersian = [
-    "g100.svg",
-    "p101.svg",
-    "p102.svg",
-    "p103.svg",
-    "p104.svg",
-    "p105.svg",
-    "p106.svg"
-];
-
-const diceTraditional = [
-    "tr100.png",
-    "tr101.png",
-    "tr102.png",
-    "tr103.png",
-    "tr104.png",
-    "tr105.png",
-    "tr106.png"
-];
-
-const diceRed = [
-    "red0.png",
-    "red1.png",
-    "red2.png",
-    "red3.png",
-    "red4.png",
-    "red5.png",
-    "red6.png"
-];
-
-const dicePath = "resources/images/dice/";
-const diceFaces = [diceTraditional, diceClassic, diceRed, diceFlat, diceChinese];
-
-const diceNames = [
-    "TRADITIONAL",
-    "CLASSIC",
-    "RED",
-    "FLAT",
-    "CHINESE",
-];
-
-const diceImages = [
-    "tr101.png",
-    "c101.svg",
-    "red1.jpg",
-    "g107.svg",
-    "ch101.svg"
-];
-
-const bgPath = "resources/images/backgrounds/";
-const backgrounds = [
-    "diamond-sunset.svg",
-    "liquid-cheese.svg",
-    "tortoise-shell.svg",
-    "sun-tornado.svg",
-    "pattern-randomized.svg",
-    "subtle-prism.svg",
-    "parabolic-ellipse.svg",
-    "repeating-triangles.svg"
-];
-
-for(let i = 0; i < backgrounds.length; i++) {
-    preload(bgPath + backgrounds[i]);
-}
-
-const piecesPath = "resources/images/pieces/";
-const imgExtention = ".svg";
-let pieces =  [
-    "p001_ed1c24ff",
-    "p002_40b93cff",
-    "p003_50ade5ff",
-    "p004_e9dc01ff",
-    "p005_c240fcff",
-    "p006_f14be6ff",
-    "p007_e3e3e3ff",
-    "p008_ff7106ff",
-    "p009_737373ff",
-    "p010_ff0606ff",
-    "p011_b4aaaaff",
-    "p012_e1b27cff",
-    "p013_e06a51ff",
-    "p014_f7e764ff",
-    "p015_5c5cddff",
-    "p016_be1500ff",
-    "p017_fdc97aff",
-    "p018_fdc5a3ff",
-    "p019_bbcd46ff",
-    "p020_e9a233ff",
-    "p021_f6d74aff",
-    "p022_a4c037ff",
-    "p023_dc5443ff",
-    "p024_e6d448ff",
-    "p025_ad8a72ff",
-    "p026_e6d448ff",
-    "p027_ad8a72ff",
-    "p028_c5d4eaff",
-    "p029_fd6c92ff",
-    "p030_e49c5dff",
-    "p031_00a0d7ff",
-    "p032_eead46ff",
-    "p033_8b59d3ff",
-    "p034_8f542bff",
-    "p035_40b93cff",
-    "p036_ff8f23ff",
-    "p037_fcfcfaff",
-    "p038_5d6c7cff",
-    "p039_f14be6ff",
-    "p040_f9e6d2ff",
-    "p041_faebaaff"
-];
 
 //------ PLAYERS ---------------
 var player1 = {
@@ -209,8 +69,8 @@ player2.pieceImage = piecesPath + pieces[p2p] + imgExtention;
 preload(player1.pieceImage);
 preload(player2.pieceImage);
 
-player1.color = "#" + player1.pieceImage.split("_")[1].slice(0, -6);
-player2.color = "#" + player2.pieceImage.split("_")[1].slice(0, -6);
+player1.color = "#" + player1.pieceImage.split("_")[1].slice(0, 6);
+player2.color = "#" + player2.pieceImage.split("_")[1].slice(0, 6);
 const selectedColor = [null, player1.color, player2.color];
 document.getElementsByClassName("player p1")[0].style.backgroundColor = player1.color;
 document.getElementsByClassName("player p2")[0].style.backgroundColor = player2.color;
@@ -219,7 +79,7 @@ let currentPlayer = 1;
 document.getElementsByClassName("player p1")[0].style.setProperty("--glow", player1.color);
 document.getElementsByClassName("player p1")[0].classList.add("current"); 
 
-const LOCAL_PLAYER = 1; // o 2
+const LOCAL_PLAYER = 1; 
 function isMyTurn() {return currentPlayer;}
 
 const pawnP1Text = document.getElementById("pawnP1Text");
@@ -240,18 +100,21 @@ let tidyness = getCookie("tidyness", 2);
 document.getElementById("bo" + tidyness).classList.add("selected"); //option section
 renderTidyness(tidyness);
 
-let selectedDie = getCookie("diceFaces", 3);
-document.getElementById("do" + selectedDie).classList.add("selected"); //otion section
-document.getElementById("dice-title").textContent =  diceNames[selectedDie];
-let faces = diceFaces[selectedDie];  //faces of the selected die
+let dieCookie = getCookie("diceFaces", 3);
+document.getElementById("do" + dieCookie).classList.add("selected"); //option section
+document.getElementById("dice-title").textContent =  diceNames[dieCookie];
+let faces = diceFaces[dieCookie];  //faces of the selected die
 
-for(let i = 0; i < faces.length; i++) {
-    preload(dicePath + faces[i]);
-}
+let selectedDie = dicePath + faces;
+preload(selectedDie);
 
-let selectedBg = getCookie("background", 3);
+
+let selectedBg = getCookie("background", 4);
 document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
 document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
+for(let i = 0; i < backgrounds.length; i++) {
+    preload(bgPath + backgrounds[i]);
+}
 
 body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
 document.getElementById("opt-bg").style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
@@ -307,6 +170,7 @@ function tick(){
     flip(document.getElementById("units"), u);
     if(value === 0){
         timerId = null;
+        doneBtnEnebled = true;
         doneButton();
         return;
     }
@@ -368,12 +232,33 @@ var gameState = {
     player1,
     player2
 }
+renderDice(dieCookie);
+document.querySelectorAll(".die").forEach(el => {
+    el.style.backgroundPosition = dicePos[0];
+    });
 
-dd1.style.backgroundImage = urlOf(dicePath + faces[diceResult[0]]);
-dd2.style.backgroundImage = urlOf(dicePath + faces[diceResult[1]]);
-dd3.style.backgroundImage = urlOf(dicePath + faces[diceResult[2]]);
-dd4.style.backgroundImage = urlOf(dicePath + faces[diceResult[3]]);
-dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
+
+function renderDice(id) {
+    document.querySelectorAll(".die").forEach(el => {
+        el.style.backgroundImage = `url(${selectedDie})`;
+     });
+
+    document.querySelectorAll(".die").forEach(el => {
+        el.classList.remove("black-shadow", "red-shadow");
+    });
+
+    if(id == 0 || id == 1) {
+        document.querySelectorAll(".die").forEach(el => {
+            el.classList.add("black-shadow");
+        });
+    }
+    if(id == 2) {
+        document.querySelectorAll(".die").forEach(el => {
+            el.classList.add("red-shadow");
+        });
+    }
+}
+
 
 
 //----------- OPTIONS OVERLAY -----------------
@@ -465,12 +350,11 @@ dieOptions.forEach(dieOption => {
         var dieId = Number(dieOption.id[2]);
         document.getElementById("dice-title").textContent =  diceNames[dieId];
         faces = diceFaces[dieId];
-        dd1.style.backgroundImage = urlOf(dicePath + faces[diceResult[0]]);
-        dd2.style.backgroundImage = urlOf(dicePath + faces[diceResult[1]]);
-        dd3.style.backgroundImage = urlOf(dicePath + faces[diceResult[2]]);
-        dd4.style.backgroundImage = urlOf(dicePath + faces[diceResult[3]]);
-        dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
+        selectedDie = dicePath + faces;
+        const diceSpriteImg = new Image();
+        diceSpriteImg.src = selectedDie;
         setCookie("diceFaces", dieId);
+        renderDice(dieId);
     });
 });
 
@@ -550,51 +434,45 @@ document.querySelectorAll('.car-button').forEach(btn => {
 
 //----------- WINNER OVERLAY -----------------
 
-//icon back
-const closeWinnerOverlay = document.getElementById("winner-icon-back");
-const overlay = document.getElementById("winner-overlay");
-
-closeWinnerOverlay.addEventListener("click", (e) => {
-  if (e.target === closeWinnerOverlay) {
-    overlay.style.display = "none";
-  }
+document.getElementById("winner-icon-back").addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.getElementById("winner-overlay").style.display = "none";
 });
 
+document.getElementById("winner-container").addEventListener("click", (e) => {
+    fireWinnerConfetti(200);
+});
 
-function restartAnimation() {
-    const wrap = document.querySelector(".piece-popup-wrap");
-    const piece = document.querySelector(".piece-popup");
-    wrap.classList.remove("animate-wrap");
-    piece.classList.remove("animate-piece");
-    void wrap.offsetWidth;
-    void piece.offsetWidth;
-    wrap.classList.add("animate-wrap");
-    piece.classList.add("animate-piece");
-}
-
-const piecePopup = document.getElementById("piece-popup");
-piecePopup.addEventListener("click", (e) => {
+document.getElementById("piece-popup").addEventListener("click", (e) => {
+    e.stopPropagation();
     restartAnimation();
 });
 
+document.getElementById("winner-button").addEventListener("click", (e) => {
+    e.stopPropagation();
+    location.reload();
+});
 
 //winner popup 
 function showWinnerPopup(winner) {
-    document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", players[winner-1].color);
-    document.getElementById("piece-popup").style.backgroundImage = urlOf(players[winner-1].pieceImage);
-    document.getElementById("winner-text").textContent = "Player " + winner + " won!";
-    document.getElementById("winner-overlay").style.display = "flex";
-
-    // startConfetti();
-    // const canvas = document.getElementById("confetti-canvas");
-    // canvas.width = window.innerWidth;
-    // canvas.height = window.innerHeight;
-
-    fireWinnerConfetti();
+    if(winner) {
+        document.getElementsByClassName("piece-popup-container")[0].classList.add("pulse");
+        document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", players[winner-1].color);
+        document.getElementById("piece-popup").style.backgroundImage = urlOf(players[winner-1].pieceImage);
+        document.getElementById("winner-text").textContent = "Player " + winner + " won!";
+        document.getElementById("winner-overlay").style.display = "flex";
+        fireWinnerConfetti(3000);
+    } else {
+        document.getElementsByClassName("piece-popup-container")[0].classList.remove("pulse");
+        document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", "rgba(0, 0, 0, .2)");
+        document.getElementById("piece-popup").style.backgroundImage = urlOf("resources/images/tie.svg");
+        document.getElementById("winner-text").textContent = "It's a tie!";
+        document.getElementById("winner-overlay").style.display = "flex";    
+        fireWinnerConfetti(500);    
+    }
 }
 
-function fireWinnerConfetti() {
-    const duration = 3000;
+function fireWinnerConfetti (duration) {
     const end = Date.now() + duration;
 
     (function frame() {
@@ -618,9 +496,16 @@ function fireWinnerConfetti() {
     })();
 }
 
-document.getElementById("winner-button").addEventListener("click", () => {
-  location.reload();
-});
+function restartAnimation() {
+    const wrap = document.querySelector(".piece-popup-wrap");
+    const piece = document.querySelector(".piece-popup");
+    wrap.classList.remove("animate-wrap");
+    piece.classList.remove("animate-piece");
+    void wrap.offsetWidth;
+    void piece.offsetWidth;
+    wrap.classList.add("animate-wrap");
+    piece.classList.add("animate-piece");
+}
 
 
 //----------- PIECES AND TABLE -----------------
@@ -755,32 +640,32 @@ function rollAnimation() {
     let e = 0;
 
     if (tidyness == 0) { d= 0; e=0; }
-    if (tidyness == 1) { d= 0; e=5; }
+    if (tidyness == 1) { d= 0; e=10; }
     if (tidyness == 2) { d= 7; e=10; }
 
     if(!dd1.classList.contains("selected")) {
         diceResult[0] = rndNum(1,6);
-        dd1.style.backgroundImage = urlOf(dicePath + faces[diceResult[0]]);
+        dd1.style.backgroundPosition = dicePos[diceResult[0]];
         wr1.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd2.classList.contains("selected")) {
         diceResult[1] = rndNum(1,6);
-        dd2.style.backgroundImage = urlOf(dicePath + faces[diceResult[1]]);
+        dd2.style.backgroundPosition = dicePos[diceResult[1]];
         wr2.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd3.classList.contains("selected")) {
         diceResult[2] = rndNum(1,6);
-        dd3.style.backgroundImage = urlOf(dicePath + faces[diceResult[2]]);
+        dd3.style.backgroundPosition = dicePos[diceResult[2]];
         wr3.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd4.classList.contains("selected")) {
         diceResult[3] = rndNum(1,6);
-        dd4.style.backgroundImage = urlOf(dicePath + faces[diceResult[3]]);
+        dd4.style.backgroundPosition = dicePos[diceResult[3]];
         wr4.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
     if(!dd5.classList.contains("selected")) {
         diceResult[4] = rndNum(1,6);
-        dd5.style.backgroundImage = urlOf(dicePath + faces[diceResult[4]]);
+        dd5.style.backgroundPosition = dicePos[diceResult[4]];
         wr5.style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
     }
 } 
@@ -866,7 +751,7 @@ function stopRoll() {
     if(((c1 == 3) || (c2 == 3) || (c3 == 3) || (c4 == 3) || (c5 == 3) || (c6 == 3)) &&
        ((c1 == 2) || (c2 == 2) || (c3 == 2) || (c4 == 2) || (c5 == 2) || (c6 == 2))     )
     {   
-        possibleMovesFill ("c2");
+        possibleMovesFill ("d2");
         possibleMovesFill ("b3");
         combinationaRealized[3] = 1;
         isRealized = true;
@@ -911,7 +796,7 @@ function stopRoll() {
     const count = document.querySelectorAll(".die.selected").length;
     if((count === 0) && (isRealized == true))
     {
-        possibleMovesFill ("d2");
+        possibleMovesFill ("c2");
         possibleMovesFill ("b4");
         combinationaRealized[1] = 1;
     }
@@ -1012,7 +897,7 @@ function tableHighlite() {
 
     //sec
     if (combinationaRealized[1] == 1) {
-        if(possibleMovesCheck("d2") && tableCheck("d2") == 0) { document.getElementById("d2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("c2") && tableCheck("c2") == 0) { document.getElementById("c2").classList.add("tile_highlited");}
         if(possibleMovesCheck("b4") && tableCheck("b4") == 0) { document.getElementById("b4").classList.add("tile_highlited");}
     }   
 
@@ -1024,7 +909,7 @@ function tableHighlite() {
 
     //full
     if (combinationaRealized[3] == 1) {
-        if(possibleMovesCheck("c2") && tableCheck("c2") == 0) { document.getElementById("c2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("d2") && tableCheck("d2") == 0) { document.getElementById("d2").classList.add("tile_highlited");}
         if(possibleMovesCheck("b3") && tableCheck("b3") == 0) { document.getElementById("b3").classList.add("tile_highlited");}
     }
 
@@ -1062,12 +947,29 @@ doneBtn.addEventListener("click", doneButton);
     
 function doneButton(e) {   
     if (!isMyTurn()) return;
-    if(rollBtnEnebled == false ) return;
+    if(doneBtnEnebled == false ) return;
+    doneBtnEnebled = false;
 
     if(selectedTile != null){
         tableFill(selectedTile.id, currentPlayer);
         countPieces();
         countPoint();
+    }
+
+    //end of the game
+    if(player1.remainingPieces == 0 ||  player2.remainingPieces == 0 || isFive == true) { 
+        stopTimer()
+        rollBtnEnebled = false;
+        doneBtnEnebled = true;
+
+        if(player1.points > player2.points) {   
+            showWinnerPopup(1);
+        } else if(player1.points < player2.points) {
+            showWinnerPopup(2);
+        } else {
+            //it's a tie
+        }
+        return;
     }
 
     prewPiece = null;
@@ -1083,7 +985,7 @@ function doneButton(e) {
 
     document.querySelectorAll(".die").forEach(el => {
         el.classList.remove("selected"); // reset
-        el.style.backgroundImage = urlOf(dicePath + faces[0]);
+        el.style.backgroundPosition = dicePos[0];
 
         document.querySelector("#rollBtn .text-button").innerText = "ROLL 3";
         numRoll = 3;
@@ -1124,19 +1026,6 @@ function doneButton(e) {
     }
 
     startTurnTimer();
-
-
-    //end of the game
-    if(player1.remainingPieces == 0 ||  player2.remainingPieces == 0 || isFive == true) { 
-        stopTimer()
-        rollBtnEnebled = false;
-
-        if(player1.points > player2.points) {   
-            showWinnerPopup(1);
-        } else {
-            showWinnerPopup(2);
-        }
-    }
 }
 
 document.querySelectorAll(".die").forEach(el => {
@@ -1191,22 +1080,22 @@ document.querySelectorAll(".result").forEach(el => {
 });
 
 
-document.querySelectorAll(".call.selectable").forEach(el => {
-    el.addEventListener("click", function() {
-        if (!isMyTurn()) return;
+// document.querySelectorAll(".call.selectable").forEach(el => {
+//     el.addEventListener("click", function() {
+//         if (!isMyTurn()) return;
 
-        const elemId = document.getElementById(this.id);
+//         const elemId = document.getElementById(this.id);
 
-        if (elemId.classList.contains("checked")) {
-            elemId.classList.remove("checked"); 
-        } else {
-            document.querySelectorAll(".call.selectable").forEach(el => {
-                el.classList.remove("checked"); // reset
-            });
-            elemId.classList.add("checked");
-        }
-    });
-});
+//         if (elemId.classList.contains("checked")) {
+//             elemId.classList.remove("checked"); 
+//         } else {
+//             document.querySelectorAll(".call.selectable").forEach(el => {
+//                 el.classList.remove("checked"); // reset
+//             });
+//             elemId.classList.add("checked");
+//         }
+//     });
+// });
 
 function countPieces(){
     player1.remainingPieces = 12 - table.flat().filter(v => v == "1").length;
@@ -1336,3 +1225,5 @@ function preload(url) {
 function toBoolean(val) {
   return String(val).toLowerCase() === "true";
 }
+
+
