@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.67";
+const VERSION = "1.68";
 document.getElementById("version").innerHTML += VERSION;
 
 
@@ -312,7 +312,6 @@ function moveIndicator(page) {
 
 
 const volumeOptions = document.querySelectorAll(".sound-btn");
-
 volumeOptions.forEach(volumeOption => {
     volumeOption.addEventListener("click", () => {
         volumeOptions.forEach(t => t.classList.remove("selected"));
@@ -329,7 +328,6 @@ volumeOptions.forEach(volumeOption => {
 
 
 const boardOptions = document.querySelectorAll(".board-options");
-
 boardOptions.forEach(boardOption => {
     boardOption.addEventListener("click", () => {
         boardOptions.forEach(t => t.classList.remove("selected"));
@@ -341,7 +339,6 @@ boardOptions.forEach(boardOption => {
 });
 
 const dieOptions = document.querySelectorAll(".die-options");
-
 dieOptions.forEach(dieOption => {
     dieOption.addEventListener("click", () => {
         dieOptions.forEach(t => t.classList.remove("selected"));
@@ -359,7 +356,6 @@ dieOptions.forEach(dieOption => {
 });
 
 const bgOptions = document.querySelectorAll(".bg-options");
-
 bgOptions.forEach(bgOption => {
   bgOption.addEventListener("click", () => {
     bgOptions.forEach(t => t.classList.remove("selected"));
@@ -370,6 +366,7 @@ bgOptions.forEach(bgOption => {
     
     body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
     document.getElementById("opt-bg").style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+    document.getElementById("modal").style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
     setCookie("background", bgId);
   });
 });

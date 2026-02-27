@@ -7,8 +7,7 @@
 }
 
 html {
-  background-color: white;
-  color-scheme: light;
+  color-scheme: light !important;
 }
 
 body {
@@ -17,10 +16,8 @@ body {
   background-blend-mode: normal !important;
   /* color-scheme: light !important; */
   forced-color-adjust: none;
-  background-color: white;
   font-family: "Changa One", sans-serif;
   -webkit-font-smoothing: antialiased;
-  
 }
 
 * {
@@ -34,7 +31,7 @@ body {
   svg {
     filter: none !important;
     -webkit-filter: none !important;
-    mix-blend-mode: normal;
+    mix-blend-mode: normal !important;
   }
 }
 
@@ -1122,8 +1119,7 @@ section {
   margin: auto;
   opacity: 1;
   border-radius: 20px;
-
-  background-image: url("resources/images/backgrounds/sun-tornado.svg");
+  background-color: whitesmoke;
   background-position: 0, 0;
   background-repeat: no-repeat;
   background-size: cover;
