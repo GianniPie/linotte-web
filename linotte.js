@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.65";
+const VERSION = "1.66";
 document.getElementById("version").innerHTML += VERSION;
 
 
@@ -948,7 +948,6 @@ doneBtn.addEventListener("click", doneButton);
 function doneButton(e) {   
     if (!isMyTurn()) return;
     if(doneBtnEnebled == false ) return;
-    doneBtnEnebled = false;
 
     if(selectedTile != null){
         tableFill(selectedTile.id, currentPlayer);
@@ -956,21 +955,6 @@ function doneButton(e) {
         countPoint();
     }
 
-    //end of the game
-    if(player1.remainingPieces == 0 ||  player2.remainingPieces == 0 || isFive == true) { 
-        stopTimer()
-        rollBtnEnebled = false;
-        doneBtnEnebled = true;
-
-        if(player1.points > player2.points) {   
-            showWinnerPopup(1);
-        } else if(player1.points < player2.points) {
-            showWinnerPopup(2);
-        } else {
-            //it's a tie
-        }
-        return;
-    }
 
     prewPiece = null;
     prewWrapper = null;
@@ -1008,6 +992,22 @@ function doneButton(e) {
     possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
     numDicesThrowed = 0;
     isRealized = false;
+
+        //end of the game
+    if(player1.remainingPieces == 0 ||  player2.remainingPieces == 0 || isFive == true) { 
+        stopTimer()
+        rollBtnEnebled = false;
+        doneBtnEnebled = true;
+
+        if(player1.points > player2.points) {   
+            showWinnerPopup(1);
+        } else if(player1.points < player2.points) {
+            showWinnerPopup(2);
+        } else {
+            //it's a tie
+        }
+        return;
+    }
 
     if(currentPlayer === 1){
         currentPlayer = 2;

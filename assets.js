@@ -31,7 +31,7 @@ const diceNames = [
 
 const bgPath = "resources/images/backgrounds/";
 const backgrounds = [
-    "slanted-gradient.svg",
+    "confetti-doodles.svg",
     "diamond-sunset.svg",
     "liquid-cheese.svg",
     "tortoise-shell.svg",
