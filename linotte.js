@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.66";
+const VERSION = "1.67";
 document.getElementById("version").innerHTML += VERSION;
 
 
@@ -1005,6 +1005,7 @@ function doneButton(e) {
             showWinnerPopup(2);
         } else {
             //it's a tie
+            showWinnerPopup(0);
         }
         return;
     }
