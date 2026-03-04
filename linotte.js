@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.68";
+const VERSION = "1.69";
 document.getElementById("version").innerHTML += VERSION;
 
 
@@ -247,7 +247,7 @@ function renderDice(id) {
         el.classList.remove("black-shadow", "red-shadow");
     });
 
-    if(id == 0 || id == 1) {
+    if(id == 0 || id == 1 || id == 4 || id == 5) {
         document.querySelectorAll(".die").forEach(el => {
             el.classList.add("black-shadow");
         });

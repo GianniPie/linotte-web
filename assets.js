@@ -7,7 +7,8 @@ const diceFaces = [
     "classic_sprite.svg",
     "red_sprite.png",
     "flat_sprite.svg",
-    "chinese_sprite.svg"
+    "chinese_sprite.png",
+    "persian_sprite.png"
 ];
 
 const dicePos = [
@@ -26,6 +27,7 @@ const diceNames = [
     "RED",
     "FLAT",
     "CHINESE",
+    "PERSIAN",
 ];
 
 
@@ -63,13 +65,13 @@ let pieces =  [
     "p015_5c5cddff",
     "p016_be1500ff",
     "p017_fdc97aff",
-    "p018_fdc5a3ff",
+    "p018_eb7035ff",
     "p019_bbcd46ff",
     "p020_e9a233ff",
-    "p021_f6d74aff",
+    "p021_f3442eff",
     "p022_a4c037ff",
     "p023_dc5443ff",
-    "p024_e6d448ff",
+    "p024_336483ff",
     "p025_ad8a72ff",
     "p026_d75650ff",
     "p027_babac3ff",
@@ -88,5 +90,7 @@ let pieces =  [
     "p040_f9e6d2ff",
     "p041_faebaaff",
     "p042_83623bff",
-    "p043_aa8967ff"
+    "p043_aa8967ff",
+    "p044_b87cc7ff",
+    "p045_f1e9d6ff",
 ];
