@@ -6,7 +6,7 @@
 
         <!-- Force light theme and prevent color scheme adjustments -->
         <meta name="color-scheme" content="light">
-        <meta name="theme-color" content="#6ec03b">
+        <meta name="theme-color" content="#000000">
 
         <!-- Prevent Android Chrome from adjusting colors -->
         <meta name="mobile-web-app-capable" content="yes">
@@ -16,27 +16,30 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+        <link href="animations.css" rel="stylesheet" type="text/css" />
         <link href="linotte.css" rel="stylesheet" type="text/css" />
+  
         <link href="https://fonts.googleapis.com" rel="preconnect" />
         <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin="anonymous" />
         <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js"></script>
         <script type="text/javascript">
             WebFont.load({ google: { families: ["Changa One:400,400italic"] } });
         </script>
+
         <link rel="icon" type="image/png" href="resources/favicon/favicon-96x96.png" sizes="96x96" />
         <link rel="icon" type="image/svg+xml" href="resources/favicon/favicon.svg" />
         <link rel="shortcut icon" href="resources/favicon/favicon.ico" />
         <link rel="apple-touch-icon" sizes="180x180" href="resources/favicon/apple-touch-icon.png" />
-        <meta name="apple-mobile-web-app-title" content="MyWebSite" />
+        <meta name="apple-mobile-web-app-title" content="Linotte=web" />
         <link rel="manifest" href="resources/favicon/site.webmanifest" />
     </head>
 
-    <body id="body" class="body" style="color-scheme: light only; filter: none !important;">
+    <body id="body" class="body" style="color-scheme: only light; filter: none !important;">
         <div class="flex-block">
             <div class="div-info">
                 <div class="div-info-left">
                     <div id="options" class="options"></div>
-                    <div id="volume" class="volume">1.43</div>
                 </div>
                 <div class="players">
                     <div class="player p1">
@@ -72,8 +75,16 @@
                     </div>
                 </div>
                 <div class="div-info-right">
-                    <div class="div-block-14"></div>
-                    <div id="timer" class="div-block-13">30</div>
+                    <div class="clock">
+                        <div class="clock-tile" id="tens">
+                            <div class="half top"><span>0</span></div>
+                            <div class="half bottom"><span>0</span></div>
+                        </div>
+                        <div class="clock-tile" id="units">
+                            <div class="half top"><span>0</span></div>
+                            <div class="half bottom"><span>0</span></div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="div-table">
@@ -194,44 +205,255 @@
             </div>
         </div>
 
-        <div class="overlay" id="overlay">
-            <div id="modal" class="modal">
-                <div class="board-options-container">
-                    <div id="board-option"></div>
-                    <div class="options-flex">
-                        <div id="natural" class="board-options-text natural selected"></div>
-                        <div id="tidy" class="board-options-text tidy"></div>
-                        <div id="perfect" class="board-options-text perfect"></div>
+<!-- =================== OVERLAYS ================= -->
+
+        <!-- options overlay -->
+        <div id="options-overlay" class="options-overlay hidden">
+            <div class="opt-bg" id="opt-bg"></div>
+
+            <!-- header -->
+            <div class="opt-header">
+                <div class="icon" id="icon-back" data-page="back"></div>
+                <div class="icon disabled" id="icon-tab1" data-page="game"></div>
+                <div class="icon" id="icon-tab2" data-page="options"></div>
+                <div class="icon" id="icon-tab3" data-page="help"></div>
+
+                <div id="tabIndicator" class="tab-indicator"></div>
+            </div>
+
+            <!-- pagine -->
+            <div class="opt-pages">
+
+                <!-- GAME -->
+                <div class="opt-page" id="page-game">
+
+                    <section>
+                        <div class="separator"></div>
+                        <div class="title selected">Same table</div>
+                        <div class="card">
+                        <div class="opt-btn flipped higlight">FLIP</div>
+                        </div>
+                    </section>
+
+                    <section>
+                        <div class="title">Online</div>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                        <div class="card"></div>
+                    </section>
+
+                    <section>
+                        <div class="title">AI opponent</div>
+                        <div class="h-div">
+                            <div class="card"></div>
+                            <div class="card"></div>
+                            <div class="card"></div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- OPTIONS -->
+                <div class="opt-page hidden" id="page-options">
+                    <section>
+                        <div class="title">Sound</div>
+                        <div class="car-list-wrapper">
+                            <div class="car-list list-centered">
+                                <div class="car-btn"><div class="sound-btn" id="sound-on"></div></div>
+                                <div class="car-btn"><div class="sound-btn" id="sound-off"></div></div>  
+                            </div>  
+                        </div>
+                    </section>
+
+                    <section>
+                        <div class="title" id="board-title">Table style</div>
+                        <div class="car-list-wrapper">
+                            <div class="car-list list-centered">
+                                <div class="car-item board-options" id="bo0"><img src="resources/images/board_p.svg"></div>
+                                <div class="car-item board-options" id="bo1"><img src="resources/images/board_t.svg"></div>
+                                <div class="car-item board-options" id="bo2"><img src="resources/images/board_n.svg"></div>    
+                            </div>
+                        </div>
+                    </section>
+
+                    <section>
+                        <div class="title" id="dice-title">Dice style</div>
+                        <div class="car-list-wrapper">
+                            <ul class="car-list">
+                                <li class="car-item"><div class="car-item-content die-options" id="do0"><img src="resources/images/dice/tr101.png"></div></li>
+                                <li class="car-item"><div class="car-item-content die-options" id="do1"><img src="resources/images/dice/c101.svg" ></div></li>
+                                <li class="car-item"><div class="car-item-content die-options" id="do2"><img src="resources/images/dice/red1.png"></div></li>
+                                <li class="car-item"><div class="car-item-content die-options" id="do3"><img src="resources/images/dice/g107.svg" ></div></li>
+                                <li class="car-item"><div class="car-item-content die-options" id="do4"><img src="resources/images/dice/ch001.png"></div></li>
+                                <li class="car-item"><div class="car-item-content die-options" id="do5"><img src="resources/images/dice/pe001.png"></div></li>
+                            </ul>
+                            <button class="car-button previous" data-carousel="die" data-direction="previous" type="button"></button>
+                            <button class="car-button next" data-carousel="die" data-direction="next" type="button"></button>
+
+                        </div>
+                    </section>
+
+                    <section>
+                        <div class="title" id="bg-title">Background</div>
+                        <div class="car-list-wrapper">
+                            <ul class="car-list">
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg0"><img src="resources/images/backgrounds/confetti-doodles-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg1"><img src="resources/images/backgrounds/diamond-sunset-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg2"><img src="resources/images/backgrounds/liquid-cheese-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg3"><img src="resources/images/backgrounds/tortoise-shell-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg4"><img src="resources/images/backgrounds/sun-tornado-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg5"><img src="resources/images/backgrounds/pattern-randomized-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg6"><img src="resources/images/backgrounds/subtle-prism-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg7"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png"></div></li>
+                                <li class="car-item"><div class="car-item-content bg-options" id="bg8"><img src="resources/images/backgrounds/repeating-triangles-prev.png"></div></li>
+                            </ul>
+                            <button class="car-button previous" data-carousel="bg" data-direction="previous" type="button"></button>
+                            <button class="car-button next" data-carousel="bg" data-direction="next" type="button"></button>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- HELP -->
+                <div class="opt-page hidden" id="page-help">
+                    <div id="help-scroll" class="help-scroll">
+
+                        <div class="separator"></div>
+                        <div class="title">Linotte</div>
+
+                        <div class="vertical-div">
+                            <div class="instruction-title">Goal</div>
+                            <div>Create as many alignments as possible (horizontal, vertical, or diagonal).</div>
+                            <div></div>
+                        </div>
+
+                        <div class="vertical-div white">
+                            <div class="instruction-title">How to play</div>
+                            <div class="text-how">On your turn, roll 5 dice. You may roll up to three times, keeping any dice you want after each roll and re-rolling the others.</div>
+                            <div class="text-how">If you make a valid combination, place one of your tokens on one and just one matching empty space on the board. Then the turn passes to the next player.</div>
+                            <div class="text-how">If no combination is made after three rolls, your turn ends.</div>
+                            <div class="text-how">You are never forced to place a token.</div>
+                            <div class="text-how">The game ends when a player has placed all their tokens or completes a line of five tokens</div>
+                            <div class="text-how">Highest score wins.</div>
+                        </div>
+
+                        <div class="vertical-div">
+                            <div class="instruction-title">Main combinations</div>
+
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g1.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Brelan</div>
+                                    <div class="img-expl">3 of a kind</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g5.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Carrè</div>
+                                    <div class="img-expl">4 of a kind</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g8.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Yam</div>
+                                    <div class="img-expl">5 of a kind</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g4.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Full</div>
+                                    <div class="img-expl">full house (3 + 2)</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g7.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Suite</div>
+                                    <div class="img-expl">Straight (1 to 5 or 2 to 6)</div>
+                                </div>
+                            </div>
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g6.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Petite</div>
+                                    <div class="img-expl">sum of dice less than 9</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="vertical-div">
+                            <div class="instruction-title">Special combinations</div>
+
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g2.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Sec</div>
+                                    <div class="img-expl">Any main combination in a single roll</div>
+                                    <div class="img-expl">- brelan not included</div>
+                                </div>
+                            </div>
+
+                            <div class="horizontal-div">
+                                <div class="result" ><img src="resources/images/g3.svg" style="height: 50px;"></div>
+                                <div class="v-div img-expl">
+                                    <div class="bold">Appel</div>
+                                    <div class="img-expl">A declared combination after the</div>
+                                    <div class="img-expl">first roll</div>
+                                    <div class="img-expl">- brelan not included</div>
+                                    <div class="img-expl">- Must re-roll at least one die</div>
+                                    <div class="img-expl">- Not possible to call carrè on carrè</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="vertical-div white">
+                            <div class="instruction-title">Scoring</div>
+                            <div>3 in a row = 1 point </div>
+                            <div>4 in a row = 2 points</div>
+                            <div>5 in a row = 3 points</div>
+                            <div class="separator"></div>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="separator"></div>
+                        <div class="footer-div">Linotte</div>
+                        <div class="footer-div">This WebApp is created by Giannipie, inspired by the original French game.</div>
+                        <div class="footer-div" id="version">Version:</div>
                     </div>
                 </div>
-                <div class="dice-options-container">
-                    <div id="dice-title" class="title">CLASSIC</div>
-                    <div class="dice-options">
-                        <div id="do0" class="die-options" class="die-img"></div>
-                        <div id="do1" class="die-options" class="die-img"></div>
-                        <div id="do2" class="die-options" class="die-img"></div>
-                        <div id="do3" class="die-options" class="die-img"></div>
-                        <div id="do4" class="die-options" class="die-img"></div>
-                        <div id="do5" class="die-options empty"></div>
-                        <div id="do6" class="die-options empty"></div>
-                        <div id="do7" class="die-options empty"></div>
-                    </div>
-                </div>
-                <div class="background-options-container">
-                    <div id="bg-title" class="title">sun-tornado</div>
-                    <div class="backgrounds-options">
-                        <div id="bg0" class="bg-options"><img src="resources/images/backgrounds/diamond-sunset-prev.png" class="die-img"></div>
-                        <div id="bg1" class="bg-options"><img src="resources/images/backgrounds/liquid-cheese-prev.png" class="die-img"></div>
-                        <div id="bg2" class="bg-options"><img src="resources/images/backgrounds/tortoise-shell-prev.png" class="die-img"></div>
-                        <div id="bg3" class="bg-options"><img src="resources/images/backgrounds/sun-tornado-prev.png" class="die-img"></div>
-                        <div id="bg4" class="bg-options"><img src="resources/images/backgrounds/pattern-randomized-prev.png" class="die-img"></div>
-                        <div id="bg5" class="bg-options"><img src="resources/images/backgrounds/subtle-prism-prev.png" class="die-img"></div>                     
-                        <div id="bg6" class="bg-options"><img src="resources/images/backgrounds/parabolic-ellipse-prev.png" class="die-img"></div>
-                        <div id="bg7" class="bg-options"><img src="resources/images/backgrounds/repeating-triangles-prev.png" class="die-img"></div>
-                    </div>
-                </div> 
+
             </div>
         </div>
-        <script src="linotte.js"></script>
+
+
+        <!-- winner overlay -->
+         <div>
+            <div id="winner-overlay" class="winner-overlay">
+            <canvas id="confetti-canvas"></canvas>
+            <div class="modal" id="modal">
+                <div class="winner-container" id="winner-container">
+                    <div class="v-winner-table">
+                        <div class="h-winner-table">
+                            <div id="winner-icon-back"></div>
+                            <div class="piece-popup-container">
+                                <div class="piece-popup-wrap animate-wrap">
+                                    <div class="piece-popup animate-piece" id="piece-popup"></div>
+                                </div>
+                            </div>
+                            <div class="winner-right"></div>
+                        </div>
+                        <div class="winner-text" id="winner-text"></div>
+                        <div class="winner-button" id="winner-button">NEW GAME</div>
+                    </div>
+                </div>
+            </div>
+         </div>
+
+        <script src="assets.js"></script>
+        <script src="confetti.js" defer></script>
+        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
+        <script src="linotte.js" defer></script>
+
     </body>
 </html>
+
