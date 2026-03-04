@@ -59,12 +59,12 @@ var player2 = {
 var players = [player1, player2];
 
 let p1p = rndNum(8, pieces.length - 1);
-player1.pieceImage = piecesPath + pieces[p1p] + imgExtention;
+player1.pieceImage = piecesPath + pieces[p1p];
 let p2p = p1p;
 while(p2p == p1p) {
     p2p = rndNum(8, pieces.length - 1);
 }
-player2.pieceImage = piecesPath + pieces[p2p] + imgExtention;
+player2.pieceImage = piecesPath + pieces[p2p];
 
 preload(player1.pieceImage);
 preload(player2.pieceImage);
