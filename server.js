@@ -28,6 +28,7 @@ let gameState = {
   possibleMoves: Array.from({ length: 5 }, () => Array(5).fill(0)),
   currentPlayer: 1,
   combinationsRealized: [0,0,0,0,0,0,0,0],
+  isFive: false,
   called: [null,null,null,false,false,false,false,false],
   players: {
     1: {
@@ -169,18 +170,23 @@ socket.emit("init", {
     }
 
     else if (data.type === "DONE") {
-      tableFill(data.tileCoordinate, data.localPlayer); //tableFill updates gameState
+      if(data.selectedTile != null){
+        tableFill(data.tileCoordinate, data.localPlayer); //tableFill updates gameState
+      }
       countPoints(gameState);
       countPieces(gameState);
       socket.broadcast.emit("place_piece", data.tileCoordinate);
     
       gameState.dice.rollsLeft = 3;
       gameState.dice.locked.fill(false);
+      gameState.dice.values.fill(0);
       gameState.combinationsRealized.fill(0);
       gameState.possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
       gameState.called = [null,null,null,false,false,false,false,false];
       gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
       io.emit("state_update", gameState);
+
+
     }
 
   });
@@ -193,7 +199,7 @@ socket.emit("init", {
 
 
 function findCombinations() {
-
+  let isRealized = false;
   gameState.possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
   gameState.combinationsRealized.fill(0);
 
@@ -240,6 +246,7 @@ function findCombinations() {
       possibleMovesFill ("c2");
       possibleMovesFill ("b3");
       gameState.combinationsRealized[3] = 1;
+      isRealized = true;
   }
   
   //carre
@@ -248,6 +255,7 @@ function findCombinations() {
       possibleMovesFill ("b2");
       possibleMovesFill ("c5");
       gameState.combinationsRealized[4] = 1;
+      isRealized = true;
   }
   
   //petit
@@ -256,15 +264,17 @@ function findCombinations() {
       possibleMovesFill ("a3");
       possibleMovesFill ("d4");
       gameState.combinationsRealized[5] = 1;
+      isRealized = true;
   }
 
   //suite
   if(((c1 == 1) && (c2 == 1) && (c3 == 1) && (c4 == 1) && (c5 == 1) && (c6 == 0)) ||
-      ((c1 == 0) && (c2 == 1) && (c3 == 1) && (c4 == 1) && (c5 == 1) && (c6 == 1))     )
+      ((c1 == 0) && (c2 == 1) && (c3 == 1) && (c4 == 1) && (c5 == 1) && (c6 == 1)))
   {
       possibleMovesFill ("e3");
       possibleMovesFill ("c4");
       gameState.combinationsRealized[6] = 1;
+      isRealized = true;
   }
 
   //yam
@@ -272,12 +282,13 @@ function findCombinations() {
   {
       possibleMovesFill ("c3");
       gameState.combinationsRealized[7] = 1;
+      isRealized = true;
   }
 
   //sec
-  if((!gameState.dice.locked.some(Boolean)) && (gameState.called.slice(3, 8).some(Boolean)))
+  if((!gameState.dice.locked.some(Boolean)) && (isRealized == true))
   {
-      possibleMovesFill ("d2");
+      possibleMovesFill ("c2");
       possibleMovesFill ("b4");
       gameState.combinationsRealized[1] = 1;
   }
@@ -286,59 +297,85 @@ function findCombinations() {
   for(let i = 3; i < 8; i++) {
       if(gameState.called[i] && gameState.combinationsRealized[i]) {
           gameState.combinationsRealized[2] = 1;
+          possibleMovesFill ("c1");
+          possibleMovesFill ("d3");
+          break;
       }
   }
-  if(gameState.combinationsRealized[2] == 1) {
-      possibleMovesFill ("c1");
-      possibleMovesFill ("d3");
-  }
-
 }
 
 
 
 
 function countPoints(state)
-{
+{ 
     gameState.players[1].points = 0;
     gameState.players[2].points = 0;
-    let tableArray = state.table.flat();
+    tableArray = gameState.table.flat();
 
     //check Horizontal
-    for (let y = 0; y < 25; y+=5) {
-        for (let x = 0; x < 3; x++) {
+    for (var y = 0; y < 25; y+=5) {
+        for (var x = 0; x < 3; x++) {
             const tris = [tableArray[y + x], tableArray[y + x + 1],  tableArray[y + x + 2]].join("");
-            if(tris == "111"){gameState.players[1].points++;}
-            if(tris == "222"){gameState.players[2].points++;}
+            if(tris == "111"){gameState.player[1].points++;}
+            if(tris == "222"){gameState.player[2].points++;}
         }
+    }
+
+
+    //check Vertical 
+    for (var x = 0; x < 5; x++) {
+        for (var y = 0; y < 25; y+=5) {
+            const tris = [tableArray[y + x], tableArray[y + x + 5],  tableArray[y + x + 10]].join("");
+            if(tris == "111"){gameState.player[1].points++;}
+            if(tris == "222"){gameState.player[2].points++;}
+        }
+    }
+
+
+    //check Diagonal
+    for (var x = 0; x < 3; x++) {
+        for (var y = 0; y < 15; y+=5) {
+            const tris = [tableArray[y + x], tableArray[y + x + 6],  tableArray[y + x + 12]].join("");
+            if(tris == "111"){gameState.player[1].points++;}
+            if(tris == "222"){gameState.player[2].points++;}
+        }
+    }
+
+
+    //check Diagonal
+    for (var x = 2; x < 5; x++) {
+        for (var y = 0; y < 15; y+=5) {
+            const tris = [tableArray[y + x], tableArray[y + x + 4],  tableArray[y + x + 8]].join("");
+            if(tris == "111"){gameState.player[1].points++;}
+            if(tris == "222"){gameState.player[2].points++;}
+        }
+    }
+
+    //check 5 in a row
+    var five = 0;
+    //check Horizontal
+    for (var i = 0; i < 25; i+=5) {
+        five = [tableArray[i + 0], tableArray[i + 1],  tableArray[i + 2], tableArray[i + 3],  tableArray[i + 4]].join("");
+        if(five == "11111"){gameState.isFive = true; return;}
+        if(five == "22222"){gameState.isFive = true; return;}  
     }
 
     //check Vertical 
-    for (let x = 0; x < 5; x++) {
-        for (let y = 0; y < 25; y+=5) {
-            const tris = [tableArray[y + x], tableArray[y + x + 5],  tableArray[y + x + 10]].join("");
-            if(tris == "111"){gameState.players[1].points++;}
-            if(tris == "222"){gameState.players[2].points++;}
-        }
+    for (var i = 0; i < 25; i++) {
+        five = [tableArray[i + 0], tableArray[i + 5],  tableArray[i + 10], tableArray[i + 15],  tableArray[i + 20]].join("");
+        if(five == "11111"){gameState.isFive = true; return;}
+        if(five == "22222"){gameState.isFive = true; return;}  
     }
 
     //check Diagonal
-    for (let x = 0; x < 3; x++) {
-        for (let y = 0; y < 15; y+=5) {
-            const tris = [tableArray[y + x], tableArray[y + x + 6],  tableArray[y + x + 12]].join("");
-            if(tris == "111"){gameState.players[1].points++;}
-            if(tris == "222"){gameState.players[2].points++;}
-        }
-    }
+        five = [tableArray[0], tableArray[6],  tableArray[12], tableArray[18],  tableArray[24]].join("");
+        if(five == "11111"){gameState.isFive = true; return;}
+        if(five == "22222"){gameState.isFive = true; return;}  
 
-    //check Diagonal
-    for (let x = 2; x < 5; x++) {
-        for (let y = 0; y < 15; y+=5) {
-            const tris = [tableArray[y + x], tableArray[y + x + 4],  tableArray[y + x + 8]].join("");
-            if(tris == "111"){gameState.players[1].points++;}
-            if(tris == "222"){gameState.players[2].points++;}
-        }
-    }
+        five = [tableArray[4], tableArray[8],  tableArray[12], tableArray[16],  tableArray[20]].join("");
+        if(five == "11111"){gameState.isFive = true; return;}
+        if(five == "22222"){gameState.isFive = true; return;}  
 }
 
 

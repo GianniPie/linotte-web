@@ -1,3 +1,7 @@
+//Version jjjj
+const VERSION = "2.5";
+document.getElementById("version").innerHTML += VERSION;
+
 const socket = io();
 
 const dd1 = document.getElementById("dd1");
@@ -22,7 +26,7 @@ const rr4 = document.getElementById("rr4");
 const rr5 = document.getElementById("rr5");
 const rr6 = document.getElementById("rr6");
 const rr7 = document.getElementById("rr7");
-const rrElements = [rr0, rr1, rr2, rr3, rr4, rr5, rr6, rr7];
+const rrElements = [rr1, rr2, rr3, rr4, rr5, rr6, rr7, rr8];
 
 const cc0 = document.getElementById("cc0");
 const cc1 = document.getElementById("cc1");
@@ -34,92 +38,25 @@ const cc6 = document.getElementById("cc6");
 const cc7 = document.getElementById("cc7");
 const ccElements = [cc0, cc1, cc2, cc3, cc4, cc5, cc6, cc7];
 
-
 const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
-const optBtn = document.getElementById("options");
+const openBtn = document.getElementById("options");
 
 const body = document.getElementById("body");
 const modal = document.getElementById("modal");
-const overlay = document.getElementById("overlay");
+const optionsOverlay = document.getElementById("options-overlay");
+
 
 let rollAnimationID;
 let stopRollID;
 
-const diceNames = [
-    "CLASSIC",
-    "FLAT",
-    "ONE RED",
-    "CHINESE",
-    "PERSIAN",
-];
-
-const dicePath = "resources/images/dice/";
-const diceClassic = [
-    "c100.svg",
-    "c101.svg",
-    "c102.svg",
-    "c103.svg",
-    "c104.svg",
-    "c105.svg",
-    "c106.svg"
-];
-
-const diceOneRed = [
-    "g100.svg",
-    "g107.svg",
-    "g102.svg",
-    "g103.svg",
-    "g104.svg",
-    "g105.svg",
-    "g106.svg"
-];
-
-const diceFlat = [
-    "g100.svg",
-    "g101.svg",
-    "g102.svg",
-    "g103.svg",
-    "g104.svg",
-    "g105.svg",
-    "g106.svg"
-];
-
-const diceChinese = [
-    "g100.svg",
-    "ch101.svg",
-    "ch102.svg",
-    "ch103.svg",
-    "ch104.svg",
-    "ch105.svg",
-    "ch106.svg"
-];
-
-const dicePersian = [
-    "g100.svg",
-    "p101.svg",
-    "p102.svg",
-    "p103.svg",
-    "p104.svg",
-    "p105.svg",
-    "p106.svg"
-];
-const diceFaces = [diceClassic, diceFlat, diceOneRed, diceChinese, dicePersian];
-let faces = diceFaces[getCookie("diceFaces")];
-
-const bgPath = "resources/images/backgrounds/";
-const backgrounds = [
-    "diamond-sunset.svg",
-    "liquid-cheese.svg",
-    "tortoise-shell.svg",
-    "sun-tornado.svg",
-    "pattern-randomized.svg",
-    "subtle-prism.svg",
-    "varying-stripes.svg",
-    "repeating-triangles.svg"
-];
-body.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
-modal.style.backgroundImage = urlOf(bgPath + backgrounds[getCookie("background")]);
+function setRealVh() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+setRealVh();
+window.addEventListener('resize', setRealVh); 
+window.addEventListener('orientationchange', setRealVh);
 
 
 
@@ -129,6 +66,7 @@ let gameState = {
   possibleMoves: Array.from({ length: 5 }, () => Array(5).fill(0)),
   currentPlayer: 0,
   combinationsRealized: [0,0,0,0,0,0,0,0],
+  isFive: false,
   called: [null,null,null,false,false,false,false,false],
   players: {
     1: {
@@ -156,15 +94,30 @@ let gameState = {
 };
 
 
-
 //------ PLAYERS ---------------
-const boxPlayer1 = document.querySelector(".player.p1");
-const boxPlayer2 = document.querySelector(".player.p2");
+
+let p1p = rndNum(8, pieces.length - 1);
+gameState.players[1].pieceImage = piecesPath + pieces[p1p];
+let p2p = p1p;
+while(p2p == p1p) {
+    p2p = rndNum(8, pieces.length - 1);
+}
+gameState.players[2].pieceImage = piecesPath + pieces[p2p];
+
+preload(gameState.players[1].pieceImage);
+preload(gameState.players[2].pieceImage);
+
+gameState.players[1].color = "#" + gameState.players[1].pieceImage.split("_")[1].slice(0, 6);
+gameState.players[2].color = "#" + gameState.players[2].pieceImage.split("_")[1].slice(0, 6);
+document.getElementsByClassName("player p1")[0].style.backgroundColor = gameState.players[1].color;
+document.getElementsByClassName("player p2")[0].style.backgroundColor = gameState.players[2].color;
+renderPlayerBox(gameState.currentPlayer);
 
 let LOCAL_PLAYER = null;
-
 function isMyTurn() {return gameState.currentPlayer == LOCAL_PLAYER;}
 
+const boxPlayer1 = document.querySelector(".player.p1");
+const boxPlayer2 = document.querySelector(".player.p2");
 const textPlayerP1 = document.getElementById("textPlayerP1");
 const textPlayerP2 = document.getElementById("textPlayerP2");
 const pawnP1Text = document.getElementById("pawnP1Text").textContent = gameState.players[1].remainingPieces;
@@ -172,10 +125,136 @@ const coinP1Text = document.getElementById("coinP1Text").textContent = gameState
 const pawnP2Text = document.getElementById("pawnP2Text").textContent = gameState.players[2].remainingPieces;
 const coinP2Text = document.getElementById("coinP2Text").textContent = gameState.players[2].points;
 
+function renderPlayerBox(currentPlayer) {
+    if(currentPlayer === 1){
+        document.getElementsByClassName("player p1")[0].style.setProperty("--glow", gameState.players[1].color);
+        document.getElementsByClassName("player p2")[0].style.boxShadow = "black 0px 0px 0px 0px";
+
+        document.getElementsByClassName("player p1")[0].classList.add("current");
+        document.getElementsByClassName("player p2")[0].classList.remove("current");           
+    } else {
+        document.getElementsByClassName("player p2")[0].style.setProperty("--glow", gameState.players[2].color);
+        document.getElementsByClassName("player p1")[0].style.boxShadow = "black 0px 0px 0px 0px";
+
+        document.getElementsByClassName("player p2")[0].classList.add("current");
+        document.getElementsByClassName("player p1")[0].classList.remove("current");
+    }
+}
+
+
+
+
+//----------- COOKIES ---------------
+
+let tidyness = getCookie("tidyness", 2);
+document.getElementById("bo" + tidyness).classList.add("selected"); //option section
+renderTidyness(tidyness);
+
+let dieCookie = getCookie("diceFaces", 3);
+document.getElementById("do" + dieCookie).classList.add("selected"); //option section
+document.getElementById("dice-title").textContent =  diceNames[dieCookie];
+let faces = diceFaces[dieCookie];  //faces of the selected die
+
+let selectedDie = dicePath + faces;
+preload(selectedDie);
+
+let selectedBg = getCookie("background", 4);
+document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
+document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
+for(let i = 0; i < backgrounds.length; i++) {
+    preload(bgPath + backgrounds[i]);
+}
+
+body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+document.getElementById("opt-bg").style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+document.getElementById("modal").style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+
+let isVolumeOn = true;
+isVolumeOn = toBoolean(getCookie("volumeOn", "true"));
+if(isVolumeOn == true) {
+    document.getElementById("sound-on").classList.add("selected"); 
+} else {
+    document.getElementById("sound-off").classList.add("selected");
+}
+
+
+
+//----------- TIMER -----------------
+const MAX_TIMER = 60;
+let value = MAX_TIMER;
+let timerId = null;
+
+function flip(tile, newVal){
+    const top = tile.querySelector(".top span");
+    const bottom = tile.querySelector(".bottom span");
+    if (top.textContent === newVal) return;
+
+    const oldVal = top.textContent;
+
+    const topFlip = tile.querySelector(".top").cloneNode(true);
+    const bottomFlip = tile.querySelector(".bottom").cloneNode(true);
+
+    topFlip.querySelector("span").textContent = oldVal;
+    bottomFlip.querySelector("span").textContent = newVal;
+
+    topFlip.classList.add("flipTop");
+    bottomFlip.classList.add("flipBottom");
+
+    tile.appendChild(topFlip);
+    tile.appendChild(bottomFlip);
+
+    top.textContent = newVal;
+
+    setTimeout(()=>{
+        topFlip.remove();
+        bottomFlip.remove();
+        bottom.textContent = newVal;
+    },300);
+}
+
+function tick(){
+    const [t,u] = String(value).padStart(2,"0").split("");
+    flip(document.getElementById("tens"), t);
+    flip(document.getElementById("units"), u);
+    if(value === 0){
+        timerId = null;
+        doneBtnEnebled = true;
+        doneButton();
+        return;
+    }
+    value--;
+    timerId = setTimeout(tick,1000);
+}
+
+function startTurnTimer() {
+    value = MAX_TIMER;
+    if(timerId !== null){
+        clearTimeout(timerId);
+        timerId = null;
+    }
+    startTimer();
+}
+
+function startTimer(){
+    if(timerId !== null) return;
+    tick();
+}
+
+function stopTimer() {
+  if (timerId !== null) {
+    clearTimeout(timerId);
+    timerId = null;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    tick();
+});
+
+
 
 
 //----------- DICE TABLE AND GAME -----------------
-
 let prewWrapper = null;
 let prewPiece = null;
 let selectedTile = null;
@@ -184,48 +263,311 @@ rollBtnEnebled = true;
 doneBtnEnebled = true;
 pieceEnebled = true;
 
+renderDice(dieCookie);
+document.querySelectorAll(".die").forEach(el => {
+    el.style.backgroundPosition = dicePos[0];
+    });
+
+function renderDice(id) {
+    document.querySelectorAll(".die").forEach(el => {
+        el.style.backgroundImage = `url(${selectedDie})`;
+     });
+
+    document.querySelectorAll(".die").forEach(el => {
+        el.classList.remove("black-shadow", "red-shadow");
+    });
+
+    if(id == 0 || id == 1 || id == 4 || id == 5) {
+        document.querySelectorAll(".die").forEach(el => {
+            el.classList.add("black-shadow");
+        });
+    }
+    if(id == 2) {
+        document.querySelectorAll(".die").forEach(el => {
+            el.classList.add("red-shadow");
+        });
+    }
+}
 
 
-//----------- COOCKIES ---------------
-let tidyness = getCookie("tidyness", 1);
-renderTidyness(tidyness);
 
-let selectedDie = getCookie("diceFaces", 2);
-document.getElementById("do" + selectedDie).classList.add("selected");
-document.getElementById("dice-title").textContent =  diceNames[selectedDie];
+//----------- OPTIONS OVERLAY -----------------
+openBtn.onclick = () => {
+    optionsOverlay.classList.remove("hidden");
+    handleTab("options");
+    centerLists();
+}
 
-let selectedBg = getCookie("background", "3");
-document.getElementById("bg" + selectedBg).classList.add("selected");
-document.getElementById("bg-title").textContent =  backgrounds[selectedBg].slice(0, -4); 
+optionsOverlay.addEventListener("click", (e) => {
+  if (e.target === optionsOverlay) {
+    optionsOverlay.style.display = "none";
+  }
+});
+
+document.querySelectorAll(".icon").forEach(icon => {
+  icon.onclick = () => {
+    if (icon.classList.contains("disabled")) return;
+
+    handleTab(icon.dataset.page);
+  };
+});
+
+function handleTab(page) {
+  if (page === "back") {
+    optionsOverlay.classList.add("hidden");
+    return;
+  }
+
+  // cambia pagina
+  document.querySelectorAll(".opt-page").forEach(p => p.classList.add("hidden"));
+  document.getElementById("page-" + page).classList.remove("hidden");
+
+  moveIndicator(page);
+}
+
+function moveIndicator(page) {
+    const rect1 = document.getElementById("icon-tab1").getBoundingClientRect();
+    const rect2 = document.getElementById("icon-tab2").getBoundingClientRect();
+    const rect3 = document.getElementById("icon-tab3").getBoundingClientRect();
+
+    const map = {
+        game: rect1.left - 10,
+        options: rect2.left - 10,
+        help: rect3.left - 10
+    };
+    document.getElementById("tabIndicator").style.left = map[page] + "px";
+}
+
+
+
+const volumeOptions = document.querySelectorAll(".sound-btn");
+volumeOptions.forEach(volumeOption => {
+    volumeOption.addEventListener("click", () => {
+        volumeOptions.forEach(t => t.classList.remove("selected"));
+        volumeOption.classList.add("selected");
+
+        if(volumeOption.id == "sound-off") {
+            isVolumeOn = false;
+        } else {
+            isVolumeOn = true;
+        }
+        setCookie("volumeOn", isVolumeOn);
+    });
+});
+
+
+const boardOptions = document.querySelectorAll(".board-options");
+boardOptions.forEach(boardOption => {
+    boardOption.addEventListener("click", () => {
+        boardOptions.forEach(t => t.classList.remove("selected"));
+        boardOption.classList.add("selected");
+        tidyness = Number(boardOption.id[2]);
+        renderTidyness(tidyness);
+        setCookie("tidyness", tidyness);
+    });
+});
+
+const dieOptions = document.querySelectorAll(".die-options");
+dieOptions.forEach(dieOption => {
+    dieOption.addEventListener("click", () => {
+        dieOptions.forEach(t => t.classList.remove("selected"));
+        dieOption.classList.add("selected");
+
+        var dieId = Number(dieOption.id[2]);
+        document.getElementById("dice-title").textContent =  diceNames[dieId];
+        faces = diceFaces[dieId];
+        selectedDie = dicePath + faces;
+        const diceSpriteImg = new Image();
+        diceSpriteImg.src = selectedDie;
+        setCookie("diceFaces", dieId);
+        renderDice(dieId);
+    });
+});
+
+const bgOptions = document.querySelectorAll(".bg-options");
+bgOptions.forEach(bgOption => {
+  bgOption.addEventListener("click", () => {
+    bgOptions.forEach(t => t.classList.remove("selected"));
+    bgOption.classList.add("selected");
+
+    var bgId = Number(bgOption.id[2]);
+    document.getElementById("bg-title").textContent =  backgrounds[bgId].slice(0, -4); 
+    
+    body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+    document.getElementById("opt-bg").style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+    document.getElementById("modal").style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+    setCookie("background", bgId);
+  });
+});
+
+
+function renderTidyness(tidyness){
+    const boardTitle = document.getElementById("board-title");
+    const boardTexts = document.querySelectorAll('.board-options-text');
+    boardTexts.forEach(t => t.classList.remove('selected'));
+
+    document.querySelectorAll(".piece").forEach(el => {
+        let wrapper = el.parentElement;
+        if(tidyness == 0) {
+            boardTitle.textContent = "Perfect";
+            wrapper.style.transform = "rotate(0deg)";
+            el.style.backgroundPosition = "50% 50%";
+        }
+        if(tidyness == 1) {
+            boardTitle.textContent = "Tidy";
+            wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";
+            el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";
+        }
+        if(tidyness == 2) {
+            boardTitle.textContent = "Natural";
+            wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
+            el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
+        }
+    });
+}
+
+// It centers the selected item in the carousels in the options overlay 
+function centerLists() {
+    document.querySelectorAll(".car-list").forEach(list => {
+        const selected = list.querySelector(".selected");
+        if (selected) {
+            selected.scrollIntoView({
+            behavior: "smooth",
+            inline: "center",
+            block: "nearest"
+            });
+        }
+    });
+}
+
+//Buttons carousels handler
+document.querySelectorAll('.car-button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const wrapper = btn.closest('.car-list-wrapper');
+    const track = wrapper?.querySelector('.car-list');
+    const direction = btn.dataset.direction;
+    if (!track) return;
+
+    const scrollAmount = track.clientWidth;
+
+    track.scrollBy({
+      left: direction === 'next' ? scrollAmount : -scrollAmount,
+      behavior: 'smooth'
+    });
+  });
+});
+
+
+
+//----------- WINNER OVERLAY -----------------
+
+document.getElementById("winner-icon-back").addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.getElementById("winner-overlay").style.display = "none";
+});
+
+document.getElementById("winner-container").addEventListener("click", (e) => {
+    fireWinnerConfetti(200);
+});
+
+document.getElementById("piece-popup").addEventListener("click", (e) => {
+    e.stopPropagation();
+    restartAnimation();
+});
+
+document.getElementById("winner-button").addEventListener("click", (e) => {
+    e.stopPropagation();
+    location.reload();
+});
+
+//winner popup 
+function showWinnerPopup(winner) {
+    if(winner) { // both player 1 or 2
+        document.getElementsByClassName("piece-popup-container")[0].classList.add("pulse");
+        document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", gameState.players[winner].color);
+        document.getElementById("piece-popup").style.backgroundImage = urlOf(gameState.players[winner].pieceImage);
+        document.getElementById("winner-text").textContent = "Player " + winner + " won!";
+        document.getElementById("winner-overlay").style.display = "flex";
+        fireWinnerConfetti(3000);
+    } else {
+        document.getElementsByClassName("piece-popup-container")[0].classList.remove("pulse");
+        document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", "rgba(0, 0, 0, .2)");
+        document.getElementById("piece-popup").style.backgroundImage = urlOf("resources/images/tie.svg");
+        document.getElementById("winner-text").textContent = "It's a tie!";
+        document.getElementById("winner-overlay").style.display = "flex";    
+        fireWinnerConfetti(500);    
+    }
+}
+
+function fireWinnerConfetti (duration) {
+    const end = Date.now() + duration;
+
+    (function frame() {
+        confetti({
+        particleCount: 6,
+        angle: 85,
+        spread: 60,
+        origin: { x: 0 }
+        });
+
+        confetti({
+        particleCount: 6,
+        angle: 95,
+        spread: 60,
+        origin: { x: 1 }
+        });
+
+        if (Date.now() < end) {
+        requestAnimationFrame(frame);
+        }
+    })();
+}
+
+function restartAnimation() {
+    const wrap = document.querySelector(".piece-popup-wrap");
+    const piece = document.querySelector(".piece-popup");
+    wrap.classList.remove("animate-wrap");
+    piece.classList.remove("animate-piece");
+    void wrap.offsetWidth;
+    void piece.offsetWidth;
+    wrap.classList.add("animate-wrap");
+    piece.classList.add("animate-piece");
+}
 
 
 
 
 
-//----------- ROLL DICE ---------------
+
+//----------- ROLL BUTTON -----------------
 rollBtn.addEventListener("click", function() {  
     if (!isMyTurn()) return;
     if(rollBtnEnebled == false ) return;
     if(gameState.dice.rollsLeft < 1) return;
-    
+
     rollBtnEnebled = false;
     doneBtnEnebled = false;
 
-    new Audio("resources/sounds/roll.mp3").play();
-    document.querySelector("#rollBtn .text-button").innerText = "ROLL " + (gameState.dice.rollsLeft-1);
+    //startTurnTimer();
 
-    //Reset highlights from tiles
+    if(isVolumeOn) {
+        new Audio("resources/sounds/roll.mp3").play();
+    }
+    document.querySelector("#rollBtn .text-button").innerText = "ROLL " + --gameState.dice.rollsLeft;
+    rollAnimationID = setInterval(rollAnimation, 100);
+    stopRollID = setInterval(stopRoll, 1200);
+
     document.querySelectorAll(".tile").forEach(el => {
         el.classList.remove("tile_highlited"); // reset
     });
+    gameState.possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
+    gameState.combinationsRealized.fill(0);
 
-    //Reset highlights from results
     document.querySelectorAll(".result").forEach(el => {
         el.classList.remove("higlited"); // reset
     });
 
-    if(selectedTile !== null) {
-        //if any piece is pleced and not confirmed, it removes it
+    if(selectedTile != null) {
         if(tableCheck(selectedTile.id) == 0) {
             wrapper = selectedTile.querySelector(".wrapPiece");
             piece = selectedTile.querySelector(".piece");
@@ -235,16 +577,10 @@ rollBtn.addEventListener("click", function() {
             if (e.animationName === "bounceOut") {
                 piece.classList.remove("img-bounce");
                 wrapper.classList.remove("img-disappear");
-                selectedTile = null;
             }
             }, { once: true });
         } 
     }
-
-    //the action is actually realized in socket.on("stopRoll_result"... funcion
-    rollAnimationID = setInterval(rollAnimation, 100);
-    stopRollID = setInterval(stopRoll, 1200);
-
 });
 
 
@@ -254,18 +590,21 @@ function rollAnimation() {
     let e = 0;
     let rndValues = [0,0,0,0,0];
 
-    if (tidyness == 1) { d= 0; e=0; }
-    if (tidyness == 2) { d= 0; e=5; }
-    if (tidyness == 3) { d= 7; e=10; }
+    if (tidyness == 0) { d= 0; e=0; }
+    if (tidyness == 1) { d= 0; e=10; }
+    if (tidyness == 2) { d= 7; e=10; }
 
     for(let i =0; i<5; i++) {
         if(!gameState.dice.locked[i]) {
             rndValues[i] = rndNum(1,6);
-            ddElements[i].style.backgroundImage = urlOf(dicePath + faces[rndValues[i]]);
+            ddElements[i].style.backgroundPosition = dicePos[rndValues[i]];
             wwElements[i].style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
         }
     }
 } 
+
+
+
 
 
 //--------------- STOP ROLL ------------------
@@ -285,29 +624,32 @@ socket.on("stopRoll_result", state => {
 
     let d = 0;
     let e = 0;
-    if (tidyness == 1) { d= 0; e=0; }
-    if (tidyness == 2) { d= 0; e=5; }
-    if (tidyness == 3) { d= 7; e=10; }
+    if (tidyness == 0) { d= 0; e=0; }
+    if (tidyness == 1) { d= 0; e=5; }
+    if (tidyness == 2) { d= 7; e=10; }
 
     for(let i=0; i<5; i++) {
         if(!gameState.dice.locked[i]) {
-            ddElements[i].style.backgroundImage = urlOf(dicePath + faces[gameState.dice.values[i]]);
+            ddElements[i].style.backgroundPosition = dicePos[gameState.dice.values[i]];
             wwElements[i].style.transform = 'rotate(' + rndNum(-e,e) + 'deg)' + 'translate('+ rndNum(-d,d) + 'px,' + rndNum(-d,d) + 'px)';
         }
     }
-    //highlite results
-    for(let i = 0; i < 8; i++) {
-        if (gameState.combinationsRealized[0] != 0) {
-            rrElements[0].classList.add("higlited");
-        }
-    }
 
+    resultsHighlite();
     tableHighlite();
     rollBtnEnebled = true;
     doneBtnEnebled = true;
 });    
 
 
+
+function resultsHighlite() {
+    for(let i = 0; i < 8; i++) {
+        if (gameState.combinationsRealized[0] != 0) {
+            rrElements[0].classList.add("higlited");
+        }
+    }
+}
 
 
 //----------- PIECE PLACEMENT ---------------
@@ -364,13 +706,13 @@ function placePiece(pieceId) {
     if(gameState.currentPlayer == 1) {piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);}
     if(gameState.currentPlayer == 2) {piece.style.backgroundImage = urlOf(gameState.players[2].pieceImage);}
 
-    if(tidyness == 1) {wrapper.style.transform = "rotate 0deg";}
-    if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
-    if(tidyness == 3) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
+    if(tidyness == 0) {wrapper.style.transform = "rotate 0deg";}
+    if(tidyness == 1) {wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";}
+    if(tidyness == 2) {wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";}
 
-    if(tidyness == 1) {piece.style.backgroundPosition = "50% 50%";}
-    if(tidyness == 2) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
-    if(tidyness == 3) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
+    if(tidyness == 0) {piece.style.backgroundPosition = "50% 50%";}
+    if(tidyness == 1) {piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";}
+    if(tidyness == 2) {piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";}
     
     wrapper.classList.remove("img-disappear");
     piece.classList.add("img-bounce");
@@ -394,6 +736,10 @@ function placePiece(pieceId) {
 
 
 function tableHighlite() {
+
+    document.querySelectorAll(".result").forEach(el => {
+        el.classList.remove("higlited"); // reset
+    });
 
     //brelan
     if (gameState.combinationsRealized[0] != 0) {
@@ -432,7 +778,7 @@ function tableHighlite() {
 
     //sec
     if (gameState.combinationsRealized[1] == 1) {
-        if(possibleMovesCheck("d2") && tableCheck("d2") == 0) { document.getElementById("d2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("c2") && tableCheck("c2") == 0) { document.getElementById("c2").classList.add("tile_highlited");}
         if(possibleMovesCheck("b4") && tableCheck("b4") == 0) { document.getElementById("b4").classList.add("tile_highlited");}
     }   
 
@@ -444,7 +790,7 @@ function tableHighlite() {
 
     //full
     if (gameState.combinationsRealized[3] == 1) {
-        if(possibleMovesCheck("c2") && tableCheck("c2") == 0) { document.getElementById("c2").classList.add("tile_highlited");}
+        if(possibleMovesCheck("d2") && tableCheck("d2") == 0) { document.getElementById("d2").classList.add("tile_highlited");}
         if(possibleMovesCheck("b3") && tableCheck("b3") == 0) { document.getElementById("b3").classList.add("tile_highlited");}
     }
 
@@ -477,10 +823,12 @@ function tableHighlite() {
 }
 
 
-//----------- DONE BUTTON ---------------
-doneBtn.addEventListener("click", function() {  
+//------------------DONE BUTTON----------------------
+doneBtn.addEventListener("click", doneButton);
+    
+function doneButton(e) {   
     if (!isMyTurn()) return;
-    if(rollBtnEnebled == false ) return;
+    if(doneBtnEnebled == false ) return;
 
     console.log("done_click");
     //send to the server where the player placed the piece
@@ -489,6 +837,29 @@ doneBtn.addEventListener("click", function() {
         localPlayer: LOCAL_PLAYER,
         tileCoordinate: selectedTile === null ? null : selectedTile.id
     });
+}
+
+socket.on("place_piece", tileCoordinate => {
+    if(tileCoordinate) placePiece("piece_" + tileCoordinate);
+
+    //end of the game
+    if(gameState.players[1].remainingPieces == 0 ||  gameState.players[2].remainingPieces == 0 || gameState.isFive == true) { 
+        stopTimer()
+        rollBtnEnebled = false;
+        doneBtnEnebled = true;
+
+        if(gameState.players[1].points > gameState.players[2].points) {   
+            showWinnerPopup(1);
+        } else if(gameState.players[1].points < gameState.players[2].points) {
+            showWinnerPopup(2);
+        } else {
+            //it's a tie
+            showWinnerPopup(0);
+        }
+        return;
+    }
+    startTurnTimer();
+
 });
 
 
@@ -513,11 +884,12 @@ function clearForNextTurn() {
     //dice highlight reset
     document.querySelectorAll(".die").forEach(el => {
         el.classList.remove("selected"); // reset
-        el.style.backgroundImage = urlOf(dicePath + faces[0]);
+        el.style.backgroundPosition = dicePos[0];
     });
 
     //Roll button reset
     document.querySelector("#rollBtn .text-button").innerText = "ROLL 3";
+    gameState.numRoll = 3;
 
     //result highlights reset
     document.querySelectorAll(".result").forEach(el => {
@@ -580,41 +952,43 @@ socket.on("lockDice_result", state => {
 
 
 //----------- SELECT CALL ---------------
-document.querySelectorAll(".result.selectable").forEach(el => {
+document.querySelectorAll(".result").forEach(el => {
     el.addEventListener("click", function() {
         if (!isMyTurn()) return;
 
-        const elemId = document.getElementById(this.id).id; //relative to the indicator under the icon
-        const targetId = elemId.slice(2);
+        el.classList.add("tip-on");
+        setTimeout(() => {
+        el.classList.remove("tip-on");
+        }, 800); // durata visibilità
 
-        gameState.called[targetId] === true ? gameState.called[targetId] = false : gameState.called[targetId] = true;
-        let mem = gameState.called[targetId];
-        gameState.called = [null,null,null,false,false,false,false,false];
-        gameState.called[targetId] = mem;
-        highlighteCall(gameState.called);
-
-        socket.emit("action", {
-            type: "SELEC_CALL",
-            localPlayer: LOCAL_PLAYER,
-            selectedCalls: gameState.called
-        });
-    });
-});
-
-
-document.querySelectorAll(".call.selectable").forEach(el => {
-    el.addEventListener("click", function() {
-        if (!isMyTurn()) return;
+        //Only for selectable results
+        if (!el.classList.contains("selectable")) return;
+        //Only if not firts throw
+        if(gameState.dice.rollsLeft === 3) return;
 
         const elemId = document.getElementById(this.id).id;
-        const targetId = elemId.slice(2);
-        gameState.called[targetId] === true ? gameState.called[targetId] = false : gameState.called[targetId] = true;
-        let mem = gameState.called[targetId];
-        gameState.called = [null,null,null,false,false,false,false,false];
-        gameState.called[targetId] = mem;
-        highlighteCall(gameState.called);
+        const targetId = "cc" + elemId.slice(2);
+        const targetDiv = document.getElementById(targetId);
+
+        if (targetDiv.classList.contains("checked")) {
+            targetDiv.classList.remove("checked"); 
+        } else {
+            document.querySelectorAll(".call.selectable").forEach(el => {
+                el.classList.remove("checked"); // reset
+            });
+            //Not possible to call carre if 4 dice are locked
+            if(document.querySelectorAll(".die.selected").length === 4 && targetId === "cc5") return;
+            //Not possible to call carre on carre
+            if(gameState.combinationsRealized[4] === 1 && targetId === "cc5") return;
+            //Only if at least one die is rolled
+            if(document.querySelectorAll(".die.selected").length === 5) return;
+
+            targetDiv.classList.add("checked");
+        }
     });
 });
+
+
 
 
 function highlighteCall (state) {
@@ -652,15 +1026,6 @@ function divsOpacity(state) {
 }
 
 
-function divPlayerShadow (player){
-    if(player== 1){
-        boxPlayer1.style.boxShadow = gameState.players[1].color + " 0px 0px 8px 8px";
-        boxPlayer2.style.boxShadow = "black 0px 0px 0px 0px";
-    } else {
-        boxPlayer1.style.boxShadow = "black 0px 0px 0px 0px";
-        boxPlayer2.style.boxShadow = gameState.players[2].color + " 0px 0px 8px 8px";
-    }
-}
 
 
 function renderBoardFromState(table) {
@@ -695,135 +1060,30 @@ socket.on("selectCall_result", state => {
 });
 
 
-//----------- OVERLAY AND OPTIONS ---------------
-overlay.addEventListener("click", (e) => {
-  if (e.target === overlay) {
-    overlay.style.display = "none";
-  }
-});
-
-optBtn.addEventListener("click", function() { 
-    overlay.style.display = "flex";
-});
 
 
-//----------- TIDYNESS ---------------
-document.querySelectorAll('.board-options-text').forEach(boardText => {
-  boardText.addEventListener('click', () => {
-      
-    if(boardText.id == "natural") {
-        tidyness=3;
-    }
-     if(boardText.id == "tidy") {
-        tidyness=2; 
-     }
-      if(boardText.id == "perfect") {
-        tidyness=1;  
-    }
+function renderDice(id) {
+    document.querySelectorAll(".die").forEach(el => {
+        el.style.backgroundImage = `url(${selectedDie})`;
+     });
 
-    renderTidyness(tidyness);
-    setCookie("tidyness", tidyness);
-  });
-});
-    
-
-function renderTidyness(tidyness){
-    const boardTexts = document.querySelectorAll('.board-options-text');
-    boardTexts.forEach(t => t.classList.remove('selected'));
-
-    document.querySelectorAll(".piece").forEach(el => {
-        let wrapper = el.parentElement;
-        if(tidyness == 1) {
-            document.getElementById("perfect").classList.add("selected");
-            document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11853.svg')";
-            wrapper.style.transform = "rotate(0deg)";
-            el.style.backgroundPosition = "50% 50%";
-        }
-        if(tidyness == 2) {
-            document.getElementById("tidy").classList.add("selected");
-            document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11852.svg')";
-            wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";
-            el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";
-        }
-        if(tidyness == 3) {
-            document.getElementById("natural").classList.add("selected");
-            document.getElementById("board-option").style.backgroundImage = "url('resources/images/g11851.svg')";
-            wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
-            el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
-        }
+    document.querySelectorAll(".die").forEach(el => {
+        el.classList.remove("black-shadow", "red-shadow");
     });
+
+    if(id == 0 || id == 1 || id == 4 || id == 5) {
+        document.querySelectorAll(".die").forEach(el => {
+            el.classList.add("black-shadow");
+        });
+    }
+    if(id == 2) {
+        document.querySelectorAll(".die").forEach(el => {
+            el.classList.add("red-shadow");
+        });
+    }
 }
 
 
-//----------- DIE OPTIONS ---------------
-const dieOptions = document.querySelectorAll(".die-options");
-dieOptions.forEach(dieOption => {
-  dieOption.addEventListener("click", () => {
-      if(!dieOption.classList.contains("empty")) {
-
-        dieOptions.forEach(t => t.classList.remove("selected"));
-        dieOption.classList.add("selected");
-        
-        let dieId = Number(dieOption.id[2]);
-        document.getElementById("dice-title").textContent =  diceNames[dieId];
-        faces = diceFaces[dieId];
-        setCookie("diceFaces", dieId);
-      }
-  });
-});
-
-
-//----------- BACKGROUND OPTIONS ---------------
-const bgOptions = document.querySelectorAll(".bg-options");
-bgOptions.forEach(bgOption => {
-  bgOption.addEventListener("click", () => {
-    bgOptions.forEach(t => t.classList.remove("selected"));
-    bgOption.classList.add("selected");
-
-    let bgId = Number(bgOption.id[2]);
-    document.getElementById("bg-title").textContent =  backgrounds[bgId].slice(0, -4); 
-    
-    body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
-    modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
-    setCookie("background", bgId);
-  });
-});
-
-
-
-
-//----------- UTILITY FUNCIONS ---------------
-
-function urlOf(path) {
-    return "url('" + path + "')";
-}
-
-
-const rows = { a:0, b:1, c:2, d:3, e:4 };
-
-function tableCheck(divId) {
-    if(!divId) {return -1;}
-
-    const r = rows[divId[0]];    
-    const c = Number(divId[1]) - 1; 
-    return gameState.table[c][r];
-}
-
-
-function rndNum(numFrom, numTo) {
-    let  spanNum = numTo - numFrom + 1;
-    let num = Math.floor(Math.random() * spanNum) + numFrom; // numFrom to numTo
-    if (num < numFrom) {num = numFrom;}
-    if (num > numTo) {num = numTo;}
-    return num;
-}
-
-
-function possibleMovesCheck(coordinates) {
-    const r = rows[coordinates[0]];    
-    const c = Number(coordinates[1]) - 1; 
-    return gameState.possibleMoves[c][r];
-}
 
 
 
@@ -862,6 +1122,65 @@ function getCookie(name, defaultValue) {
 
 
 
+//----------- UTILITY FUNCIONS ---------------
+
+function urlOf(path) {
+    return "url('" + path + "')";
+}
+
+
+const rows = { a:0, b:1, c:2, d:3, e:4 };
+
+
+function rndNum(numFrom, numTo) {
+    let  spanNum = numTo - numFrom + 1;
+    let num = Math.floor(Math.random() * spanNum) + numFrom; // numFrom to numTo
+    if (num < numFrom) {num = numFrom;}
+    if (num > numTo) {num = numTo;}
+    return num;
+}
+
+
+function possibleMovesCheck(coordinates) {
+    if(!coordinates) {return -1;}
+
+    const r = rows[coordinates[0]];    
+    const c = Number(coordinates[1]) - 1; 
+    return gameState.possibleMoves[c][r];
+}
+
+
+function tableCheck(divId) {
+    if(!divId) {return -1;}
+
+    const r = rows[divId[0]];    
+    const c = Number(divId[1]) - 1; 
+    return gameState.table[c][r];
+}
+
+
+function tableFill(divId, value) {
+    if(!divId) return;
+
+    const r = rows[divId[0]];    
+    const c = Number(divId[1]) - 1; 
+    gameState.table[c][r] = value;
+}
+
+
+function toBoolean(val) {
+  return String(val).toLowerCase() === "true";
+}
+
+
+function preload(url) {
+  const img = new Image();
+  img.src = url;
+}
+
+
+
+
 
 //----------- SERVER SIDE ---------------
 
@@ -885,13 +1204,10 @@ socket.on("state_update", state => {
     gameState = state;
     clearForNextTurn();
     divsOpacity(state);
-    divPlayerShadow(state.currentPlayer);
+    renderPlayerBox(state.currentPlayer);
 });
 
 
-socket.on("place_piece", tileCoordinate => {
-    if(tileCoordinate) placePiece("piece_" + tileCoordinate);
-});
 
 
 
