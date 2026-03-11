@@ -1,20 +1,20 @@
 {
   "name": "linotte-web",
   "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
+  "type": "module",
+  "description": "Linotte web",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server/server.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/GianniPie/linotte-web.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "GianniPie",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/GianniPie/linotte-web/issues"
   },

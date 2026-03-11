@@ -1,8 +1,8 @@
 
 
 
-const dicePath = "resources/images/dice/";
-const diceFaces = [
+export const dicePath = "/public/resources/images/dice/";
+export const diceFaces = [
     "traditional_sprite.png",
     "classic_sprite.svg",
     "red_sprite.png",
@@ -11,7 +11,7 @@ const diceFaces = [
     "persian_sprite.png"
 ];
 
-const dicePos = [
+export const dicePos = [
     "0% 0%",
     "16.6667% 0%",
     "33.3333% 0%",
@@ -21,7 +21,7 @@ const dicePos = [
     "100% 0%"
 ];
 
-const diceNames = [
+export const diceNames = [
     "TRADITIONAL",
     "CLASSIC",
     "RED",
@@ -31,8 +31,8 @@ const diceNames = [
 ];
 
 
-const bgPath = "resources/images/backgrounds/";
-const backgrounds = [
+export const bgPath = "/public/resources/images/backgrounds/";
+export const backgrounds = [
     "confetti-doodles.svg",
     "diamond-sunset.svg",
     "liquid-cheese.svg",
@@ -45,8 +45,8 @@ const backgrounds = [
 ];
 
 
-const piecesPath = "resources/images/pieces/";
-let pieces =  [
+export const piecesPath = "/public/resources/images/pieces/";
+export const pieces =  [
     "p001_ed1c24ff.svg",
     "p002_40b93cff.svg",
     "p003_50ade5ff.svg",
@@ -73,7 +73,6 @@ let pieces =  [
     "p024_336483ff.svg",
     "p025_ad8a72ff.svg",
     "p026_d75650ff.svg",
-    "p027_ad8a72ff.svg",
     "p027_babac3ff.svg",
     "p028_c5d4eaff.svg",
     "p029_fd6c92ff.svg",

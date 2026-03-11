@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Linotte Debug Console</title>
+
+<style>
+
+body{
+  font-family: monospace;
+  background:#0f0f0f;
+  color:#e0e0e0;
+  margin:0;
+}
+
+header{
+  background:#1a1a1a;
+  padding:10px 20px;
+}
+
+main{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  padding:10px;
+}
+
+.panel{
+  background:#1c1c1c;
+  padding:10px;
+  border-radius:6px;
+  overflow:auto;
+}
+
+pre{
+  white-space:pre-wrap;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(5,40px);
+  gap:4px;
+}
+
+.cell{
+  width:40px;
+  height:40px;
+  border:1px solid #555;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.log{
+  height:200px;
+  overflow:auto;
+  background:#111;
+  padding:8px;
+}
+
+button{
+  margin:4px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>Linotte Debug Console</h2>
+</header>
+
+<main>
+
+<div class="panel">
+<h3>Table</h3>
+<div id="table" class="grid"></div>
+
+<h3>Dice</h3>
+<div id="dice"></div>
+
+<h3>Current Player</h3>
+<div id="turn"></div>
+</div>
+
+<div class="panel">
+<h3>GameState JSON</h3>
+<pre id="state"></pre>
+</div>
+
+<div class="panel">
+<h3>Action Log</h3>
+<div id="log" class="log"></div>
+</div>
+
+<div class="panel">
+<h3>Send Action</h3>
+
+<button onclick="sendAction('STOP_ROLL')">STOP_ROLL</button>
+<button onclick="sendAction('DONE')">DONE</button>
+
+<br>
+
+<button onclick="lockRandom()">LOCK RANDOM DICE</button>
+
+</div>
+
+</main>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+const socket = io();
+
+let lastState = null;
+
+socket.on("init", data => {
+
+  log("INIT player " + data.playerNumber);
+
+  updateState(data.gameState);
+
+});
+
+socket.on("state_update", state => {
+
+  log("STATE_UPDATE");
+
+  showDiff(lastState,state);
+
+  updateState(state);
+
+});
+
+function updateState(state){
+
+  lastState = state;
+
+  renderJSON(state);
+  renderTable(state.table);
+  renderDice(state.dice);
+  renderTurn(state.currentPlayer);
+
+}
+
+function renderJSON(state){
+
+  document.getElementById("state").textContent =
+    JSON.stringify(state,null,2);
+
+}
+
+function renderTurn(player){
+
+  document.getElementById("turn").textContent =
+    "Player " + player;
+
+}
+
+function renderDice(dice){
+
+  document.getElementById("dice").textContent =
+    "values: " + dice.values.join(" ") +
+    " | locked: " + dice.locked.join(" ") +
+    " | rollsLeft: " + dice.rollsLeft;
+
+}
+
+function renderTable(table){
+
+  const el = document.getElementById("table");
+  el.innerHTML = "";
+
+  for(let y=0;y<5;y++){
+
+    for(let x=0;x<5;x++){
+
+      const cell = document.createElement("div");
+      cell.className = "cell";
+
+      const v = table[y][x];
+
+      if(v === 1) cell.style.background = "#ed1c24";
+      if(v === 2) cell.style.background = "#40b93c";
+
+      cell.textContent = v || "";
+
+      el.appendChild(cell);
+
+    }
+
+  }
+
+}
+
+function log(msg){
+
+  const el = document.getElementById("log");
+
+  const line = document.createElement("div");
+
+  const time = new Date().toLocaleTimeString();
+
+  line.textContent = "[" + time + "] " + msg;
+
+  el.prepend(line);
+
+}
+
+function sendAction(type){
+
+  socket.emit("action",{type});
+
+  log("ACTION → " + type);
+
+}
+
+function lockRandom(){
+
+  const locked = [];
+
+  for(let i=0;i<5;i++){
+
+    locked.push(Math.random() > 0.5);
+
+  }
+
+  socket.emit("action",{
+    type:"LOCK_DICE",
+    lockedDice:locked
+  });
+
+  log("ACTION → LOCK_DICE");
+
+}
+
+function showDiff(oldState,newState){
+
+  if(!oldState) return;
+
+  if(oldState.currentPlayer !== newState.currentPlayer){
+
+    log("TURN CHANGED → player " + newState.currentPlayer);
+
+  }
+
+}
+
+</script>
+
+</body>
+</html>
