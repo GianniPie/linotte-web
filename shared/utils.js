@@ -78,6 +78,11 @@ export function rndNum(min, max) {
 }
 
 
+export function idToCoo(id) {
+  return id.slice(1)
+}
+
+
 export function matrixCheck(coordinates, matrix) {
   if (!coordinates) return -1;
 

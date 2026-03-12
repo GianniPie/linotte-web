@@ -1,5 +1,5 @@
 //Version 
-const VERSION = "2.5.1";
+const VERSION = "2.5.2";
 document.getElementById("version").innerHTML += VERSION;
 
 // open
@@ -70,7 +70,6 @@ const rr7 = document.getElementById("rr7");
 const rr8 = document.getElementById("rr8");
 const rrElements = [rr1, rr2, rr3, rr4, rr5, rr6, rr7, rr8];
 
-const cc0 = document.getElementById("cc0");
 const cc1 = document.getElementById("cc1");
 const cc2 = document.getElementById("cc2");
 const cc3 = document.getElementById("cc3");
@@ -78,7 +77,8 @@ const cc4 = document.getElementById("cc4");
 const cc5 = document.getElementById("cc5");
 const cc6 = document.getElementById("cc6");
 const cc7 = document.getElementById("cc7");
-const ccElements = [cc0, cc1, cc2, cc3, cc4, cc5, cc6, cc7];
+const cc8 = document.getElementById("cc8");
+const ccElements = [cc1, cc2, cc3, cc4, cc5, cc6, cc7, cc8];
 
 const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
@@ -133,7 +133,7 @@ window.addEventListener('orientationchange', setRealVh);
 
 
 //----------- GAME STATE ---------------
-import { createInitialGameState, urlOf, rndNum, matrixCheck, matrixFill, toBoolean, preload } from "../shared/utils.js";
+import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload } from "../shared/utils.js";
 import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces } from "../shared/assets.js";
 import { updateGame } from "../shared/gameEngine.js";
 import GameController from '../shared/gameController.js';
@@ -169,12 +169,6 @@ preload(gameState.players[1].pieceImage);
 preload(gameState.players[2].pieceImage);
 boxPlayer1.style.backgroundColor = gameState.players[1].color;
 boxPlayer2.style.backgroundColor = gameState.players[2].color;
-textPlayerP1.textContent = gameState.players[1].name;
-textPlayerP2.textContent = gameState.players[2].name;
-pawnP1Text.textContent = gameState.players[1].remainingPieces;
-pawnP2Text.textContent = gameState.players[2].remainingPieces;
-coinP1Text.textContent = gameState.players[1].points;
-coinP2Text.textContent = gameState.players[2].points;
 renderPlayerBox(gameState.currentPlayer);
 
 //clearForNextTurn();
@@ -199,6 +193,13 @@ function renderPlayerBox(player) {
         document.getElementsByClassName("player p2")[0].classList.add("current");
         document.getElementsByClassName("player p1")[0].classList.remove("current");
     }
+
+    textPlayerP1.textContent = gameState.players[1].name;
+    textPlayerP2.textContent = gameState.players[2].name;
+    pawnP1Text.textContent = gameState.players[1].remainingPieces;
+    pawnP2Text.textContent = gameState.players[2].remainingPieces;
+    coinP1Text.textContent = gameState.players[1].points;
+    coinP2Text.textContent = gameState.players[2].points;
 }
 
 
@@ -344,7 +345,7 @@ document.addEventListener("DOMContentLoaded", () => {
 //----------- DICE TABLE AND GAME -----------------
 let prewWrapper = null;
 let prewPiece = null;
-let selectedTile = null;
+let selectedTileId = null;
 
 rollBtnEnabled = true;
 doneBtnEnabled = true;
@@ -653,22 +654,8 @@ rollBtn.addEventListener("click", function () {
 
     rollBtnText.innerText = "ROLL " + gameState.dice.rollsLeft;
     tileElements.forEach(el => el.classList.remove("tile_highlighted"));
-    rrElements.forEach(el => el.classList.remove("tile_highlighted"));
-
-    if (selectedTile != null) {
-        if (matrixCheck(selectedTile.id, gameState.table) == 0) {
-            wrapper = selectedTile.querySelector(".wrapPiece");
-            piece = selectedTile.querySelector(".piece");
-
-            selectedTile.querySelector(".wrapPiece").classList.add("img-disappear");
-            wrapper.addEventListener("animationend", (e) => {
-                if (e.animationName === "bounceOut") {
-                    piece.classList.remove("img-bounce");
-                    wrapper.classList.remove("img-disappear");
-                }
-            }, { once: true });
-        }
-    }
+    rrElements.forEach(el => el.classList.remove("highlighted"));
+    removePiece(selectedTileId);
 });
 
 
@@ -699,6 +686,7 @@ function renderDice(values) {
 }
 
 
+let possibleMovesLocal = Array.from({ length: 5 }, () => Array(5).fill(0));
 //--------------- STOP ROLL ------------------
 function stopRoll() {
     clearInterval(rollAnimationID);
@@ -706,6 +694,7 @@ function stopRoll() {
     renderDice(gameState.dice.values);
     controller.dispatch({type: "STOP_ROLL"});
 
+    possibleMovesLocal = gameState.possibleMoves;
     renderResultsHighlight();
     renderTableHighlight();
     rollBtnEnabled = true;
@@ -742,8 +731,8 @@ function renderTableHighlight() {
         tileElements[i].style.outlineColor = selectedColor[gameState.currentPlayer];
         tileElements[i].classList.add("tile_highlighted");
     });
-    console.log(selectedColor[gameState.currentPlayer]);
 }
+
 
 
 
@@ -755,7 +744,6 @@ document.querySelectorAll(".piece").forEach(el => {
         if (pieceEnabled == false) return;
 
         let piece = document.getElementById(this.id);
-        console.log("piece clicked: " + piece.id);
         handlePiece(piece.id);
     });
 });
@@ -767,21 +755,21 @@ function handlePiece(pieceId) {
     let piece = document.getElementById(pieceId);
     let wrapper = piece.parentElement;
     let tile = wrapper.parentElement;
+   
+    if (matrixCheck(idToCoo(tile.id), possibleMovesLocal) == 0) return;
 
-
-    if (matrixCheck(tile.id, gameState.possibleMoves) !== 1) return;
-    if (matrixCheck(tile.id, gameState.table) !== 0) return;
-
-    if (matrixCheck(tile.id, gameState.table) == 0) {
+    pieceEnabled = false;
+    console.log("piece clicked: " + piece.id);
+    //if (matrixCheck(idToCoo(tile.id), gameState.table) === 0) {
         if (piece.classList.contains("img-bounce")) {
-            wrapper.classList.add("img-disappear"); //remove the piece
-
+             //remove the piece
+            removePiece(pieceId);
             wrapper.addEventListener("animationend", (e) => {
                 if (e.animationName === "bounceOut") {
                     piece.classList.remove("img-bounce");
                     wrapper.classList.remove("img-disappear");
                     pieceEnabled = true;
-                    selectedTile = null;
+                    selectedTileId = null;
                 }
             }, { once: true });
 
@@ -789,15 +777,37 @@ function handlePiece(pieceId) {
             //place the piece
             placePiece(pieceId);
         }
-    }
+    //}
 }
 
 
-function placePiece(pieceId) {
+function removePiece(pieceId) {
+    if (pieceId === null) return;
+
+    controller.dispatch({type: "PLACE_PIECE", coordinates: idToCoo(pieceId) , player: 0});
 
     let piece = document.getElementById(pieceId);
     let wrapper = piece.parentElement;
-    let tile = wrapper.parentElement;
+
+    wrapper.classList.add("img-disappear");
+    wrapper.addEventListener("animationend", (e) => {
+        if (e.animationName === "bounceOut") {
+            piece.classList.remove("img-bounce");
+            wrapper.classList.remove("img-disappear");
+        }
+    }, { once: true });
+}
+
+
+
+
+
+
+function placePiece(pieceId) {
+    controller.dispatch({type: "PLACE_PIECE", coordinates: idToCoo(pieceId) , player: gameState.currentPlayer});
+
+    let piece = document.getElementById(pieceId);
+    let wrapper = piece.parentElement;
 
     if (gameState.currentPlayer == 1) { piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage); }
     if (gameState.currentPlayer == 2) { piece.style.backgroundImage = urlOf(gameState.players[2].pieceImage); }
@@ -813,7 +823,7 @@ function placePiece(pieceId) {
     wrapper.classList.remove("img-disappear");
     piece.classList.add("img-bounce");
 
-    selectedTile = wrapper.parentElement;
+    selectedTileId = pieceId;
 
     if (prewPiece !== null) {
         if (prewPiece !== piece) {
@@ -852,12 +862,19 @@ function doneButton(e) {
     if (doneBtnEnabled == false) return;
 
     console.log("done_click");
+
+    controller.dispatch({type: "END_TURN"});
+    clearForNextTurn() 
+    renderPlayerBox(gameState.currentPlayer);
+    //stateUpdate();
+
+
     //send to the server where the player placed the piece
-    socket.emit("action", {
-        type: "DONE",
-        localPlayer: LOCAL_PLAYER,
-        tileCoordinate: selectedTile === null ? null : selectedTile.id
-    });
+    // socket.emit("action", {
+    //     type: "DONE",
+    //     localPlayer: LOCAL_PLAYER,
+    //     tileCoordinate: selectedTile === null ? null : selectedTile.id
+    // });
 }
 
 
@@ -890,7 +907,7 @@ function clearForNextTurn() {
 
     prewPiece = null;
     prewWrapper = null;
-    selectedTile = null;
+    selectedTileId = null;
 
     //dice position reset
     wr1.style.transform = 'rotate(0deg) translate(0px,0px)';
@@ -900,32 +917,36 @@ function clearForNextTurn() {
     wr5.style.transform = 'rotate(0deg) translate(0px,0px)';
 
     //dice highlight reset
-    document.querySelectorAll(".die").forEach(el => {
-        el.classList.remove("selected"); // reset
-        el.style.backgroundPosition = dicePos[0];
-    });
+    // document.querySelectorAll(".die").forEach(el => {
+    //     el.classList.remove("selected"); // reset
+    //     el.style.backgroundPosition = dicePos[0];
+    // });
 
     //Roll button reset
     rollBtnText.innerText = "ROLL 3";
     gameState.dice.rollsLeft = 3;
 
-    //result highlights reset
-    document.querySelectorAll(".result").forEach(el => {
-        el.classList.remove("highlighted"); // reset
-    });
+    tileElements.forEach(el => el.classList.remove("tile_highlighted"));
+    rrElements.forEach(el => el.classList.remove("highlighted"));
+    ccElements.forEach(el => el.classList.remove("checked"));
+    ddElements.forEach(el => el.classList.remove("selected"));
+    // //result highlights reset
+    // document.querySelectorAll(".result").forEach(el => {
+    //     el.classList.remove("highlighted"); // reset
+    // });
 
-    //call highlights reset
-    document.querySelectorAll(".call.selectable").forEach(el => {
-        el.classList.remove("checked"); // reset
-    });
+    // //call highlights reset
+    // document.querySelectorAll(".call.selectable").forEach(el => {
+    //     el.classList.remove("checked"); // reset
+    // });
 
-    //table tiles highlights reset
-    document.querySelectorAll(".tile").forEach(el => {
-        el.classList.remove("tile_highlighted"); // reset
-    });
+    // //table tiles highlights reset
+    // document.querySelectorAll(".tile").forEach(el => {
+    //     el.classList.remove("tile_highlighted"); // reset
+    // });
 }
 
-
+    
 //----------- LOCK DICE ---------------
 document.querySelectorAll(".die").forEach(el => {
     el.addEventListener("click", function () {
@@ -940,11 +961,13 @@ document.querySelectorAll(".die").forEach(el => {
             elem.classList.add("selected");
         }
 
-        socket.emit("action", {
-            type: "LOCK_DICE",
-            localPlayer: LOCAL_PLAYER,
-            lockedDice: gameState.dice.locked
-        });
+        controller.dispatch({type: "LOCK_DICE", locked: gameState.dice.locked});
+        
+        // socket.emit("action", {
+        //     type: "LOCK_DICE",
+        //     localPlayer: LOCAL_PLAYER,
+        //     lockedDice: gameState.dice.locked
+        // });
     });
 });
 
@@ -1022,13 +1045,13 @@ function highlighteCall(state) {
 
 
 function stateUpdate() {
-    coinP1Text.textContent = gameState.players[1].points;
-    coinP2Text.textContent = gameState.players[2].points;
-    pawnP1Text.textContent = gameState.players[1].remainingPieces;
-    pawnP2Text.textContent = gameState.players[2].remainingPieces;
+    // coinP1Text.textContent = gameState.players[1].points;
+    // coinP2Text.textContent = gameState.players[2].points;
+    // pawnP1Text.textContent = gameState.players[1].remainingPieces;
+    // pawnP2Text.textContent = gameState.players[2].remainingPieces;
 
-    divPlayerShadow(gameState.currentPlayer);
-    renderBoardFromState(gameState.table);
+    //divPlayerShadow(gameState.currentPlayer);
+    //renderBoardFromState(gameState.table);
 }
 
 

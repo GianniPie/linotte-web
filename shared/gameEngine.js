@@ -7,11 +7,11 @@ export function updateGame(state, action) {
         case "ROLL_DICE":
             return rollDice(state);
         case "STOP_ROLL":
-            return stopRoll(state, action.diceValues);
+            return stopRoll(state);
         case "LOCK_DICE":
             return lockDice(state, action.locked);
         case "PLACE_PIECE":
-            return placePiece(state, action.tile, action.player);
+            return placePiece(state, action.coordinates, action.player);
         case "END_TURN":
             return endTurn(state);
         default:
@@ -44,8 +44,8 @@ function stopRoll(state) {
 }
 
 
-function placePiece(state, tile, player) {
-    matrixFill(tile, player, state.table);
+function placePiece(state, coordinates, player) {
+    matrixFill(coordinates, player, state.table);
     return state;
 }
 
@@ -60,6 +60,24 @@ function endTurn(state) {
     state.possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
     return state;
 }
+
+
+
+    //    matrixFill(action.tileCoordinate, action.localPlayer, gameState.table);
+    //     countPoints(gameState);
+    //     countPieces(gameState);
+    //     socket.broadcast.emit("place_piece", action.tileCoordinate);
+    //   }
+      
+    //   gameState.dice.rollsLeft = 3;
+    //   gameState.dice.locked.fill(false);
+    //   gameState.dice.values.fill(0);
+    //   gameState.combinationsRealized.fill(0);
+    //   gameState.possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
+    //   gameState.called = [null, null, null, false, false, false, false, false];
+    //   gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
+
+
 
 
 function findCombinations(state) {
@@ -102,7 +120,6 @@ function findCombinations(state) {
         state.combinationsRealized[0] = 6;
     }
 
-    console.log(state.possibleMoves);
     //full
     if (((c1 == 3) || (c2 == 3) || (c3 == 3) || (c4 == 3) || (c5 == 3) || (c6 == 3)) &&
         ((c1 == 2) || (c2 == 2) || (c3 == 2) || (c4 == 2) || (c5 == 2) || (c6 == 2))) {
@@ -170,6 +187,7 @@ function findCombinations(state) {
             }
         }
     }
+    //console.log(state.possibleMoves);
 }
 
 
