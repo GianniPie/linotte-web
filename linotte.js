@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.71";
+const VERSION = "1.72";
 document.getElementById("version").innerHTML += VERSION;
 
 
