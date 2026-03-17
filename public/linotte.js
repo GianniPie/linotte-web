@@ -1,5 +1,5 @@
 //Version 
-const VERSION = "2.5.2";
+const VERSION = "2.5.3";
 document.getElementById("version").innerHTML += VERSION;
 
 // open
@@ -754,15 +754,15 @@ function handlePiece(pieceId) {
 
     let piece = document.getElementById(pieceId);
     let wrapper = piece.parentElement;
-    let tile = wrapper.parentElement;
    
-    if (matrixCheck(idToCoo(tile.id), possibleMovesLocal) == 0) return;
+    if (matrixCheck(idToCoo(piece.id), possibleMovesLocal) === 0) return;
 
     pieceEnabled = false;
     console.log("piece clicked: " + piece.id);
     //if (matrixCheck(idToCoo(tile.id), gameState.table) === 0) {
         if (piece.classList.contains("img-bounce")) {
              //remove the piece
+            controller.dispatch({type: "PLACE_PIECE", coordinates: idToCoo(pieceId) , player: 0});
             removePiece(pieceId);
             wrapper.addEventListener("animationend", (e) => {
                 if (e.animationName === "bounceOut") {
@@ -775,6 +775,7 @@ function handlePiece(pieceId) {
 
         } else {
             //place the piece
+            controller.dispatch({type: "PLACE_PIECE", coordinates: idToCoo(pieceId) , player: gameState.currentPlayer});
             placePiece(pieceId);
         }
     //}
@@ -783,8 +784,6 @@ function handlePiece(pieceId) {
 
 function removePiece(pieceId) {
     if (pieceId === null) return;
-
-    controller.dispatch({type: "PLACE_PIECE", coordinates: idToCoo(pieceId) , player: 0});
 
     let piece = document.getElementById(pieceId);
     let wrapper = piece.parentElement;
@@ -804,8 +803,6 @@ function removePiece(pieceId) {
 
 
 function placePiece(pieceId) {
-    controller.dispatch({type: "PLACE_PIECE", coordinates: idToCoo(pieceId) , player: gameState.currentPlayer});
-
     let piece = document.getElementById(pieceId);
     let wrapper = piece.parentElement;
 
@@ -861,6 +858,7 @@ function doneButton(e) {
     if (!isMyTurn()) return;
     if (doneBtnEnabled == false) return;
 
+    possibleMovesLocal = Array.from({ length: 5 }, () => Array(5).fill(0));
     console.log("done_click");
 
     controller.dispatch({type: "END_TURN"});
