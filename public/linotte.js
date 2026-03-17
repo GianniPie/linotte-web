@@ -5,7 +5,12 @@ document.getElementById("version").innerHTML += VERSION;
 // open
 // http://127.0.0.1:5500/public/index.html
 
-
+//To install web app
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js")
+    .then(() => console.log("SW registered"))
+    .catch(err => console.error(err));
+}
 
 // const socket = io();
 

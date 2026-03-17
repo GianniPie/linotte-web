@@ -1,6 +1,6 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySite",
+  "name": "La linotte",
+  "short_name": "Linotte",
   "icons": [
     {
       "src": "/public/resources/favicon/web-app-manifest-192x192.png",
