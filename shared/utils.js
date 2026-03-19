@@ -6,6 +6,7 @@ export function createInitialGameState() {
   return {
     table: Array.from({ length: 5 }, () => Array(5).fill(0)),
     possibleMoves: Array.from({ length: 5 }, () => Array(5).fill(0)),
+    currentPosition: null,
     currentPlayer: 1,
     combinationsRealized: [0, 0, 0, 0, 0, 0, 0, 0],
     isFive: false,
@@ -13,15 +14,15 @@ export function createInitialGameState() {
     players: {
       1: {
         name: "P1",
-        pieceImage: "/public/resources/images/pieces/p001_ed1c24ff.svg",
-        color: "#ed1c24",
+        pieceImage: "/public/resources/images/pieces/p010_ff0606ff.svg",
+        color: "#ff0606",
         points: 0,
         remainingPieces: 12,
       },
       2: {
         name: "P2",
-        pieceImage: "/public/resources/images/pieces/p003_50ade5ff.svg",
-        color: "#50ade5",
+        pieceImage: "/public/resources/images/pieces/p011_b4aaaaff.svg",
+        color: "#b4aaaa",
         points: 0,
         remainingPieces: 12,
       }
@@ -78,10 +79,13 @@ export function rndNum(min, max) {
 }
 
 
-export function idToCoo(id) {
-  return id.slice(1)
+export function idToIndex(id) {
+  return id.slice(2)
 }
 
+export function idToCoo(id) {
+  return id.slice(1);
+}
 
 export function matrixCheck(coordinates, matrix) {
   if (!coordinates) return -1;

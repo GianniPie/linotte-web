@@ -10,6 +10,8 @@ export function updateGame(state, action) {
             return stopRoll(state);
         case "LOCK_DICE":
             return lockDice(state, action.locked);
+        case "SELEC_CALL":
+            return selectCall(state, action.called);
         case "PLACE_PIECE":
             return placePiece(state, action.coordinates, action.player);
         case "END_TURN":
@@ -32,25 +34,34 @@ function rollDice(state) {
 }
 
 
-function lockDice(state, locked) {
-    state.dice.locked = locked;
-    return state;
-}
-
-
 function stopRoll(state) {
     findCombinations(state);
     return state;
 }
 
 
+function lockDice(state, locked) {
+    state.dice.locked = locked;
+    return state;
+}
+
+
+function selectCall(state, called) {
+    state.dice.called = called;
+    return state;
+}
+
+
 function placePiece(state, coordinates, player) {
-    matrixFill(coordinates, player, state.table);
+    state.currentPosition = coordinates;
     return state;
 }
 
 
 function endTurn(state) {
+
+    matrixFill(state.currentPosition, state.currentPlayer, state.table);
+
     countPoints(state);
     countPieces(state);
     state.currentPlayer = state.currentPlayer === 1 ? 2 : 1;

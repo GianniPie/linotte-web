@@ -103,30 +103,6 @@ body {
 
 }
 
-.wrapPiece {
-  display: block;
-  width: 100%;
-  height: 100%;
-  opacity: 1;
-}
-
-.piece {
-  width: 100%;
-  height: 100%;
-  background-position: 50% 50%;
-  background-size: 80% 80%;
-  background-repeat: no-repeat;
-  opacity: 0;
-}
-
-.img-bounce {
-  animation: bounceIn 0.5s ease-out forwards;
-}
-
-.img-disappear {
-  animation: bounceOut 0.2s ease-out forwards;
-}
-
 
 
 
@@ -406,6 +382,30 @@ body {
   position: static;
 }
 
+.wrapPiece {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.piece {
+  width: 100%;
+  height: 100%;
+  border-radius: 2em;
+  background-position: 50% 50%;
+  background-size: 80% 80%;
+  background-repeat: no-repeat;
+  opacity: 1;
+}
+
+.img-bounce {
+  animation: bounceIn 0.5s ease-out forwards;
+}
+
+.img-disappear {
+  animation: bounceOut 0.2s ease-out forwards;
+}
 
 #t00 {
   background-image: url("resources/images/g10481.svg");
@@ -589,35 +589,35 @@ body {
   border-radius: 8px;
 }
 
-#rr1 {
+#rr0 {
   background-image: url("resources/images/g1.svg");
 }
 
-#rr2 {
+#rr1 {
   background-image: url("resources/images/g2.svg");
 }
 
-#rr3 {
+#rr2 {
   background-image: url("resources/images/g3.svg");
 }
 
-#rr4 {
+#rr3 {
   background-image: url("resources/images/g4.svg");
 }
 
-#rr5 {
+#rr4 {
   background-image: url("resources/images/g5.svg");
 }
 
-#rr6 {
+#rr5 {
   background-image: url("resources/images/g6.svg");
 }
 
-#rr7 {
+#rr6 {
   background-image: url("resources/images/g7.svg");
 }
 
-#rr8 {
+#rr7 {
   background-image: url("resources/images/g8.svg");
 }
 

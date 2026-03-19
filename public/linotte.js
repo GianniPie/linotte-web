@@ -1,5 +1,5 @@
 //Version 
-const VERSION = "2.5.3";
+const VERSION = "2.5.4";
 document.getElementById("version").innerHTML += VERSION;
 
 // open
@@ -7,9 +7,9 @@ document.getElementById("version").innerHTML += VERSION;
 
 //To install web app
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js")
-    .then(() => console.log("SW registered"))
-    .catch(err => console.error(err));
+    navigator.serviceWorker.register("/sw.js")
+        .then(() => console.log("SW registered"))
+        .catch(err => console.error(err));
 }
 
 // const socket = io();
@@ -65,6 +65,7 @@ const wr4 = document.getElementById("wr4");
 const wr5 = document.getElementById("wr5");
 const wwElements = [wr1, wr2, wr3, wr4, wr5];
 
+const rr0 = document.getElementById("rr0");
 const rr1 = document.getElementById("rr1");
 const rr2 = document.getElementById("rr2");
 const rr3 = document.getElementById("rr3");
@@ -72,9 +73,9 @@ const rr4 = document.getElementById("rr4");
 const rr5 = document.getElementById("rr5");
 const rr6 = document.getElementById("rr6");
 const rr7 = document.getElementById("rr7");
-const rr8 = document.getElementById("rr8");
-const rrElements = [rr1, rr2, rr3, rr4, rr5, rr6, rr7, rr8];
+const rrElements = [rr0, rr1, rr2, rr3, rr4, rr5, rr6, rr7];
 
+const cc0 = document.getElementById("cc0");
 const cc1 = document.getElementById("cc1");
 const cc2 = document.getElementById("cc2");
 const cc3 = document.getElementById("cc3");
@@ -82,8 +83,7 @@ const cc4 = document.getElementById("cc4");
 const cc5 = document.getElementById("cc5");
 const cc6 = document.getElementById("cc6");
 const cc7 = document.getElementById("cc7");
-const cc8 = document.getElementById("cc8");
-const ccElements = [cc1, cc2, cc3, cc4, cc5, cc6, cc7, cc8];
+const ccElements = [cc0, cc1, cc2, cc3, cc4, cc5, cc6, cc7];
 
 const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
@@ -138,7 +138,7 @@ window.addEventListener('orientationchange', setRealVh);
 
 
 //----------- GAME STATE ---------------
-import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload } from "../shared/utils.js";
+import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "../shared/utils.js";
 import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces } from "../shared/assets.js";
 import { updateGame } from "../shared/gameEngine.js";
 import GameController from '../shared/gameController.js';
@@ -348,7 +348,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 //----------- DICE TABLE AND GAME -----------------
-let prewWrapper = null;
 let prewPiece = null;
 let selectedTileId = null;
 
@@ -502,24 +501,25 @@ function renderTidyness(tidyness) {
     const boardTexts = document.querySelectorAll('.board-options-text');
     boardTexts.forEach(t => t.classList.remove('selected'));
 
+    if (tidyness == 0) { boardTitle.textContent = "Perfect"; }
+    if (tidyness == 1) { boardTitle.textContent = "Tidy"; }
+    if (tidyness == 2) { boardTitle.textContent = "Natural"; }
+
     document.querySelectorAll(".piece").forEach(el => {
-        let wrapper = el.parentElement;
-        if (tidyness == 0) {
-            boardTitle.textContent = "Perfect";
-            wrapper.style.transform = "rotate(0deg)";
-            el.style.backgroundPosition = "50% 50%";
-        }
-        if (tidyness == 1) {
-            boardTitle.textContent = "Tidy";
-            wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)";
-            el.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%";
-        }
-        if (tidyness == 2) {
-            boardTitle.textContent = "Natural";
-            wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)";
-            el.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%";
-        }
+        applyTidyness(el);
     });
+}
+
+
+function applyTidyness(element) {
+    let r = 0;
+    let t = 0;
+
+    if (tidyness == 0) { r = 0; t = 0; }
+    if (tidyness == 1) { r = 7; t = 2; }
+    if (tidyness == 2) { r = 180; t = 6; }
+    element.style.transform =
+        `rotate(${rndNum(-r, r)}deg) translate(${rndNum(-t, t)}%, ${rndNum(-t, t)}%)`;
 }
 
 
@@ -653,7 +653,7 @@ rollBtn.addEventListener("click", function () {
     if (isVolumeOn) {
         new Audio("resources/sounds/roll.mp3").play();
     }
-    controller.dispatch({type: "ROLL_DICE"});
+    controller.dispatch({ type: "ROLL_DICE" });
     rollAnimationID = setInterval(rollAnimation, 100);
     stopRollID = setInterval(stopRoll, 1200);
 
@@ -674,17 +674,17 @@ function rollAnimation() {
 
 
 function renderDice(values) {
-    let d = 0;
-    let e = 0;
-    
-    if (tidyness == 0) { d = 0; e = 0; }
-    if (tidyness == 1) { d = 0; e = 10; }
-    if (tidyness == 2) { d = 7; e = 10; }
+    let r = 0;
+    let t = 0;
+
+    if (tidyness == 0) { r = 0; t = 0; }
+    if (tidyness == 1) { r = 10; t = 0; }
+    if (tidyness == 2) { r = 10; t = 7; }
 
     for (let i = 0; i < 5; i++) {
         if (!gameState.dice.locked[i]) {
             ddElements[i].style.backgroundPosition = dicePos[values[i]];
-            wwElements[i].style.transform = 'rotate(' + rndNum(-e, e) + 'deg)' + 'translate(' + rndNum(-d, d) + 'px,' + rndNum(-d, d) + 'px)';
+            wwElements[i].style.transform = 'rotate(' + rndNum(-r, r) + 'deg) ' + 'translate(' + rndNum(-t, t) + 'px,' + rndNum(-t, t) + 'px)';
         }
     }
 
@@ -697,7 +697,7 @@ function stopRoll() {
     clearInterval(rollAnimationID);
     clearInterval(stopRollID);
     renderDice(gameState.dice.values);
-    controller.dispatch({type: "STOP_ROLL"});
+    controller.dispatch({ type: "STOP_ROLL" });
 
     possibleMovesLocal = gameState.possibleMoves;
     renderResultsHighlight();
@@ -707,16 +707,16 @@ function stopRoll() {
 }
 
 
-function renderResultsHighlight(){
+function renderResultsHighlight() {
     rrElements.forEach(el => el.classList.remove("highlighted"));
 
     let results = [];
-    for(let i = 0; i < 8; i++){
-        if(gameState.combinationsRealized[i]){
+    for (let i = 0; i < 8; i++) {
+        if (gameState.combinationsRealized[i]) {
             results.push(i);
         }
     }
-    results.forEach(i=>{
+    results.forEach(i => {
         rrElements[i].classList.add("highlighted");
     });
 }
@@ -743,68 +743,53 @@ function renderTableHighlight() {
 
 
 //----------- PIECE PLACEMENT ---------------
-document.querySelectorAll(".piece").forEach(el => {
+document.querySelectorAll(".tile").forEach(el => {
     el.addEventListener("click", function () {
         if (!isMyTurn()) return;
         if (pieceEnabled == false) return;
 
-        let piece = document.getElementById(this.id);
-        handlePiece(piece.id);
+        handleTile(el.id);
     });
 });
 
 
-function handlePiece(pieceId) {
-    if (!pieceId) return;
+function handleTile(tileId) {
+    if (!tileId) return;
 
-    let piece = document.getElementById(pieceId);
-    let wrapper = piece.parentElement;
-   
+    const piece = document.getElementById("p" + idToCoo(tileId));
+    const wrapper = piece.parentElement;
+
     if (matrixCheck(idToCoo(piece.id), possibleMovesLocal) === 0) return;
-
     pieceEnabled = false;
-    console.log("piece clicked: " + piece.id);
-    //if (matrixCheck(idToCoo(tile.id), gameState.table) === 0) {
-        if (piece.classList.contains("img-bounce")) {
-             //remove the piece
-            controller.dispatch({type: "PLACE_PIECE", coordinates: idToCoo(pieceId) , player: 0});
-            removePiece(pieceId);
-            wrapper.addEventListener("animationend", (e) => {
-                if (e.animationName === "bounceOut") {
-                    piece.classList.remove("img-bounce");
-                    wrapper.classList.remove("img-disappear");
-                    pieceEnabled = true;
-                    selectedTileId = null;
-                }
-            }, { once: true });
-
-        } else {
-            //place the piece
-            controller.dispatch({type: "PLACE_PIECE", coordinates: idToCoo(pieceId) , player: gameState.currentPlayer});
-            placePiece(pieceId);
-        }
-    //}
+    
+    console.log(tileId);
+    if (getComputedStyle(wrapper).opacity == "1") {
+        // REMOVE
+        removePiece(piece.id);
+    } else {
+        // PLACE
+        placePiece(piece.id);
+    }
 }
 
 
 function removePiece(pieceId) {
     if (pieceId === null) return;
-
     let piece = document.getElementById(pieceId);
     let wrapper = piece.parentElement;
 
+    wrapper.classList.remove("img-bounce");
     wrapper.classList.add("img-disappear");
+
     wrapper.addEventListener("animationend", (e) => {
-        if (e.animationName === "bounceOut") {
-            piece.classList.remove("img-bounce");
-            wrapper.classList.remove("img-disappear");
-        }
+        wrapper.classList.remove("img-disappear");
+        piece.style.backgroundImage = "";
+        pieceEnabled = true;
+        selectedTileId = null;
     }, { once: true });
+
+    controller.dispatch({ type: "PLACE_PIECE", coordinates: idToCoo(pieceId), player: 0 });
 }
-
-
-
-
 
 
 function placePiece(pieceId) {
@@ -814,37 +799,29 @@ function placePiece(pieceId) {
     if (gameState.currentPlayer == 1) { piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage); }
     if (gameState.currentPlayer == 2) { piece.style.backgroundImage = urlOf(gameState.players[2].pieceImage); }
 
-    if (tidyness == 0) { wrapper.style.transform = "rotate 0deg"; }
-    if (tidyness == 1) { wrapper.style.transform = "rotate(" + rndNum(-7, 7) + "deg)"; }
-    if (tidyness == 2) { wrapper.style.transform = "rotate(" + rndNum(0, 359) + "deg)"; }
-
-    if (tidyness == 0) { piece.style.backgroundPosition = "50% 50%"; }
-    if (tidyness == 1) { piece.style.backgroundPosition = rndNum(40, 60) + "% " + rndNum(25, 75) + "%"; }
-    if (tidyness == 2) { piece.style.backgroundPosition = rndNum(25, 75) + "% " + rndNum(25, 75) + "%"; }
-
-    wrapper.classList.remove("img-disappear");
-    piece.classList.add("img-bounce");
-
+    applyTidyness(piece);
     selectedTileId = pieceId;
 
     if (prewPiece !== null) {
         if (prewPiece !== piece) {
-            prewPiece.classList.remove("img-bounce");
-            prewWrapper.classList.remove("img-disappear");
+            removePiece(prewPiece.id);
         }
     }
-    prewWrapper = wrapper;
     prewPiece = piece;
 
+    wrapper.classList.add("img-bounce");
     wrapper.addEventListener("animationend", (e) => {
         pieceEnabled = true;
     }, { once: true });
 
+    controller.dispatch({ type: "PLACE_PIECE", coordinates: idToCoo(pieceId), player: gameState.currentPlayer });
 }
+
 
 function checkPossibleMoves(coordinates) {
     matrixCheck(coordinates, gameState.possibleMoves);
 }
+
 
 function checkTable(coordinates) {
     matrixCheck(coordinates, gameState.table);
@@ -866,8 +843,8 @@ function doneButton(e) {
     possibleMovesLocal = Array.from({ length: 5 }, () => Array(5).fill(0));
     console.log("done_click");
 
-    controller.dispatch({type: "END_TURN"});
-    clearForNextTurn() 
+    controller.dispatch({ type: "END_TURN" });
+    clearForNextTurn()
     renderPlayerBox(gameState.currentPlayer);
     //stateUpdate();
 
@@ -909,7 +886,6 @@ function clearForNextTurn() {
     console.log("clearForNextTurn");
 
     prewPiece = null;
-    prewWrapper = null;
     selectedTileId = null;
 
     //dice position reset
@@ -928,6 +904,7 @@ function clearForNextTurn() {
     //Roll button reset
     rollBtnText.innerText = "ROLL 3";
     gameState.dice.rollsLeft = 3;
+    gameState.called = [null, null, null, false, false, false, false, false];
 
     tileElements.forEach(el => el.classList.remove("tile_highlighted"));
     rrElements.forEach(el => el.classList.remove("highlighted"));
@@ -949,7 +926,7 @@ function clearForNextTurn() {
     // });
 }
 
-    
+
 //----------- LOCK DICE ---------------
 document.querySelectorAll(".die").forEach(el => {
     el.addEventListener("click", function () {
@@ -964,8 +941,8 @@ document.querySelectorAll(".die").forEach(el => {
             elem.classList.add("selected");
         }
 
-        controller.dispatch({type: "LOCK_DICE", locked: gameState.dice.locked});
-        
+        controller.dispatch({ type: "LOCK_DICE", locked: gameState.dice.locked });
+
         // socket.emit("action", {
         //     type: "LOCK_DICE",
         //     localPlayer: LOCAL_PLAYER,
@@ -1011,23 +988,26 @@ document.querySelectorAll(".result").forEach(el => {
         if (gameState.dice.rollsLeft === 3) return;
 
         const elemId = document.getElementById(this.id).id;
-        const targetId = "cc" + elemId.slice(2);
-        const targetDiv = document.getElementById(targetId);
-
-        if (targetDiv.classList.contains("checked")) {
+        const targetId = idToIndex(elemId);
+        const targetDiv = document.getElementById("cc" + targetId);
+    
+        if(gameState.called[targetId]){
             targetDiv.classList.remove("checked");
+            gameState.called[targetId] = 0;
         } else {
             document.querySelectorAll(".call.selectable").forEach(el => {
                 el.classList.remove("checked"); // reset
+                gameState.called[idToIndex(el.id)] = 0;
             });
             //Not possible to call carre if 4 dice are locked
-            if (document.querySelectorAll(".die.selected").length === 4 && targetId === "cc5") return;
+            if (document.querySelectorAll(".die.selected").length === 4 && targetDiv === "cc5") return;
             //Not possible to call carre on carre
-            if (gameState.combinationsRealized[4] === 1 && targetId === "cc5") return;
+            if (gameState.combinationsRealized[4] === 1 && targetDiv === "cc5") return;
             //Only if at least one die is rolled
             if (document.querySelectorAll(".die.selected").length === 5) return;
 
             targetDiv.classList.add("checked");
+            gameState.called[targetId] = 1;
         }
     });
 });
