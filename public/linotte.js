@@ -58,12 +58,12 @@ const dd4 = document.getElementById("dd4");
 const dd5 = document.getElementById("dd5");
 const ddElements = [dd1, dd2, dd3, dd4, dd5];
 
-const wr1 = document.getElementById("wr1");
-const wr2 = document.getElementById("wr2");
-const wr3 = document.getElementById("wr3");
-const wr4 = document.getElementById("wr4");
-const wr5 = document.getElementById("wr5");
-const wwElements = [wr1, wr2, wr3, wr4, wr5];
+const wd1 = document.getElementById("wd1");
+const wd2 = document.getElementById("wd2");
+const wd3 = document.getElementById("wd3");
+const wd4 = document.getElementById("wd4");
+const wd5 = document.getElementById("wd5");
+const wdElements = [wd1, wd2, wd3, wd4, wd5];
 
 const rr0 = document.getElementById("rr0");
 const rr1 = document.getElementById("rr1");
@@ -684,7 +684,7 @@ function renderDice(values) {
     for (let i = 0; i < 5; i++) {
         if (!gameState.dice.locked[i]) {
             ddElements[i].style.backgroundPosition = dicePos[values[i]];
-            wwElements[i].style.transform = 'rotate(' + rndNum(-r, r) + 'deg) ' + 'translate(' + rndNum(-t, t) + 'px,' + rndNum(-t, t) + 'px)';
+            wdElements[i].style.transform = 'rotate(' + rndNum(-r, r) + 'deg) ' + 'translate(' + rndNum(-t, t) + 'px,' + rndNum(-t, t) + 'px)';
         }
     }
 
@@ -788,7 +788,9 @@ function removePiece(pieceId) {
         selectedTileId = null;
     }, { once: true });
 
-    controller.dispatch({ type: "PLACE_PIECE", coordinates: idToCoo(pieceId), player: 0 });
+    const coor = idToCoo(pieceId);
+    controller.dispatch({ type: "PLACE_PIECE", coordinates: coor, player: 0 });
+    console.log(`Coordinates ${coor}`);
 }
 
 
@@ -814,7 +816,8 @@ function placePiece(pieceId) {
         pieceEnabled = true;
     }, { once: true });
 
-    controller.dispatch({ type: "PLACE_PIECE", coordinates: idToCoo(pieceId), player: gameState.currentPlayer });
+    const coor = idToCoo(pieceId);
+    controller.dispatch({ type: "PLACE_PIECE", coordinates: coor, player: gameState.currentPlayer });
 }
 
 
@@ -839,10 +842,9 @@ doneBtn.addEventListener("click", doneButton);
 function doneButton(e) {
     if (!isMyTurn()) return;
     if (doneBtnEnabled == false) return;
+    console.log("doneButton");
 
     possibleMovesLocal = Array.from({ length: 5 }, () => Array(5).fill(0));
-    console.log("done_click");
-
     controller.dispatch({ type: "END_TURN" });
     clearForNextTurn()
     renderPlayerBox(gameState.currentPlayer);
@@ -888,42 +890,20 @@ function clearForNextTurn() {
     prewPiece = null;
     selectedTileId = null;
 
-    //dice position reset
-    wr1.style.transform = 'rotate(0deg) translate(0px,0px)';
-    wr2.style.transform = 'rotate(0deg) translate(0px,0px)';
-    wr3.style.transform = 'rotate(0deg) translate(0px,0px)';
-    wr4.style.transform = 'rotate(0deg) translate(0px,0px)';
-    wr5.style.transform = 'rotate(0deg) translate(0px,0px)';
-
-    //dice highlight reset
-    // document.querySelectorAll(".die").forEach(el => {
-    //     el.classList.remove("selected"); // reset
-    //     el.style.backgroundPosition = dicePos[0];
-    // });
+    //dice reset
+    wdElements.forEach(wd => wd.style.transform = 'rotate(0deg) translate(0px,0px)');
+    ddElements.forEach(dd => dd.classList.remove("selected"));
+    ddElements.forEach(dd => dd.style.backgroundPosition = dicePos[0]);
 
     //Roll button reset
     rollBtnText.innerText = "ROLL 3";
     gameState.dice.rollsLeft = 3;
     gameState.called = [null, null, null, false, false, false, false, false];
 
+    //table and reuslt reset
     tileElements.forEach(el => el.classList.remove("tile_highlighted"));
     rrElements.forEach(el => el.classList.remove("highlighted"));
     ccElements.forEach(el => el.classList.remove("checked"));
-    ddElements.forEach(el => el.classList.remove("selected"));
-    // //result highlights reset
-    // document.querySelectorAll(".result").forEach(el => {
-    //     el.classList.remove("highlighted"); // reset
-    // });
-
-    // //call highlights reset
-    // document.querySelectorAll(".call.selectable").forEach(el => {
-    //     el.classList.remove("checked"); // reset
-    // });
-
-    // //table tiles highlights reset
-    // document.querySelectorAll(".tile").forEach(el => {
-    //     el.classList.remove("tile_highlighted"); // reset
-    // });
 }
 
 

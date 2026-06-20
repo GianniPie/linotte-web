@@ -1,5 +1,5 @@
 
-import { tile, rndNum, matrixFill } from "../shared/utils.js";
+import { tile, rndNum, matrixFill, matrixCheck } from "../shared/utils.js";
 
 
 export function updateGame(state, action) {
@@ -53,15 +53,18 @@ function selectCall(state, called) {
 
 
 function placePiece(state, coordinates, player) {
+    if(matrixCheck(state.currentPosition, state.table)) return;
+
     state.currentPosition = coordinates;
+    console.log(state.currentPosition);
     return state;
 }
 
 
 function endTurn(state) {
-
-    matrixFill(state.currentPosition, state.currentPlayer, state.table);
-
+    if(state.currentPosition) {
+        matrixFill(state.currentPosition, state.currentPlayer, state.table);
+    }
     countPoints(state);
     countPieces(state);
     state.currentPlayer = state.currentPlayer === 1 ? 2 : 1;
@@ -69,17 +72,12 @@ function endTurn(state) {
     state.dice.locked.fill(false);
     state.combinationsRealized.fill(0);
     state.possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
+
+    console.log(state);
+    //socket.broadcast.emit("place_piece", action.tileCoordinate);
     return state;
 }
 
-
-
-    //    matrixFill(action.tileCoordinate, action.localPlayer, gameState.table);
-    //     countPoints(gameState);
-    //     countPieces(gameState);
-    //     socket.broadcast.emit("place_piece", action.tileCoordinate);
-    //   }
-      
     //   gameState.dice.rollsLeft = 3;
     //   gameState.dice.locked.fill(false);
     //   gameState.dice.values.fill(0);
