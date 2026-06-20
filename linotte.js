@@ -1,5 +1,5 @@
 //Version
-const VERSION = "1.73";
+const VERSION = "1.74";
 document.getElementById("version").innerHTML += VERSION;
 
 
@@ -631,6 +631,7 @@ rollBtn.addEventListener("click", function() {
             }
             }, { once: true });
         } 
+        selectedTile = null;
     }
 });
 
