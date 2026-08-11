@@ -1,0 +1,50 @@
+/* ============================================
+   DESKTOP / TABLET LAYOUT FIXES
+   ============================================
+   This file only ever applies above 700px width —
+   see the <link media="(min-width: 701px)"> tag in
+   index.html. Below that width, none of these rules
+   load at all, so linotte.css (the mobile styles)
+   is completely unaffected.
+
+   Why this is needed: the game board (.flex-block) is
+   correctly centered with max-width:700px. But the
+   options panel and the winner popup are separate
+   full-viewport overlays (inset:0) sized with vw/%
+   units computed off the *browser window*, not off
+   that 700px column. On a phone the two happen to be
+   almost the same width, so it looks fine. On a wider
+   screen the panels stretch edge-to-edge and their
+   text balloons past its box. These rules just pin
+   those two panels back to the same 700px column as
+   the rest of the game, and cap the text sizes that
+   were scaling with the full window width.
+   ============================================ */
+
+/* Options panel: align its width with the game's
+   700px column instead of the full browser window. */
+.options-overlay {
+  left: 50%;
+  right: auto;
+  width: 700px;
+  max-width: 700px;
+  transform: translateX(-50%);
+}
+
+/* Winner popup: cap it to 90% of the 700px column
+   (630px) instead of 90% of the full window. It stays
+   centered automatically since it's flex-centered
+   inside a full-viewport overlay whose center point is
+   the same as the game column's center point. */
+.modal {
+  width: min(90%, 630px);
+}
+
+/* Section titles inside the options panel ("Online",
+   "AI opponent", "Sound", "Table style", etc.) were set
+   in vw, so past 700px wide they kept growing well past
+   their fixed 38px-tall box. Pin them to a size that
+   actually fits that box. */
+.title {
+  font-size: 22px;
+}
