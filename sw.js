@@ -2,7 +2,7 @@
 // Bump CACHE_VERSION any time you change any file in PRECACHE_URLS below,
 // or any time you deploy new game code/assets. Old caches are cleaned up
 // automatically on activate.
-const CACHE_VERSION = "linotte-v1";
+const CACHE_VERSION = "linotte-v2";
 const PRECACHE = `${CACHE_VERSION}-precache`;
 const RUNTIME = `${CACHE_VERSION}-runtime`;
 
@@ -23,6 +23,8 @@ const PRECACHE_URLS = [
   "resources/favicon/site.webmanifest",
   "resources/favicon/web-app-manifest-192x192.png",
   "resources/favicon/web-app-manifest-512x512.png",
+  "resources/favicon/icon-maskable-192x192.png",
+  "resources/favicon/icon-maskable-512x512.png",
   "resources/images/arl.svg",
   "resources/images/arr.svg",
   "resources/images/backgrounds/confetti-doodles-prev.png",
