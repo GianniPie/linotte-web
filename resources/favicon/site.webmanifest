@@ -1,6 +1,9 @@
 {
   "name": "La linotte",
   "short_name": "Linotte",
+  "start_url": "/index.html",
+  "scope": "/",
+  "id": "/",
   "icons": [
     {
       "src": "/resources/favicon/web-app-manifest-192x192.png",
