@@ -1,7 +1,7 @@
 
 
 
-export const dicePath = "/public/resources/images/dice/";
+export const dicePath = "/resources/images/dice/";
 export const diceFaces = [
     "traditional_sprite.png",
     "classic_sprite.svg",
@@ -31,7 +31,7 @@ export const diceNames = [
 ];
 
 
-export const bgPath = "/public/resources/images/backgrounds/";
+export const bgPath = "/resources/images/backgrounds/";
 export const backgrounds = [
     "confetti-doodles.svg",
     "diamond-sunset.svg",
@@ -45,7 +45,7 @@ export const backgrounds = [
 ];
 
 
-export const piecesPath = "/public/resources/images/pieces/";
+export const piecesPath = "/resources/images/pieces/";
 export const pieces =  [
     "p001_ed1c24ff.svg",
     "p002_40b93cff.svg",

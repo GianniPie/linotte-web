@@ -53,10 +53,10 @@ function selectCall(state, called) {
 
 
 function placePiece(state, coordinates, player) {
-    if(matrixCheck(state.currentPosition, state.table)) return;
+    const cellValue = matrixCheck(coordinates, state.table);
+    if (cellValue !== 0) return state; // already occupied, or invalid coordinates
 
     state.currentPosition = coordinates;
-    console.log(state.currentPosition);
     return state;
 }
 
@@ -67,13 +67,13 @@ function endTurn(state) {
     }
     countPoints(state);
     countPieces(state);
+    state.currentPosition = null;
     state.currentPlayer = state.currentPlayer === 1 ? 2 : 1;
     state.dice.rollsLeft = 3;
     state.dice.locked.fill(false);
     state.combinationsRealized.fill(0);
     state.possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
 
-    console.log(state);
     //socket.broadcast.emit("place_piece", action.tileCoordinate);
     return state;
 }

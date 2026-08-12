@@ -26,10 +26,10 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#000000">
 
-    <link rel="icon" type="image/png" href="/public/resources/favicon/favicon-96x96.png" sizes="96x96" />
-    <link rel="icon" type="image/svg+xml" href="/public/resources/favicon/favicon.svg" />
-    <link rel="shortcut icon" href="/public/resources/favicon/favicon.ico" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/public/resources/favicon/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="/resources/favicon/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/resources/favicon/favicon.svg" />
+    <link rel="shortcut icon" href="/resources/favicon/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/resources/favicon/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="Linotte" />
 </head>
 
@@ -272,7 +272,7 @@
         <!-- header -->
         <div class="opt-header">
             <div class="icon" id="icon-back" data-page="back"></div>
-            <div class="icon disabled" id="icon-tab1" data-page="game"></div>
+            <div class="icon" id="icon-tab1" data-page="game"></div>
             <div class="icon" id="icon-tab2" data-page="options"></div>
             <div class="icon" id="icon-tab3" data-page="help"></div>
 
@@ -303,9 +303,8 @@
                 <section>
                     <div class="title">AI opponent</div>
                     <div class="h-div">
-                        <div class="card"></div>
-                        <div class="card"></div>
-                        <div class="card"></div>
+                        <div class="card"><div class="opt-btn bot-strategy" id="bot-points" data-strategy="points">POINTS</div></div>
+                        <div class="card"><div class="opt-btn bot-strategy" id="bot-speed" data-strategy="speed">SPEED</div></div>
                     </div>
                 </section>
             </div>

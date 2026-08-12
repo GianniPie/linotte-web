@@ -14,14 +14,14 @@ export function createInitialGameState() {
     players: {
       1: {
         name: "P1",
-        pieceImage: "/public/resources/images/pieces/p010_ff0606ff.svg",
+        pieceImage: "/resources/images/pieces/p010_ff0606ff.svg",
         color: "#ff0606",
         points: 0,
         remainingPieces: 12,
       },
       2: {
         name: "P2",
-        pieceImage: "/public/resources/images/pieces/p011_b4aaaaff.svg",
+        pieceImage: "/resources/images/pieces/p011_b4aaaaff.svg",
         color: "#b4aaaa",
         points: 0,
         remainingPieces: 12,

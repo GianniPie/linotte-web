@@ -13,25 +13,20 @@ export default class GameController {
     }
 
     dispatch(action) {
-        if (this.mode === "offline") {
+        if (this.mode === "offline" || this.mode === "bot") {
+            // Both modes apply actions locally through the shared game
+            // engine. In "bot" mode, the bot's own turn is driven by
+            // playBotTurn() in linotte.js, which calls dispatch() the
+            // same way the human's click handlers do — so from here,
+            // there's no difference between a human move and a bot move.
             this.localAction(action);
         }
         if (this.mode === "online") {
             this.socket.emit("action", action);
         }
-        if (this.mode === "bot") {
-            this.localAction(action);
-            this.botMove();
-        }
     }
 
     localAction(action) {
         this.state = updateGame(this.state, action);
-    }
-
-    botMove() {
-        if (this.state.currentPlayer !== 2) return;
-        const action = botChooseAction(this.state);
-        this.localAction(action);
     }
 }

@@ -33,12 +33,31 @@ server.listen(3000, () => {
 
 
 //----------- GAME STATE ---------------
-import { urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean } from "/shared/utils.js";
-import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces } from "/shared/assets.js";
+import {
+  urlOf,
+  rndNum,
+  idToCoo,
+  matrixCheck,
+  matrixFill,
+  toBoolean,
+  createInitialGameState
+} from "../shared/utils.js";
 
-import { createInitialGameState } from '/shared/utils.js';
+import {
+  dicePath,
+  diceFaces,
+  dicePos,
+  diceNames,
+  bgPath,
+  backgrounds,
+  piecesPath,
+  pieces
+} from "../shared/assets.js";
+
+import { updateGame } from "../shared/gameEngine.js";
+
+
 let gameState = createInitialGameState();
-startOffline();
 
 let p1p = rndNum(8, pieces.length - 1);
 gameState.players[1].pieceImage = piecesPath + pieces[p1p];
@@ -93,11 +112,10 @@ io.on("connection", socket => {
 
   //------------- HANDLE ACTIONS --------------
   socket.on("action", action => {
-    if (action.localPlayer !== gameState.currentPlayer) return;
+    if (action.localPlayer !== undefined && action.localPlayer !== gameState.currentPlayer) return;
     console.log("Action received:", action);
-    updateGame(action);
+    gameState = updateGame(gameState, action);
     io.emit("state_update", gameState);
-
   });
 
   //------------- CLOSE CONNECTION --------------
@@ -106,45 +124,4 @@ io.on("connection", socket => {
     delete sockets[playerNumber];
   });
 });
-
-
-function updateGame(action) {
-  switch (action.type) {
-    case "STOP_ROLL":
-      gameState.dice.rollsLeft--;
-      for (let i = 0; i < 5; i++) {
-        if (!gameState.dice.locked[i]) {
-          gameState.dice.values[i] = rndNum(1, 6);
-        }
-      }
-      findCombinations();
-      break;
-
-    case "LOCK_DICE":
-      gameState.dice.locked = action.lockedDice;
-      break;
-
-    case "SELECT_CALL":
-      gameState.called = action.selectedCalls;
-      break;
-
-    case "DONE":
-      if (action.selectedTile != null) {
-      //   matrixFill(action.tileCoordinate, action.localPlayer, gameState.table);
-      //   countPoints(gameState);
-      //   countPieces(gameState);
-      //   socket.broadcast.emit("place_piece", action.tileCoordinate);
-      // }
-      
-      // gameState.dice.rollsLeft = 3;
-      // gameState.dice.locked.fill(false);
-      // gameState.dice.values.fill(0);
-      // gameState.combinationsRealized.fill(0);
-      // gameState.possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
-      // gameState.called = [null, null, null, false, false, false, false, false];
-      // gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
-      break;
-
-  }
-}
 

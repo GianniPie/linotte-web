@@ -1,5 +1,5 @@
 //Version 
-const VERSION = "2.5.4";
+const VERSION = "2.5.8";
 document.getElementById("version").innerHTML += VERSION;
 
 // open
@@ -141,6 +141,7 @@ window.addEventListener('orientationchange', setRealVh);
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "../shared/utils.js";
 import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces } from "../shared/assets.js";
 import { updateGame } from "../shared/gameEngine.js";
+import { chooseDiceToLock, shouldStopRolling, chooseBestMove } from "../shared/botAI.js";
 import GameController from '../shared/gameController.js';
 let gameState = createInitialGameState();
 
@@ -151,6 +152,8 @@ let gameState = createInitialGameState();
 let controller;
 startOffline();
 
+let botStrategy = "points";
+
 function startOffline() {
     controller = new GameController("offline");
     controller.setState(gameState);
@@ -158,9 +161,12 @@ function startOffline() {
 
 function startOnline() {
     controller = new GameController("online", socket);
+    controller.setState(gameState);
 }
 
-function startBot() {
+function startBot(strategy = "points") {
+    botStrategy = strategy;
+    LOCAL_PLAYER = 1;
     controller = new GameController("bot");
     controller.setState(gameState);
 }
@@ -181,8 +187,8 @@ renderPlayerBox(gameState.currentPlayer);
 
 
 function isMyTurn() {
-    // return gameState.currentPlayer == LOCAL_PLAYER;
-    return true;
+    if (controller.mode === "offline") return true;
+    return gameState.currentPlayer === LOCAL_PLAYER;
 }
 
 
@@ -461,6 +467,44 @@ boardOptions.forEach(boardOption => {
 });
 
 
+//----------- AI OPPONENT ---------------
+const botStrategyButtons = document.querySelectorAll(".bot-strategy");
+botStrategyButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+        botStrategyButtons.forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+
+        newGameVsBot(btn.dataset.strategy);
+        handleTab("back");
+    });
+});
+
+function newGameVsBot(strategy) {
+    gameState = createInitialGameState();
+    gameState.players[1].name = "YOU";
+    gameState.players[2].name = "BOT";
+
+    startBot(strategy);
+
+    clearBoardVisuals();
+    clearForNextTurn();
+    renderPlayerBox(gameState.currentPlayer);
+    divsOpacity(gameState.currentPlayer);
+}
+
+function clearBoardVisuals() {
+    for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 5; c++) {
+            const piece = document.getElementById("p" + r + c);
+            if (!piece) continue;
+            piece.style.backgroundImage = "";
+            const wrapper = piece.parentElement;
+            wrapper.classList.remove("img-bounce", "img-disappear");
+        }
+    }
+}
+
+
 const dieOptions = document.querySelectorAll(".die-options");
 dieOptions.forEach(dieOption => {
     dieOption.addEventListener("click", () => {
@@ -581,6 +625,24 @@ document.getElementById("winner-button").addEventListener("click", (e) => {
 
 
 //winner popup 
+function checkGameOver() {
+    const noPiecesLeft = gameState.players[1].remainingPieces === 0 || gameState.players[2].remainingPieces === 0;
+    if (!noPiecesLeft && !gameState.isFive) return false;
+
+    rollBtnEnabled = false;
+    doneBtnEnabled = false;
+
+    if (gameState.players[1].points > gameState.players[2].points) {
+        showWinnerPopup(1);
+    } else if (gameState.players[1].points < gameState.players[2].points) {
+        showWinnerPopup(2);
+    } else {
+        showWinnerPopup(0);
+    }
+    return true;
+}
+
+
 function showWinnerPopup(winner) {
     if (winner) { // both player 1 or 2
         document.getElementsByClassName("piece-popup-container")[0].classList.add("pulse");
@@ -842,12 +904,23 @@ doneBtn.addEventListener("click", doneButton);
 function doneButton(e) {
     if (!isMyTurn()) return;
     if (doneBtnEnabled == false) return;
+    performEndTurn();
+}
+
+function performEndTurn() {
     console.log("doneButton");
 
     possibleMovesLocal = Array.from({ length: 5 }, () => Array(5).fill(0));
     controller.dispatch({ type: "END_TURN" });
     clearForNextTurn()
     renderPlayerBox(gameState.currentPlayer);
+    divsOpacity(gameState.currentPlayer);
+
+    if (checkGameOver()) return;
+
+    if (controller.mode === "bot" && gameState.currentPlayer === 2) {
+        playBotTurn();
+    }
     //stateUpdate();
 
 
@@ -882,6 +955,82 @@ function doneButton(e) {
 //     }
 //     startTurnTimer();
 // });
+
+
+//----------- BOT TURN ---------------
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function playBotTurn() {
+    if (controller.mode !== "bot") return;
+    if (gameState.currentPlayer !== 2) return;
+
+    await sleep(500); // small pause so the bot's move doesn't feel instant
+
+    let keepRolling = true;
+    while (keepRolling) {
+        await botRoll();
+
+        if (gameState.dice.rollsLeft <= 0) break;
+        if (shouldStopRolling(gameState, 2, botStrategy)) break;
+
+        const locked = chooseDiceToLock(gameState.dice.values, gameState, 2, botStrategy);
+        applyBotLock(locked);
+        await sleep(500);
+    }
+
+    await sleep(400);
+    const coordinates = chooseBestMove(gameState, 2, botStrategy);
+    if (coordinates) {
+        placePiece("p" + coordinates);
+    }
+
+    await sleep(700);
+    performEndTurn();
+}
+
+
+async function botRoll() {
+    if (isVolumeOn) {
+        new Audio("resources/sounds/roll.mp3").play();
+    }
+    controller.dispatch({ type: "ROLL_DICE" });
+    rollBtnText.innerText = "ROLL " + gameState.dice.rollsLeft;
+    tileElements.forEach(el => el.classList.remove("tile_highlighted"));
+    rrElements.forEach(el => el.classList.remove("highlighted"));
+
+    // Brief roll animation matching the human roll's rough pacing
+    // (the human version runs on a 1200ms interval; we just await it
+    // directly here instead of using setInterval/setTimeout IDs that
+    // would collide with the human roll button's own state).
+    const ticks = 10;
+    for (let i = 0; i < ticks; i++) {
+        let rndValues = [0, 0, 0, 0, 0];
+        for (let j = 0; j < 5; j++) rndValues[j] = rndNum(1, 6);
+        renderDice(rndValues);
+        await sleep(100);
+    }
+
+    renderDice(gameState.dice.values);
+    controller.dispatch({ type: "STOP_ROLL" });
+    possibleMovesLocal = gameState.possibleMoves;
+    renderResultsHighlight();
+    renderTableHighlight();
+}
+
+
+function applyBotLock(lockedArray) {
+    for (let i = 0; i < 5; i++) {
+        gameState.dice.locked[i] = lockedArray[i];
+        if (lockedArray[i]) {
+            ddElements[i].classList.add("selected");
+        } else {
+            ddElements[i].classList.remove("selected");
+        }
+    }
+    controller.dispatch({ type: "LOCK_DICE", locked: gameState.dice.locked });
+}
 
 
 function clearForNextTurn() {
@@ -1019,7 +1168,7 @@ function stateUpdate() {
 
 
 function divsOpacity(currentPlayer) {
-    console.log("div opacity player " + currentPlayer);
+    if (controller.mode === "offline") return; // hotseat: never dim, both players share the controls
     if (!currentPlayer) return;
     const opacity = (currentPlayer === LOCAL_PLAYER) ? 1 : 0.5;
     document.getElementById("div-dice").style.opacity = opacity;
