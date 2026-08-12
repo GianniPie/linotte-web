@@ -103,6 +103,14 @@ body {
 
 }
 
+/* Groups info/results/dice/buttons for wider/landscape layouts below.
+   display:contents makes the wrapper invisible to the flex layout, so on
+   mobile portrait its children act as direct .flex-block flex items
+   exactly as before (their own `order` values still control the stack). */
+.side-panel {
+  display: contents;
+}
+
 
 
 
@@ -765,6 +773,82 @@ body {
   font-weight: 400;
   line-height: 100%;
   text-decoration: none;
+}
+
+
+/* ============================================
+   RESPONSIVE: TABLET / DESKTOP / LANDSCAPE
+   ============================================ */
+
+@media (orientation: portrait) and (min-width: 600px) {
+  .flex-block {
+    max-width: min(700px, 64dvh);
+  }
+}
+
+/* Landscape (phones rotated, tablets, desktop): a tall column no longer
+   fits the viewport height at all, so the board and the rest of the UI
+   sit side by side instead, each sized off the shared height budget. */
+@media (orientation: landscape) {
+  .flex-block {
+    --side-w: min(38vw, 380px);
+    --side-chrome: 6dvh; /* gap + left/right padding below, kept in sync */
+    flex-flow: row nowrap;
+    max-width: none;
+    width: 100%;
+    height: calc(var(--vh) * 100);
+    min-height: calc(var(--vh) * 100);
+    gap: 2dvh;
+    padding: 0 2dvh;
+  }
+
+  .div-table {
+    order: 1;
+    width: auto;
+    /* Sized by height, but also can't be so wide (a square, so width ==
+       height) that table + gap + sidebar would overflow the viewport
+       width — so also cap it against the width actually left over. */
+    height: min(94dvh, calc(100vw - var(--side-w) - var(--side-chrome)), 900px);
+    aspect-ratio: 1 / 1;
+    margin: 0;
+    flex: 0 0 auto;
+  }
+
+  .side-panel {
+    display: flex;
+    flex-flow: column;
+    justify-content: center;
+    order: 2;
+    height: min(94dvh, calc(100vw - var(--side-w) - var(--side-chrome)), 900px);
+    width: var(--side-w);
+    flex: 0 0 auto;
+    gap: 1.2dvh;
+  }
+
+  .side-panel>.div-info,
+  .side-panel>.div-resultsAndCalls,
+  .side-panel>.div-dice,
+  .side-panel>.div-buttons {
+    width: 100%;
+    height: auto;
+    margin: 0;
+  }
+
+  /* .player/.textPlayer were sized in vw against a near-full-width
+     mobile container; inside the narrower sidebar that overflows, so
+     size them off the sidebar's own grid track / font context instead. */
+  .side-panel .players {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .side-panel .player {
+    width: 100%;
+    max-width: none;
+  }
+
+  .side-panel .textPlayer {
+    font-size: min(3.4vw, 2.6dvh);
+  }
 }
 
 

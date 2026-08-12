@@ -1,5 +1,5 @@
 //Version 
-const VERSION = "2.6.0";
+const VERSION = "2.6.1";
 document.getElementById("version").innerHTML += VERSION;
 
 // open
@@ -113,35 +113,11 @@ window.addEventListener('orientationchange', setRealVh);
 
 
 
-//----------- SERVER SIDE ---------------
-// socket.on("init", data => {
-//     LOCAL_PLAYER = data.playerNumber;
-//     gameState = data.gameState;
-//     console.log("You are player " + LOCAL_PLAYER);
-
-//     if (LOCAL_PLAYER == 1) {
-//         textPlayerP1.textContent = "YOU";
-//     } else if (LOCAL_PLAYER == 2) {
-//         textPlayerP2.textContent = "YOU";
-//     }
-// });
-
-
-// socket.on("state_update", state => {
-//     gameState = state;
-//     clearForNextTurn();
-//     divsOpacity(state.currentPlayer);
-//     renderPlayerBox(state.currentPlayer);
-// });
-
-
-
-
 //----------- GAME STATE ---------------
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "../shared/utils.js";
 import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces } from "../shared/assets.js";
 import { updateGame } from "../shared/gameEngine.js";
-import { chooseDiceToLock, shouldStopRolling, chooseBestMove } from "../shared/botAI.js";
+import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake } from "../shared/botAI.js";
 import GameController from '../shared/gameController.js';
 let gameState = createInitialGameState();
 
@@ -1008,6 +984,12 @@ async function playBotTurn() {
             if (gameState.dice.rollsLeft <= 0) break;
             if (shouldStopRolling(gameState, 2, botStrategy)) break;
 
+            // Calling only matters for the *next* roll's combination check,
+            // so it's decided here — after seeing this throw, and only
+            // once we know the bot is going to roll again.
+            const callIndex = chooseCallToMake(gameState, 2, botStrategy);
+            await applyBotCall(callIndex);
+
             // Give the player a moment to read the dice before the bot starts
             // choosing which ones to keep.
             await sleep(700);
@@ -1076,6 +1058,25 @@ async function applyBotLock(lockedArray) {
         await sleep(260);
     }
 }
+
+async function applyBotCall(callIndex) {
+    // Only one call can be active at a time: check the chosen one (if any)
+    // and uncheck everything else, mirroring the human ".call.selectable" handler.
+    let changed = false;
+    for (let i = 3; i < 8; i++) {
+        const shouldBeChecked = i === callIndex;
+        if (Boolean(gameState.called[i]) === shouldBeChecked) continue;
+
+        gameState.called[i] = shouldBeChecked ? 1 : 0;
+        document.getElementById("cc" + i).classList.toggle("checked", shouldBeChecked);
+        changed = true;
+    }
+    if (!changed) return;
+
+    controller.dispatch({ type: "SELEC_CALL", called: gameState.called.slice() });
+    await sleep(300);
+}
+
 
 function setBotControlsDisabled(disabled) {
     const controls = [...rrElements, ...ccElements, ...ddElements, rollBtn, doneBtn];
@@ -1224,7 +1225,7 @@ function divsOpacity(currentPlayer) {
     if (!currentPlayer) return;
     const opacity = (currentPlayer === LOCAL_PLAYER) ? 1 : 0.5;
     document.getElementById("div-dice").style.opacity = opacity;
-    document.getElementById("div-resultsAndCalls").style.opacity = opacity;
+    //document.getElementById("div-resultsAndCalls").style.opacity = opacity;
     document.getElementById("div-buttons").style.opacity = opacity;
 }
 

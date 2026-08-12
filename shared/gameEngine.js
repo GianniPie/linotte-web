@@ -47,7 +47,7 @@ function lockDice(state, locked) {
 
 
 function selectCall(state, called) {
-    state.dice.called = called;
+    state.called = called;
     return state;
 }
 
