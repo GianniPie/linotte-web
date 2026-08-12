@@ -1,5 +1,5 @@
 //Version 
-const VERSION = "2.5.8";
+const VERSION = "2.6.0";
 document.getElementById("version").innerHTML += VERSION;
 
 // open
@@ -175,12 +175,33 @@ function startBot(strategy = "points") {
 
 
 //------ PLAYERS ---------------
+assignRandomPieces(gameState);
+
 const selectedColor = [null, gameState.players[1].color, gameState.players[2].color];
-preload(gameState.players[1].pieceImage);
-preload(gameState.players[2].pieceImage);
-boxPlayer1.style.backgroundColor = gameState.players[1].color;
-boxPlayer2.style.backgroundColor = gameState.players[2].color;
+applyPlayerVisuals();
 renderPlayerBox(gameState.currentPlayer);
+
+function assignRandomPieces(state) {
+    const p1p = rndNum(8, pieces.length - 1);
+    state.players[1].pieceImage = piecesPath + pieces[p1p];
+    let p2p = p1p;
+    while (p2p === p1p) {
+        p2p = rndNum(8, pieces.length - 1);
+    }
+    state.players[2].pieceImage = piecesPath + pieces[p2p];
+
+    state.players[1].color = "#" + state.players[1].pieceImage.split("_")[1].slice(0, 6);
+    state.players[2].color = "#" + state.players[2].pieceImage.split("_")[1].slice(0, 6);
+}
+
+function applyPlayerVisuals() {
+    selectedColor[1] = gameState.players[1].color;
+    selectedColor[2] = gameState.players[2].color;
+    preload(gameState.players[1].pieceImage);
+    preload(gameState.players[2].pieceImage);
+    boxPlayer1.style.backgroundColor = gameState.players[1].color;
+    boxPlayer2.style.backgroundColor = gameState.players[2].color;
+}
 
 //clearForNextTurn();
 // divsOpacity(gameState.currentPlayer);
@@ -188,6 +209,7 @@ renderPlayerBox(gameState.currentPlayer);
 
 function isMyTurn() {
     if (controller.mode === "offline") return true;
+    if (controller.mode === "bot") return gameState.currentPlayer === 1;
     return gameState.currentPlayer === LOCAL_PLAYER;
 }
 
@@ -347,7 +369,7 @@ function stopTimer() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    tick();
+    startTurnTimer();
 });
 
 
@@ -483,13 +505,16 @@ function newGameVsBot(strategy) {
     gameState = createInitialGameState();
     gameState.players[1].name = "YOU";
     gameState.players[2].name = "BOT";
+    assignRandomPieces(gameState);
 
     startBot(strategy);
 
     clearBoardVisuals();
     clearForNextTurn();
+    applyPlayerVisuals();
     renderPlayerBox(gameState.currentPlayer);
     divsOpacity(gameState.currentPlayer);
+    startTurnTimer();
 }
 
 function clearBoardVisuals() {
@@ -916,10 +941,16 @@ function performEndTurn() {
     renderPlayerBox(gameState.currentPlayer);
     divsOpacity(gameState.currentPlayer);
 
-    if (checkGameOver()) return;
+    if (checkGameOver()) {
+        stopTimer();
+        return;
+    }
 
     if (controller.mode === "bot" && gameState.currentPlayer === 2) {
+        stopTimer(); // pause the clock during the bot's own turn
         playBotTurn();
+    } else {
+        startTurnTimer(); // fresh 60s for whoever's turn it is now
     }
     //stateUpdate();
 
@@ -966,27 +997,35 @@ async function playBotTurn() {
     if (controller.mode !== "bot") return;
     if (gameState.currentPlayer !== 2) return;
 
-    await sleep(500); // small pause so the bot's move doesn't feel instant
+    setBotControlsDisabled(true);
+    try {
+        await sleep(800); // small pause so the bot's move doesn't feel instant
 
-    let keepRolling = true;
-    while (keepRolling) {
-        await botRoll();
+        let keepRolling = true;
+        while (keepRolling) {
+            await botRoll();
 
-        if (gameState.dice.rollsLeft <= 0) break;
-        if (shouldStopRolling(gameState, 2, botStrategy)) break;
+            if (gameState.dice.rollsLeft <= 0) break;
+            if (shouldStopRolling(gameState, 2, botStrategy)) break;
 
-        const locked = chooseDiceToLock(gameState.dice.values, gameState, 2, botStrategy);
-        applyBotLock(locked);
-        await sleep(500);
+            // Give the player a moment to read the dice before the bot starts
+            // choosing which ones to keep.
+            await sleep(700);
+            const locked = chooseDiceToLock(gameState.dice.values, gameState, 2, botStrategy);
+            await applyBotLock(locked);
+            await sleep(800);
+        }
+
+        await sleep(600);
+        const coordinates = chooseBestMove(gameState, 2, botStrategy);
+        if (coordinates) {
+            placePiece("p" + coordinates);
+        }
+
+        await sleep(1000);
+    } finally {
+        setBotControlsDisabled(false);
     }
-
-    await sleep(400);
-    const coordinates = chooseBestMove(gameState, 2, botStrategy);
-    if (coordinates) {
-        placePiece("p" + coordinates);
-    }
-
-    await sleep(700);
     performEndTurn();
 }
 
@@ -1004,12 +1043,12 @@ async function botRoll() {
     // (the human version runs on a 1200ms interval; we just await it
     // directly here instead of using setInterval/setTimeout IDs that
     // would collide with the human roll button's own state).
-    const ticks = 10;
+    const ticks = 12;
     for (let i = 0; i < ticks; i++) {
         let rndValues = [0, 0, 0, 0, 0];
         for (let j = 0; j < 5; j++) rndValues[j] = rndNum(1, 6);
         renderDice(rndValues);
-        await sleep(100);
+        await sleep(120);
     }
 
     renderDice(gameState.dice.values);
@@ -1020,16 +1059,29 @@ async function botRoll() {
 }
 
 
-function applyBotLock(lockedArray) {
+async function applyBotLock(lockedArray) {
     for (let i = 0; i < 5; i++) {
+        if (gameState.dice.locked[i] === lockedArray[i]) continue;
+
         gameState.dice.locked[i] = lockedArray[i];
         if (lockedArray[i]) {
             ddElements[i].classList.add("selected");
         } else {
             ddElements[i].classList.remove("selected");
         }
+
+        // Mirror a person clicking each die: update the game after every
+        // individual choice, then pause briefly before considering the next.
+        controller.dispatch({ type: "LOCK_DICE", locked: gameState.dice.locked.slice() });
+        await sleep(260);
     }
-    controller.dispatch({ type: "LOCK_DICE", locked: gameState.dice.locked });
+}
+
+function setBotControlsDisabled(disabled) {
+    const controls = [...rrElements, ...ccElements, ...ddElements, rollBtn, doneBtn];
+    controls.forEach(control => {
+        control.setAttribute("aria-disabled", String(disabled));
+    });
 }
 
 
@@ -1207,8 +1259,6 @@ function renderBoardFromState(table) {
 // socket.on("selectCall_result", state => {
 //     highlighteCall(state);
 // });
-
-
 
 
 

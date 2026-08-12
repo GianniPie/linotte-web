@@ -185,6 +185,65 @@ function countAdjacentOwn(table, r, c, player) {
   return count;
 }
 
+// Does any 3-length window through (r,c), in any direction, still have
+// zero opponent pieces in it? If every window through this cell already
+// has an opponent piece blocking it, this cell can never be part of a
+// completed row/col/diag for this player — a "dead" placement.
+function hasFutureLinePotential(table, r, c, player, opponent) {
+  const lines = [];
+  lines.push({ cells: [0, 1, 2, 3, 4].map((cc) => [r, cc]) }); // row
+  lines.push({ cells: [0, 1, 2, 3, 4].map((rr) => [rr, c]) }); // col
+  if (r === c) lines.push({ cells: [0, 1, 2, 3, 4].map((i) => [i, i]) });
+  if (r + c === 4) lines.push({ cells: [0, 1, 2, 3, 4].map((i) => [i, 4 - i]) });
+
+  for (const { cells } of lines) {
+    const idx = cells.findIndex(([rr, cc]) => rr === r && cc === c);
+    for (let start = Math.max(0, idx - 2); start <= Math.min(idx, cells.length - 3); start++) {
+      const window = cells.slice(start, start + 3);
+      const blocked = window.some(([rr, cc]) => table[rr][cc] === opponent);
+      if (!blocked) return true;
+    }
+  }
+  return false;
+}
+
+// Is this cell disconnected from every row/col/diag the player already
+// has a piece on? Only meaningful once the player has an actual cluster
+// going (fewer than 3 pieces placed = no real "assembly" to be far from).
+function isTooFarFromAssembly(table, r, c, player) {
+  const ownPieces = [];
+  for (let rr = 0; rr < 5; rr++) {
+    for (let cc = 0; cc < 5; cc++) {
+      if (table[rr][cc] === player) ownPieces.push([rr, cc]);
+    }
+  }
+  if (ownPieces.length < 3) return false; // too early to judge "far"
+
+  return !ownPieces.some(([rr, cc]) => {
+    if (rr === r || cc === c) return true; // shares a row or column
+    if (r === c && rr === cc) return true; // both on main diagonal
+    if (r + c === 4 && rr + cc === 4) return true; // both on anti-diagonal
+    return false;
+  });
+}
+
+// Should the bot voluntarily decline an available, non-scoring placement?
+// Per the shared rules: skip if the tile has no future line potential,
+// if it's isolated from the bot's main cluster, or if pieces are scarce
+// and this tile isn't even worth much on its own.
+function shouldSkipPlacement(state, candidate, player, opponent) {
+  if (candidate.pointsGained > 0) return false; // always take a scoring placement
+
+  if (!hasFutureLinePotential(state.table, candidate.r, candidate.c, player, opponent)) return true;
+  if (isTooFarFromAssembly(state.table, candidate.r, candidate.c, player)) return true;
+
+  const piecesLeft = state.players[player].remainingPieces;
+  const lowValue = candidate.rarity < 65 && candidate.clusterScore === 0;
+  if (piecesLeft <= 3 && lowValue) return true;
+
+  return false;
+}
+
 // Point-diff and other per-cell metrics, evaluated via a cheap clone
 // (5x5 board, negligible cost) for clarity over cleverness.
 function cloneTable(table) {
@@ -271,7 +330,8 @@ function chooseTarget(state, player, strategy) {
 
   let best = null;
   for (const comboKey of Object.keys(COMBO_CELLS)) {
-    if (comboKey === "sec" || comboKey === "appel") continue; // not chaseable via locking
+    if (comboKey === "appel") continue; // not chaseable via locking (needs the call mechanic)
+    if (comboKey === "sec" && state.dice.locked.some(Boolean)) continue; // any lock already made loses sec for this turn
     const cells = COMBO_CELLS[comboKey];
 
     let bestCellWeight = null;
@@ -288,7 +348,11 @@ function chooseTarget(state, player, strategy) {
     if (bestCellWeight === null) continue; // combo is dead, both cells taken
 
     const need = needed[comboKey] ?? 3;
-    const attractiveness = bestCellWeight - need * PENALTY_PER_DIE;
+    const isSafeUpgrade =
+      (comboKey === "carre" && needed.brelanSafe) ||
+      (comboKey === "yam" && needed.carre === 0);
+    const effectivePenalty = isSafeUpgrade ? PENALTY_PER_DIE * 0.3 : PENALTY_PER_DIE;
+    const attractiveness = bestCellWeight - need * effectivePenalty;
 
     if (!best || attractiveness > best.attractiveness) {
       best = { comboKey, attractiveness, need };
@@ -307,6 +371,7 @@ function neededDiceEstimate(diceValues) {
   }
   needed.carre = Math.max(0, 4 - sorted[0]);
   needed.yam = Math.max(0, 5 - sorted[0]);
+  needed.brelanSafe = sorted[0] >= 3; // some face already has brelan locked in
 
   if (sorted[0] >= 3 && sorted[1] >= 2) needed.full = 0;
   else if (sorted[0] >= 3) needed.full = 1;
@@ -319,6 +384,8 @@ function neededDiceEstimate(diceValues) {
 
   needed.suite = Math.max(0, 5 - longestConsecutiveRun(diceValues).length);
 
+  needed.sec = Math.min(needed.yam, needed.carre, needed.full, needed.suite, needed.petit);
+
   return needed;
 }
 
@@ -330,6 +397,13 @@ export function chooseDiceToLock(diceValues, state, player, strategy) {
 }
 
 function lockForTarget(diceValues, comboKey) {
+  if (comboKey === "sec") {
+    // Only way to realize sec: throw all 5 dice unlocked and hope one of
+    // yam/carre/full/suite/petit comes up naturally. Locking anything
+    // forfeits sec for the rest of the turn, so lock nothing.
+    return diceValues.map(() => false);
+  }
+
   if (comboKey.startsWith("brelan") || comboKey === "carre" || comboKey === "yam") {
     const face = comboKey.startsWith("brelan") ? Number(comboKey.slice(6)) : null;
     if (face) return diceValues.map((v) => v === face);
@@ -377,16 +451,32 @@ export function shouldStopRolling(state, player, strategy) {
 
   const target = chooseTarget(state, player, strategy);
   if (!target) return true; // nothing left worth chasing, take what we have
-  return target.need === 0; // the target we're chasing is already achieved
-}
 
-// ---------- Which tile to place a piece on ----------
-// Returns a "rc" coordinate string (matching the app's existing format,
-// e.g. "23"), or null if no legal placement exists.
-export function chooseBestMove(state, player, strategy) {
+  if (target.need === 0) return true; // the target we're chasing is already achieved
+
+  // Every throw can create a different useful combination by chance. Compare
+  // the best one now available with the value of continuing the old chase;
+  // when the new opportunity is at least as good, use it instead of rerolling.
   const opponent = player === 1 ? 2 : 1;
   const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+  const available = bestAvailableCandidate(state, player, opponent, piecesLeftAfter, strategy);
+  if (
+    available &&
+    !shouldSkipPlacement(state, available, player, opponent) &&
+    candidateWeight(available, strategy) >= target.attractiveness
+  ) {
+    return true;
+  }
 
+  // Do not spend a whole turn repeatedly fishing for the same tile from a
+  // poor opening throw.  A target that still needs more dice than there are
+  // throws remaining is a long shot, while a legal tile is already available
+  // on the board.  Take the reliable opportunity instead.  This deliberately
+  // leaves the bot rolling when it has no current placement at all.
+  return target.need > state.dice.rollsLeft;
+}
+
+function bestAvailableCandidate(state, player, opponent, piecesLeftAfter, strategy) {
   const candidates = [];
   for (let r = 0; r < 5; r++) {
     for (let c = 0; c < 5; c++) {
@@ -398,5 +488,19 @@ export function chooseBestMove(state, player, strategy) {
   if (candidates.length === 0) return null;
 
   candidates.sort(strategy === "speed" ? compareSpeed : comparePoints);
-  return `${candidates[0].r}${candidates[0].c}`;
+  return candidates[0];
+}
+
+// ---------- Which tile to place a piece on ----------
+// Returns a "rc" coordinate string (matching the app's existing format,
+// e.g. "23"), or null if no legal placement exists.
+export function chooseBestMove(state, player, strategy) {
+  const opponent = player === 1 ? 2 : 1;
+  const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+  const best = bestAvailableCandidate(state, player, opponent, piecesLeftAfter, strategy);
+  if (!best) return null;
+
+  if (shouldSkipPlacement(state, best, player, opponent)) return null;
+
+  return `${best.r}${best.c}`;
 }
