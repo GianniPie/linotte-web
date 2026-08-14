@@ -101,6 +101,7 @@ let stopRollID;
 let rollBtnEnabled = true;
 let doneBtnEnabled = true;
 let pieceEnabled = true;
+let isGameOver = false;
 
 function setRealVh() {
     const vh = window.innerHeight * 0.01;
@@ -120,15 +121,16 @@ import { updateGame } from "./shared/gameEngine.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake } from "./shared/botAI.js";
 import GameController from './shared/gameController.js';
 let gameState = createInitialGameState();
+gameState.players[1].name = "YOU";
+gameState.players[2].name = "BOT";
 
 
 
 
 //----------- GAME CONTROLLER ---------------
 let controller;
-startOffline();
-
 let botStrategy = "points";
+startBot(botStrategy); // default to player-vs-bot, ready to play on open
 
 function startOffline() {
     controller = new GameController("offline");
@@ -484,6 +486,10 @@ function newGameVsBot(strategy) {
     assignRandomPieces(gameState);
 
     startBot(strategy);
+    rollBtnEnabled = true;
+    doneBtnEnabled = true;
+    isGameOver = false;
+    document.getElementById("winner-overlay").style.display = "none";
 
     clearBoardVisuals();
     clearForNextTurn();
@@ -632,15 +638,16 @@ function checkGameOver() {
 
     rollBtnEnabled = false;
     doneBtnEnabled = false;
+    isGameOver = true;
 
-    if (gameState.players[1].points > gameState.players[2].points) {
-        showWinnerPopup(1);
-    } else if (gameState.players[1].points < gameState.players[2].points) {
-        showWinnerPopup(2);
-    } else {
-        showWinnerPopup(0);
-    }
+    showWinnerPopup(determineWinner());
     return true;
+}
+
+function determineWinner() {
+    if (gameState.players[1].points > gameState.players[2].points) return 1;
+    if (gameState.players[1].points < gameState.players[2].points) return 2;
+    return 0; // tie
 }
 
 
@@ -664,27 +671,11 @@ function showWinnerPopup(winner) {
 
 
 function fireWinnerConfetti(duration) {
-    const end = Date.now() + duration;
-
-    (function frame() {
-        confetti({
-            particleCount: 6,
-            angle: 85,
-            spread: 60,
-            origin: { x: 0 }
-        });
-
-        confetti({
-            particleCount: 6,
-            angle: 95,
-            spread: 60,
-            origin: { x: 1 }
-        });
-
-        if (Date.now() < end) {
-            requestAnimationFrame(frame);
-        }
-    })();
+    // confetti.js (bundled) exposes startConfetti/stopConfetti, not a
+    // confetti({...}) burst function — this was calling one that doesn't
+    // exist anywhere in the project and crashing every time it ran.
+    startConfetti();
+    setTimeout(stopConfetti, duration);
 }
 
 
@@ -903,6 +894,13 @@ function checkTable(coordinates) {
 doneBtn.addEventListener("click", doneButton);
 
 function doneButton(e) {
+    if (isGameOver) {
+        // The game's over and there's no next turn anymore — DONE just
+        // brings the winner overlay back if it was dismissed to look at
+        // the board, instead of being a dead button.
+        showWinnerPopup(determineWinner());
+        return;
+    }
     if (!isMyTurn()) return;
     if (doneBtnEnabled == false) return;
     performEndTurn();

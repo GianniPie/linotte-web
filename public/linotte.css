@@ -756,6 +756,18 @@ body {
   animation: bounceButton 0.2s ease-out forwards;
 }
 
+/* setBotControlsDisabled() sets this during the bot's turn — without this
+   rule it was purely an accessibility hint with no visual/interactive
+   effect, so roll/done (and the dice/results/calls it's also applied to)
+   still looked and felt tappable even though clicks were already no-ops. */
+[aria-disabled="true"] {
+  pointer-events: none;
+}
+
+.button[aria-disabled="true"] {
+  opacity: 0.5;
+}
+
 .button.done {
   background-color: rgb(70, 94, 228);
   border: .25em solid rgb(31, 46, 124);
