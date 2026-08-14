@@ -193,6 +193,63 @@ function blocksOpponentFour(table, r, c, opponent) {
   );
 }
 
+// Does any 3-cell window through (r,c) already hold two opponent pieces,
+// with this still-empty cell as the third? Placing here denies them that
+// point outright — the reason a cell can be worth a piece even when it
+// can never be part of one of our own alignments.
+function blocksOpponentThree(table, r, c, opponent) {
+  const lines = [];
+  lines.push([0, 1, 2, 3, 4].map((cc) => [r, cc]));
+  lines.push([0, 1, 2, 3, 4].map((rr) => [rr, c]));
+  if (r === c) lines.push([0, 1, 2, 3, 4].map((i) => [i, i]));
+  if (r + c === 4) lines.push([0, 1, 2, 3, 4].map((i) => [i, 4 - i]));
+
+  for (const cells of lines) {
+    const idx = cells.findIndex(([rr, cc]) => rr === r && cc === c);
+    if (idx < 0) continue;
+    for (let start = Math.max(0, idx - 2); start <= Math.min(idx, cells.length - 3); start++) {
+      const others = cells
+        .slice(start, start + 3)
+        .filter(([rr, cc]) => !(rr === r && cc === c));
+      if (others.every(([rr, cc]) => table[rr][cc] === opponent)) return true;
+    }
+  }
+  return false;
+}
+
+// Does placing at (r,c) pair up with an existing own piece on some line
+// where that specific pairing can never reach 3 — every window through it
+// already blocked by the opponent? A wasted piece even if this same cell
+// still has SOME potential via a totally unrelated direction with no
+// existing piece on it — hasFutureLinePotential alone wouldn't catch that,
+// since it only asks "is any window through this cell still open at all."
+function createsDeadPair(table, r, c, player, opponent) {
+  const lines = [];
+  lines.push([0, 1, 2, 3, 4].map((cc) => [r, cc])); // row
+  lines.push([0, 1, 2, 3, 4].map((rr) => [rr, c])); // col
+  if (r === c) lines.push([0, 1, 2, 3, 4].map((i) => [i, i]));
+  if (r + c === 4) lines.push([0, 1, 2, 3, 4].map((i) => [i, 4 - i]));
+
+  for (const cells of lines) {
+    const idx = cells.findIndex(([rr, cc]) => rr === r && cc === c);
+    const pairsWithOwn = cells.some(
+      ([rr, cc], i) => Math.abs(i - idx) === 1 && table[rr][cc] === player
+    );
+    if (!pairsWithOwn) continue;
+
+    let anyWindowOpen = false;
+    for (let start = Math.max(0, idx - 2); start <= Math.min(idx, cells.length - 3); start++) {
+      const window = cells.slice(start, start + 3);
+      if (!window.some(([rr, cc]) => table[rr][cc] === opponent)) {
+        anyWindowOpen = true;
+        break;
+      }
+    }
+    if (!anyWindowOpen) return true;
+  }
+  return false;
+}
+
 function countAdjacentOwn(table, r, c, player) {
   let count = 0;
   for (let dr = -1; dr <= 1; dr++) {
@@ -211,7 +268,17 @@ function countAdjacentOwn(table, r, c, player) {
 // zero opponent pieces in it? If every window through this cell already
 // has an opponent piece blocking it, this cell can never be part of a
 // completed row/col/diag for this player — a "dead" placement.
+//
+// Yam sits at the board's busiest intersection — 4 lines run through it
+// instead of the usual 2 (row + col) or 3 (plus one diagonal) — so
+// "not literally blocked yet" is a far easier bar to clear there than
+// anywhere else, without reflecting any real chance of completing a row
+// through it. Treat yam as very low potential by default: an empty,
+// merely-not-yet-blocked window doesn't count for it — only one that
+// already has one of the player's own pieces in it, a real path rather
+// than a theoretical one.
 function hasFutureLinePotential(table, r, c, player, opponent) {
+  const isYamCell = r === Number(tile.yam[0]) && c === Number(tile.yam[1]);
   const lines = [];
   lines.push({ cells: [0, 1, 2, 3, 4].map((cc) => [r, cc]) }); // row
   lines.push({ cells: [0, 1, 2, 3, 4].map((rr) => [rr, c]) }); // col
@@ -223,7 +290,9 @@ function hasFutureLinePotential(table, r, c, player, opponent) {
     for (let start = Math.max(0, idx - 2); start <= Math.min(idx, cells.length - 3); start++) {
       const window = cells.slice(start, start + 3);
       const blocked = window.some(([rr, cc]) => table[rr][cc] === opponent);
-      if (!blocked) return true;
+      if (blocked) continue;
+      if (!isYamCell) return true;
+      if (window.some(([rr, cc]) => table[rr][cc] === player)) return true;
     }
   }
   return false;
@@ -262,7 +331,28 @@ function isTooFarFromAssembly(table, r, c, player) {
 function shouldSkipPlacement(state, candidate, player, opponent) {
   if (candidate.pointsGained > 0) return false; // always take a scoring placement
 
+  // A cell we can never build our own alignment on is still worth a piece
+  // when it takes a point (or the game) away from the opponent.
+  if (candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
+
   if (!hasFutureLinePotential(state.table, candidate.r, candidate.c, player, opponent)) return true;
+
+  // Yam is the rarest tile on the board — once it's realized and still
+  // has a future line to join, take it regardless of whether it happens
+  // to connect to the bot's existing pieces yet, or whether that specific
+  // connection is itself a dead end. "Too far from assembly" and the
+  // dead-pair check below exist to avoid wasting pieces on ordinary
+  // tiles; they shouldn't cost the bot a combo this hard to see again.
+  const isYamCell = candidate.r === Number(tile.yam[0]) && candidate.c === Number(tile.yam[1]);
+  if (isYamCell) return false;
+
+  // A placement that pairs up with an existing piece but can never reach 3
+  // on that specific line is a wasted piece even if some OTHER, unrelated
+  // direction through this same cell is technically still open — a dead
+  // row of 2 is only worth building when it's really a block in disguise,
+  // already handled by the criticalBlock/urgentBlock/deniesPoint check above.
+  if (createsDeadPair(state.table, candidate.r, candidate.c, player, opponent)) return true;
+
   if (isTooFarFromAssembly(state.table, candidate.r, candidate.c, player)) return true;
 
   const piecesLeft = state.players[player].remainingPieces;
@@ -314,6 +404,7 @@ function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
     countInLine(state.table, r, c, opponent, "diag");
   const urgentBlock = blocksOpponentFour(state.table, r, c, opponent);
   const criticalBlock = wouldGiveOpponentTheWin(state, r, c, opponent, before);
+  const deniesPoint = blocksOpponentThree(state.table, r, c, opponent);
   const clusterScore = countAdjacentOwn(state.table, r, c, player);
 
   return {
@@ -326,6 +417,7 @@ function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
     blockScore,
     urgentBlock,
     criticalBlock,
+    deniesPoint,
     clusterScore,
     piecesLeftAfter,
   };
@@ -401,6 +493,21 @@ function anyCellFree(table, cells) {
   return cells.some((rc) => rc && table[Number(rc[0])][Number(rc[1])] === 0);
 }
 
+// Cells `comboKey` could actually be placed on right now: its own tile(s),
+// plus the appel tiles too if it's the actively called combo and appel
+// still has room. An uncalled combo's own tiles are placeable regardless
+// of any call, so nothing else gets the appel bonus.
+function placementCellsFor(comboKey, state) {
+  const callIndex = CALL_INDEX[comboKey];
+  return callIndex !== undefined && state.called[callIndex] && anyCellFree(state.table, COMBO_CELLS.appel)
+    ? COMBO_CELLS[comboKey].concat(COMBO_CELLS.appel)
+    : COMBO_CELLS[comboKey];
+}
+
+function comboHasAvailableCell(comboKey, state) {
+  return anyCellFree(state.table, placementCellsFor(comboKey, state));
+}
+
 // Calling declares intent to chase one of the five main combinations.
 // It's always free and, if the called combination is realized on a
 // later roll this turn, it also opens the appel tiles (ap1/ap2) as an
@@ -430,22 +537,81 @@ export function chooseCallToMake(state, player, strategy) {
 
   const opponent = player === 1 ? 2 : 1;
   const needed = neededDiceEstimate(state.dice.values);
+
+  // Judge every candidate call against the dice the bot is actually going
+  // to keep this roll, so a call can only ever be a hedge on an outcome
+  // still compatible with that lock (e.g. holding a triple covers both
+  // full and carre) — never on one the reroll is about to destroy.
+  const target = chooseTarget(state, player, strategy);
+  const actualLock = target
+    ? lockForTarget(state.dice.values, target.comboKey)
+    : state.dice.values.map(() => false);
+
   const appelRarity = Math.max(
     ...freeAppelCells.map((rc) => 100 - probabilityAt(Number(rc[0]), Number(rc[1])))
   );
   const appelIsUrgentBlock = freeAppelCells.some((rc) =>
     blocksOpponentFour(state.table, Number(rc[0]), Number(rc[1]), opponent)
   );
+  // Would placing on the best free appel tile complete a real alignment
+  // right now, not just land on a rare tile? A scoring appel tile is worth
+  // hedging even a longer shot for — e.g. chasing petit but also calling
+  // full "just in case", so a full landing instead still has somewhere to
+  // go — since the payoff if it lands is real points, not just rarity.
+  const appelPointsGained = Math.max(
+    0,
+    ...freeAppelCells.map((rc) => {
+      const r = Number(rc[0]);
+      const c = Number(rc[1]);
+      const trial = cloneTable(state.table);
+      trial[r][c] = player;
+      return totalPoints(trial, player) - totalPoints(state.table, player);
+    })
+  );
+
+  const keptValues = state.dice.values.filter((_, i) => actualLock[i] || state.dice.locked[i]);
 
   let best = null;
   for (const comboKey of Object.keys(CALL_INDEX)) {
     // Not possible to call carre if a carre is already realized this throw.
     if (comboKey === "carre" && state.combinationsRealized[4] === 1) continue;
 
+    // A called combo only pays off if it actually lands this turn, and a
+    // high-total hand practically never drops under 9 in the rolls left —
+    // so only call petit when the dice are already close to it.
+    if (comboKey === "petit" && (needed.petit ?? 3) > 1) continue;
+
+    // A call is a hedge, not a hope — it only makes sense when what's
+    // actually being kept already leaves it close, e.g. carre only makes
+    // sense with a triple already in hand (whether that's the whole plan,
+    // or a second option kept open while chasing full). A random single
+    // die kept for something else is not a real shot at carre, even if
+    // it's technically the least-bad of several long shots.
+    //
+    // The bar differs by combo because neededUnderLock's units aren't all
+    // the same size: for carre/yam/suite each one is a single specific
+    // face, a clean 1-in-6 shot, so "1 away" is the natural cutoff. For
+    // full, neededUnderLock's own tiers are 0 (already there), 1 (two
+    // pairs, one just needs to match the other), 2 (a triple, needs any
+    // pair among the rest), 3 (a bare pair), 5 (no pair at all) — so "2"
+    // is full's equivalent close cutoff, not "1".
+    // A scoring appel tile changes the math: even a longer shot is worth
+    // gambling on when the reward is real points, not just a rare tile —
+    // the proximity bar exists to stop calling something implausible for
+    // a bare rarity grab, and doesn't apply once points are on the line.
+    const proximityLimit = { carre: 1, yam: 1, suite: 1, full: 2 }[comboKey];
+    if (
+      appelPointsGained === 0 &&
+      proximityLimit !== undefined &&
+      neededUnderLock(comboKey, keptValues) > proximityLimit
+    ) {
+      continue;
+    }
+
     // Live chance of this combo actually landing, given the dice truly
     // still free to reroll toward it and the rolls truly left — not the
     // static first-throw table, and not a flat need-vs-rollsLeft cutoff.
-    const probability = liveProbability(comboKey, state, needed);
+    const probability = liveProbability(comboKey, state, needed, actualLock);
     if (probability <= 0) continue; // no realistic chance from here
 
     const freeOwnCells = COMBO_CELLS[comboKey].filter(
@@ -455,12 +621,16 @@ export function chooseCallToMake(state, player, strategy) {
       ? Math.max(...freeOwnCells.map((rc) => 100 - probabilityAt(Number(rc[0]), Number(rc[1]))))
       : -1; // no own tile left at all — the call is the only way this combo could ever be placed
 
-    // Calling only helps when appel beats (or replaces) the best own tile.
-    if (ownRarity >= 0 && !appelIsUrgentBlock && appelRarity <= ownRarity) continue;
+    // Calling only helps when appel beats (or replaces) the best own tile
+    // — or scores real points outright, which always beats a plain tile.
+    if (ownRarity >= 0 && !appelIsUrgentBlock && appelPointsGained === 0 && appelRarity <= ownRarity) {
+      continue;
+    }
 
     const urgencyBonus = appelIsUrgentBlock ? 100_000 : 0;
     const noFallbackBonus = ownRarity < 0 ? 10_000 : 0;
-    const score = (urgencyBonus + noFallbackBonus + appelRarity * 10) * probability;
+    const pointsBonus = appelPointsGained * 200_000;
+    const score = (urgencyBonus + noFallbackBonus + pointsBonus + appelRarity * 10) * probability;
 
     if (!best || score > best.score) best = { callIndex: CALL_INDEX[comboKey], score };
   }
@@ -489,13 +659,8 @@ function chooseTarget(state, player, strategy) {
     // If this combo is the one currently called, a later realization also
     // opens the appel tiles — chase those too, and actively pursue them
     // when they're the better (or only) placement, e.g. to block a
-    // near-complete opponent line. An uncalled combo's own tiles are
-    // placeable regardless, so no other comboKey gets this bonus.
-    const callIndex = CALL_INDEX[comboKey];
-    const cells =
-      callIndex !== undefined && state.called[callIndex] && anyCellFree(state.table, COMBO_CELLS.appel)
-        ? COMBO_CELLS[comboKey].concat(COMBO_CELLS.appel)
-        : COMBO_CELLS[comboKey];
+    // near-complete opponent line.
+    const cells = placementCellsFor(comboKey, state);
 
     let bestCellWeight = null;
     for (const rc of cells) {
@@ -559,23 +724,85 @@ function perDieHitChance(successFaces, rollsLeft) {
   return 1 - missChancePerRoll ** Math.max(0, rollsLeft);
 }
 
+// Exact chance that `n` freshly rolled dice total `target` or less, by
+// convolving the single-die distribution n times. Petit is a constraint on
+// the TOTAL, so it can't be modelled as independent per-die successes the
+// way the face-matching combos can: three dice each landing "low" (1-3)
+// still busts petit if they all land on 3.
+function chanceSumAtMost(n, target) {
+  if (n <= 0) return target >= 0 ? 1 : 0;
+  if (target < n) return 0; // even all 1s overshoot
+  if (target >= 6 * n) return 1; // even all 6s fit
+
+  let dist = [1]; // P(sum = 0) = 1 before any die is rolled
+  for (let i = 0; i < n; i++) {
+    const next = new Array(dist.length + 6).fill(0);
+    for (let s = 0; s < dist.length; s++) {
+      if (dist[s] === 0) continue;
+      for (let face = 1; face <= 6; face++) next[s + face] += dist[s] / 6;
+    }
+    dist = next;
+  }
+
+  let prob = 0;
+  for (let s = 0; s <= target && s < dist.length; s++) prob += dist[s];
+  return prob;
+}
+
 // Probability (0-1) of `comboKey` becoming achievable from here, given
 // the dice actually still available to reroll toward it — excluding any
 // die that's already locked in (from an earlier throw this turn) and
 // can never change again — and the rolls actually left.
-function liveProbability(comboKey, state, needed) {
-  const need = needed[comboKey] ?? 3;
-  if (need <= 0) return 1;
-  if (state.dice.rollsLeft <= 0) return 0;
+// How many more dice a combo still needs once only `keptValues` are held
+// and everything else is rerolled. Needed because a call has to be judged
+// against the dice the bot is ACTUALLY keeping — measuring it against the
+// lock it would only make if it were chasing that combo instead is how it
+// ends up calling a suite while rerolling the straight away.
+function neededUnderLock(comboKey, keptValues) {
+  const counts = faceCounts(keptValues);
+  const sorted = counts.slice(1).sort((a, b) => b - a);
 
-  const wouldLock = lockForTarget(state.dice.values, comboKey);
-  const freeDice = wouldLock.filter((locked, i) => !locked && !state.dice.locked[i]).length;
+  if (comboKey.startsWith("brelan")) {
+    return Math.max(0, 3 - counts[Number(comboKey.slice(6))]);
+  }
+  if (comboKey === "carre") return Math.max(0, 4 - sorted[0]);
+  if (comboKey === "yam") return Math.max(0, 5 - sorted[0]);
+  if (comboKey === "suite") return 5 - bestStraightMatch(keptValues).length;
+  if (comboKey === "full") {
+    if (sorted[0] >= 3 && sorted[1] >= 2) return 0;
+    if (sorted[0] >= 3) return 2; // triple held, the whole pair still to come
+    if (sorted[0] === 2 && sorted[1] === 2) return 1; // two pairs, one must match
+    if (sorted[0] === 2) return 3;
+    return 5;
+  }
+  return 3;
+}
+
+function liveProbability(comboKey, state, needed, lockMask) {
+  if (state.dice.rollsLeft <= 0) return (needed[comboKey] ?? 3) <= 0 ? 1 : 0;
+
+  const wouldLock = lockMask ?? lockForTarget(state.dice.values, comboKey);
+  const isKept = (i) => wouldLock[i] || state.dice.locked[i];
+  const keptValues = state.dice.values.filter((_, i) => isKept(i));
+  const freeDice = state.dice.values.length - keptValues.length;
+
+  if (comboKey === "petit") {
+    // Petit is about the total, not about matching faces: whatever is kept
+    // eats into the budget of 8, and the rerolled dice have to fit in what
+    // is left of it. Re-rolling is a fresh attempt each time.
+    const keptTotal = keptValues.reduce((total, v) => total + v, 0);
+    if (freeDice === 0) return keptTotal < 9 ? 1 : 0;
+    const perRoll = chanceSumAtMost(freeDice, 8 - keptTotal);
+    return 1 - (1 - perRoll) ** state.dice.rollsLeft;
+  }
+
+  const need = lockMask ? neededUnderLock(comboKey, keptValues) : needed[comboKey] ?? 3;
+  if (need <= 0) return 1;
   if (need > freeDice) return 0;
 
-  // "petit" just needs low values, a 3-in-6 shot (rolling 1-3) per die
-  // per roll; every other combo needs one specific face, a 1-in-6 shot.
-  const successFaces = comboKey === "petit" ? 3 : 1;
-  const p = perDieHitChance(successFaces, state.dice.rollsLeft);
+  // Every other combo needs a specific face on each missing die: a 1-in-6
+  // shot per die, retried across the rolls that are left.
+  const p = perDieHitChance(1, state.dice.rollsLeft);
   return binomialAtLeast(freeDice, need, p);
 }
 
@@ -596,8 +823,24 @@ function neededDiceEstimate(diceValues) {
   else if (sorted[0] === 2) needed.full = 2;
   else needed.full = 3;
 
+  // Petit is a constraint on the TOTAL (under 9), not on any single face,
+  // so counting "dice showing 4+" misses hands like 2,2,2,2,2 (total 10,
+  // nothing high, still not a petit). Instead drop the highest dice one
+  // at a time — each rerolled die comes back a 1 at best — and count how
+  // many have to go before the total can fall under 9.
   const sum = diceValues.reduce((a, b) => a + b, 0);
-  needed.petit = sum < 9 ? 0 : diceValues.filter((v) => v >= 4).length;
+  if (sum < 9) {
+    needed.petit = 0;
+  } else {
+    const highestFirst = diceValues.slice().sort((a, b) => b - a);
+    let bestCaseTotal = sum;
+    let toReroll = 0;
+    while (bestCaseTotal >= 9 && toReroll < highestFirst.length) {
+      bestCaseTotal -= highestFirst[toReroll] - 1;
+      toReroll++;
+    }
+    needed.petit = toReroll;
+  }
 
   needed.suite = Math.max(0, 5 - bestStraightMatch(diceValues).length);
 
@@ -630,20 +873,46 @@ function lockForTarget(diceValues, comboKey) {
   }
 
   if (comboKey === "full") {
+    // A full is exactly three of one face plus two of another (the engine
+    // checks for counts of exactly 3 and exactly 2), so only pairs and
+    // triples are ever worth keeping: a lone die contributes nothing, and
+    // a carre's fourth die is better rerolled into the missing pair than
+    // kept. So: keep a triple if there is one, keep a pair alongside it,
+    // and with no triple keep whichever pairs exist (one or two).
     const counts = faceCounts(diceValues);
-    const facesByCount = [1, 2, 3, 4, 5, 6].sort((a, b) => counts[b] - counts[a]);
-    const targets = new Set([facesByCount[0]]);
-    if (counts[facesByCount[1]] >= 2) targets.add(facesByCount[1]);
-    return diceValues.map((v) => targets.has(v));
+    const pairedFaces = [1, 2, 3, 4, 5, 6]
+      .filter((face) => counts[face] >= 2)
+      .sort((a, b) => counts[b] - counts[a]);
+
+    const keepPerFace = {};
+    let haveTriple = false;
+    for (const face of pairedFaces) {
+      if (Object.keys(keepPerFace).length >= 2) break;
+      if (!haveTriple && counts[face] >= 3) {
+        keepPerFace[face] = 3; // never keep more than 3 — a full needs exactly 3
+        haveTriple = true;
+      } else {
+        keepPerFace[face] = 2;
+      }
+    }
+
+    const keptSoFar = {};
+    return diceValues.map((v) => {
+      const quota = keepPerFace[v];
+      if (quota === undefined) return false;
+      keptSoFar[v] = (keptSoFar[v] ?? 0) + 1;
+      return keptSoFar[v] <= quota;
+    });
   }
 
   if (comboKey === "petit") {
-    const sortedIdx = diceValues
-      .map((v, i) => ({ v, i }))
-      .sort((a, b) => a.v - b.v)
-      .slice(0, 2)
-      .map((x) => x.i);
-    return diceValues.map((_, i) => sortedIdx.includes(i));
+    // Petit needs all five dice to total under 9, so only genuinely low
+    // dice are worth keeping. A 3 already eats most of that budget, so
+    // it's only worth locking when at least two 1s are there to absorb
+    // it; anything 4 or above is never worth keeping.
+    const onesCount = diceValues.filter((v) => v === 1).length;
+    const highestWorthKeeping = onesCount >= 2 ? 3 : 2;
+    return diceValues.map((v) => v <= highestWorthKeeping);
   }
 
   if (comboKey === "suite") {
@@ -674,11 +943,19 @@ export function shouldStopRolling(state, player, strategy) {
     // subset of the dice (the matching face) — the rest are free. Locking
     // just that subset, like chooseDiceToLock already does, can never lose
     // the combo already in hand: rerolling the free dice is pure upside
-    // (a shot at full/carre/yam/petit) with no way to undo what's secured.
-    // Take that free roll whenever one is actually left to spend.
+    // (a shot at full/carre/yam/petit) with no way to undo what's secured —
+    // but only when that upside actually has somewhere to go. If the next
+    // tier up's tile(s) are already taken, chasing it is a wasted roll no
+    // matter how the dice land, so take the lower combo instead.
     const isSubsetCombo = target.comboKey.startsWith("brelan") || target.comboKey === "carre";
     const hasFreeDice = lockForTarget(state.dice.values, target.comboKey).some((locked) => !locked);
-    if (isSubsetCombo && hasFreeDice && state.dice.rollsLeft > 0) return false;
+    const upperCombos = target.comboKey.startsWith("brelan")
+      ? ["carre", "yam"]
+      : target.comboKey === "carre"
+      ? ["yam"]
+      : [];
+    const upperAvailable = upperCombos.some((comboKey) => comboHasAvailableCell(comboKey, state));
+    if (isSubsetCombo && hasFreeDice && upperAvailable && state.dice.rollsLeft > 0) return false;
     return true;
   }
 
@@ -687,12 +964,8 @@ export function shouldStopRolling(state, player, strategy) {
   // when the new opportunity is at least as good, use it instead of rerolling.
   const opponent = player === 1 ? 2 : 1;
   const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
-  const available = bestAvailableCandidate(state, player, opponent, piecesLeftAfter, strategy);
-  if (
-    available &&
-    !shouldSkipPlacement(state, available, player, opponent) &&
-    candidateWeight(available, strategy) >= target.attractiveness
-  ) {
+  const available = bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy);
+  if (available && candidateWeight(available, strategy) >= target.attractiveness) {
     return true;
   }
 
@@ -704,7 +977,7 @@ export function shouldStopRolling(state, player, strategy) {
   return target.need > state.dice.rollsLeft;
 }
 
-function bestAvailableCandidate(state, player, opponent, piecesLeftAfter, strategy) {
+function allCandidates(state, player, opponent, piecesLeftAfter) {
   const candidates = [];
   for (let r = 0; r < 5; r++) {
     for (let c = 0; c < 5; c++) {
@@ -713,6 +986,18 @@ function bestAvailableCandidate(state, player, opponent, piecesLeftAfter, strate
       }
     }
   }
+  return candidates;
+}
+
+// The best cell actually worth spending a piece on. Dead cells — ones that
+// can never be part of one of our own 3-in-a-rows and don't deny the
+// opponent anything either — are dropped from the running rather than
+// blocking the whole placement, so the piece goes to the next best real
+// option instead. Only when nothing at all is worth taking do we save it.
+function bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy) {
+  const candidates = allCandidates(state, player, opponent, piecesLeftAfter).filter(
+    (candidate) => !shouldSkipPlacement(state, candidate, player, opponent)
+  );
   if (candidates.length === 0) return null;
 
   candidates.sort(strategy === "speed" ? compareSpeed : comparePoints);
@@ -725,10 +1010,8 @@ function bestAvailableCandidate(state, player, opponent, piecesLeftAfter, strate
 export function chooseBestMove(state, player, strategy) {
   const opponent = player === 1 ? 2 : 1;
   const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
-  const best = bestAvailableCandidate(state, player, opponent, piecesLeftAfter, strategy);
+  const best = bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy);
   if (!best) return null;
-
-  if (shouldSkipPlacement(state, best, player, opponent)) return null;
 
   return `${best.r}${best.c}`;
 }
