@@ -114,11 +114,11 @@ window.addEventListener('orientationchange', setRealVh);
 
 
 //----------- GAME STATE ---------------
-import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "../shared/utils.js";
-import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces } from "../shared/assets.js";
-import { updateGame } from "../shared/gameEngine.js";
-import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake } from "../shared/botAI.js";
-import GameController from '../shared/gameController.js';
+import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
+import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces } from "./shared/assets.js";
+import { updateGame } from "./shared/gameEngine.js";
+import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake } from "./shared/botAI.js";
+import GameController from './shared/gameController.js';
 let gameState = createInitialGameState();
 
 

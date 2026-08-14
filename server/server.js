@@ -14,11 +14,10 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// cartella con html/css/js del client
+// cartella con html/css/js del client — include anche shared/, così le
+// stesse richieste (es. /shared/utils.js) funzionano anche nei deploy
+// statici (Vercel) dove solo "public" viene servito.
 app.use(express.static("public"));
-
-// cartella con codice condiviso client/server
-app.use("/shared", express.static("shared"));
 
 io.on("connection", (socket) => {
   console.log("player connected");
@@ -41,7 +40,7 @@ import {
   matrixFill,
   toBoolean,
   createInitialGameState
-} from "../shared/utils.js";
+} from "../public/shared/utils.js";
 
 import {
   dicePath,
@@ -52,9 +51,9 @@ import {
   backgrounds,
   piecesPath,
   pieces
-} from "../shared/assets.js";
+} from "../public/shared/assets.js";
 
-import { updateGame } from "../shared/gameEngine.js";
+import { updateGame } from "../public/shared/gameEngine.js";
 
 
 let gameState = createInitialGameState();
