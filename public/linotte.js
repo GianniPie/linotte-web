@@ -671,11 +671,27 @@ function showWinnerPopup(winner) {
 
 
 function fireWinnerConfetti(duration) {
-    // confetti.js (bundled) exposes startConfetti/stopConfetti, not a
-    // confetti({...}) burst function — this was calling one that doesn't
-    // exist anywhere in the project and crashing every time it ran.
-    startConfetti();
-    setTimeout(stopConfetti, duration);
+    const end = Date.now() + duration;
+
+    (function frame() {
+        confetti({
+            particleCount: 6,
+            angle: 85,
+            spread: 60,
+            origin: { x: 0 }
+        });
+
+        confetti({
+            particleCount: 6,
+            angle: 95,
+            spread: 60,
+            origin: { x: 1 }
+        });
+
+        if (Date.now() < end) {
+            requestAnimationFrame(frame);
+        }
+    })();
 }
 
 
