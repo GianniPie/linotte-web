@@ -640,6 +640,13 @@ function checkGameOver() {
     doneBtnEnabled = false;
     isGameOver = true;
 
+    // The game is over: dice and ROLL no longer do anything, so dim them.
+    // DONE stays fully visible/opaque and clickable — it still works,
+    // reopening the winner overlay if the player dismissed it to look at
+    // the board.
+    document.getElementById("div-dice").classList.add("game-over-dim");
+    rollBtn.classList.add("game-over-dim");
+
     showWinnerPopup(determineWinner());
     return true;
 }
@@ -1106,6 +1113,11 @@ function clearForNextTurn() {
     prewPiece = null;
     selectedTileId = null;
 
+    // Undo the game-over dimming (see checkGameOver) whenever a fresh turn
+    // or a brand new game starts.
+    document.getElementById("div-dice").classList.remove("game-over-dim");
+    rollBtn.classList.remove("game-over-dim");
+
     //dice reset
     wdElements.forEach(wd => wd.style.transform = 'rotate(0deg) translate(0px,0px)');
     ddElements.forEach(dd => dd.classList.remove("selected"));
@@ -1206,6 +1218,46 @@ document.querySelectorAll(".result").forEach(el => {
             gameState.called[targetId] = 1;
         }
     });
+});
+
+
+//----------- KEYBOARD SHORTCUTS ---------------
+// 1-5 lock/unlock the matching die, 6-0 select/deselect the matching call
+// (full, carre, petite, suite, yam in that order), space bar rolls, and D
+// presses DONE. Every shortcut just clicks the same element a mouse would,
+// so all the existing guards (isMyTurn, rollBtnEnabled, .selectable, the
+// first-throw gate, etc.) apply identically — nothing is duplicated here.
+const CALL_KEY_TO_RESULT_INDEX = { "6": 3, "7": 4, "8": 5, "9": 6, "0": 7 };
+
+document.addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    const targetTag = e.target && e.target.tagName;
+    if (targetTag === "INPUT" || targetTag === "TEXTAREA") return;
+    if (!optionsOverlay.classList.contains("hidden")) return; // options panel open
+
+    if (e.code === "Space") {
+        e.preventDefault();
+        rollBtn.click();
+        return;
+    }
+
+    if (e.key === "d" || e.key === "D") {
+        doneBtn.click();
+        return;
+    }
+
+    if (isGameOver) return; // dice/calls are dead once the game has ended
+
+    if (e.key >= "1" && e.key <= "5") {
+        ddElements[Number(e.key) - 1].click();
+        return;
+    }
+
+    if (e.key in CALL_KEY_TO_RESULT_INDEX) {
+        rrElements[CALL_KEY_TO_RESULT_INDEX[e.key]].click();
+    }
 });
 
 

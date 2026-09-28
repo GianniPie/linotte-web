@@ -692,6 +692,20 @@ body {
 
 }
 
+/* Game over: dice and ROLL are dead weight and get dimmed, while DONE
+   stays 100% visible and clickable — it still works, reopening the
+   winner overlay if the player dismissed it to look at the board.
+   !important because #div-dice/#div-buttons also carry a per-turn inline
+   opacity from divsOpacity() (dimming whichever side isn't the local
+   player's turn) — an inline style otherwise always outranks this class,
+   so without it a game that ends on "my turn" (opacity:1 inline) would
+   silently keep the dice fully visible instead of dimming them. */
+.game-over-dim {
+  opacity: 0.35 !important;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
 .die {
   border-radius: 0.75em;
   width: 100%;

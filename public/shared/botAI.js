@@ -193,36 +193,25 @@ function blocksOpponentFour(table, r, c, opponent) {
   );
 }
 
-// Does any 3-cell window through (r,c) already hold two opponent pieces,
-// with this still-empty cell as the third? Placing here denies them that
-// point outright — the reason a cell can be worth a piece even when it
-// can never be part of one of our own alignments.
-function blocksOpponentThree(table, r, c, opponent) {
-  const lines = [];
-  lines.push([0, 1, 2, 3, 4].map((cc) => [r, cc]));
-  lines.push([0, 1, 2, 3, 4].map((rr) => [rr, c]));
-  if (r === c) lines.push([0, 1, 2, 3, 4].map((i) => [i, i]));
-  if (r + c === 4) lines.push([0, 1, 2, 3, 4].map((i) => [i, 4 - i]));
 
-  for (const cells of lines) {
-    const idx = cells.findIndex(([rr, cc]) => rr === r && cc === c);
-    if (idx < 0) continue;
-    for (let start = Math.max(0, idx - 2); start <= Math.min(idx, cells.length - 3); start++) {
-      const others = cells
-        .slice(start, start + 3)
-        .filter(([rr, cc]) => !(rr === r && cc === c));
-      if (others.every(([rr, cc]) => table[rr][cc] === opponent)) return true;
-    }
-  }
-  return false;
+// An untouched yam tile only ever gets filled by a raw five-of-a-kind,
+// for either player — it's not a normally-reachable cell. Counting it as
+// a real, live path when judging some OTHER cell's line overstates that
+// line's genuine potential almost as much as if the opponent already sat
+// there. Only matters while it's still empty; once someone has actually
+// placed on it, it's a concrete fact like any other cell.
+function isEmptyYamTile(table, r, c) {
+  return r === Number(tile.yam[0]) && c === Number(tile.yam[1]) && table[r][c] === 0;
 }
 
 // Does placing at (r,c) pair up with an existing own piece on some line
 // where that specific pairing can never reach 3 — every window through it
-// already blocked by the opponent? A wasted piece even if this same cell
-// still has SOME potential via a totally unrelated direction with no
-// existing piece on it — hasFutureLinePotential alone wouldn't catch that,
-// since it only asks "is any window through this cell still open at all."
+// already blocked by the opponent, or only "open" because the one
+// remaining cell is an untouched yam tile that's never realistically
+// going to fill? A wasted piece even if this same cell still has SOME
+// potential via a totally unrelated direction with no existing piece on
+// it — hasFutureLinePotential alone wouldn't catch that, since it only
+// asks "is any window through this cell still open at all."
 function createsDeadPair(table, r, c, player, opponent) {
   const lines = [];
   lines.push([0, 1, 2, 3, 4].map((cc) => [r, cc])); // row
@@ -240,7 +229,9 @@ function createsDeadPair(table, r, c, player, opponent) {
     let anyWindowOpen = false;
     for (let start = Math.max(0, idx - 2); start <= Math.min(idx, cells.length - 3); start++) {
       const window = cells.slice(start, start + 3);
-      if (!window.some(([rr, cc]) => table[rr][cc] === opponent)) {
+      const blocked = window.some(([rr, cc]) => table[rr][cc] === opponent);
+      const onlyHopeIsYam = !blocked && window.some(([rr, cc]) => isEmptyYamTile(table, rr, cc));
+      if (!blocked && !onlyHopeIsYam) {
         anyWindowOpen = true;
         break;
       }
@@ -262,6 +253,21 @@ function countAdjacentOwn(table, r, c, player) {
     }
   }
   return count;
+}
+
+// How many of the (up to 4) row/col/diag lines through (r,c) already carry
+// at least one of the player's own pieces, anywhere on that line — a real
+// connection regardless of distance or gaps, unlike countAdjacentOwn's
+// immediate-neighbor-only view.
+function countLinesWithOwn(table, r, c, player) {
+  const lines = [];
+  lines.push([0, 1, 2, 3, 4].map((cc) => [r, cc]));
+  lines.push([0, 1, 2, 3, 4].map((rr) => [rr, c]));
+  if (r === c) lines.push([0, 1, 2, 3, 4].map((i) => [i, i]));
+  if (r + c === 4) lines.push([0, 1, 2, 3, 4].map((i) => [i, 4 - i]));
+  return lines.filter((cells) =>
+    cells.some(([rr, cc]) => (rr !== r || cc !== c) && table[rr][cc] === player)
+  ).length;
 }
 
 // Does any 3-length window through (r,c), in any direction, still have
@@ -315,33 +321,89 @@ function sharesLineWithOwn(table, r, c, player) {
   return false;
 }
 
-// Is this cell disconnected from every row/col/diag the player already
-// has a piece on? Only meaningful once the player has an actual cluster
-// going (fewer than 3 pieces placed = no real "assembly" to be far from).
-function isTooFarFromAssembly(table, r, c, player) {
-  const ownPieceCount = table.flat().filter((v) => v === player).length;
-  if (ownPieceCount < 3) return false; // too early to judge "far"
-  return !sharesLineWithOwn(table, r, c, player);
+// How many of the (up to 4) row/col/diag directions through (r,c) still
+// have a genuinely open window in them — no opponent piece, and not
+// propped up by an untouched yam tile alone. Counts a direction once even
+// if it has more than one open window in it.
+function countOpenDirections(table, r, c, opponent) {
+  const lines = [];
+  lines.push([0, 1, 2, 3, 4].map((cc) => [r, cc]));
+  lines.push([0, 1, 2, 3, 4].map((rr) => [rr, c]));
+  if (r === c) lines.push([0, 1, 2, 3, 4].map((i) => [i, i]));
+  if (r + c === 4) lines.push([0, 1, 2, 3, 4].map((i) => [i, 4 - i]));
+
+  let openDirections = 0;
+  for (const cells of lines) {
+    const idx = cells.findIndex(([rr, cc]) => rr === r && cc === c);
+    for (let start = Math.max(0, idx - 2); start <= Math.min(idx, cells.length - 3); start++) {
+      const window = cells.slice(start, start + 3);
+      const blocked = window.some(([rr, cc]) => table[rr][cc] === opponent);
+      const onlyHopeIsYam = !blocked && window.some(([rr, cc]) => isEmptyYamTile(table, rr, cc));
+      if (!blocked && !onlyHopeIsYam) {
+        openDirections++;
+        break;
+      }
+    }
+  }
+  return openDirections;
 }
 
-// Should the bot voluntarily decline an available, non-scoring placement?
-// Per the shared rules: skip if the tile has no future line potential,
-// if it's isolated from the bot's main cluster, or if pieces are scarce
-// and this tile isn't even worth much on its own.
-function shouldSkipPlacement(state, candidate, player, opponent) {
+// Is this cell disconnected from every row/col/diag the player already
+// has a piece on, AND too weak a prospect to justify starting a fresh
+// line there instead? Only meaningful once the player has an actual
+// cluster going (fewer than 3 pieces placed = no real "assembly" to be
+// far from). Being disconnected from the old cluster isn't automatically
+// bad — hasFutureLinePotential already guarantees at least one open
+// window here — but a single lone opening is a weak, one-off prospect;
+// genuinely being worth abandoning the existing cluster for takes real
+// room to grow, so this asks for at least two independently open
+// directions before calling it a real fresh start.
+function isTooFarFromAssembly(table, r, c, player, opponent) {
+  const ownPieceCount = table.flat().filter((v) => v === player).length;
+  if (ownPieceCount < 3) return false; // too early to judge "far"
+  if (sharesLineWithOwn(table, r, c, player)) return false;
+  return countOpenDirections(table, r, c, opponent) < 2;
+}
+
+// Hard veto: true only when a cell can never contribute anything at all —
+// no alignment potential of our own, and no blocking/denial/score value
+// either. The only reason chooseBestMove should ever place nothing when
+// a legal cell exists — everything else below is a preference, not a ban.
+function isDeadPlacement(state, candidate, player, opponent) {
+  if (candidate.wouldWinGame) return false; // an outright win is never dead weight
+  if (candidate.pointsGained > 0) return false;
+  if (candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
+  return !hasFutureLinePotential(state.table, candidate.r, candidate.c, player, opponent);
+}
+
+// Soft preference: a cell worth avoiding when a better-behaved option is
+// also on the table this same throw, but never worth passing the whole
+// turn over on its own — taking the least-bad option beats declining
+// entirely, since nothing guarantees a future throw offers anything
+// better. Per the shared rules: prefer to avoid a tile with no future
+// line potential (already vetoed above), one that's isolated from the
+// bot's main cluster with no real room to start fresh, one that pairs
+// into an already-dead row, or one that's common and scarcely worth it
+// while pieces are scarce.
+function isLowPriorityPlacement(state, candidate, player, opponent) {
+  if (candidate.wouldWinGame) return false; // an outright win is never low priority
   if (candidate.pointsGained > 0) return false; // always take a scoring placement
 
   // A cell we can never build our own alignment on is still worth a piece
   // when it takes a point (or the game) away from the opponent.
   if (candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
 
-  if (!hasFutureLinePotential(state.table, candidate.r, candidate.c, player, opponent)) return true;
+  // The flip side of wouldWinGame: completing our own five here would end
+  // the game with FEWER points than the opponent already has — a
+  // self-inflicted loss. Never a hard veto (it's still legal, and might be
+  // the only legal cell left), but always the last cell to reach for.
+  if (candidate.wouldLoseGame) return true;
 
-  // Yam is the rarest tile on the board — once it's realized and still
-  // has a future line to join, take it regardless of whether it happens
-  // to connect to the bot's existing pieces yet, or whether that specific
-  // connection is itself a dead end. "Too far from assembly" and the
-  // dead-pair check below exist to avoid wasting pieces on ordinary
+  // Yam is the rarest tile on the board — once it's realized and cleared
+  // the hard veto above (a real future line, not just a theoretical one),
+  // take it regardless of whether it happens to connect to the bot's
+  // existing pieces yet, or whether that specific connection is itself a
+  // dead end. The checks below exist to avoid wasting pieces on ordinary
   // tiles; they shouldn't cost the bot a combo this hard to see again.
   const isYamCell = candidate.r === Number(tile.yam[0]) && candidate.c === Number(tile.yam[1]);
   if (isYamCell) return false;
@@ -353,7 +415,7 @@ function shouldSkipPlacement(state, candidate, player, opponent) {
   // already handled by the criticalBlock/urgentBlock/deniesPoint check above.
   if (createsDeadPair(state.table, candidate.r, candidate.c, player, opponent)) return true;
 
-  if (isTooFarFromAssembly(state.table, candidate.r, candidate.c, player)) return true;
+  if (isTooFarFromAssembly(state.table, candidate.r, candidate.c, player, opponent)) return true;
 
   const piecesLeft = state.players[player].remainingPieces;
   // clusterScore only sees immediate 8-neighbor adjacency, so on its own
@@ -396,6 +458,14 @@ function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
   const pointsGained = after - before;
 
   const wouldBeFive = hasFiveInARow(trial, player);
+  // Any five-in-a-row ends the game immediately (see gameEngine.js), so it's
+  // never a "maybe" — it either locks in a win/tie right now (opponent's
+  // points, which this placement can't touch, stay exactly what they are)
+  // or it locks in a loss right now. There's no in-between "safe to rush or
+  // not" case once wouldBeFive is true.
+  const opponentPoints = totalPoints(state.table, opponent);
+  const wouldWinGame = wouldBeFive && after >= opponentPoints;
+  const wouldLoseGame = wouldBeFive && after < opponentPoints;
   const longestLineAfter = longestLineThrough(cloneTable(state.table), r, c, player);
   const rarity = 100 - probabilityAt(r, c);
   const blockScore =
@@ -404,55 +474,99 @@ function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
     countInLine(state.table, r, c, opponent, "diag");
   const urgentBlock = blocksOpponentFour(state.table, r, c, opponent);
   const criticalBlock = wouldGiveOpponentTheWin(state, r, c, opponent, before);
-  const deniesPoint = blocksOpponentThree(state.table, r, c, opponent);
+  // How many points the opponent would actually score by taking this exact
+  // cell next turn — not just "would it deny them something," but how much.
+  // Denying a point is worth exactly as much as scoring one (both move the
+  // final score difference the same amount), so this is measured on the
+  // same scale as pointsGained rather than as a separate always-wins flag:
+  // a 1-point block from an isolated pair or a "1_1" gap shouldn't outrank
+  // the bot's own bigger scoring move, only an equal-or-bigger denial should.
+  const opponentTrial = cloneTable(state.table);
+  opponentTrial[r][c] = opponent;
+  const deniedPoints = totalPoints(opponentTrial, opponent) - opponentPoints;
+  const deniesPoint = deniedPoints > 0;
   const clusterScore = countAdjacentOwn(state.table, r, c, player);
+  // clusterScore only sees immediate 8-neighbor adjacency, so it's blind to
+  // a real, live connection to an own piece several tiles away on the same
+  // row/col/diagonal (e.g. the other end of a shared column) — exactly the
+  // kind of placement worth preferring over a merely-adjacent-but-otherwise
+  // unrelated cell. lineConnection counts how many of this cell's (up to 4)
+  // lines actually carry one of the bot's own pieces, gap or no gap.
+  const lineConnection = countLinesWithOwn(state.table, r, c, player);
 
   return {
     r,
     c,
     pointsGained,
     wouldBeFive,
+    wouldWinGame,
+    wouldLoseGame,
     longestLineAfter,
     rarity,
     blockScore,
     urgentBlock,
     criticalBlock,
     deniesPoint,
+    deniedPoints,
     clusterScore,
+    lineConnection,
     piecesLeftAfter,
   };
 }
 
-// Comparator implementing the shared priority ladder: points > rarity >
-// blocking > clustering. "avoidEarlyFive" softly discourages POINTS from
-// ending the game via 5-in-a-row while there's still plenty of game left.
-// criticalBlock overrides all of that: letting the opponent win outright
-// is worse than any amount of points optimization, in either strategy.
+// Comparator implementing the shared priority ladder: game outcome >
+// blocking severity > net points > rarity > generic block pressure > real
+// line connection > raw clustering.
+// wouldWinGame/wouldLoseGame come first, above even criticalBlock: any
+// five-in-a-row ends the game right then (see gameEngine.js), so a cell
+// that locks in a win this instant is strictly better than blocking a
+// threat that will never get the chance to materialize, and a cell that
+// locks in a loss this instant is strictly worse than leaving any threat
+// unblocked. criticalBlock/urgentBlock stay separate hard overrides above
+// everything else — both are about an actual win or near-win, which no
+// amount of scoring offsets. A mere "denies a point" is a different kind
+// of thing: denying the opponent a point moves the final score difference
+// by exactly as much as scoring one yourself, so it's added directly into
+// the same points tier (pointsGained + deniedPoints) instead of being its
+// own unconditional override — a 1-point block from an isolated pair or a
+// gapped "1_1" no longer automatically outranks the bot's own bigger
+// scoring move; whichever nets more wins.
 function comparePoints(a, b) {
+  if (a.wouldWinGame !== b.wouldWinGame) return a.wouldWinGame ? -1 : 1;
+  if (a.wouldLoseGame !== b.wouldLoseGame) return a.wouldLoseGame ? 1 : -1;
   if (a.criticalBlock !== b.criticalBlock) return a.criticalBlock ? -1 : 1;
+  if (a.urgentBlock !== b.urgentBlock) return a.urgentBlock ? -1 : 1;
 
-  const PIECES_LEFT_THRESHOLD = 2;
-  const aPenalty = a.wouldBeFive && a.piecesLeftAfter > PIECES_LEFT_THRESHOLD ? 1 : 0;
-  const bPenalty = b.wouldBeFive && b.piecesLeftAfter > PIECES_LEFT_THRESHOLD ? 1 : 0;
-  const aScore = a.pointsGained - aPenalty;
-  const bScore = b.pointsGained - bPenalty;
-
+  const aScore = a.pointsGained + a.deniedPoints;
+  const bScore = b.pointsGained + b.deniedPoints;
   if (bScore !== aScore) return bScore - aScore;
   if (b.rarity !== a.rarity) return b.rarity - a.rarity;
   if (b.blockScore !== a.blockScore) return b.blockScore - a.blockScore;
+  if (b.lineConnection !== a.lineConnection) return b.lineConnection - a.lineConnection;
   return b.clusterScore - a.clusterScore;
 }
 
 // Comparator for "speed": progress toward 5-in-a-row dominates, then
-// falls back to the same shared ladder.
+// falls back to the same shared ladder (see comparePoints for why
+// wouldWinGame/wouldLoseGame lead, criticalBlock/urgentBlock stay separate
+// hard overrides, and a plain "denies a point" is folded into the points
+// tier instead of being its own tier). A plain wouldBeFive is deliberately
+// NOT a tier of its own here anymore — rushing into a five that would
+// actually lose (opponent already has more points) is never "speed"
+// toward anything worth reaching.
 function compareSpeed(a, b) {
-  if (a.wouldBeFive !== b.wouldBeFive) return a.wouldBeFive ? -1 : 1; // own win first — the opponent never gets another turn
+  if (a.wouldWinGame !== b.wouldWinGame) return a.wouldWinGame ? -1 : 1; // own win first — the opponent never gets another turn
+  if (a.wouldLoseGame !== b.wouldLoseGame) return a.wouldLoseGame ? 1 : -1;
   if (a.criticalBlock !== b.criticalBlock) return a.criticalBlock ? -1 : 1;
   if (a.urgentBlock !== b.urgentBlock) return a.urgentBlock ? -1 : 1;
   if (b.longestLineAfter !== a.longestLineAfter) return b.longestLineAfter - a.longestLineAfter;
-  if (b.pointsGained !== a.pointsGained) return b.pointsGained - a.pointsGained;
+
+  const aScore = a.pointsGained + a.deniedPoints;
+  const bScore = b.pointsGained + b.deniedPoints;
+  if (bScore !== aScore) return bScore - aScore;
   if (b.rarity !== a.rarity) return b.rarity - a.rarity;
   if (b.blockScore !== a.blockScore) return b.blockScore - a.blockScore;
+  if (b.lineConnection !== a.lineConnection) return b.lineConnection - a.lineConnection;
   return b.clusterScore - a.clusterScore;
 }
 
@@ -460,25 +574,40 @@ function compareSpeed(a, b) {
 // which dice to chase (see chooseTarget below) — same priorities, just
 // collapsed into weighted terms with big gaps so higher tiers dominate.
 function candidateWeight(cand, strategy) {
+  // A cell that locks in a win outranks literally everything else — the
+  // game is over the instant it lands. One that locks in a loss outranks
+  // nothing; it's pushed below every other term instead, including a bare
+  // 0. Both dominate every other weight below by a full order of magnitude.
+  const winBonus = cand.wouldWinGame ? 10_000_000 : 0;
+  const losePenalty = cand.wouldLoseGame ? 10_000_000 : 0;
+  // Denying the opponent a point is worth exactly what scoring one is —
+  // both shift the final score difference by the same amount — so it's
+  // added directly to pointsGained on the same per-point weight, not given
+  // its own flat bonus that would outrank a bigger scoring move regardless
+  // of size.
   if (strategy === "speed") {
     return (
-      (cand.wouldBeFive ? 1_000_000 : 0) +
+      winBonus -
+      losePenalty +
       (cand.criticalBlock ? 900_000 : 0) +
       (cand.urgentBlock ? 400_000 : 0) +
       cand.longestLineAfter * 10_000 +
-      cand.pointsGained * 1_000 +
+      (cand.pointsGained + cand.deniedPoints) * 1_000 +
       cand.rarity * 10 +
       cand.blockScore * 3 +
+      cand.lineConnection * 2 +
       cand.clusterScore
     );
   }
-  const earlyFivePenalty = cand.wouldBeFive && cand.piecesLeftAfter > 2 ? 5_000 : 0;
   return (
+    winBonus -
+    losePenalty +
     (cand.criticalBlock ? 900_000 : 0) +
-    cand.pointsGained * 100_000 -
-    earlyFivePenalty +
+    (cand.urgentBlock ? 400_000 : 0) +
+    (cand.pointsGained + cand.deniedPoints) * 100_000 +
     cand.rarity * 100 +
     cand.blockScore * 10 +
+    cand.lineConnection * 4 +
     cand.clusterScore
   );
 }
@@ -576,10 +705,22 @@ export function chooseCallToMake(state, player, strategy) {
     // Not possible to call carre if a carre is already realized this throw.
     if (comboKey === "carre" && state.combinationsRealized[4] === 1) continue;
 
-    // A called combo only pays off if it actually lands this turn, and a
-    // high-total hand practically never drops under 9 in the rolls left —
-    // so only call petit when the dice are already close to it.
-    if (comboKey === "petit" && (needed.petit ?? 3) > 1) continue;
+    // Live chance of this combo actually landing, given the dice truly
+    // still free to reroll toward it and the rolls truly left — not the
+    // static first-throw table, and not a flat need-vs-rollsLeft cutoff.
+    // Computed early so petit — whose mechanic is a total, not a die
+    // count — can be judged by this same accurate, lock-aware number
+    // instead of a separate, cruder estimate.
+    const probability = liveProbability(comboKey, state, needed, actualLock);
+    if (probability <= 0) continue; // no realistic chance from here
+
+    // A called combo only pays off if it actually lands this turn. Petit
+    // doesn't have a clean "N dice away" bar the way the others below do
+    // (it's a constraint on the total, not on a die count), so it gets an
+    // equivalent probability floor instead — matching the roughly 30%
+    // chance a "1 die away" carre/yam/suite call has in its least
+    // favorable case (see the binomial floor noted below).
+    if (comboKey === "petit" && appelPointsGained === 0 && probability < 0.3) continue;
 
     // A call is a hedge, not a hope — it only makes sense when what's
     // actually being kept already leaves it close, e.g. carre only makes
@@ -590,29 +731,28 @@ export function chooseCallToMake(state, player, strategy) {
     //
     // The bar differs by combo because neededUnderLock's units aren't all
     // the same size: for carre/yam/suite each one is a single specific
-    // face, a clean 1-in-6 shot, so "1 away" is the natural cutoff. For
-    // full, neededUnderLock's own tiers are 0 (already there), 1 (two
-    // pairs, one just needs to match the other), 2 (a triple, needs any
-    // pair among the rest), 3 (a bare pair), 5 (no pair at all) — so "2"
-    // is full's equivalent close cutoff, not "1".
-    // A scoring appel tile changes the math: even a longer shot is worth
-    // gambling on when the reward is real points, not just a rare tile —
-    // the proximity bar exists to stop calling something implausible for
-    // a bare rarity grab, and doesn't apply once points are on the line.
+    // face, a clean 1-in-6 shot, so "1 away" is the natural cutoff (its
+    // worst case — 1 free die, 1 roll left — is a plain 1-in-6 ≈ 17%; with
+    // more free dice or rolls left it climbs well past 30%). For full,
+    // neededUnderLock's own tiers are 0 (already there), 1 (two pairs,
+    // one just needs to match the other), 2 (a triple, needs any pair
+    // among the rest), 3 (a bare pair), 5 (no pair at all) — so "2" is
+    // full's equivalent close cutoff, not "1".
+    // A scoring appel tile, or one urgently needed to block, changes the
+    // math: even a longer shot is worth gambling on when the reward is
+    // real points or preventing the opponent's near-win, not just a rare
+    // tile — the proximity bar exists to stop calling something
+    // implausible for a bare rarity grab, and doesn't apply once either
+    // of those is on the line.
     const proximityLimit = { carre: 1, yam: 1, suite: 1, full: 2 }[comboKey];
     if (
       appelPointsGained === 0 &&
+      !appelIsUrgentBlock &&
       proximityLimit !== undefined &&
       neededUnderLock(comboKey, keptValues) > proximityLimit
     ) {
       continue;
     }
-
-    // Live chance of this combo actually landing, given the dice truly
-    // still free to reroll toward it and the rolls truly left — not the
-    // static first-throw table, and not a flat need-vs-rollsLeft cutoff.
-    const probability = liveProbability(comboKey, state, needed, actualLock);
-    if (probability <= 0) continue; // no realistic chance from here
 
     const freeOwnCells = COMBO_CELLS[comboKey].filter(
       (rc) => rc && state.table[Number(rc[0])][Number(rc[1])] === 0
@@ -931,12 +1071,60 @@ function lockForTarget(diceValues, comboKey) {
 }
 
 // ---------- Whether to stop rolling early ----------
+// Would the dice lock chosen for `target`'s own realization pin down at
+// least one die? Every comboKey except "sec" (and, rarely, a full/petit/
+// suite chase with nothing worth keeping yet) locks something — so this is
+// the general test for "does continuing toward `target` cost us the
+// freedom to reroll everything again."
+function nextLockWouldTouchDice(state, target) {
+  if (!target) return false;
+  return lockForTarget(state.dice.values, target.comboKey).some(Boolean);
+}
+
 export function shouldStopRolling(state, player, strategy) {
   const hasAnyLegalMove = state.possibleMoves.some((row) => row.some((v) => v === 1));
   if (!hasAnyLegalMove) return false; // keep rolling, nothing to place yet
 
   const target = chooseTarget(state, player, strategy);
   if (!target) return true; // nothing left worth chasing, take what we have
+
+  // Sec only counts landing raw with zero dice ever locked this turn.
+  // If it's true on this exact throw but the next roll is going to chase
+  // something else, that next roll necessarily locks at least one die
+  // (lockForTarget's whole point) — which forfeits sec for the rest of the
+  // turn, permanently, win or lose on the gamble. A guaranteed loss for a
+  // merely probabilistic gain is never worth it, no matter how that gain
+  // is weighed, so this is checked before any weight comparison at all.
+  const secRealizedNow = state.combinationsRealized[1] === 1;
+  if (
+    state.dice.rollsLeft > 0 &&
+    secRealizedNow &&
+    comboHasAvailableCell("sec", state) &&
+    target.comboKey !== "sec" &&
+    nextLockWouldTouchDice(state, target)
+  ) {
+    return true;
+  }
+
+  // Same idea for an active call: state.combinationsRealized[2] is only
+  // ever set (see gameEngine.js) when SOME called combo is realized on
+  // THIS exact throw, making the appel tiles legally placeable right now.
+  // The dice lock only protects it when the chosen target IS that same
+  // called combo (chooseDiceToLock then keeps exactly its dice) — any
+  // other target's lock can scatter it on the next roll, and the call
+  // itself doesn't come with a second guaranteed shot this turn.
+  const appelRealizedNow = state.combinationsRealized[2] === 1;
+  if (
+    state.dice.rollsLeft > 0 &&
+    appelRealizedNow &&
+    anyCellFree(state.table, COMBO_CELLS.appel) &&
+    nextLockWouldTouchDice(state, target)
+  ) {
+    const calledComboKey = Object.keys(CALL_INDEX).find(
+      (key) => state.called[CALL_INDEX[key]] && state.combinationsRealized[CALL_INDEX[key]] === 1
+    );
+    if (target.comboKey !== calledComboKey) return true;
+  }
 
   if (target.need === 0) {
     // The target is already realized, but brelan/carre only constrain a
@@ -955,7 +1143,23 @@ export function shouldStopRolling(state, player, strategy) {
       ? ["yam"]
       : [];
     const upperAvailable = upperCombos.some((comboKey) => comboHasAvailableCell(comboKey, state));
-    if (isSubsetCombo && hasFreeDice && upperAvailable && state.dice.rollsLeft > 0) return false;
+    if (isSubsetCombo && hasFreeDice && upperAvailable && state.dice.rollsLeft > 0) {
+      // The target combo's own realization is guaranteed safe — but this
+      // throw's dice can raw-realize OTHER combos too (petit, full, a
+      // different brelan face…), each with their own cell in
+      // possibleMoves right now. Rerolling the "free" dice only leaves
+      // the target's own matching dice fixed, so any of those other,
+      // currently-realized combos can be changed or lost outright.
+      // Don't gamble that away if it's already a critical/urgent block
+      // or a real score — those don't come back just because the reroll
+      // didn't pan out.
+      const opponent = player === 1 ? 2 : 1;
+      const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+      const current = bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy);
+      const tooGoodToRisk =
+        current && (current.criticalBlock || current.urgentBlock || current.pointsGained > 0);
+      if (!tooGoodToRisk) return false;
+    }
     return true;
   }
 
@@ -991,17 +1195,25 @@ function allCandidates(state, player, opponent, piecesLeftAfter) {
 
 // The best cell actually worth spending a piece on. Dead cells — ones that
 // can never be part of one of our own 3-in-a-rows and don't deny the
-// opponent anything either — are dropped from the running rather than
-// blocking the whole placement, so the piece goes to the next best real
-// option instead. Only when nothing at all is worth taking do we save it.
+// opponent anything either — are dropped from the running entirely (the
+// only case where nothing at all is worth taking). Among what's left,
+// low-priority cells (isolated, a dead pair, a scarce low-value tile
+// late-game) are avoided only when a better-behaved cell is also on
+// offer — if every survivor is low-priority, the least-bad one still
+// beats passing the whole turn, since nothing guarantees a better throw
+// next time.
 function bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy) {
-  const candidates = allCandidates(state, player, opponent, piecesLeftAfter).filter(
-    (candidate) => !shouldSkipPlacement(state, candidate, player, opponent)
-  );
-  if (candidates.length === 0) return null;
+  const all = allCandidates(state, player, opponent, piecesLeftAfter);
+  const usable = all.filter((candidate) => !isDeadPlacement(state, candidate, player, opponent));
+  if (usable.length === 0) return null;
 
-  candidates.sort(strategy === "speed" ? compareSpeed : comparePoints);
-  return candidates[0];
+  const preferred = usable.filter(
+    (candidate) => !isLowPriorityPlacement(state, candidate, player, opponent)
+  );
+  const pool = preferred.length > 0 ? preferred : usable;
+
+  pool.sort(strategy === "speed" ? compareSpeed : comparePoints);
+  return pool[0];
 }
 
 // ---------- Which tile to place a piece on ----------
