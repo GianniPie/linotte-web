@@ -102,6 +102,10 @@ let rollBtnEnabled = true;
 let doneBtnEnabled = true;
 let pieceEnabled = true;
 let isGameOver = false;
+// Guards playEndGameSequence against running twice for the same game --
+// see its own comment for why that could otherwise happen and cut the
+// celebration short.
+let endGameSequenceStarted = false;
 
 function setRealVh() {
     const vh = window.innerHeight * 0.01;
@@ -118,8 +122,9 @@ window.addEventListener('orientationchange', setRealVh);
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
 import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces } from "./shared/assets.js";
 import { updateGame } from "./shared/gameEngine.js";
-import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake } from "./shared/botAI.js";
+import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget } from "./shared/botAI.js";
 import GameController from './shared/gameController.js';
+import { playFairyTrail } from "./shared/fairyTrail.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = "YOU";
 gameState.players[2].name = "BOT";
@@ -153,22 +158,65 @@ function startBot(strategy = "points") {
 
 
 //------ PLAYERS ---------------
+
+// Minimum colorDistance (see below) the two random player colors must
+// clear. Picked by checking every pair in the palette: 120 cleanly
+// separates near-duplicate pairs (two identical greens, two near-identical
+// dark browns, ~0-50) from genuinely distinct shades of the same family
+// (e.g. a mid green vs an olive green, ~150+) -- exactly "two greens are
+// fine if they're far enough apart" -- while still leaving every color at
+// least ~27 of the other 36 as valid partners, so the fallback in
+// assignRandomPieces is essentially never needed in practice. Declared as
+// a const, so it has to come before assignRandomPieces(gameState) is
+// actually called below (a const isn't hoisted the way a function
+// declaration is).
+const MIN_PLAYER_COLOR_DISTANCE = 120;
+
 assignRandomPieces(gameState);
 
 const selectedColor = [null, gameState.players[1].color, gameState.players[2].color];
 applyPlayerVisuals();
 renderPlayerBox(gameState.currentPlayer);
+renderPieceCounts();
+renderPointCounts();
+
+// "redmean" approximate perceptual distance between two RRGGBB colors
+// (no leading '#') -- a well-known, cheap way to weigh a plain RGB
+// difference closer to how the eye actually perceives it, without pulling
+// in a full color-space conversion.
+function colorDistance(hexA, hexB) {
+    const r1 = parseInt(hexA.slice(0, 2), 16);
+    const g1 = parseInt(hexA.slice(2, 4), 16);
+    const b1 = parseInt(hexA.slice(4, 6), 16);
+    const r2 = parseInt(hexB.slice(0, 2), 16);
+    const g2 = parseInt(hexB.slice(2, 4), 16);
+    const b2 = parseInt(hexB.slice(4, 6), 16);
+    const rmean = (r1 + r2) / 2;
+    const dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
+    return Math.sqrt((2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db);
+}
 
 function assignRandomPieces(state) {
     const p1p = rndNum(8, pieces.length - 1);
     state.players[1].pieceImage = piecesPath + pieces[p1p];
-    let p2p = p1p;
-    while (p2p === p1p) {
-        p2p = rndNum(8, pieces.length - 1);
-    }
-    state.players[2].pieceImage = piecesPath + pieces[p2p];
-
     state.players[1].color = "#" + state.players[1].pieceImage.split("_")[1].slice(0, 6);
+
+    const p1Hex = state.players[1].color.slice(1);
+    const otherIndices = [];
+    for (let i = 8; i < pieces.length; i++) {
+        if (i !== p1p) otherIndices.push(i);
+    }
+    const distinctEnough = otherIndices.filter(
+        (i) => colorDistance(p1Hex, pieces[i].split("_")[1].slice(0, 6)) >= MIN_PLAYER_COLOR_DISTANCE
+    );
+    // Fall back to "just a different piece" only if literally nothing in
+    // the palette clears the bar for this particular color -- shouldn't
+    // happen with the current palette, but never leaves player 2 without
+    // a pick.
+    const pool = distinctEnough.length > 0 ? distinctEnough : otherIndices;
+    const p2p = pool[rndNum(0, pool.length - 1)];
+
+    state.players[2].pieceImage = piecesPath + pieces[p2p];
     state.players[2].color = "#" + state.players[2].pieceImage.split("_")[1].slice(0, 6);
 }
 
@@ -207,10 +255,105 @@ function renderPlayerBox(player) {
 
     textPlayerP1.textContent = gameState.players[1].name;
     textPlayerP2.textContent = gameState.players[2].name;
+}
+
+// Restarts a CSS animation on `el` even if it's already mid-play (e.g. two
+// points scored in quick succession) by forcing a reflow between removing
+// and re-adding the class -- same trick as jumpPiece().
+function popStat(el) {
+    el.classList.remove("stat-pop");
+    void el.offsetWidth;
+    el.classList.add("stat-pop");
+    el.addEventListener("animationend", () => el.classList.remove("stat-pop"), { once: true });
+}
+
+// Updates the remaining-pieces numbers. Called right after END_TURN
+// commits the placement -- before any fairy trail line plays, so the
+// piece count pops immediately, matching when the piece itself actually
+// landed on the board. `before` (this player's counts right before
+// END_TURN) is omitted for the initial render, where there's nothing to
+// compare against and no pop should play.
+function renderPieceCounts(before) {
     pawnP1Text.textContent = gameState.players[1].remainingPieces;
     pawnP2Text.textContent = gameState.players[2].remainingPieces;
+    if (!before) return;
+    if (gameState.players[1].remainingPieces !== before.pieces[1]) popStat(pawnP1Text);
+    if (gameState.players[2].remainingPieces !== before.pieces[2]) popStat(pawnP2Text);
+}
+
+// Plain, unanimated points render -- only for the initial page load and a
+// fresh game, where there's no prior value to animate from and nothing to
+// celebrate yet. Once a game is underway, celebratePoints() (below) is
+// what actually moves the number.
+function renderPointCounts() {
     coinP1Text.textContent = gameState.players[1].points;
     coinP2Text.textContent = gameState.players[2].points;
+}
+
+// Where a scored point "departs" from: the last cell of the last fairy
+// trail line that just played, since that's where the player's eye
+// already is when the celebration ends. Falls back to the board's own
+// center on the (currently impossible, but cheap to guard) chance there
+// was no line to read a cell from.
+function lastPlayedCellCenter(lines) {
+    if (lines.length > 0) {
+        const lastLine = lines[lines.length - 1];
+        const [r, c] = lastLine[lastLine.length - 1];
+        const tile = document.getElementById(`t${r}${c}`);
+        if (tile) {
+            const rect = tile.getBoundingClientRect();
+            return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        }
+    }
+    const rect = document.querySelector(".div-table").getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+// Called once every fairy trail line for this turn has actually finished
+// playing (see performEndTurn/playEndGameSequence) -- `lines` is exactly
+// what was just played, so its last cell is where the celebration ends.
+// For each player whose points increased, a "+N" badge flies from there
+// to that player's points counter along a curved path (see
+// flyPointsBadge); the counter itself only updates -- number change + pop
+// -- once the badge actually arrives, not the instant the trail stops.
+function celebratePoints(lines, before, onAllArrived) {
+    const scorers = [1, 2].filter((p) => gameState.players[p].points > before.points[p]);
+    if (scorers.length === 0) {
+        if (onAllArrived) onAllArrived(); // nothing changed; the number is already showing the right value
+        return;
+    }
+    const start = lastPlayedCellCenter(lines);
+    let stillFlying = scorers.length;
+    scorers.forEach((p) => {
+        const el = p === 1 ? coinP1Text : coinP2Text;
+        const delta = gameState.players[p].points - before.points[p];
+        const rect = el.getBoundingClientRect();
+        const end = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        flyPointsBadge(start, end, delta, () => {
+            el.textContent = gameState.players[p].points;
+            popStat(el);
+            if (--stillFlying === 0 && onAllArrived) onAllArrived();
+        });
+    });
+}
+
+// A "+N" that travels from `start` to `end` along a quadratic curve (CSS
+// motion path), arcing up and over rather than sliding in a straight
+// line, so it reads as a natural toss instead of a mechanical slide.
+// `onArrive` fires once the badge reaches `end`, which is also the moment
+// its caller should actually update whatever the badge was flying towards.
+function flyPointsBadge(start, end, amount, onArrive) {
+    const midX = (start.x + end.x) / 2;
+    const midY = Math.min(start.y, end.y) - 90; // the arc's peak, above both ends
+    const badge = document.createElement("div");
+    badge.className = "stat-fly-badge";
+    badge.textContent = "+" + amount;
+    badge.style.offsetPath = `path("M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}")`;
+    document.body.appendChild(badge);
+    badge.addEventListener("animationend", () => {
+        badge.remove();
+        onArrive();
+    }, { once: true });
 }
 
 
@@ -489,12 +632,15 @@ function newGameVsBot(strategy) {
     rollBtnEnabled = true;
     doneBtnEnabled = true;
     isGameOver = false;
+    endGameSequenceStarted = false;
     document.getElementById("winner-overlay").style.display = "none";
 
     clearBoardVisuals();
     clearForNextTurn();
     applyPlayerVisuals();
     renderPlayerBox(gameState.currentPlayer);
+    renderPieceCounts();
+    renderPointCounts();
     divsOpacity(gameState.currentPlayer);
     startTurnTimer();
 }
@@ -640,14 +786,19 @@ function checkGameOver() {
     doneBtnEnabled = false;
     isGameOver = true;
 
-    // The game is over: dice and ROLL no longer do anything, so dim them.
-    // DONE stays fully visible/opaque and clickable — it still works,
-    // reopening the winner overlay if the player dismissed it to look at
-    // the board.
+    // The game is over: dice, results/calls and ROLL no longer do
+    // anything, so all three dim to the exact same level the bot's-turn
+    // dimming uses. DONE stays fully visible/opaque and clickable — it
+    // still works, reopening the winner overlay if the player dismissed
+    // it to look at the board.
     document.getElementById("div-dice").classList.add("game-over-dim");
+    document.getElementById("div-resultsAndCalls").classList.add("game-over-dim");
     rollBtn.classList.add("game-over-dim");
 
-    showWinnerPopup(determineWinner());
+    // The popup itself is shown by the caller (see playEndGameSequence in
+    // performEndTurn), once the end-of-game fairy trail celebration has
+    // played -- showing it immediately here would cover the board with the
+    // overlay before there's anything left to see.
     return true;
 }
 
@@ -860,6 +1011,16 @@ function removePiece(pieceId) {
 
     wrapper.addEventListener("animationend", (e) => {
         wrapper.classList.remove("img-disappear");
+        // placePiece()'s own animationend bakes opacity:1 into an inline
+        // style (see its comment) so a later .piece-jump isn't permanently
+        // shadowed by .img-bounce. That inline style outlives .img-bounce
+        // itself, so it has to be cleared here too -- otherwise, the
+        // instant .img-disappear's forwards-filled opacity:0 is removed
+        // above, the leftover inline opacity:1 wins the cascade again and
+        // snaps the wrapper back to visible. handleTile() then reads that
+        // as "still occupied" forever after, so every future tap on this
+        // tile is misread as remove instead of place.
+        wrapper.style.opacity = "";
         piece.style.backgroundImage = "";
         pieceEnabled = true;
         selectedTileId = null;
@@ -870,6 +1031,123 @@ function removePiece(pieceId) {
     console.log(`Coordinates ${coor}`);
 }
 
+
+// The 4 line directions a run can follow: row, column, down-right
+// diagonal, down-left diagonal. Shared by findNewTripleLines (through one
+// cell) and findAllPlayerLines (the whole board).
+const LINE_DIRECTIONS = [[0, 1], [1, 0], [1, 1], [1, -1]];
+
+function inBounds(r, c) {
+    return r >= 0 && r < 5 && c >= 0 && c < 5;
+}
+
+// The full contiguous same-`player` run through (r,c) in each of the 4
+// directions, checked against `table` WITH (r,c) already placed as
+// `player` — one line per direction that has a run of 3 or more, however
+// long that run actually turns out to be (3, 4 or 5 cells). Returning the
+// WHOLE run rather than breaking it into overlapping 3-cell windows is
+// what makes a freshly-completed 4- or 5-in-a-row animate across all of
+// its pieces in one trail instead of two or three overlapping ones.
+// Checked against gameState.table BEFORE this placement's own
+// PLACE_PIECE/END_TURN commits it, so any line found here is guaranteed to
+// need (r,c) to exist at all (the cell was empty until this placement).
+function findNewTripleLines(table, r, c, player) {
+    const trial = table.map((row) => row.slice());
+    trial[r][c] = player;
+
+    const lines = [];
+    for (const [dr, dc] of LINE_DIRECTIONS) {
+        const before = [];
+        let rr = r - dr, cc = c - dc;
+        while (inBounds(rr, cc) && trial[rr][cc] === player) {
+            before.unshift([rr, cc]);
+            rr -= dr; cc -= dc;
+        }
+        const after = [];
+        rr = r + dr; cc = c + dc;
+        while (inBounds(rr, cc) && trial[rr][cc] === player) {
+            after.push([rr, cc]);
+            rr += dr; cc += dc;
+        }
+        const run = [...before, [r, c], ...after];
+        if (run.length >= 3) lines.push(run);
+    }
+    return lines;
+}
+
+// Every maximal same-`player` run of 3+ cells currently on the board, one
+// entry per run (a 5-in-a-row is one line, not three overlapping ones) --
+// used for the end-of-game celebration sweep over all of the winner's
+// lines, see playEndGameSequence().
+function findAllPlayerLines(table, player) {
+    const lines = [];
+    for (const [dr, dc] of LINE_DIRECTIONS) {
+        for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 5; c++) {
+                if (table[r][c] !== player) continue;
+                const pr = r - dr, pc = c - dc;
+                if (inBounds(pr, pc) && table[pr][pc] === player) continue; // not a run's start
+                const run = [];
+                let rr = r, cc = c;
+                while (inBounds(rr, cc) && table[rr][cc] === player) {
+                    run.push([rr, cc]);
+                    rr += dr; cc += dc;
+                }
+                if (run.length >= 3) lines.push(run);
+            }
+        }
+    }
+    return lines;
+}
+
+// Plays each line's fairy trail one at a time (never overlapping), then
+// calls onAllDone once the last one's head has finished traveling.
+// A short gap between one line's trail finishing and the next one's
+// starting, so back-to-back lines still read as distinct beats instead of
+// one blending straight into the next.
+const LINE_SEQUENCE_GAP_MS = 200;
+
+function playLinesSequentially(lines, onAllDone) {
+    let i = 0;
+    (function next() {
+        if (i >= lines.length) {
+            if (onAllDone) onAllDone();
+            return;
+        }
+        const cells = lines[i++];
+        playFairyTrail(cells, {
+            onWaypoint: ([wr, wc]) => jumpPiece(wr, wc),
+            onDone: () => setTimeout(next, LINE_SEQUENCE_GAP_MS),
+        });
+    })();
+}
+
+// Makes the piece sitting on (r,c) hop, timed to the fairy trail's spark
+// reaching that exact tile (see the onWaypoint callback passed to
+// playFairyTrail). Re-triggerable even if it's still mid-jump from a
+// moment ago (e.g. two lines sharing a corner cell), by forcing a reflow
+// between removing and re-adding the class.
+function jumpPiece(r, c) {
+    const piece = document.getElementById(`p${r}${c}`);
+    if (!piece) return;
+    // Animate the WRAPPER (.wrapPiece), never .piece itself: applyTidyness
+    // sets a random rotate()+translate() as an inline transform directly
+    // on .piece for the "scattered pieces" look, and a running CSS
+    // animation on the same element/property takes over `transform`
+    // entirely for its duration -- so animating .piece would snap that
+    // tidy rotation away and back, which is exactly the visible "rotation"
+    // bug this replaces. .wrapPiece's own leftover transform (scale(1)
+    // from the bounceIn placement animation, see animations.css) is a
+    // true identity with no rotation, so overriding it during the jump
+    // and reverting after is visually silent.
+    const wrapper = piece.parentElement;
+    wrapper.classList.remove("piece-jump");
+    void wrapper.offsetWidth;
+    wrapper.classList.add("piece-jump");
+    wrapper.addEventListener("animationend", () => {
+        wrapper.classList.remove("piece-jump");
+    }, { once: true });
+}
 
 function placePiece(pieceId) {
     let piece = document.getElementById(pieceId);
@@ -891,9 +1169,20 @@ function placePiece(pieceId) {
     wrapper.classList.add("img-bounce");
     wrapper.addEventListener("animationend", (e) => {
         pieceEnabled = true;
+        // .img-bounce's forwards fill-mode is what keeps .wrapPiece visible
+        // (its base state is opacity:0) once the entrance animation ends --
+        // bake that into an inline style and drop the class so a later
+        // .piece-jump (same element, same `animation` property) isn't
+        // permanently shadowed by .img-bounce winning the cascade tie by
+        // stylesheet load order (linotte.css loads after animations.css).
+        wrapper.style.opacity = "1";
+        wrapper.classList.remove("img-bounce");
     }, { once: true });
 
     const coor = idToCoo(pieceId);
+    // The fairy trail only plays once the placement is actually committed
+    // (DONE, in performEndTurn) -- not here, since a tentative placement
+    // can still be reconsidered (click a different tile) before then.
     controller.dispatch({ type: "PLACE_PIECE", coordinates: coor, player: gameState.currentPlayer });
 }
 
@@ -932,16 +1221,55 @@ function doneButton(e) {
 function performEndTurn() {
     console.log("doneButton");
 
+    // The bot logs its own turn (with full decision data) from inside
+    // playBotTurn before this runs; this only covers the human player's
+    // moves, so the log still shows whose turn it was and where the piece
+    // landed for every turn, not just the bot's.
+    if (controller.mode === "bot" && gameState.currentPlayer === 1) {
+        botLogBlank();
+        botLogHuman(`Turno ${++botTurnCounter} (TU) → ${gameState.currentPosition ? "piazza " + gameState.currentPosition : "nessun piazzamento"}`);
+    }
+
+    // The fairy trail (see shared/fairyTrail.js) only plays once a
+    // placement is actually committed -- right here, reading
+    // gameState.currentPosition/table exactly as they were right before
+    // END_TURN commits them, not at the earlier tentative placePiece()
+    // click, which the player can still reconsider before DONE.
+    let lastMoveLines = [];
+    if (gameState.currentPosition) {
+        const [r, c] = [Number(gameState.currentPosition[0]), Number(gameState.currentPosition[1])];
+        lastMoveLines = findNewTripleLines(gameState.table, r, c, gameState.currentPlayer);
+    }
+
+    // Snapshotted BEFORE END_TURN commits anything, so renderPieceCounts/
+    // renderPointCounts (called at two different times below) can each
+    // tell whether THEIR number actually changed and only pop/pop+popup
+    // the one(s) that did.
+    const before = {
+        pieces: { 1: gameState.players[1].remainingPieces, 2: gameState.players[2].remainingPieces },
+        points: { 1: gameState.players[1].points, 2: gameState.players[2].points },
+    };
+
     possibleMovesLocal = Array.from({ length: 5 }, () => Array(5).fill(0));
     controller.dispatch({ type: "END_TURN" });
     clearForNextTurn()
     renderPlayerBox(gameState.currentPlayer);
+    // The piece count pops right away -- the piece really did just land on
+    // the board -- but the score (see renderPointCounts below) waits until
+    // the line that earned it has actually played.
+    renderPieceCounts(before);
     divsOpacity(gameState.currentPlayer);
 
     if (checkGameOver()) {
         stopTimer();
+        playEndGameSequence(lastMoveLines, before);
         return;
     }
+
+    // Several lines from one placement (e.g. a corner completing both a
+    // row and a column) play one after another, never at the same time --
+    // see playLinesSequentially.
+    playLinesSequentially(lastMoveLines, () => celebratePoints(lastMoveLines, before));
 
     if (controller.mode === "bot" && gameState.currentPlayer === 2) {
         stopTimer(); // pause the clock during the bot's own turn
@@ -958,6 +1286,42 @@ function performEndTurn() {
     //     localPlayer: LOCAL_PLAYER,
     //     tileCoordinate: selectedTile === null ? null : selectedTile.id
     // });
+}
+
+// Runs once the game has just ended (see checkGameOver): replays the line
+// that finished it first, if the very last move completed one, then every
+// other line the winner has on the board as a celebratory sweep -- one at
+// a time, never overlapping (see playLinesSequentially) -- and only then
+// shows the winner popup. Showing the popup immediately would cover the
+// board with the overlay before there's anything left to watch.
+function playEndGameSequence(lastMoveLines, before) {
+    // checkGameOver() (this function's only caller) can end up asked to run
+    // more than once for the very same game over event -- e.g. the bot's
+    // own turn-processing calling performEndTurn() a second time, or the
+    // turn timer's auto-submit racing the win right as it happens. A
+    // second, incomplete run would start its own concurrent trail and pop
+    // the winner overlay as soon as ITS (shorter) sequence finishes,
+    // visually cutting off the real one mid-celebration. Only the first
+    // call actually plays anything.
+    if (endGameSequenceStarted) return;
+    endGameSequenceStarted = true;
+
+    const winner = determineWinner();
+    let sweepLines = [];
+    if (winner) {
+        const alreadyShown = new Set(lastMoveLines.map((line) => JSON.stringify(line)));
+        sweepLines = findAllPlayerLines(gameState.table, winner)
+            .filter((line) => !alreadyShown.has(JSON.stringify(line)));
+    }
+    const allLines = [...lastMoveLines, ...sweepLines];
+    playLinesSequentially(allLines, () => {
+        celebratePoints(allLines, before, () => {
+            // A beat of empty board between the celebration and the popup,
+            // so the last line doesn't feel like it's cut off by the
+            // overlay appearing the instant it finishes.
+            setTimeout(() => showWinnerPopup(winner), 1000);
+        });
+    });
 }
 
 
@@ -990,11 +1354,118 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+
+//----------- BOT DECISION LOG (see public/bot-log.html) ---------------
+// A live, copy-pasteable trace of every choice the bot makes this turn --
+// dice, roll/stop, call, lock, and the full placement breakdown (chosen
+// cell plus every alternative actually considered, with the same fields
+// the priority ladder itself compares). Written to localStorage so
+// bot-log.html has history even if opened after the fact, and broadcast
+// live via BroadcastChannel so an already-open log tab updates instantly.
+const BOT_LOG_KEY = "linotte-bot-log-entries";
+const BOT_LOG_MAX_LINES = 4000;
+const CALL_NAMES = { 3: "full", 4: "carré", 5: "petite", 6: "suite", 7: "yam" };
+
+let botLogChannel = null;
+try {
+    botLogChannel = new BroadcastChannel("linotte-bot-log");
+} catch (e) {
+    // Unsupported browser -- bot-log.html falls back to reloading after
+    // the fact to read localStorage instead of getting live pushes.
+}
+
+let botTurnCounter = 0;
+
+// Writes one line to the log: a JSON blob carrying everything needed to
+// analyze the decision (board state, dice, every candidate's full
+// evaluation) — this is for Claude to read back, not for a person to parse
+// at a glance. No prose, no formatting choices; just the data the actual
+// decision functions produced.
+function botLogData(obj) {
+    const line = JSON.stringify(obj);
+    try {
+        const existing = JSON.parse(localStorage.getItem(BOT_LOG_KEY) || "[]");
+        existing.push(line);
+        while (existing.length > BOT_LOG_MAX_LINES) existing.shift();
+        localStorage.setItem(BOT_LOG_KEY, JSON.stringify(existing));
+    } catch (e) {
+        // Storage full/unavailable -- an already-open log tab still gets
+        // this line live via the channel below.
+    }
+    if (botLogChannel) botLogChannel.postMessage(line);
+}
+
+// One line a person can actually read at a glance: whose turn, and where
+// the piece landed (or didn't). Everything else in the log is for Claude.
+function botLogHuman(text) {
+    const line = `» ${text}`;
+    try {
+        const existing = JSON.parse(localStorage.getItem(BOT_LOG_KEY) || "[]");
+        existing.push(line);
+        while (existing.length > BOT_LOG_MAX_LINES) existing.shift();
+        localStorage.setItem(BOT_LOG_KEY, JSON.stringify(existing));
+    } catch (e) {
+        // Storage full/unavailable -- an already-open log tab still gets
+        // this line live via the channel below.
+    }
+    if (botLogChannel) botLogChannel.postMessage(line);
+}
+
+// An actual blank line (no timestamp) between turns, so a long log doesn't
+// read as one unbroken wall of text.
+function botLogBlank() {
+    try {
+        const existing = JSON.parse(localStorage.getItem(BOT_LOG_KEY) || "[]");
+        existing.push("");
+        while (existing.length > BOT_LOG_MAX_LINES) existing.shift();
+        localStorage.setItem(BOT_LOG_KEY, JSON.stringify(existing));
+    } catch (e) {
+        // Storage full/unavailable -- an already-open log tab still gets
+        // this line live via the channel below.
+    }
+    if (botLogChannel) botLogChannel.postMessage("");
+}
+
+// Trims a candidate down to what's worth reading back -- drops r/c (rc
+// already has it) and only includes a boolean flag when it's actually
+// true, to keep the JSON dense instead of repeating "false" 4x per cell.
+function compactCandidate(c) {
+    if (!c) return null;
+    const out = {
+        rc: c.rc,
+        tile: c.tile,
+        tag: c.tag,
+        pts: c.pointsGained,
+        denied: c.deniedPoints,
+        rarity: Math.round(c.rarity * 10) / 10,
+        lineConn: c.lineConnection,
+        cluster: c.clusterScore,
+        blockScore: c.blockScore,
+    };
+    if (c.wouldWinGame) out.wouldWinGame = true;
+    if (c.wouldLoseGame) out.wouldLoseGame = true;
+    if (c.criticalBlock) out.criticalBlock = true;
+    if (c.urgentBlock) out.urgentBlock = true;
+    return out;
+}
+
 async function playBotTurn() {
     if (controller.mode !== "bot") return;
     if (gameState.currentPlayer !== 2) return;
 
     setBotControlsDisabled(true);
+    const turnNum = ++botTurnCounter;
+    botLogBlank();
+    const record = {
+        turn: turnNum,
+        player: 2,
+        strategy: botStrategy,
+        board: gameState.table.map((row) => row.slice()),
+        piecesLeft: { p1: gameState.players[1].remainingPieces, p2: gameState.players[2].remainingPieces },
+        points: { p1: gameState.players[1].points, p2: gameState.players[2].points },
+        rolls: [],
+        placement: null,
+    };
     try {
         await sleep(800); // small pause so the bot's move doesn't feel instant
 
@@ -1002,25 +1473,49 @@ async function playBotTurn() {
         while (keepRolling) {
             await botRoll();
 
-            if (gameState.dice.rollsLeft <= 0) break;
-            if (shouldStopRolling(gameState, 2, botStrategy)) break;
+            const target = explainTarget(gameState, 2, botStrategy);
+            const rollRecord = {
+                dice: gameState.dice.values.slice(),
+                rollsLeft: gameState.dice.rollsLeft,
+                target: target ? { combo: target.comboKey, need: target.need, value: Math.round(target.attractiveness) } : null,
+            };
+            record.rolls.push(rollRecord);
+
+            if (gameState.dice.rollsLeft <= 0) {
+                rollRecord.rollsExhausted = true;
+                break;
+            }
+            const stop = shouldStopRolling(gameState, 2, botStrategy);
+            rollRecord.stopRolling = stop;
+            if (stop) break;
 
             // Calling only matters for the *next* roll's combination check,
             // so it's decided here — after seeing this throw, and only
             // once we know the bot is going to roll again.
             const callIndex = chooseCallToMake(gameState, 2, botStrategy);
+            rollRecord.call = callIndex !== null && callIndex !== undefined ? (CALL_NAMES[callIndex] ?? callIndex) : null;
             await applyBotCall(callIndex);
 
             // Give the player a moment to read the dice before the bot starts
             // choosing which ones to keep.
             await sleep(700);
             const locked = chooseDiceToLock(gameState.dice.values, gameState, 2, botStrategy);
+            rollRecord.lock = locked.map((l) => (l ? 1 : 0));
             await applyBotLock(locked);
             await sleep(800);
         }
 
         await sleep(600);
-        const coordinates = chooseBestMove(gameState, 2, botStrategy);
+        const explanation = explainPlacement(gameState, 2, botStrategy);
+        record.placement = {
+            chosen: compactCandidate(explanation.chosen),
+            ranked: explanation.ranked.filter((c) => c.rc !== explanation.chosen?.rc).map(compactCandidate),
+            declined: explanation.declined.map(compactCandidate),
+        };
+        botLogData(record);
+        botLogHuman(`Turno ${turnNum} (BOT) → ${explanation.chosen ? "piazza " + explanation.chosen.rc : "nessun piazzamento"}`);
+
+        const coordinates = explanation.chosen ? explanation.chosen.rc : null;
         if (coordinates) {
             placePiece("p" + coordinates);
         }
@@ -1116,6 +1611,7 @@ function clearForNextTurn() {
     // Undo the game-over dimming (see checkGameOver) whenever a fresh turn
     // or a brand new game starts.
     document.getElementById("div-dice").classList.remove("game-over-dim");
+    document.getElementById("div-resultsAndCalls").classList.remove("game-over-dim");
     rollBtn.classList.remove("game-over-dim");
 
     //dice reset
@@ -1139,6 +1635,7 @@ function clearForNextTurn() {
 document.querySelectorAll(".die").forEach(el => {
     el.addEventListener("click", function () {
         if (!isMyTurn()) return;
+        if (!rollBtnEnabled) return; // dice are mid-roll (rollBtnEnabled is false from click to stopRoll) -- not settled yet, don't let a lock toggle underneath the animation
 
         let elem = document.getElementById(this.id);
         if (elem.classList.contains("selected")) {
@@ -1184,6 +1681,7 @@ document.querySelectorAll(".die").forEach(el => {
 document.querySelectorAll(".result").forEach(el => {
     el.addEventListener("click", function () {
         if (!isMyTurn()) return;
+        if (!rollBtnEnabled) return; // mid-roll -- see the .die handler above
 
         el.classList.add("tip-on");
         setTimeout(() => {
@@ -1229,6 +1727,17 @@ document.querySelectorAll(".result").forEach(el => {
 // first-throw gate, etc.) apply identically — nothing is duplicated here.
 const CALL_KEY_TO_RESULT_INDEX = { "6": 3, "7": 4, "8": 5, "9": 6, "0": 7 };
 
+// DEBUG PREVIEW ONLY (key "F"): cycles the fairy-trail sparkle effect
+// (see shared/fairyTrail.js) over a sample row/column/diagonal, so it can
+// be seen without actually completing a combo in a real game. Safe to
+// remove once the effect itself is finalized.
+let fairyDebugIndex = -1;
+const FAIRY_DEBUG_LINES = [
+    [[0, 0], [0, 1], [0, 2]], // row
+    [[0, 4], [1, 4], [2, 4]], // column
+    [[0, 0], [1, 1], [2, 2]], // main diagonal
+];
+
 document.addEventListener("keydown", (e) => {
     if (e.repeat) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -1245,6 +1754,22 @@ document.addEventListener("keydown", (e) => {
 
     if (e.key === "d" || e.key === "D") {
         doneBtn.click();
+        return;
+    }
+
+    if (e.key === "f" || e.key === "F") {
+        fairyDebugIndex = (fairyDebugIndex + 1) % FAIRY_DEBUG_LINES.length;
+        const cells = FAIRY_DEBUG_LINES[fairyDebugIndex];
+        // Simulate an actual placed piece on each cell first (a real
+        // triple always has one) so the jump-on-arrival is visible too,
+        // not just the sparks -- without needing to play out a real game.
+        cells.forEach(([r, c]) => {
+            const piece = document.getElementById(`p${r}${c}`);
+            if (!piece) return;
+            piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);
+            piece.parentElement.style.opacity = "1";
+        });
+        playFairyTrail(cells, { onWaypoint: ([wr, wc]) => jumpPiece(wr, wc) });
         return;
     }
 
@@ -1289,9 +1814,13 @@ function stateUpdate() {
 function divsOpacity(currentPlayer) {
     if (controller.mode === "offline") return; // hotseat: never dim, both players share the controls
     if (!currentPlayer) return;
+    // Same opacity value applied uniformly to every control area (dice,
+    // results/calls, roll/done) -- see the [aria-disabled] rule in
+    // linotte.css for why the individual dice/calls/buttons don't ALSO
+    // carry their own opacity (that would stack and double-dim them).
     const opacity = (currentPlayer === LOCAL_PLAYER) ? 1 : 0.5;
     document.getElementById("div-dice").style.opacity = opacity;
-    //document.getElementById("div-resultsAndCalls").style.opacity = opacity;
+    document.getElementById("div-resultsAndCalls").style.opacity = opacity;
     document.getElementById("div-buttons").style.opacity = opacity;
 }
 

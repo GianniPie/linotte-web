@@ -222,3 +222,117 @@
     transform: scale(1);
   }
 }
+
+/* fairy trail: the piece on a tile hops the instant the spark reaches it
+   (see shared/fairyTrail.js's onWaypoint callback, wired in linotte.js).
+   Classic cartoon squash-and-stretch: a quick squash as it leaves the
+   ground, stretched tall at the peak, a squash again on landing. This is
+   applied via .piece-jump to the WRAPPER (.wrapPiece), never to .piece
+   itself (see jumpPiece() in linotte.js) -- .piece carries its own
+   per-instance rotate()+translate() from applyTidyness()'s "scattered
+   pieces" look as an inline transform, and a running animation on
+   `transform` fully overrides that element's transform for its duration,
+   so animating .piece directly used to snap that rotation away and back
+   -- a real, visible spin, not just a look. .wrapPiece's own leftover
+   transform (scale(1) from the bounceIn placement animation) is a true
+   identity, so taking it over here and handing it back is silent. */
+/* Every value the jump shape depends on is a CSS variable with a fallback --
+   these fallbacks were tuned live in fairy-playground.html (duration 0.66s,
+   height -14%, squash/stretch intensity 1.8x) and carried back here as the
+   real gameplay values. A debug page can still override them on a single
+   wrapper via inline style, or globally on :root, to live-tune the jump
+   without touching this file. */
+@keyframes pieceJump {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+
+  20% {
+    transform: translateY(var(--jump-windup, 1.75%)) scale(var(--jump-squash-out-x, 1.144), var(--jump-squash-out-y, 0.892));
+  }
+
+  50% {
+    transform: translateY(var(--jump-height, -14%)) scale(var(--jump-stretch-x, 0.91), var(--jump-stretch-y, 1.108));
+  }
+
+  80% {
+    transform: translateY(var(--jump-windup, 1.75%)) scale(var(--jump-squash-in-x, 1.09), var(--jump-squash-in-y, 0.928));
+  }
+
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+.piece-jump {
+  animation-name: pieceJump;
+  animation-duration: var(--jump-duration, 0.66s);
+  animation-timing-function: cubic-bezier(.45, 0, .2, 1);
+  animation-iteration-count: 1;
+}
+
+/* Player info table: the pieces-remaining and points numbers pop when
+   they change (see popStat() in linotte.js) -- pieces pop immediately
+   when a placement commits; points pop only once a flying "+N" badge (see
+   .stat-fly-badge below) actually arrives at the points number.
+   A single spring-ish (back-out) easing curve drives the whole bounce
+   instead of hand-placed undershoot keyframes -- CSS re-applies the
+   timing function to EACH segment (0->50 and 50->100) independently, so
+   it naturally overshoots past 1.4 on the way up and past 1 on the way
+   back down by itself, which reads as a springy "boing" rather than the
+   more mechanical, evenly-eased 4-point version this replaced. */
+@keyframes statPop {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.4);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.stat-pop {
+  display: inline-block;
+  animation: statPop 700ms cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* A "+N" that travels from wherever the fairy trail just finished to the
+   scoring player's points number, along a curved path set from JS via
+   `offset-path` (see flyPointsBadge()) -- offset-distance is the only
+   thing animated here, an eased 0% to 100% progress along that path,
+   which is what actually produces the natural arc rather than a straight
+   linear slide. */
+@keyframes statFly {
+  0% {
+    offset-distance: 0%;
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  75% {
+    opacity: 1;
+  }
+
+  100% {
+    offset-distance: 100%;
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+}
+
+.stat-fly-badge {
+  position: fixed;
+  left: 0;
+  top: 0;
+  offset-rotate: 0deg;
+  color: #ffea00;
+  font-weight: bold;
+  text-shadow: 0 0 4px rgba(0, 0, 0, .6);
+  pointer-events: none;
+  z-index: 60;
+  animation: statFly 750ms cubic-bezier(.3, 0, .55, 1) forwards;
+}

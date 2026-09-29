@@ -53,6 +53,16 @@ function selectCall(state, called) {
 
 
 function placePiece(state, coordinates, player) {
+    // player: 0 is how linotte.js's removePiece() asks to cancel a
+    // tentative (not yet END_TURN-committed) placement -- state.table
+    // itself was never touched for it in the first place (that only
+    // happens in endTurn()), so cancelling just means forgetting
+    // currentPosition again, whatever cell it was for.
+    if (player === 0) {
+        state.currentPosition = null;
+        return state;
+    }
+
     const cellValue = matrixCheck(coordinates, state.table);
     if (cellValue !== 0) return state; // already occupied, or invalid coordinates
 

@@ -395,6 +395,17 @@ body {
   width: 100%;
   height: 100%;
   opacity: 0;
+  /* The .img-bounce placement animation (animations.css) ends on
+     "transform: scale(1)" with fill-mode forwards, which sticks around
+     permanently -- and ANY non-"none" transform value, even scale(1),
+     creates its own stacking context. That silently made this element's
+     z-index:auto rank BELOW the fairy-trail canvas's explicit positive
+     z-index (auto/0 always loses to any explicit z-index > 0, regardless
+     of DOM order), no matter what z-index the .piece inside it had. An
+     explicit z-index here, once a piece has actually landed, puts this
+     wrapper's own stacking context above the canvas instead. */
+  position: relative;
+  z-index: 2;
 }
 
 .piece {
@@ -405,6 +416,11 @@ body {
   background-size: 80% 80%;
   background-repeat: no-repeat;
   opacity: 1;
+  /* Promoted into its own stacking layer, above the fairy-trail canvas
+     (shared/fairyTrail.js, z-index:1) -- so the sparkle burst plays
+     underneath the token that just landed instead of covering it. */
+  position: relative;
+  z-index: 2;
 }
 
 .img-bounce {
@@ -692,16 +708,18 @@ body {
 
 }
 
-/* Game over: dice and ROLL are dead weight and get dimmed, while DONE
-   stays 100% visible and clickable — it still works, reopening the
-   winner overlay if the player dismissed it to look at the board.
-   !important because #div-dice/#div-buttons also carry a per-turn inline
-   opacity from divsOpacity() (dimming whichever side isn't the local
-   player's turn) — an inline style otherwise always outranks this class,
-   so without it a game that ends on "my turn" (opacity:1 inline) would
-   silently keep the dice fully visible instead of dimming them. */
+/* Game over: dice, results/calls and ROLL are dead weight and get dimmed
+   to the exact same 0.5 the bot's-turn dimming uses (see divsOpacity in
+   linotte.js), while DONE stays 100% visible and clickable — it still
+   works, reopening the winner overlay if the player dismissed it to look
+   at the board. !important because #div-dice/#div-resultsAndCalls/
+   #div-buttons also carry a per-turn inline opacity from divsOpacity()
+   (dimming whichever side isn't the local player's turn) — an inline
+   style otherwise always outranks this class, so without it a game that
+   ends on "my turn" (opacity:1 inline) would silently keep everything
+   fully visible instead of dimming it. */
 .game-over-dim {
-  opacity: 0.35 !important;
+  opacity: 0.5 !important;
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
@@ -773,13 +791,15 @@ body {
 /* setBotControlsDisabled() sets this during the bot's turn — without this
    rule it was purely an accessibility hint with no visual/interactive
    effect, so roll/done (and the dice/results/calls it's also applied to)
-   still looked and felt tappable even though clicks were already no-ops. */
+   still looked and felt tappable even though clicks were already no-ops.
+   Opacity during the bot's turn is handled uniformly by divsOpacity()'s
+   container-level opacity (div-dice/div-resultsAndCalls/div-buttons all
+   set to the same value) instead of here, so dice, calls and buttons all
+   end up at the exact same dimmed level — a per-element opacity rule here
+   too would stack on top of the container's and double-dim just the
+   buttons. */
 [aria-disabled="true"] {
   pointer-events: none;
-}
-
-.button[aria-disabled="true"] {
-  opacity: 0.5;
 }
 
 .button.done {

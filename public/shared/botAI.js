@@ -515,8 +515,8 @@ function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
 }
 
 // Comparator implementing the shared priority ladder: game outcome >
-// blocking severity > net points > rarity > generic block pressure > real
-// line connection > raw clustering.
+// blocking severity > net points > concrete board value (connection,
+// clustering, block pressure) > abstract rarity.
 // wouldWinGame/wouldLoseGame come first, above even criticalBlock: any
 // five-in-a-row ends the game right then (see gameEngine.js), so a cell
 // that locks in a win this instant is strictly better than blocking a
@@ -524,36 +524,67 @@ function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
 // locks in a loss this instant is strictly worse than leaving any threat
 // unblocked. criticalBlock/urgentBlock stay separate hard overrides above
 // everything else — both are about an actual win or near-win, which no
-// amount of scoring offsets. A mere "denies a point" is a different kind
-// of thing: denying the opponent a point moves the final score difference
-// by exactly as much as scoring one yourself, so it's added directly into
-// the same points tier (pointsGained + deniedPoints) instead of being its
-// own unconditional override — a 1-point block from an isolated pair or a
-// gapped "1_1" no longer automatically outranks the bot's own bigger
-// scoring move; whichever nets more wins.
+// amount of scoring offsets.
+//
+// A denial only joins pointsGained in that same top tier once it's
+// substantial (2+ points — multiple overlapping lines, a real dent in the
+// opponent's score): that's worth exactly what scoring the same amount
+// is, since both shift the final score difference equally. A single point
+// from an isolated pair or a gapped "1_1" is real but minor — nowhere
+// near as valuable as it looks in isolation, because it's a one-off,
+// capped gain, while a strong position (lineConnection, clusterScore)
+// compounds into potentially several future points. So a bare 1-point
+// denial is judged much later, not before it.
+//
+// rarity is checked LAST, after every concrete, board-state-dependent
+// factor (connection, clustering, block pressure) — it's a real thing
+// worth caring about (grab a hard-to-get tile while it's on offer), but
+// it's a static property of the CELL, blind to what's actually happening
+// on the board right now. A cell that's connected to the bot's own
+// pieces AND denies the opponent a point is concretely better than a
+// merely rare, disconnected one, even if the rare one's tile is harder
+// to land on in general — so those concrete signals are checked first,
+// and rarity only breaks a tie once they're all equal.
+// A denial is worth LESS than the same number of points scored directly,
+// even once it's substantial (2+) — scoring is certain the moment the
+// piece lands, while a denial only pays off if the opponent would
+// actually have taken that exact cell with one of their remaining
+// placements, which is never guaranteed and gets less likely the fewer
+// pieces they have left to spend. 0.75 keeps a genuinely large denial
+// (say 3+ points, several overlapping lines) clearly ahead of a small
+// score, while no longer letting a borderline 2-point denial edge out a
+// real, certain point the bot could bank instead.
+const DENIAL_DISCOUNT = 0.75;
+
+function bigScore(c) {
+  return c.pointsGained + (c.deniedPoints >= 2 ? c.deniedPoints * DENIAL_DISCOUNT : 0);
+}
+
 function comparePoints(a, b) {
   if (a.wouldWinGame !== b.wouldWinGame) return a.wouldWinGame ? -1 : 1;
   if (a.wouldLoseGame !== b.wouldLoseGame) return a.wouldLoseGame ? 1 : -1;
   if (a.criticalBlock !== b.criticalBlock) return a.criticalBlock ? -1 : 1;
   if (a.urgentBlock !== b.urgentBlock) return a.urgentBlock ? -1 : 1;
 
-  const aScore = a.pointsGained + a.deniedPoints;
-  const bScore = b.pointsGained + b.deniedPoints;
+  const aScore = bigScore(a);
+  const bScore = bigScore(b);
   if (bScore !== aScore) return bScore - aScore;
-  if (b.rarity !== a.rarity) return b.rarity - a.rarity;
-  if (b.blockScore !== a.blockScore) return b.blockScore - a.blockScore;
   if (b.lineConnection !== a.lineConnection) return b.lineConnection - a.lineConnection;
-  return b.clusterScore - a.clusterScore;
+  if (b.clusterScore !== a.clusterScore) return b.clusterScore - a.clusterScore;
+  if (b.blockScore !== a.blockScore) return b.blockScore - a.blockScore;
+  if (b.deniedPoints !== a.deniedPoints) return b.deniedPoints - a.deniedPoints; // minor (<2) denial, still concrete
+  if (b.rarity !== a.rarity) return b.rarity - a.rarity;
+  return 0;
 }
 
 // Comparator for "speed": progress toward 5-in-a-row dominates, then
 // falls back to the same shared ladder (see comparePoints for why
 // wouldWinGame/wouldLoseGame lead, criticalBlock/urgentBlock stay separate
-// hard overrides, and a plain "denies a point" is folded into the points
-// tier instead of being its own tier). A plain wouldBeFive is deliberately
-// NOT a tier of its own here anymore — rushing into a five that would
-// actually lose (opponent already has more points) is never "speed"
-// toward anything worth reaching.
+// hard overrides, a substantial denial joins pointsGained while a minor
+// one and rarity are judged after every concrete board signal). A plain
+// wouldBeFive is deliberately NOT a tier of its own here anymore —
+// rushing into a five that would actually lose (opponent already has more
+// points) is never "speed" toward anything worth reaching.
 function compareSpeed(a, b) {
   if (a.wouldWinGame !== b.wouldWinGame) return a.wouldWinGame ? -1 : 1; // own win first — the opponent never gets another turn
   if (a.wouldLoseGame !== b.wouldLoseGame) return a.wouldLoseGame ? 1 : -1;
@@ -561,13 +592,15 @@ function compareSpeed(a, b) {
   if (a.urgentBlock !== b.urgentBlock) return a.urgentBlock ? -1 : 1;
   if (b.longestLineAfter !== a.longestLineAfter) return b.longestLineAfter - a.longestLineAfter;
 
-  const aScore = a.pointsGained + a.deniedPoints;
-  const bScore = b.pointsGained + b.deniedPoints;
+  const aScore = bigScore(a);
+  const bScore = bigScore(b);
   if (bScore !== aScore) return bScore - aScore;
-  if (b.rarity !== a.rarity) return b.rarity - a.rarity;
-  if (b.blockScore !== a.blockScore) return b.blockScore - a.blockScore;
   if (b.lineConnection !== a.lineConnection) return b.lineConnection - a.lineConnection;
-  return b.clusterScore - a.clusterScore;
+  if (b.clusterScore !== a.clusterScore) return b.clusterScore - a.clusterScore;
+  if (b.blockScore !== a.blockScore) return b.blockScore - a.blockScore;
+  if (b.deniedPoints !== a.deniedPoints) return b.deniedPoints - a.deniedPoints;
+  if (b.rarity !== a.rarity) return b.rarity - a.rarity;
+  return 0;
 }
 
 // A single scalar used only to compare *combo targets* while deciding
@@ -580,11 +613,16 @@ function candidateWeight(cand, strategy) {
   // 0. Both dominate every other weight below by a full order of magnitude.
   const winBonus = cand.wouldWinGame ? 10_000_000 : 0;
   const losePenalty = cand.wouldLoseGame ? 10_000_000 : 0;
-  // Denying the opponent a point is worth exactly what scoring one is —
-  // both shift the final score difference by the same amount — so it's
-  // added directly to pointsGained on the same per-point weight, not given
-  // its own flat bonus that would outrank a bigger scoring move regardless
-  // of size.
+  // A substantial denial (2+ points — see bigScore/comparePoints) is worth
+  // exactly what scoring the same amount is, so it's weighted on the same
+  // per-point scale as pointsGained. A minor, single-point denial is real
+  // but capped and one-off, so it gets its own much smaller weight instead.
+  const minorDenial = cand.deniedPoints < 2 ? cand.deniedPoints : 0;
+  // rarity is a static property of the cell, blind to what's actually
+  // happening on the board — it's weighted last (fractionally, so its
+  // whole ~65-100 range stays below one unit of any concrete signal
+  // below), same reasoning as comparePoints/compareSpeed: a connected,
+  // blocking cell beats a merely rare, disconnected one.
   if (strategy === "speed") {
     return (
       winBonus -
@@ -592,11 +630,12 @@ function candidateWeight(cand, strategy) {
       (cand.criticalBlock ? 900_000 : 0) +
       (cand.urgentBlock ? 400_000 : 0) +
       cand.longestLineAfter * 10_000 +
-      (cand.pointsGained + cand.deniedPoints) * 1_000 +
-      cand.rarity * 10 +
-      cand.blockScore * 3 +
-      cand.lineConnection * 2 +
-      cand.clusterScore
+      bigScore(cand) * 1_000 +
+      cand.lineConnection * 4 +
+      cand.clusterScore * 2 +
+      cand.blockScore +
+      minorDenial +
+      cand.rarity * 0.01
     );
   }
   return (
@@ -604,11 +643,12 @@ function candidateWeight(cand, strategy) {
     losePenalty +
     (cand.criticalBlock ? 900_000 : 0) +
     (cand.urgentBlock ? 400_000 : 0) +
-    (cand.pointsGained + cand.deniedPoints) * 100_000 +
-    cand.rarity * 100 +
-    cand.blockScore * 10 +
-    cand.lineConnection * 4 +
-    cand.clusterScore
+    bigScore(cand) * 100_000 +
+    cand.lineConnection * 8 +
+    cand.clusterScore * 4 +
+    cand.blockScore * 2 +
+    minorDenial +
+    cand.rarity * 0.01
   );
 }
 
@@ -635,6 +675,26 @@ function placementCellsFor(comboKey, state) {
 
 function comboHasAvailableCell(comboKey, state) {
   return anyCellFree(state.table, placementCellsFor(comboKey, state));
+}
+
+// Cells worth locking dice TOWARD while picking a target (see chooseTarget
+// below) — a superset of placementCellsFor's "placeable right now" list.
+// A combo whose own two tiles are BOTH already taken is still worth
+// chasing when it's callable and appel is still open: landing it this
+// throw and then calling it is the only way it can ever place again, and
+// it may well be the best (sometimes the only) live shot on the board —
+// e.g. two pairs sitting right there make full a near-lock, but full's
+// own tiles filled up turns ago. Without this, such a combo is invisible
+// to target selection forever, even though chooseCallToMake would gladly
+// call it once picked, and a bot that's already committed to a call
+// still also gets its normal own-tiles-plus-appel view here.
+function targetCellsFor(comboKey, state) {
+  const callIndex = CALL_INDEX[comboKey];
+  if (callIndex === undefined) return COMBO_CELLS[comboKey];
+  if (!anyCellFree(state.table, COMBO_CELLS.appel)) return COMBO_CELLS[comboKey];
+  if (state.called[callIndex]) return COMBO_CELLS[comboKey].concat(COMBO_CELLS.appel);
+  const ownFree = anyCellFree(state.table, COMBO_CELLS[comboKey]);
+  return ownFree ? COMBO_CELLS[comboKey] : COMBO_CELLS.appel;
 }
 
 // Calling declares intent to chase one of the five main combinations.
@@ -704,6 +764,16 @@ export function chooseCallToMake(state, player, strategy) {
   for (const comboKey of Object.keys(CALL_INDEX)) {
     // Not possible to call carre if a carre is already realized this throw.
     if (comboKey === "carre" && state.combinationsRealized[4] === 1) continue;
+
+    // Calling the very combo already being chased is only ever useful when
+    // its own two tiles are both taken — then the call is the ONLY way it
+    // could ever be placed, appel or nothing (see targetCellsFor). If its
+    // own tile is still free, it'll be placed there regardless of any
+    // call, so "calling" it adds nothing and only crowds out a genuine
+    // hedge on a DIFFERENT combo that might land from the same reroll —
+    // e.g. chasing petit but calling full "just in case" (see below),
+    // never chasing petit and then also calling petit.
+    if (comboKey === target?.comboKey && anyCellFree(state.table, COMBO_CELLS[comboKey])) continue;
 
     // Live chance of this combo actually landing, given the dice truly
     // still free to reroll toward it and the rolls truly left — not the
@@ -799,8 +869,10 @@ function chooseTarget(state, player, strategy) {
     // If this combo is the one currently called, a later realization also
     // opens the appel tiles — chase those too, and actively pursue them
     // when they're the better (or only) placement, e.g. to block a
-    // near-complete opponent line.
-    const cells = placementCellsFor(comboKey, state);
+    // near-complete opponent line. If it's NOT called yet but its own
+    // tiles are both taken, it's only reachable via appel too — see
+    // targetCellsFor.
+    const cells = targetCellsFor(comboKey, state);
 
     let bestCellWeight = null;
     for (const rc of cells) {
@@ -1226,4 +1298,52 @@ export function chooseBestMove(state, player, strategy) {
   if (!best) return null;
 
   return `${best.r}${best.c}`;
+}
+
+// ---------- Diagnostics ----------
+// Everything below is read-only reporting for a live decision log (see
+// public/bot-log.html) — it never changes what the bot actually does, it
+// just runs the exact same internal pipeline chooseBestMove/chooseTarget
+// use and exposes the full picture instead of only the winning pick, so a
+// logged turn can be compared cell-by-cell against what a person thinks
+// should have happened.
+
+const TILE_NAME_BY_RC = Object.fromEntries(Object.entries(tile).map(([name, rc]) => [rc, name]));
+
+function tileNameAt(r, c) {
+  return TILE_NAME_BY_RC[`${r}${c}`] ?? "?";
+}
+
+function annotateCandidate(candidate, tag) {
+  return { ...candidate, rc: `${candidate.r}${candidate.c}`, tile: tileNameAt(candidate.r, candidate.c), tag };
+}
+
+// Full breakdown of chooseBestMove's reasoning: every legal cell this
+// throw, tagged and ranked exactly like the real decision, plus which one
+// was actually chosen and why (preferred vs. a low-priority fallback vs.
+// dead weight that was never even in the running).
+export function explainPlacement(state, player, strategy) {
+  const opponent = player === 1 ? 2 : 1;
+  const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+  const all = allCandidates(state, player, opponent, piecesLeftAfter);
+  const dead = all.filter((c) => isDeadPlacement(state, c, player, opponent));
+  const usable = all.filter((c) => !isDeadPlacement(state, c, player, opponent));
+  const lowPriority = new Set(usable.filter((c) => isLowPriorityPlacement(state, c, player, opponent)));
+  const preferred = usable.filter((c) => !lowPriority.has(c));
+  const pool = preferred.length > 0 ? preferred : usable;
+  pool.sort(strategy === "speed" ? compareSpeed : comparePoints);
+
+  const tagFor = (c) => (lowPriority.has(c) ? "low-priority" : "preferred");
+  return {
+    chosen: pool[0] ? annotateCandidate(pool[0], preferred.length > 0 ? tagFor(pool[0]) : "low-priority-fallback") : null,
+    ranked: pool.map((c) => annotateCandidate(c, tagFor(c))),
+    declined: dead.map((c) => annotateCandidate(c, "dead")),
+  };
+}
+
+// What chooseTarget is chasing while dice are still in the air — the
+// combo it's decided is worth the most, how many more dice it needs, and
+// the expected-value number 03.7 in the bot logic doc compares against.
+export function explainTarget(state, player, strategy) {
+  return chooseTarget(state, player, strategy);
 }

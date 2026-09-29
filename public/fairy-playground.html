@@ -1,0 +1,379 @@
+<!doctype html>
+<html dir="ltr" lang="en-gb">
+
+<head>
+    <meta charset="utf-8" />
+    <title>fairy trail playground</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+    <!-- Same stylesheets as the real game, so the board/background look
+         identical -- this page is just a copy of the table + background,
+         with the score/dice/buttons UI stripped out and a tuning panel
+         added instead. -->
+    <link href="animations.css" rel="stylesheet" type="text/css" />
+    <link href="linotte.css" rel="stylesheet" type="text/css" />
+    <link href="https://fonts.googleapis.com/css2?family=Changa+One&display=swap" rel="stylesheet">
+
+    <style>
+        /* .flex-block normally centers itself against --vh, set by
+           linotte.js elsewhere -- this page never loads that, so just use
+           the viewport directly. */
+        .flex-block { min-height: 100vh; }
+
+        .panel {
+            order: 3;
+            width: 95%;
+            max-width: 700px;
+            margin: 1dvh auto 4dvh;
+            background: rgba(255, 255, 255, 0.92);
+            border-radius: 1em;
+            border: .2em solid rgb(96, 56, 19);
+            padding: 1em 1.2em;
+            font-family: system-ui, sans-serif;
+            font-size: 14px;
+            color: #3a2410;
+            box-sizing: border-box;
+        }
+
+        .panel h2 {
+            margin: 0.6em 0 0.3em;
+            font-size: 1.05em;
+            border-bottom: 2px solid #e4d1bb;
+            padding-bottom: 0.2em;
+        }
+
+        .panel h2:first-child { margin-top: 0; }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 0.6em;
+            margin: 0.35em 0;
+        }
+
+        .row label { flex: 0 0 42%; font-size: 0.92em; }
+        .row input[type="range"] { flex: 1 1 auto; }
+        .row output { flex: 0 0 3.6em; text-align: right; font-variant-numeric: tabular-nums; }
+
+        .btns { display: flex; flex-wrap: wrap; gap: 0.5em; margin: 0.5em 0; }
+        button {
+            font: inherit;
+            padding: 0.5em 0.9em;
+            border-radius: 0.6em;
+            border: none;
+            background: #603813;
+            color: #fff;
+            cursor: pointer;
+        }
+        button.secondary { background: #a9895f; }
+        button:active { transform: translateY(1px); }
+
+        .checkbox-row { display: flex; align-items: center; gap: 0.5em; margin: 0.5em 0; }
+
+        .path-hint { font-size: 0.85em; opacity: 0.75; margin: 0.3em 0 0.6em; }
+
+        .tile.path-selected { outline: 3px solid #ffea00; outline-offset: -3px; }
+        .path-badge {
+            position: absolute;
+            top: 2px; left: 2px;
+            background: #ffea00;
+            color: #3a2410;
+            font-weight: bold;
+            font-size: 0.75em;
+            border-radius: 50%;
+            width: 1.3em; height: 1.3em;
+            display: flex; align-items: center; justify-content: center;
+            pointer-events: none;
+            z-index: 3;
+        }
+    </style>
+</head>
+
+<body id="body" class="body">
+    <div class="flex-block">
+        <div class="div-table">
+            <div class="grid">
+                <div id="t00" class="tile tlc"><div class="wrapPiece"><div id="p00" class="piece"></div></div></div>
+                <div id="t01" class="tile"><div class="wrapPiece"><div id="p01" class="piece"></div></div></div>
+                <div id="t02" class="tile"><div class="wrapPiece"><div id="p02" class="piece"></div></div></div>
+                <div id="t03" class="tile"><div class="wrapPiece"><div id="p03" class="piece"></div></div></div>
+                <div id="t04" class="tile trc"><div class="wrapPiece"><div id="p04" class="piece"></div></div></div>
+
+                <div id="t10" class="tile"><div class="wrapPiece"><div id="p10" class="piece"></div></div></div>
+                <div id="t11" class="tile"><div class="wrapPiece"><div id="p11" class="piece"></div></div></div>
+                <div id="t12" class="tile"><div class="wrapPiece"><div id="p12" class="piece"></div></div></div>
+                <div id="t13" class="tile"><div class="wrapPiece"><div id="p13" class="piece"></div></div></div>
+                <div id="t14" class="tile"><div class="wrapPiece"><div id="p14" class="piece"></div></div></div>
+
+                <div id="t20" class="tile"><div class="wrapPiece"><div id="p20" class="piece"></div></div></div>
+                <div id="t21" class="tile"><div class="wrapPiece"><div id="p21" class="piece"></div></div></div>
+                <div id="t22" class="tile"><div class="wrapPiece"><div id="p22" class="piece"></div></div></div>
+                <div id="t23" class="tile"><div class="wrapPiece"><div id="p23" class="piece"></div></div></div>
+                <div id="t24" class="tile"><div class="wrapPiece"><div id="p24" class="piece"></div></div></div>
+
+                <div id="t30" class="tile"><div class="wrapPiece"><div id="p30" class="piece"></div></div></div>
+                <div id="t31" class="tile"><div class="wrapPiece"><div id="p31" class="piece"></div></div></div>
+                <div id="t32" class="tile"><div class="wrapPiece"><div id="p32" class="piece"></div></div></div>
+                <div id="t33" class="tile"><div class="wrapPiece"><div id="p33" class="piece"></div></div></div>
+                <div id="t34" class="tile"><div class="wrapPiece"><div id="p34" class="piece"></div></div></div>
+
+                <div id="t40" class="tile blc"><div class="wrapPiece"><div id="p40" class="piece"></div></div></div>
+                <div id="t41" class="tile"><div class="wrapPiece"><div id="p41" class="piece"></div></div></div>
+                <div id="t42" class="tile"><div class="wrapPiece"><div id="p42" class="piece"></div></div></div>
+                <div id="t43" class="tile"><div class="wrapPiece"><div id="p43" class="piece"></div></div></div>
+                <div id="t44" class="tile brc"><div class="wrapPiece"><div id="p44" class="piece"></div></div></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Path</h2>
+            <p class="path-hint">Click tiles on the board to build a path (in order), then Trigger. Or use a preset.</p>
+            <div class="btns">
+                <button data-preset="row2">Row 2</button>
+                <button data-preset="col2">Col 2</button>
+                <button data-preset="diag">Diagonal ↘</button>
+                <button data-preset="antidiag">Diagonal ↙</button>
+                <button class="secondary" id="clearPath">Clear path</button>
+            </div>
+            <div class="btns">
+                <button id="trigger">▶ Trigger</button>
+                <button class="secondary" id="fillBoard">Fill board</button>
+                <button class="secondary" id="clearBoard">Clear board</button>
+            </div>
+            <div class="checkbox-row">
+                <input type="checkbox" id="jumpToggle" checked>
+                <label for="jumpToggle">Jump pieces on arrival</label>
+            </div>
+
+            <h2>Sparkle trail</h2>
+            <div id="trailControls"></div>
+
+            <h2>Piece jump</h2>
+            <div id="jumpControls"></div>
+
+            <div class="btns">
+                <button class="secondary" id="resetAll">Reset all to defaults</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { playFairyTrail, tunables, setTunables } from "./shared/fairyTrail.js";
+
+        const P1_IMG = "/resources/images/pieces/p010_ff0606ff.svg";
+        const P2_IMG = "/resources/images/pieces/p011_b4aaaaff.svg";
+
+        function wrapperOf(r, c) {
+            const piece = document.getElementById(`p${r}${c}`);
+            return piece ? piece.parentElement : null;
+        }
+
+        function fillBoard() {
+            for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+                const piece = document.getElementById(`p${r}${c}`);
+                const wrapper = piece.parentElement;
+                piece.style.backgroundImage = `url('${(r + c) % 2 === 0 ? P1_IMG : P2_IMG}')`;
+                wrapper.style.opacity = "1";
+            }
+        }
+
+        function clearBoard() {
+            for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+                const piece = document.getElementById(`p${r}${c}`);
+                const wrapper = piece.parentElement;
+                piece.style.backgroundImage = "";
+                wrapper.style.opacity = "0";
+            }
+        }
+
+        function jumpPiece(r, c) {
+            const wrapper = wrapperOf(r, c);
+            if (!wrapper) return;
+            wrapper.classList.remove("piece-jump");
+            void wrapper.offsetWidth;
+            wrapper.classList.add("piece-jump");
+            wrapper.addEventListener("animationend", () => {
+                wrapper.classList.remove("piece-jump");
+            }, { once: true });
+        }
+
+        // ---- path selection ----
+        let path = []; // [[r,c], ...]
+
+        function renderPath() {
+            document.querySelectorAll(".path-badge").forEach((b) => b.remove());
+            document.querySelectorAll(".tile.path-selected").forEach((t) => t.classList.remove("path-selected"));
+            path.forEach(([r, c], i) => {
+                const tile = document.getElementById(`t${r}${c}`);
+                if (!tile) return;
+                tile.classList.add("path-selected");
+                tile.style.position = "relative";
+                const badge = document.createElement("div");
+                badge.className = "path-badge";
+                badge.textContent = String(i + 1);
+                tile.appendChild(badge);
+            });
+        }
+
+        document.querySelectorAll(".tile").forEach((tile) => {
+            tile.addEventListener("click", () => {
+                const r = Number(tile.id[1]), c = Number(tile.id[2]);
+                const idx = path.findIndex(([pr, pc]) => pr === r && pc === c);
+                if (idx >= 0) path.splice(idx, 1);
+                else path.push([r, c]);
+                renderPath();
+            });
+        });
+
+        document.getElementById("clearPath").addEventListener("click", () => {
+            path = [];
+            renderPath();
+        });
+
+        const PRESETS = {
+            row2: [[2, 0], [2, 1], [2, 2], [2, 3], [2, 4]],
+            col2: [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2]],
+            diag: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]],
+            antidiag: [[0, 4], [1, 3], [2, 2], [3, 1], [4, 0]],
+        };
+        document.querySelectorAll("[data-preset]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                path = PRESETS[btn.dataset.preset].map((c) => c.slice());
+                renderPath();
+                trigger();
+            });
+        });
+
+const triggerBtn = document.getElementById("trigger");
+        const triggerBtnDefaultText = triggerBtn.textContent;
+        function trigger() {
+            if (path.length < 2) {
+                // Clicking Trigger with no path selected used to just do
+                // nothing, with no feedback at all -- select at least 2
+                // tiles (or use a preset) first.
+                triggerBtn.textContent = "Select 2+ tiles first!";
+                triggerBtn.style.background = "#b33";
+                setTimeout(() => {
+                    triggerBtn.textContent = triggerBtnDefaultText;
+                    triggerBtn.style.background = "";
+                }, 1200);
+                return;
+            }
+            const jumpOn = document.getElementById("jumpToggle").checked;
+            playFairyTrail(path, jumpOn ? { onWaypoint: ([r, c]) => jumpPiece(r, c) } : {});
+        }
+        document.getElementById("trigger").addEventListener("click", trigger);
+        document.getElementById("fillBoard").addEventListener("click", fillBoard);
+        document.getElementById("clearBoard").addEventListener("click", clearBoard);
+
+        // ---- sparkle trail controls ----
+        const TRAIL_CONTROLS = [
+            { key: "travelMsPerSegment", label: "Travel time per tile (ms)", min: 40, max: 500, step: 10 },
+            { key: "emitStep", label: "Emit step (progress)", min: 0.005, max: 0.15, step: 0.005 },
+            { key: "emitOrbCount", label: "Orbs per emit", min: 0, max: 15, step: 1 },
+            { key: "emitStarCount", label: "Stars per emit", min: 0, max: 8, step: 1 },
+            { key: "emitSpread", label: "Trail spread (× tile)", min: 0, max: 0.5, step: 0.01 },
+            { key: "burstCount", label: "Burst particle count", min: 0, max: 60, step: 1 },
+            { key: "burstSpread", label: "Burst spread (× tile)", min: 0, max: 0.5, step: 0.01 },
+            { key: "burstMinRFactor", label: "Burst clear radius (× tile)", min: 0, max: 1.2, step: 0.05 },
+            { key: "orbLifeMin", label: "Orb life min (ms)", min: 100, max: 2000, step: 25 },
+            { key: "orbLifeMax", label: "Orb life max (ms)", min: 100, max: 2500, step: 25 },
+            { key: "orbSizeMin", label: "Orb size min (× tile)", min: 0.002, max: 0.1, step: 0.002 },
+            { key: "orbSizeMax", label: "Orb size max (× tile)", min: 0.002, max: 0.15, step: 0.002 },
+            { key: "starLifeMin", label: "Star life min (ms)", min: 100, max: 2000, step: 25 },
+            { key: "starLifeMax", label: "Star life max (ms)", min: 100, max: 2500, step: 25 },
+            { key: "starSizeMin", label: "Star size min (× tile)", min: 0.002, max: 0.12, step: 0.002 },
+            { key: "starSizeMax", label: "Star size max (× tile)", min: 0.002, max: 0.18, step: 0.002 },
+            { key: "glowBlur", label: "Glow blur (× tile)", min: 0, max: 0.4, step: 0.01 },
+        ];
+
+        const trailDefaults = { ...tunables };
+        const trailControlsEl = document.getElementById("trailControls");
+        TRAIL_CONTROLS.forEach(({ key, label, min, max, step }) => {
+            const row = document.createElement("div");
+            row.className = "row";
+            row.innerHTML = `
+                <label for="tc-${key}">${label}</label>
+                <input type="range" id="tc-${key}" min="${min}" max="${max}" step="${step}" value="${tunables[key]}">
+                <output for="tc-${key}">${tunables[key]}</output>
+            `;
+            trailControlsEl.appendChild(row);
+            const input = row.querySelector("input");
+            const output = row.querySelector("output");
+            input.addEventListener("input", () => {
+                const value = Number(input.value);
+                output.textContent = value;
+                setTunables({ [key]: value });
+            });
+        });
+
+        // ---- piece jump controls ----
+        const jumpState = { duration: 0.32, height: -16, intensity: 1 };
+        const jumpDefaults = { ...jumpState };
+
+        function applyJumpVars() {
+            const root = document.documentElement.style;
+            const { duration, height, intensity } = jumpState;
+            root.setProperty("--jump-duration", duration + "s");
+            root.setProperty("--jump-height", height + "%");
+            root.setProperty("--jump-windup", (height * -0.125) + "%");
+            root.setProperty("--jump-squash-out-x", 1 + 0.08 * intensity);
+            root.setProperty("--jump-squash-out-y", 1 - 0.06 * intensity);
+            root.setProperty("--jump-stretch-x", 1 - 0.05 * intensity);
+            root.setProperty("--jump-stretch-y", 1 + 0.06 * intensity);
+            root.setProperty("--jump-squash-in-x", 1 + 0.05 * intensity);
+            root.setProperty("--jump-squash-in-y", 1 - 0.04 * intensity);
+        }
+
+        const JUMP_CONTROLS = [
+            { key: "duration", label: "Duration (s)", min: 0.1, max: 1.2, step: 0.02 },
+            { key: "height", label: "Height (%, negative = up)", min: -60, max: 0, step: 1 },
+            { key: "intensity", label: "Squash/stretch intensity", min: 0, max: 2.5, step: 0.05 },
+        ];
+        const jumpControlsEl = document.getElementById("jumpControls");
+        JUMP_CONTROLS.forEach(({ key, label, min, max, step }) => {
+            const row = document.createElement("div");
+            row.className = "row";
+            row.innerHTML = `
+                <label for="jc-${key}">${label}</label>
+                <input type="range" id="jc-${key}" min="${min}" max="${max}" step="${step}" value="${jumpState[key]}">
+                <output for="jc-${key}">${jumpState[key]}</output>
+            `;
+            jumpControlsEl.appendChild(row);
+            const input = row.querySelector("input");
+            const output = row.querySelector("output");
+            input.addEventListener("input", () => {
+                const value = Number(input.value);
+                output.textContent = value;
+                jumpState[key] = value;
+                applyJumpVars();
+            });
+        });
+
+        document.getElementById("resetAll").addEventListener("click", () => {
+            setTunables(trailDefaults);
+            Object.assign(jumpState, jumpDefaults);
+            applyJumpVars();
+            trailControlsEl.querySelectorAll("input").forEach((input) => {
+                const key = input.id.slice(3);
+                input.value = tunables[key];
+                input.nextElementSibling.textContent = tunables[key];
+            });
+            jumpControlsEl.querySelectorAll("input").forEach((input) => {
+                const key = input.id.slice(3);
+                input.value = jumpState[key];
+                input.nextElementSibling.textContent = jumpState[key];
+            });
+        });
+
+        applyJumpVars();
+        fillBoard();
+        // A path is required before Trigger does anything (see trigger()) --
+        // start with one already selected so the button works immediately
+        // instead of silently no-op'ing on a first, path-less click.
+        path = PRESETS.row2.map((c) => c.slice());
+        renderPath();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linotte — Log decisioni bot</title>
+<style>
+  :root{
+    --bg:#1c140c; --paper:#241a10; --ink:#f1e4cf; --ink-soft:#cbb595;
+    --rule:#4a3822; --accent:#f0a05c; --good:#7fd9a4; --warn:#ff8fbd;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size:13px; line-height:1.55;
+  }
+  header{
+    position:sticky; top:0; z-index:10;
+    background:var(--paper); border-bottom:1px solid var(--rule);
+    padding:12px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  header h1{ font-size:15px; margin:0; font-weight:600; flex:1 1 auto; color:var(--accent); }
+  header a{ color:var(--ink-soft); text-decoration:none; font-size:12px; border:1px solid var(--rule); padding:5px 10px; border-radius:6px; }
+  header a:hover{ border-color:var(--accent); color:var(--accent); }
+  button{
+    font-family:inherit; font-size:12px; cursor:pointer;
+    background:var(--paper); color:var(--ink); border:1px solid var(--rule);
+    padding:6px 12px; border-radius:6px;
+  }
+  button:hover{ border-color:var(--accent); color:var(--accent); }
+  button.primary{ background:var(--accent); color:#2c1c0f; border-color:var(--accent); font-weight:600; }
+  #status{ font-size:11px; color:var(--ink-soft); padding:2px 0; }
+  #status.live{ color:var(--good); }
+  #log{
+    padding:14px 16px 60px; white-space:pre-wrap; word-break:break-word;
+  }
+  .empty{ color:var(--ink-soft); font-style:italic; }
+  .toast{
+    position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+    background:var(--accent); color:#2c1c0f; padding:8px 16px; border-radius:8px;
+    font-size:12px; font-weight:600; opacity:0; pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎲 Log decisioni bot — Linotte</h1>
+  <span id="status">in attesa…</span>
+  <button id="copyBtn" class="primary">Copia tutto</button>
+  <button id="clearBtn">Pulisci</button>
+  <a href="/">← Torna al gioco</a>
+</header>
+<div id="log"><div class="empty">Nessuna decisione registrata ancora. Gioca una partita contro il bot nell'altra scheda: ogni tiro, chiamata e piazzamento apparirà qui in tempo reale.</div></div>
+<div id="toast" class="toast">Copiato negli appunti</div>
+
+<script>
+const STORAGE_KEY = "linotte-bot-log-entries";
+const logEl = document.getElementById("log");
+const statusEl = document.getElementById("status");
+const toastEl = document.getElementById("toast");
+let lines = [];
+
+function loadExisting() {
+  try {
+    lines = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  } catch (e) {
+    lines = [];
+  }
+  render();
+}
+
+function render() {
+  if (lines.length === 0) {
+    logEl.innerHTML = '<div class="empty">Nessuna decisione registrata ancora. Gioca una partita contro il bot nell\'altra scheda: ogni tiro, chiamata e piazzamento apparirà qui in tempo reale.</div>';
+    return;
+  }
+  logEl.textContent = lines.join("\n");
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function appendLine(text) {
+  lines.push(text);
+  render();
+}
+
+loadExisting();
+
+// Live updates from the game tab, if it's open right now.
+let channel = null;
+try {
+  channel = new BroadcastChannel("linotte-bot-log");
+  channel.addEventListener("message", (e) => {
+    appendLine(e.data);
+    statusEl.textContent = "collegato — in ascolto";
+    statusEl.classList.add("live");
+  });
+  statusEl.textContent = "in ascolto (apri/gioca nell'altra scheda)";
+} catch (e) {
+  statusEl.textContent = "il tuo browser non supporta gli aggiornamenti live — ricarica questa pagina dopo aver giocato";
+}
+
+// The game tab also persists to localStorage, so a "storage" event is a
+// fallback source of live updates for browsers without BroadcastChannel
+// support. With the channel open, the SAME write fires both a channel
+// message and a storage event in this tab -- reacting to both would
+// double up every line (loadExisting()'s full reload racing appendLine()'s
+// incremental push) -- so this only reloads when the channel isn't there
+// to cover it.
+window.addEventListener("storage", (e) => {
+  if (e.key !== STORAGE_KEY) return;
+  if (channel) return; // already covered live via the channel
+  loadExisting();
+});
+
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  const text = lines.join("\n") || "(vuoto)";
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    // Clipboard API unavailable (e.g. non-HTTPS context) -- fall back to a
+    // manual select so the user can still Cmd/Ctrl+C themselves.
+    const range = document.createRange();
+    range.selectNodeContents(logEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  toastEl.classList.add("show");
+  setTimeout(() => toastEl.classList.remove("show"), 1400);
+});
+
+document.getElementById("clearBtn").addEventListener("click", () => {
+  lines = [];
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  render();
+});
+</script>
+</body>
+</html>
