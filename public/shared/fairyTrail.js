@@ -355,11 +355,22 @@ function tick(now) {
 // options.onWaypoint(cell, index): fired the instant the head reaches
 // each of the 3 cells in turn -- e.g. to make that tile's piece hop right
 // as the spark arrives at it (see linotte.js).
+//
+// A cells entry is normally a [r, c] board coordinate, resolved against
+// its tile's live position via cellCenter -- but it can also be a literal
+// {x, y, size} point instead, for a trail that travels off the board
+// entirely (e.g. from the last board cell onward to some UI element's
+// on-screen position; see linotte.js's celebratePoints).
+//
+// options.travelMs overrides the usual per-segment-count duration (see
+// tunables.travelMsPerSegment) -- meant for exactly that off-board case,
+// where "number of board tiles crossed" no longer means anything and the
+// caller knows better how long that hop should visually take.
 export function playFairyTrail(cells, options) {
   if (!Array.isArray(cells) || cells.length < 2) return;
-  const { onDone, onWaypoint } = options || {};
+  const { onDone, onWaypoint, travelMs } = options || {};
   ensureCanvas();
-  const points = cells.map(([r, c]) => cellCenter(r, c)).filter(Boolean);
+  const points = cells.map((cell) => (Array.isArray(cell) ? cellCenter(cell[0], cell[1]) : cell)).filter(Boolean);
   if (points.length < 2) return;
   const tileSize = points.reduce((sum, p) => sum + p.size, 0) / points.length;
 
@@ -368,7 +379,7 @@ export function playFairyTrail(cells, options) {
     cells,
     tileSize,
     start: performance.now(),
-    travelMs: tunables.travelMsPerSegment * (points.length - 1),
+    travelMs: travelMs ?? (tunables.travelMsPerSegment * (points.length - 1)),
     emitStep: tunables.emitStep,
     lastEmitT: 0,
     lastWaypoint: -1,

@@ -135,7 +135,22 @@ gameState.players[2].name = "BOT";
 //----------- GAME CONTROLLER ---------------
 let controller;
 let botStrategy = "points";
-startBot(botStrategy); // default to player-vs-bot, ready to play on open
+startBot(botStrategy); // default to player-vs-bot, ready to play on open --
+// silently discarded the moment a real mode is chosen on the home screen
+// below (newGameVsBot/newGameOffline fully reset gameState), so it never
+// needs to be "correct", just non-crashing while the home screen sits on
+// top of it (z-index 60, covers the whole viewport).
+
+// Shown on load (see index.html) so a fresh visit always lands on a mode
+// choice instead of straight into that default bot game above. Hidden via
+// a direct style.display write, not a class toggle -- this element is
+// never shown again after the first choice, so there's no ".hidden" state
+// to manage or any cascade-order risk to worry about (see the CSS
+// comment on .flip-coin-overlay.hidden for why that distinction mattered
+// there).
+function hideHomeScreen() {
+    document.getElementById("home-overlay").style.display = "none";
+}
 
 function startOffline() {
     controller = new GameController("offline");
@@ -259,12 +274,15 @@ function renderPlayerBox(player) {
 
 // Restarts a CSS animation on `el` even if it's already mid-play (e.g. two
 // points scored in quick succession) by forcing a reflow between removing
-// and re-adding the class -- same trick as jumpPiece().
-function popStat(el) {
-    el.classList.remove("stat-pop");
+// and re-adding the class -- same trick as jumpPiece(). `className`
+// defaults to the plain pop, but pieces use a more emphatic one (see its
+// own comment) since they have no other visual cue -- no trail, no "+N" --
+// to draw the eye the way a scored point does.
+function popStat(el, className = "stat-pop") {
+    el.classList.remove(className);
     void el.offsetWidth;
-    el.classList.add("stat-pop");
-    el.addEventListener("animationend", () => el.classList.remove("stat-pop"), { once: true });
+    el.classList.add(className);
+    el.addEventListener("animationend", () => el.classList.remove(className), { once: true });
 }
 
 // Updates the remaining-pieces numbers. Called right after END_TURN
@@ -274,11 +292,41 @@ function popStat(el) {
 // END_TURN) is omitted for the initial render, where there's nothing to
 // compare against and no pop should play.
 function renderPieceCounts(before) {
-    pawnP1Text.textContent = gameState.players[1].remainingPieces;
-    pawnP2Text.textContent = gameState.players[2].remainingPieces;
-    if (!before) return;
-    if (gameState.players[1].remainingPieces !== before.pieces[1]) popStat(pawnP1Text);
-    if (gameState.players[2].remainingPieces !== before.pieces[2]) popStat(pawnP2Text);
+    if (!before) {
+        pawnP1Text.textContent = gameState.players[1].remainingPieces;
+        pawnP2Text.textContent = gameState.players[2].remainingPieces;
+        return;
+    }
+    if (gameState.players[1].remainingPieces !== before.pieces[1]) tickStat(pawnP1Text, gameState.players[1].remainingPieces);
+    if (gameState.players[2].remainingPieces !== before.pieces[2]) tickStat(pawnP2Text, gameState.players[2].remainingPieces);
+}
+
+// A counter/odometer-style tick: the old value slides up and out while a
+// clone of the new value slides in from below to take its place, rather
+// than the number just popping in place. The "old value" side needs an
+// actual temporary clone (a single text node can't slide two different
+// values past each other at once) positioned exactly over the live
+// element via its own bounding rect, same trick as showPlusPopup.
+function tickStat(el, newValue) {
+    const rect = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    const outgoing = document.createElement("div");
+    outgoing.className = "stat-tick-out";
+    outgoing.textContent = el.textContent;
+    outgoing.style.left = rect.left + "px";
+    outgoing.style.top = rect.top + "px";
+    outgoing.style.width = rect.width + "px";
+    outgoing.style.height = rect.height + "px";
+    outgoing.style.font = cs.font;
+    outgoing.style.color = cs.color;
+    document.body.appendChild(outgoing);
+    outgoing.addEventListener("animationend", () => outgoing.remove(), { once: true });
+
+    el.textContent = newValue;
+    el.classList.remove("stat-tick-in");
+    void el.offsetWidth;
+    el.classList.add("stat-tick-in");
+    el.addEventListener("animationend", () => el.classList.remove("stat-tick-in"), { once: true });
 }
 
 // Plain, unanimated points render -- only for the initial page load and a
@@ -290,70 +338,140 @@ function renderPointCounts() {
     coinP2Text.textContent = gameState.players[2].points;
 }
 
-// Where a scored point "departs" from: the last cell of the last fairy
-// trail line that just played, since that's where the player's eye
-// already is when the celebration ends. Falls back to the board's own
-// center on the (currently impossible, but cheap to guard) chance there
-// was no line to read a cell from.
-function lastPlayedCellCenter(lines) {
-    if (lines.length > 0) {
-        const lastLine = lines[lines.length - 1];
-        const [r, c] = lastLine[lastLine.length - 1];
-        const tile = document.getElementById(`t${r}${c}`);
-        if (tile) {
-            const rect = tile.getBoundingClientRect();
-            return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        }
+// The last cell of the last fairy trail line that just played -- where the
+// board-side sparkle trail left off, and so where its continuation onward
+// to a player's points counter (see celebratePoints) should pick up from.
+// The last cell of the last line played, and the direction the trail was
+// already moving in when it got there (from the second-to-last cell, if
+// there is one) -- so its continuation off the board (see celebratePoints)
+// can leave in that same direction before bending, instead of the curve
+// starting to bend from the very first pixel off the tile.
+function lastPlayedExit(lines) {
+    if (lines.length === 0) return null;
+    const lastLine = lines[lines.length - 1];
+    const cell = lastLine[lastLine.length - 1];
+    let dir = { x: 0, y: -1 }; // fallback: straight up, if the line was only 1 cell
+    if (lastLine.length >= 2) {
+        const prev = cellScreenCenter(...lastLine[lastLine.length - 2]);
+        const pos = cellScreenCenter(...cell);
+        const dx = pos.x - prev.x, dy = pos.y - prev.y;
+        const d = Math.hypot(dx, dy) || 1;
+        dir = { x: dx / d, y: dy / d };
     }
-    const rect = document.querySelector(".div-table").getBoundingClientRect();
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    return { cell, dir };
 }
+
+function cellScreenCenter(r, c) {
+    const rect = document.getElementById(`t${r}${c}`).getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: Math.min(rect.width, rect.height) };
+}
+
+// A handful of points sampled along the quadratic curve from `start` to
+// `end`, for a fairy trail path that arcs like a natural toss instead of
+// cutting straight there -- playFairyTrail just connects whatever points
+// it's given, so feeding it points already curved is enough to bend the
+// whole trail without touching its own (deliberately straight-segment)
+// board-tile logic at all. The control point is pushed up and out to the
+// side, scaled to the hop's own distance so it looks proportionate
+// whether the counter is right next to the board or clear across it.
+function curvedPath(start, end, exitDir, segments = 8) {
+    const dx = end.x - start.x, dy = end.y - start.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    // Big enough to read as a clear swoop even on a short hop or a fast
+    // 500ms travel -- an earlier 0.35x/60px-floor version was correct on
+    // paper but visually indistinguishable from a straight line.
+    const bend = Math.max(110, dist * 0.6);
+    // A CUBIC curve (two control points), not a quadratic one (one control
+    // point) -- a quadratic bezier's deviation from the straight start-end
+    // line is proportional to t(1-t), which is mathematically ALWAYS
+    // symmetric no matter where its single control point sits, so it can
+    // only ever bend evenly across the whole hop, never lopsidedly.
+    //
+    // The first control point sits straight out along `exitDir` (the
+    // direction the board trail was already moving in) -- a cubic bezier's
+    // tangent at t=0 points directly at c1, so this is what makes the
+    // trail leave the line continuing the same way it was already going,
+    // instead of snapping sideways the instant it clears the last tile.
+    const exitDist = Math.min(dist * 0.4, 150);
+    const c1 = { x: start.x + exitDir.x * exitDist, y: start.y + exitDir.y * exitDist };
+    // The second control point pulls the tail end toward `end`, so once
+    // clear of the board the trail bends the rest of the way to the points
+    // counter instead of carrying on straight forever.
+    const sideways = dx >= 0 ? -1 : 1; // arc away from the direction of travel, not through it
+    const nx = (dy / dist) * sideways;
+    const c2 = { x: start.x + dx * 0.75 + nx * bend * 0.25, y: start.y + dy * 0.75 - bend * 0.25 };
+    const startSize = start.size ?? end.size;
+    const endSize = end.size ?? start.size;
+    const points = [];
+    for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const it = 1 - t;
+        points.push({
+            x: it * it * it * start.x + 3 * it * it * t * c1.x + 3 * it * t * t * c2.x + t * t * t * end.x,
+            y: it * it * it * start.y + 3 * it * it * t * c1.y + 3 * it * t * t * c2.y + t * t * t * end.y,
+            // Shrinks from the board tile's own size down to the (much
+            // smaller) UI counter's size as it travels, rather than being
+            // pinned to the tiny end size for the whole hop.
+            size: startSize + (endSize - startSize) * t,
+        });
+    }
+    return points;
+}
+
+// How long the trail's extra hop off the board, onto a points counter,
+// takes -- independent of tunables.travelMsPerSegment, which is tuned for
+// board-tile-sized gaps, not a much longer dash across the whole UI.
+const POINTS_HOP_MS = 500;
 
 // Called once every fairy trail line for this turn has actually finished
 // playing (see performEndTurn/playEndGameSequence) -- `lines` is exactly
-// what was just played, so its last cell is where the celebration ends.
-// For each player whose points increased, a "+N" badge flies from there
-// to that player's points counter along a curved path (see
-// flyPointsBadge); the counter itself only updates -- number change + pop
-// -- once the badge actually arrives, not the instant the trail stops.
+// what was just played, so its last cell is where the board-side
+// celebration left off. For each player whose points increased, the SAME
+// trail keeps going from there onward to that player's points counter
+// (playFairyTrail accepts a literal {x,y} point alongside board [r,c]
+// cells, see its own comment) -- no separate flying element, just the
+// trail's own sparkles continuing the journey. The counter itself only
+// updates -- number change, pop, and the "+N" -- once that hop actually
+// lands, not the instant the board-side trail stops.
 function celebratePoints(lines, before, onAllArrived) {
     const scorers = [1, 2].filter((p) => gameState.players[p].points > before.points[p]);
     if (scorers.length === 0) {
         if (onAllArrived) onAllArrived(); // nothing changed; the number is already showing the right value
         return;
     }
-    const start = lastPlayedCellCenter(lines);
+    const exit = lastPlayedExit(lines);
+    const startPos = cellScreenCenter(...exit.cell);
     let stillFlying = scorers.length;
     scorers.forEach((p) => {
         const el = p === 1 ? coinP1Text : coinP2Text;
         const delta = gameState.players[p].points - before.points[p];
         const rect = el.getBoundingClientRect();
-        const end = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        flyPointsBadge(start, end, delta, () => {
-            el.textContent = gameState.players[p].points;
-            popStat(el);
-            if (--stillFlying === 0 && onAllArrived) onAllArrived();
+        const target = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: Math.max(rect.width, rect.height) };
+        const path = curvedPath(startPos, target, exit.dir);
+        playFairyTrail(path, {
+            travelMs: POINTS_HOP_MS,
+            onDone: () => {
+                el.textContent = gameState.players[p].points;
+                popStat(el);
+                showPlusPopup(el, delta);
+                if (--stillFlying === 0 && onAllArrived) onAllArrived();
+            },
         });
     });
 }
 
-// A "+N" that travels from `start` to `end` along a quadratic curve (CSS
-// motion path), arcing up and over rather than sliding in a straight
-// line, so it reads as a natural toss instead of a mechanical slide.
-// `onArrive` fires once the badge reaches `end`, which is also the moment
-// its caller should actually update whatever the badge was flying towards.
-function flyPointsBadge(start, end, amount, onArrive) {
-    const midX = (start.x + end.x) / 2;
-    const midY = Math.min(start.y, end.y) - 90; // the arc's peak, above both ends
-    const badge = document.createElement("div");
-    badge.className = "stat-fly-badge";
-    badge.textContent = "+" + amount;
-    badge.style.offsetPath = `path("M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}")`;
-    document.body.appendChild(badge);
-    badge.addEventListener("animationend", () => {
-        badge.remove();
-        onArrive();
-    }, { once: true });
+// A "+N" that pops up right at the points number and rises/fades in
+// place -- the trail itself (see celebratePoints) is what visually
+// travels there, so this just needs to announce arrival, not travel too.
+function showPlusPopup(anchorEl, amount) {
+    const rect = anchorEl.getBoundingClientRect();
+    const popup = document.createElement("div");
+    popup.className = "stat-plus-popup";
+    popup.textContent = "+" + amount;
+    popup.style.left = (rect.left + rect.width / 2) + "px";
+    popup.style.top = rect.top + "px";
+    document.body.appendChild(popup);
+    popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
 
 
@@ -610,25 +728,121 @@ boardOptions.forEach(boardOption => {
 });
 
 
+//----------- COIN FLIP (decides who starts a new game) ---------------
+// Returns a Promise<1|2> — which player goes first. nameP1/nameP2 are
+// plain strings for the result text ("YOU"/"BOT", "P1"/"P2", ...) rather
+// than read from gameState, since the caller flips BEFORE resetting
+// gameState for the new game (the old one may still hold stale names, or
+// none at all on the very first load).
+function flipCoin(nameP1, nameP2) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById("coin-flip-overlay");
+        const coin = document.getElementById("flip-coin");
+        const resultText = document.getElementById("coin-result-text");
+
+        resultText.textContent = "";
+        overlay.classList.remove("hidden");
+
+        const winner = Math.random() < 0.5 ? 1 : 2; // 1 = front face lands up, 2 = back face
+        const spins = 5; // extra full turns before landing, purely for a satisfying flip
+        const finalDeg = spins * 360 + (winner === 2 ? 180 : 0);
+
+        coin.style.transform = "rotateY(0deg)";
+        void coin.offsetWidth; // force a reflow so the reset above is committed before animating
+
+        const animation = coin.animate(
+            [{ transform: "rotateY(0deg)" }, { transform: `rotateY(${finalDeg}deg)` }],
+            { duration: 1400, easing: "cubic-bezier(.2,.6,.25,1)", fill: "forwards" }
+        );
+
+        animation.onfinish = () => {
+            resultText.textContent = `${winner === 1 ? nameP1 : nameP2} starts!`;
+            setTimeout(() => {
+                overlay.classList.add("hidden");
+                resolve(winner);
+            }, 900);
+        };
+    });
+}
+
+// The pre-existing "FLIP" button (.opt-btn.flipped, no id) is reserved
+// for a different, not-yet-built feature -- PLAY is this session's own
+// button for starting a same-table game, coin flip included.
+document.getElementById("play-offline-btn").addEventListener("click", () => {
+    flipCoin("P1", "P2").then((startingPlayer) => {
+        newGameOffline(startingPlayer);
+        hideHomeScreen();
+        handleTab("back");
+    });
+});
+
+document.getElementById("home-play-btn").addEventListener("click", () => {
+    flipCoin("P1", "P2").then((startingPlayer) => {
+        newGameOffline(startingPlayer);
+        hideHomeScreen();
+    });
+});
+
+
 //----------- AI OPPONENT ---------------
+// .bot-strategy matches both the options-overlay's own POINTS/SPEED
+// buttons AND the home screen's (see index.html) -- one shared handler
+// for both, since starting a new bot game means the exact same thing
+// regardless of which of the two identical-looking buttons was clicked.
 const botStrategyButtons = document.querySelectorAll(".bot-strategy");
 botStrategyButtons.forEach(btn => {
     btn.addEventListener("click", () => {
         botStrategyButtons.forEach(b => b.classList.remove("selected"));
         btn.classList.add("selected");
 
-        newGameVsBot(btn.dataset.strategy);
-        handleTab("back");
+        flipCoin("YOU", "BOT").then((startingPlayer) => {
+            newGameVsBot(btn.dataset.strategy, startingPlayer);
+            hideHomeScreen();
+            handleTab("back");
+        });
     });
 });
 
-function newGameVsBot(strategy) {
+function newGameVsBot(strategy, startingPlayer = 1) {
     gameState = createInitialGameState();
+    gameState.currentPlayer = startingPlayer;
     gameState.players[1].name = "YOU";
     gameState.players[2].name = "BOT";
     assignRandomPieces(gameState);
 
     startBot(strategy);
+    rollBtnEnabled = true;
+    doneBtnEnabled = true;
+    isGameOver = false;
+    endGameSequenceStarted = false;
+    document.getElementById("winner-overlay").style.display = "none";
+
+    clearBoardVisuals();
+    clearForNextTurn();
+    applyPlayerVisuals();
+    renderPlayerBox(gameState.currentPlayer);
+    renderPieceCounts();
+    renderPointCounts();
+    divsOpacity(gameState.currentPlayer);
+
+    if (gameState.currentPlayer === 2) {
+        playBotTurn(); // the coin flip picked the bot to go first
+    } else {
+        startTurnTimer();
+    }
+}
+
+// "Same table" hotseat: two people share this device and take turns as
+// P1/P2 -- see isMyTurn()'s "offline" branch, which never dims/disables
+// either side's controls since there's only one local player either way.
+function newGameOffline(startingPlayer = 1) {
+    gameState = createInitialGameState();
+    gameState.currentPlayer = startingPlayer;
+    gameState.players[1].name = "P1";
+    gameState.players[2].name = "P2";
+    assignRandomPieces(gameState);
+
+    startOffline();
     rollBtnEnabled = true;
     doneBtnEnabled = true;
     isGameOver = false;
@@ -810,12 +1024,17 @@ function determineWinner() {
 
 
 function showWinnerPopup(winner) {
+    const pointsEl = document.getElementById("winner-points");
     if (winner) { // both player 1 or 2
         document.getElementsByClassName("piece-popup-container")[0].classList.add("pulse");
         document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", gameState.players[winner].color);
         document.getElementById("piece-popup").style.backgroundImage = urlOf(gameState.players[winner].pieceImage);
-        document.getElementById("winner-text").textContent = "Player " + winner + " won!";
+        // Uses whatever name is currently showing in that player's info
+        // box (still "YOU"/"BOT" until name selection exists) rather than
+        // a hardcoded "Player 1/2".
+        document.getElementById("winner-text").textContent = gameState.players[winner].name + " won!";
         document.getElementById("winner-overlay").style.display = "flex";
+        animateWinnerPoints(pointsEl, gameState.players[winner].points);
         fireWinnerConfetti(3000);
     } else {
         document.getElementsByClassName("piece-popup-container")[0].classList.remove("pulse");
@@ -823,8 +1042,37 @@ function showWinnerPopup(winner) {
         document.getElementById("piece-popup").style.backgroundImage = urlOf("resources/images/tie.svg");
         document.getElementById("winner-text").textContent = "It's a tie!";
         document.getElementById("winner-overlay").style.display = "flex";
+        pointsEl.textContent = "";
+        pointsEl.classList.remove("winner-points-reveal");
         fireWinnerConfetti(500);
     }
+}
+
+// Reveals the winner's final score with a spring pop-in (see
+// .winner-points-reveal) while counting the number itself up from 0 to
+// `total`, easing out into it, instead of the total just appearing.
+function animateWinnerPoints(el, total) {
+    el.classList.remove("winner-points-reveal");
+    void el.offsetWidth;
+    el.classList.add("winner-points-reveal");
+
+    // The looping shine (see .winner-points-shine) lives on this inner
+    // span, separate from `el`'s own one-shot pop-in above -- see the CSS
+    // comment for why one element can't run both at once. Only the span's
+    // text changes each frame below; the shine's own animation (already
+    // running from the moment the class is applied) isn't affected by that.
+    el.innerHTML = '<span class="winner-points-shine"></span>';
+    const shineSpan = el.firstElementChild;
+
+    const duration = 900;
+    const start = performance.now();
+    (function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic: fast start, settles gently into the final number
+        const value = Math.round(eased * total);
+        shineSpan.textContent = value + (value === 1 ? " point" : " points");
+        if (t < 1) requestAnimationFrame(step);
+    })(start);
 }
 
 
@@ -1115,9 +1363,17 @@ function playLinesSequentially(lines, onAllDone) {
             return;
         }
         const cells = lines[i++];
+        // The gap only belongs BETWEEN two lines, to keep them feeling like
+        // distinct beats -- after the very last one, `next()` runs
+        // immediately, since here it's `onAllDone` that fires (see
+        // celebratePoints), and that goes on to continue the exact same
+        // trail onward to the points counter. Delaying that too would
+        // reintroduce a pause between the board trail and its own
+        // continuation, breaking what's meant to read as one movement.
+        const isLast = i >= lines.length;
         playFairyTrail(cells, {
             onWaypoint: ([wr, wc]) => jumpPiece(wr, wc),
-            onDone: () => setTimeout(next, LINE_SEQUENCE_GAP_MS),
+            onDone: isLast ? next : () => setTimeout(next, LINE_SEQUENCE_GAP_MS),
         });
     })();
 }
@@ -1268,15 +1524,19 @@ function performEndTurn() {
 
     // Several lines from one placement (e.g. a corner completing both a
     // row and a column) play one after another, never at the same time --
-    // see playLinesSequentially.
-    playLinesSequentially(lastMoveLines, () => celebratePoints(lastMoveLines, before));
-
-    if (controller.mode === "bot" && gameState.currentPlayer === 2) {
-        stopTimer(); // pause the clock during the bot's own turn
-        playBotTurn();
-    } else {
-        startTurnTimer(); // fresh 60s for whoever's turn it is now
-    }
+    // see playLinesSequentially. The next turn -- the bot's own turn, or
+    // just the timer for whoever's turn it now is -- doesn't start until
+    // ALL of this turn's animations (board lines, then the points hop)
+    // have actually finished, so it never starts overlapping the previous
+    // turn's celebration still playing out.
+    playLinesSequentially(lastMoveLines, () => {
+        celebratePoints(lastMoveLines, before, () => {
+            startTurnTimer(); // fresh 60s -- keeps running through the bot's own turn too, not just the human's
+            if (controller.mode === "bot" && gameState.currentPlayer === 2) {
+                playBotTurn();
+            }
+        });
+    });
     //stateUpdate();
 
 
@@ -1307,19 +1567,29 @@ function playEndGameSequence(lastMoveLines, before) {
     endGameSequenceStarted = true;
 
     const winner = determineWinner();
-    let sweepLines = [];
-    if (winner) {
-        const alreadyShown = new Set(lastMoveLines.map((line) => JSON.stringify(line)));
-        sweepLines = findAllPlayerLines(gameState.table, winner)
-            .filter((line) => !alreadyShown.has(JSON.stringify(line)));
-    }
-    const allLines = [...lastMoveLines, ...sweepLines];
-    playLinesSequentially(allLines, () => {
-        celebratePoints(allLines, before, () => {
-            // A beat of empty board between the celebration and the popup,
-            // so the last line doesn't feel like it's cut off by the
-            // overlay appearing the instant it finishes.
-            setTimeout(() => showWinnerPopup(winner), 1000);
+
+    // Step 1: the deciding move's own line(s), celebrated exactly like any
+    // other turn -- trail, then the points hop to the counter, then the
+    // number actually increments. Only once THAT is done does the sweep
+    // (step 2) start, so the score updates right after the line that
+    // earned it, not after a victory lap over lines that scored turns ago.
+    playLinesSequentially(lastMoveLines, () => {
+        celebratePoints(lastMoveLines, before, () => {
+            let sweepLines = [];
+            if (winner) {
+                const alreadyShown = new Set(lastMoveLines.map((line) => JSON.stringify(line)));
+                sweepLines = findAllPlayerLines(gameState.table, winner)
+                    .filter((line) => !alreadyShown.has(JSON.stringify(line)));
+            }
+            // Step 2: sweep every other line the winner has on the board,
+            // purely as a victory lap -- no further point changes, those
+            // already happened in earlier turns.
+            playLinesSequentially(sweepLines, () => {
+                // A beat of empty board between the celebration and the
+                // popup, so the last line doesn't feel like it's cut off
+                // by the overlay appearing the instant it finishes.
+                setTimeout(() => showWinnerPopup(winner), 1000);
+            });
         });
     });
 }
@@ -1636,6 +1906,7 @@ document.querySelectorAll(".die").forEach(el => {
     el.addEventListener("click", function () {
         if (!isMyTurn()) return;
         if (!rollBtnEnabled) return; // dice are mid-roll (rollBtnEnabled is false from click to stopRoll) -- not settled yet, don't let a lock toggle underneath the animation
+        if (gameState.dice.rollsLeft === 3) return; // not rolled yet this turn -- nothing to lock in
 
         let elem = document.getElementById(this.id);
         if (elem.classList.contains("selected")) {

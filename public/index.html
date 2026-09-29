@@ -34,6 +34,40 @@
 </head>
 
 <body id="body" class="body" style="color-scheme: light; filter: none !important;">
+
+    <!-- home screen: shown on first load, before any game has started -->
+    <div id="home-overlay" class="home-overlay">
+        <div class="opt-bg"></div>
+
+        <div class="home-header">
+            <img class="home-logo" src="resources/favicon/web-app-manifest-192x192.png" alt="">
+            <div class="home-title">Linotte</div>
+        </div>
+
+        <div class="home-pages">
+            <section>
+                <div class="separator"></div>
+                <div class="title selected">Same table</div>
+                <div class="card">
+                    <div class="opt-btn" id="home-play-btn">PLAY</div>
+                </div>
+            </section>
+
+            <section>
+                <div class="title">Online</div>
+                <div class="card home-online-card">Coming soon</div>
+            </section>
+
+            <section>
+                <div class="title">AI opponent</div>
+                <div class="h-div">
+                    <div class="card"><div class="opt-btn bot-strategy" data-strategy="points">POINTS</div></div>
+                    <div class="card"><div class="opt-btn bot-strategy" data-strategy="speed">SPEED</div></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
     <div class="flex-block">
         <div class="div-table">
             <div class="grid">
@@ -296,6 +330,9 @@
                     <div class="card">
                         <div class="opt-btn flipped">FLIP</div>
                     </div>
+                    <div class="card">
+                        <div class="opt-btn" id="play-offline-btn">PLAY</div>
+                    </div>
                 </section>
 
                 <section>
@@ -544,6 +581,20 @@
     </div>
 
 
+    <!-- coin flip overlay -->
+    <div id="coin-flip-overlay" class="flip-coin-overlay hidden">
+        <div class="flip-coin-card">
+            <div class="flip-coin-perspective">
+                <div class="flip-coin" id="flip-coin">
+                    <div class="flip-coin-face flip-coin-front">1</div>
+                    <div class="flip-coin-face flip-coin-back">2</div>
+                </div>
+            </div>
+            <div class="flip-coin-result" id="coin-result-text"></div>
+        </div>
+    </div>
+
+
     <!-- winner overlay -->
     <div id="winner-overlay" class="winner-overlay">
         <canvas id="confetti-canvas"></canvas>
@@ -560,6 +611,7 @@
                         <div class="winner-right"></div>
                     </div>
                     <div class="winner-text" id="winner-text"></div>
+                    <div class="winner-points" id="winner-points"></div>
                     <div class="winner-button" id="winner-button">NEW GAME</div>
                 </div>
             </div>

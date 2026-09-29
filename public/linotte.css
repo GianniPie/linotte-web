@@ -901,6 +901,61 @@ body {
 
 
 /* ============================================
+    HOME SCREEN
+   ============================================ */
+/* Shown on first load, before any game has started -- hidden via JS
+   setting style.display = "none" directly (not a .hidden class toggle)
+   once a mode is chosen, so there's no risk of the same class-vs-class
+   cascade-order trap .hidden fell into elsewhere in this file (see
+   .flip-coin-overlay.hidden's comment): an inline style always wins
+   regardless of source order, no compound selector needed. */
+.home-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* above options-overlay (50); the game itself is never visible underneath yet */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6dvh 0 2dvh;
+}
+
+.home-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .3em;
+  margin-bottom: 2dvh;
+}
+
+.home-logo {
+  width: 84px;
+  height: 84px;
+  border-radius: 22%;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+}
+
+.home-title {
+  font-family: "Changa One", sans-serif;
+  font-size: 2.4em;
+  color: #3d240c;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, .4);
+}
+
+.home-pages {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.home-online-card {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: .6;
+  font-style: italic;
+}
+
+
+/* ============================================
     OPTIONS OVERLAY
    ============================================ */
 
@@ -1228,6 +1283,98 @@ section {
 
 
 /* ============================================
+   COIN FLIP OVERLAY
+   ============================================ */
+/* Every class here is prefixed "flip-coin-" (or bare .flip-coin for the
+   spinning element itself) -- the codebase already has a generic .coin
+   class (the small points-icon in the player box, styled completely
+   differently), and reusing that name here made this component silently
+   hijack that unrelated element's styling (it also grabbed the same
+   .coin selector, blowing the tiny points icon up to a 120px circle)
+   instead of just not matching anything. */
+
+.flip-coin-overlay.hidden {
+  /* Same specificity as the bare .hidden{display:none} rule elsewhere in
+     this file (one class each) — whichever is declared LAST in the
+     stylesheet wins a tie, so on its own .hidden here would lose to this
+     block's own display:flex below and never actually hide anything.
+     The compound selector (two classes) outranks either alone,
+     regardless of source order. */
+  display: none;
+}
+
+.flip-coin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80; /* above options-overlay (50) and winner-overlay (70) -- can be triggered from either flow */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(4px);
+}
+
+.flip-coin-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.flip-coin-perspective {
+  perspective: 600px;
+}
+
+.flip-coin {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  transform-style: preserve-3d;
+}
+
+/* Plain CSS gradients + a number, no icon of any kind -- the first version
+   reused the star-shaped points icon (see #coinp1/#coinp2 in the player
+   box) for the coin faces, which looked like a duplicate of that unrelated
+   icon rather than a coin. */
+.flip-coin-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Changa One", sans-serif;
+  font-size: 2.6em;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .4), inset 0 0 14px rgba(255, 255, 255, .35);
+}
+
+.flip-coin-front {
+  background: radial-gradient(circle at 35% 30%, #fff2b0, #e8b923 55%, #b8860b 100%);
+  border: 4px solid #8a6708;
+  color: #6b4e00;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+}
+
+.flip-coin-back {
+  background: radial-gradient(circle at 35% 30%, #f5f5f5, #c9c9c9 55%, #8a8a8a 100%);
+  border: 4px solid #6e6e6e;
+  color: #5a5a5a;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+  transform: rotateY(180deg);
+}
+
+.flip-coin-result {
+  font-family: "Changa One", sans-serif;
+  color: #fff;
+  font-size: 1.4em;
+  min-height: 1.4em;
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+}
+
+
+/* ============================================
    WINNER OVERLAY
    ============================================ */
 
@@ -1357,6 +1504,46 @@ section {
 .winner-text {
   font-size: 2.8em;
   color: rgba(0, 0, 0, .5);
+}
+
+.winner-points {
+  font-size: 1.9em;
+  font-weight: bold;
+  color: #ffea00;
+  -webkit-text-stroke: .5px rgba(0, 0, 0, .3);
+}
+
+/* The continuous shine loop lives on an INNER span (see animateWinnerPoints
+   in linotte.js), not on .winner-points itself: that outer element already
+   gets its own one-shot pop-in animation (.winner-points-reveal, in
+   animations.css) when the score is revealed, and a single element can't
+   run two different `animation` shorthand declarations from two classes at
+   once -- whichever class's `animation` property wins the cascade replaces
+   the other entirely rather than blending (the exact bug .img-bounce vs
+   .piece-jump hit earlier). Splitting the loop onto a child sidesteps that
+   completely: the pop-in transform applies to the outer div, the glow pulse
+   applies to the inner span, and both run at once undisturbed.
+   Flat color throughout (no gradient, no background-clip:text) -- the rest
+   of the app doesn't use gradients, so the "shine" here is a glow pulse
+   (text-shadow blur/intensity animating) instead of a sweeping highlight. */
+.winner-points-shine {
+  /* Mostly solid gold, with a wide-ish soft bright band that glides across
+     once per loop -- not the whole text visibly being a gradient at rest,
+     the way an earlier version read. Widened from an earlier, much
+     narrower band (40%-60%) -- a narrow band crossing a wide positional
+     range is only actually over the visible text for a handful of
+     animation-frames, reading as an instant flash rather than a glide,
+     however slow the keyframes themselves are timed. */
+  background: linear-gradient(100deg, #ffea00 0%, #ffea00 30%, #fffceb 50%, #ffea00 70%, #ffea00 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Without this, some engines never actually repaint a text-clipped
+     gradient's `background-position` frame to frame -- confirmed earlier
+     this session: getComputedStyle shows the animation technically
+     running, but the same value paints every frame, so it looks frozen. */
+  will-change: background-position;
 }
 
 .winner-button {

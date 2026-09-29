@@ -273,8 +273,10 @@
 
 /* Player info table: the pieces-remaining and points numbers pop when
    they change (see popStat() in linotte.js) -- pieces pop immediately
-   when a placement commits; points pop only once a flying "+N" badge (see
-   .stat-fly-badge below) actually arrives at the points number.
+   when a placement commits; points pop only once the fairy trail's extra
+   hop off the board (see celebratePoints() in linotte.js) actually lands
+   on the points number -- the trail itself is what visually travels
+   there, this is just the number reacting to its arrival.
    A single spring-ish (back-out) easing curve drives the whole bounce
    instead of hand-placed undershoot keyframes -- CSS re-applies the
    timing function to EACH segment (0->50 and 50->100) independently, so
@@ -300,39 +302,151 @@
   animation: statPop 700ms cubic-bezier(.34, 1.56, .64, 1);
 }
 
-/* A "+N" that travels from wherever the fairy trail just finished to the
-   scoring player's points number, along a curved path set from JS via
-   `offset-path` (see flyPointsBadge()) -- offset-distance is the only
-   thing animated here, an eased 0% to 100% progress along that path,
-   which is what actually produces the natural arc rather than a straight
-   linear slide. */
-@keyframes statFly {
+/* The piece count ticks over like an odometer/counter widget instead of
+   popping in place: the old value (a temporary clone, see tickStat() in
+   linotte.js -- a single text node can't show two values sliding past
+   each other at once) slides up and out while the live element's new
+   value slides in from below to take its spot. */
+@keyframes statTickOut {
   0% {
-    offset-distance: 0%;
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  75% {
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
 
   100% {
-    offset-distance: 100%;
-    opacity: 0.4;
-    transform: scale(0.75);
+    transform: translateY(-120%) scale(0.7);
+    opacity: 0;
   }
 }
 
-.stat-fly-badge {
+.stat-tick-out {
   position: fixed;
-  left: 0;
-  top: 0;
-  offset-rotate: 0deg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 55;
+  animation: statTickOut 480ms cubic-bezier(.4, 0, .2, 1) forwards;
+}
+
+/* The incoming value slides up AND pops -- overshooting past full size as
+   it arrives, then settling -- instead of a plain linear slide, so landing
+   in place has some bounce to it rather than just stopping dead. */
+@keyframes statTickIn {
+  0% {
+    transform: translateY(120%) scale(0.6);
+    opacity: 0;
+  }
+
+  60% {
+    transform: translateY(0) scale(1.6);
+    opacity: 1;
+  }
+
+  80% {
+    transform: translateY(0) scale(0.85);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.stat-tick-in {
+  display: inline-block;
+  animation: statTickIn 620ms cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* The winner popup's final score (see showWinnerPopup() in linotte.js,
+   which also counts the number itself up to that value while this plays)
+   pops in with a spring overshoot rather than just appearing. */
+@keyframes winnerPointsReveal {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.winner-points-reveal {
+  animation: winnerPointsReveal 600ms cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* A looping light sweep across the score text (see .winner-points-shine in
+   linotte.css for the gradient + text-clip setup this animates) -- runs
+   continuously the whole time the popup is up, independent of the one-shot
+   pop-in above since it lives on a separate inner element. */
+/* A shimmer sweep: the narrow bright band in .winner-points-shine's
+   gradient's bright band (see linotte.css, now spanning 30%-70% of the
+   gradient) sits fully clear of the visible glyph area at both 120% and
+   -20% -- confirmed by sampling the actual rendered text at several
+   positions, not just assumed from the numbers -- so at rest the text
+   just reads as solid gold. It crosses the visible area during 0%->60% of
+   the cycle (a good deal slower than an earlier, much quicker 0%->35%
+   version); 60%->100% holds at the same (again off-screen) position,
+   which is what makes it read as an occasional slow glide with a pause,
+   rather than a fast, constant sweep. */
+@keyframes winnerPointsShimmer {
+  0% {
+    background-position: 120% 0;
+  }
+
+  60% {
+    background-position: -20% 0;
+  }
+
+  100% {
+    background-position: -20% 0;
+  }
+}
+
+.winner-points-shine {
+  animation: winnerPointsShimmer 3.6s ease-in-out infinite;
+}
+
+/* A "+N" that pops up right at the points number and rises/fades in
+   place, see showPlusPopup(). Fixed positioning + a viewport coordinate
+   set from JS, since it needs to sit above the player info table
+   regardless of that table's own layout. */
+@keyframes statPlusFloat {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.8);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -0.3em) scale(1.15);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -1.6em) scale(1);
+  }
+}
+
+.stat-plus-popup {
+  position: fixed;
+  /* Detached from the player box's own font-size chain (appended straight
+     to <body>), so it needs its own size -- matched to roughly double
+     .textPlayer.t2's 4vw (see linotte.css) so it actually reads clearly
+     next to the number instead of blending into the UI at body size. */
+  font-size: 8vw;
+  white-space: nowrap;
   color: #ffea00;
   font-weight: bold;
-  text-shadow: 0 0 4px rgba(0, 0, 0, .6);
+  text-shadow: 0 0 .15em rgba(0, 0, 0, .7), 0 0 .3em rgba(0, 0, 0, .4);
   pointer-events: none;
   z-index: 60;
-  animation: statFly 750ms cubic-bezier(.3, 0, .55, 1) forwards;
+  animation: statPlusFloat 900ms ease-out forwards;
 }
