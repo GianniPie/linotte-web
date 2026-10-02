@@ -87,6 +87,9 @@ const ccElements = [cc0, cc1, cc2, cc3, cc4, cc5, cc6, cc7];
 
 const rollBtn = document.getElementById("rollBtn");
 const doneBtn = document.getElementById("doneBtn");
+const turnLabelEl = document.getElementById("turn-label");
+const turnLabelTextEl = document.querySelector("#turn-label .turn-label-text");
+const endGameDoneBtn = document.getElementById("endGameDoneBtn");
 const openBtn = document.getElementById("options");
 const rollBtnText = document.querySelector("#rollBtn .text-button");
 
@@ -1009,6 +1012,17 @@ function checkGameOver() {
     document.getElementById("div-resultsAndCalls").classList.add("game-over-dim");
     rollBtn.classList.add("game-over-dim");
 
+    // Vs-bot: ROLL/DONE and the "[name] turn" label (see divsOpacity) are
+    // both dead now that there's no next turn -- replaced by a single
+    // green DONE in their place, which just reopens the winner popup (see
+    // doneButton's isGameOver branch) if it gets dismissed.
+    if (controller.mode === "bot") {
+        rollBtn.style.display = "none";
+        doneBtn.style.display = "none";
+        turnLabelEl.style.display = "none";
+        endGameDoneBtn.style.display = "flex";
+    }
+
     // The popup itself is shown by the caller (see playEndGameSequence in
     // performEndTurn), once the end-of-game fairy trail celebration has
     // played -- showing it immediately here would cover the board with the
@@ -1473,6 +1487,13 @@ function doneButton(e) {
     if (doneBtnEnabled == false) return;
     performEndTurn();
 }
+
+// Vs-bot's end-of-game stand-in for DONE (see checkGameOver) -- same
+// "bring the winner popup back" behavior as DONE's own isGameOver branch
+// above, just reachable from the button that's actually visible by then.
+endGameDoneBtn.addEventListener("click", () => {
+    showWinnerPopup(determineWinner());
+});
 
 function performEndTurn() {
     console.log("doneButton");
@@ -2085,14 +2106,31 @@ function stateUpdate() {
 function divsOpacity(currentPlayer) {
     if (controller.mode === "offline") return; // hotseat: never dim, both players share the controls
     if (!currentPlayer) return;
-    // Same opacity value applied uniformly to every control area (dice,
-    // results/calls, roll/done) -- see the [aria-disabled] rule in
-    // linotte.css for why the individual dice/calls/buttons don't ALSO
-    // carry their own opacity (that would stack and double-dim them).
-    const opacity = (currentPlayer === LOCAL_PLAYER) ? 1 : 0.5;
+    // Dice and results/calls just dim a touch on the opponent's turn -- see
+    // the [aria-disabled] rule in linotte.css for why the individual
+    // dice/calls don't ALSO carry their own opacity (that would stack and
+    // double-dim them). ROLL/DONE aren't dimmed alongside them anymore:
+    // during the bot's turn they're swapped out entirely for a
+    // "[name] turn" label below instead of sitting there dimmed and dead.
+    const isBotTurn = currentPlayer !== LOCAL_PLAYER;
+    const opacity = isBotTurn ? 0.8 : 1;
     document.getElementById("div-dice").style.opacity = opacity;
     document.getElementById("div-resultsAndCalls").style.opacity = opacity;
-    document.getElementById("div-buttons").style.opacity = opacity;
+
+    // Every divsOpacity() call marks the start of a live turn, so the
+    // end-of-game button (see checkGameOver()) resets to hidden here --
+    // checkGameOver() runs right after this on the turn that actually ends
+    // the game and will show it again if needed.
+    endGameDoneBtn.style.display = "none";
+    rollBtn.style.display = "";
+    doneBtn.style.display = "";
+    turnLabelEl.style.display = "none";
+    if (isBotTurn) {
+        rollBtn.style.display = "none";
+        doneBtn.style.display = "none";
+        turnLabelEl.style.display = "flex";
+        turnLabelTextEl.textContent = gameState.players[currentPlayer].name + " turn";
+    }
 }
 
 
@@ -2126,6 +2164,310 @@ function renderBoardFromState(table) {
 // socket.on("selectCall_result", state => {
 //     highlighteCall(state);
 // });
+
+
+//------------------ CHAT EMOJI WHEEL ----------------------
+// Graphic-only placeholder for future online play -- there's no peer to
+// send a thrown emoji to yet, so it just plays the toss animation locally.
+const chatFab = document.getElementById("chat-fab");
+const chatWheelOverlay = document.getElementById("chat-wheel-overlay");
+const chatWheel = document.getElementById("chat-wheel");
+const chatTossStage = document.getElementById("chat-toss-stage");
+
+// Flat-style SVG emoji (see the twemoji <script> tag in index.html) instead
+// of the OS's own glossy native emoji font -- matches this app's flat,
+// no-gradient look and renders identically everywhere. Swaps each glyph's
+// text node for an <img class="emoji">; sized via CSS (.chat-emoji img.emoji
+// etc). Safe to call repeatedly/on already-parsed content -- it only
+// touches raw emoji text nodes, never an existing <img>.
+//
+// The library's own default image host (twemoji.maxcdn.com) is unreliable
+// -- it silently fails to load for a lot of visitors (blocked, rate
+// -limited, or just down), which is why the thrown emoji could render as
+// nothing at all. jsDelivr serving the same assets straight from the
+// twemoji GitHub repo is the dependable alternative.
+const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@v14.0.2/assets/";
+function parseTwemoji(el) {
+    if (window.twemoji) window.twemoji.parse(el, { base: TWEMOJI_BASE, folder: "svg", ext: ".svg" });
+}
+parseTwemoji(chatWheel);
+
+let chatWheelRotation = 0;
+let chatWheelDragging = false;
+let chatWheelPointerId = null;
+let chatWheelDragStartAngle = 0;
+let chatWheelDragStartRotation = 0;
+let chatWheelDragStartX = 0;
+let chatWheelDragStartY = 0;
+let chatWheelDidDrag = false;
+let chatWheelDownBtn = null;
+let chatWheelLastAngle = 0;
+let chatWheelLastTime = 0;
+let chatWheelVelocity = 0; // degrees per ms, for the release-inertia spin below
+let chatWheelInertiaFrame = null;
+
+function chatWheelAngleFromCenter(x, y) {
+    const rect = chatWheel.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
+}
+
+function setChatWheelRotation(deg) {
+    chatWheelRotation = deg;
+    // A custom property, not a plain transform -- .chat-emoji's own
+    // transform (see linotte.css) reads this same value to counter-rotate
+    // itself, so every emoji stays upright regardless of the dial's spin.
+    chatWheel.style.setProperty("--wheel-rotation", chatWheelRotation + "deg");
+}
+
+function stopChatWheelInertia() {
+    if (chatWheelInertiaFrame !== null) {
+        cancelAnimationFrame(chatWheelInertiaFrame);
+        chatWheelInertiaFrame = null;
+    }
+}
+
+chatFab.addEventListener("click", () => {
+    chatWheelOverlay.classList.remove("hidden");
+});
+
+chatWheelOverlay.addEventListener("click", (e) => {
+    if (e.target === chatWheelOverlay) {
+        stopChatWheelInertia();
+        chatWheelOverlay.classList.add("hidden");
+    }
+});
+
+chatWheel.addEventListener("pointerdown", (e) => {
+    stopChatWheelInertia(); // grabbing the dial takes over from any spin still coasting
+    chatWheelDragging = true;
+    chatWheelDidDrag = false;
+    chatWheelPointerId = e.pointerId;
+    // setPointerCapture below re-targets the pointerup (and the click that
+    // follows it) to chatWheel itself, no matter what's visually under the
+    // pointer -- so a plain per-button "click" listener never actually
+    // fires once capture is set on an ancestor. Recording the button a
+    // press started on here, and acting on it in endChatWheelDrag's own
+    // pointerup instead of waiting for a click that will never arrive, is
+    // what makes picking an emoji work at all.
+    chatWheelDownBtn = e.target.closest(".chat-emoji");
+    chatWheelDragStartX = e.clientX;
+    chatWheelDragStartY = e.clientY;
+    chatWheelDragStartAngle = chatWheelAngleFromCenter(e.clientX, e.clientY);
+    chatWheelDragStartRotation = chatWheelRotation;
+    chatWheelLastAngle = chatWheelDragStartAngle;
+    chatWheelLastTime = performance.now();
+    chatWheelVelocity = 0;
+    chatWheel.setPointerCapture(e.pointerId);
+});
+
+chatWheel.addEventListener("pointermove", (e) => {
+    if (!chatWheelDragging || e.pointerId !== chatWheelPointerId) return;
+    const now = performance.now();
+    const currentAngle = chatWheelAngleFromCenter(e.clientX, e.clientY);
+    const totalDelta = currentAngle - chatWheelDragStartAngle;
+    // Drag detection is in screen pixels moved, NOT degrees rotated: the
+    // emoji sit near the dial's rim, where a couple of px of ordinary tap
+    // jitter is already several degrees of angle (close to the center,
+    // the same jitter is nothing) -- an angle-based threshold was tripping
+    // on perfectly normal taps and silently swallowing every pick, which
+    // is why throwing an emoji looked like it was doing nothing at all.
+    const movedPx = Math.hypot(e.clientX - chatWheelDragStartX, e.clientY - chatWheelDragStartY);
+    if (movedPx > 8) chatWheelDidDrag = true;
+    setChatWheelRotation(chatWheelDragStartRotation + totalDelta);
+
+    // Instantaneous angular speed between this move and the last one (not
+    // the average over the whole drag) -- this is what carries into the
+    // release-inertia spin below, so a flick reads by its last motion, not
+    // however the drag started.
+    const dt = now - chatWheelLastTime;
+    if (dt > 0) chatWheelVelocity = (currentAngle - chatWheelLastAngle) / dt;
+    chatWheelLastAngle = currentAngle;
+    chatWheelLastTime = now;
+});
+
+function endChatWheelDrag(e) {
+    if (!chatWheelDragging) return;
+    chatWheelDragging = false;
+
+    // No drag happened and the press started on an emoji -- that's a pick,
+    // handled here rather than via that button's own "click" listener,
+    // which setPointerCapture (see pointerdown above) prevents from ever
+    // receiving the event.
+    if (!chatWheelDidDrag && chatWheelDownBtn) {
+        stopChatWheelInertia();
+        throwChatEmoji(chatWheelDownBtn.dataset.emoji, chatWheelDownBtn.getBoundingClientRect());
+        chatWheelOverlay.classList.add("hidden");
+        chatWheelDownBtn = null;
+        return;
+    }
+    chatWheelDownBtn = null;
+
+    // Keeps spinning on its own after release and gradually slows down --
+    // same "flick a dial" feel as a real one, instead of snapping dead the
+    // instant the finger lifts.
+    const FRICTION_PER_FRAME = 0.94; // at a 60fps frame (~16.67ms)
+    const MIN_VELOCITY = 0.01; // deg/ms -- below this it's imperceptible, just stop
+    let lastFrameTime = performance.now();
+    function step(now) {
+        const dt = Math.min(now - lastFrameTime, 48); // cap the step so a stutter/tab-switch can't fling it
+        lastFrameTime = now;
+        setChatWheelRotation(chatWheelRotation + chatWheelVelocity * dt);
+        chatWheelVelocity *= Math.pow(FRICTION_PER_FRAME, dt / 16.6667);
+        chatWheelInertiaFrame = Math.abs(chatWheelVelocity) > MIN_VELOCITY ? requestAnimationFrame(step) : null;
+    }
+    if (Math.abs(chatWheelVelocity) > MIN_VELOCITY) {
+        chatWheelInertiaFrame = requestAnimationFrame(step);
+    }
+}
+chatWheel.addEventListener("pointerup", endChatWheelDrag);
+chatWheel.addEventListener("pointercancel", endChatWheelDrag);
+
+function quadBezierPoint(p0, p1, p2, t) {
+    const u = 1 - t;
+    return u * u * p0 + 2 * u * t * p1 + t * t * p2;
+}
+
+function throwChatEmoji(emoji, originRect) {
+    const el = document.createElement("div");
+    el.className = "chat-toss-emoji";
+    el.textContent = emoji;
+    parseTwemoji(el);
+
+    const startX = originRect.left + originRect.width / 2;
+    const startY = originRect.top + originRect.height / 2;
+
+    // Lands somewhere scattered around the screen's center rather than
+    // one exact fixed point, so repeated tosses don't all pile on the
+    // same spot.
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight * 0.45;
+    const scatterR = Math.min(window.innerWidth, window.innerHeight) * 0.14 * Math.random();
+    const scatterAngle = Math.random() * Math.PI * 2;
+    const endX = centerX + Math.cos(scatterAngle) * scatterR;
+    const endY = centerY + Math.sin(scatterAngle) * scatterR;
+
+    // A control point pushed out to one side of the straight start->end
+    // line, so the quadratic curve it drives actually bows out into an
+    // arc instead of flying in a straight line.
+    const dx = endX - startX, dy = endY - startY;
+    const dist = Math.hypot(dx, dy) || 1;
+    const perpX = -dy / dist, perpY = dx / dist;
+    const curveAmount = (Math.random() < 0.5 ? -1 : 1) * (dist * 0.2 + 24);
+    const ctrlX = (startX + endX) / 2 + perpX * curveAmount;
+    const ctrlY = (startY + endY) / 2 + perpY * curveAmount;
+
+    el.style.left = startX + "px";
+    el.style.top = startY + "px";
+    chatTossStage.appendChild(el);
+
+    const TRAVEL_MS = 1450;
+    const HOLD_MS = 900; // a wandering stop at the landing spot before the pop, not an instant reaction
+    const POP_MS = 60; // the actual burst -- see pop() below
+    const startTime = performance.now();
+
+    // Position and scale are driven frame-by-frame here rather than left as
+    // a CSS transition -- a transition can only interpolate left/top in a
+    // straight line between two fixed values, and the whole point of the
+    // curve above is that it isn't one. No rotation: a spin here read as
+    // noise, not energy. Opacity stays untouched (fully solid) for this
+    // entire travel phase.
+    function step(now) {
+        const t = Math.min((now - startTime) / TRAVEL_MS, 1);
+        const posT = 1 - Math.pow(1 - t, 3); // quick launch, soft landing
+        const x = quadBezierPoint(startX, ctrlX, endX, posT);
+        const y = quadBezierPoint(startY, ctrlY, endY, posT);
+        const scale = 1 + posT * 0.6; // grows gently in flight -- the real "pop" is at arrival, below
+
+        el.style.left = x + "px";
+        el.style.top = y + "px";
+        el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+
+        if (t < 1) {
+            requestAnimationFrame(step);
+        } else {
+            holdAndPop(x, y);
+        }
+    }
+    requestAnimationFrame(step);
+
+    // Drifts gently in place for a beat -- like a bubble actually floating,
+    // not a paused sprite -- before it bursts. Driven continuously here
+    // (not a CSS keyframe loop) for two reasons: two sine waves per axis
+    // with DIFFERENT frequencies/phases wander in a loose, organic loop
+    // with no fixed back-and-forth to repeat, instead of sliding out and
+    // snapping back along one straight line every cycle (which is what
+    // actually read as mechanical); and it means the burst below can pick
+    // up from wherever the drift actually left it, instead of snapping
+    // back to dead-center first.
+    function holdAndPop(landX, landY) {
+        const freqX = 0.35 + Math.random() * 0.25; // Hz -- deliberately not equal to freqY
+        const freqY = 0.35 + Math.random() * 0.25;
+        // Phase is 0 or PI -- i.e. sin(phase) is always exactly 0 -- never
+        // some arbitrary random angle. The travel phase ends with zero
+        // offset from the landing point; starting the wander's very first
+        // frame at a non-zero point on its sine curve (as a fully random
+        // phase would, most of the time) is exactly what produced that
+        // sudden snap the instant it was handed off from travel to hold.
+        const phaseX = Math.random() < 0.5 ? 0 : Math.PI;
+        const phaseY = Math.random() < 0.5 ? 0 : Math.PI;
+        const ampX = 4 + Math.random() * 3;
+        const ampY = 4 + Math.random() * 3;
+        const holdStart = performance.now();
+        let lastDx = 0, lastDy = 0, lastScale = 1.6;
+
+        function holdStep(now) {
+            const elapsed = now - holdStart;
+            const tSec = elapsed / 1000;
+            lastDx = ampX * Math.sin(2 * Math.PI * freqX * tSec + phaseX);
+            lastDy = ampY * Math.sin(2 * Math.PI * freqY * tSec + phaseY);
+            lastScale = 1.6 + 0.04 * Math.sin(2 * Math.PI * 0.6 * tSec);
+            el.style.left = landX + lastDx + "px";
+            el.style.top = landY + lastDy + "px";
+            el.style.transform = `translate(-50%, -50%) scale(${lastScale})`;
+            if (elapsed < HOLD_MS) {
+                requestAnimationFrame(holdStep);
+            } else {
+                pop(landX + lastDx, landY + lastDy, lastScale);
+            }
+        }
+        requestAnimationFrame(holdStep);
+    }
+
+    // The actual burst -- near-instantaneous and explosive from its very
+    // first frame (most of the growth happens in the first quarter),
+    // continuing from wherever the hold's drift left it (see holdAndPop)
+    // rather than jumping back to the landing point first.
+    function pop(fromX, fromY, fromScale) {
+        const POP_PEAK_SCALE = 2.5, POP_END_SCALE = 3.2;
+        const popStart = performance.now();
+        function popStep(now) {
+            const t = Math.min((now - popStart) / POP_MS, 1);
+            let scale, opacity;
+            if (t < 0.25) {
+                const u = t / 0.25;
+                const eased = 1 - Math.pow(1 - u, 2);
+                scale = fromScale + (POP_PEAK_SCALE - fromScale) * eased;
+                opacity = 1 - 0.1 * eased;
+            } else {
+                const u = (t - 0.25) / 0.75;
+                scale = POP_PEAK_SCALE + (POP_END_SCALE - POP_PEAK_SCALE) * u;
+                opacity = 0.9 * (1 - u);
+            }
+            el.style.left = fromX + "px";
+            el.style.top = fromY + "px";
+            el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            el.style.opacity = opacity;
+            if (t < 1) {
+                requestAnimationFrame(popStep);
+            } else {
+                el.remove();
+            }
+        }
+        requestAnimationFrame(popStep);
+    }
+}
 
 
 

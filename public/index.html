@@ -44,27 +44,13 @@
             <div class="home-title">Linotte</div>
         </div>
 
-        <div class="home-pages">
-            <section>
-                <div class="separator"></div>
-                <div class="title selected">Same table</div>
-                <div class="card">
-                    <div class="opt-btn" id="home-play-btn">PLAY</div>
-                </div>
-            </section>
-
-            <section>
-                <div class="title">Online</div>
-                <div class="card home-online-card">Coming soon</div>
-            </section>
-
-            <section>
-                <div class="title">AI opponent</div>
-                <div class="h-div">
-                    <div class="card"><div class="opt-btn bot-strategy" data-strategy="points">POINTS</div></div>
-                    <div class="card"><div class="opt-btn bot-strategy" data-strategy="speed">SPEED</div></div>
-                </div>
-            </section>
+        <div class="home-buttons">
+            <div class="button home-mode-btn home-mode-table" id="home-play-btn">
+                <div class="text-button">SAME TABLE</div>
+            </div>
+            <div class="button home-mode-btn home-mode-bot bot-strategy" id="home-vs-bot-btn" data-strategy="speed">
+                <div class="text-button">VS BOT</div>
+            </div>
         </div>
     </div>
 
@@ -296,6 +282,12 @@
                     <div class="text-button">ROLL 3</div>
                 </div>
                 <div id="doneBtn" class="button done">
+                    <div class="text-button">DONE</div>
+                </div>
+                <div id="turn-label" class="turn-label" style="display:none">
+                    <span class="turn-label-text"></span>
+                </div>
+                <div id="endGameDoneBtn" class="button end-game-done" style="display:none">
                     <div class="text-button">DONE</div>
                 </div>
             </div>
@@ -586,8 +578,12 @@
         <div class="flip-coin-card">
             <div class="flip-coin-perspective">
                 <div class="flip-coin" id="flip-coin">
-                    <div class="flip-coin-face flip-coin-front">1</div>
-                    <div class="flip-coin-face flip-coin-back">2</div>
+                    <div class="flip-coin-face flip-coin-front">
+                        <span class="flip-coin-digit">1</span>
+                    </div>
+                    <div class="flip-coin-face flip-coin-back">
+                        <span class="flip-coin-digit">2</span>
+                    </div>
                 </div>
             </div>
             <div class="flip-coin-result" id="coin-result-text"></div>
@@ -618,8 +614,32 @@
         </div>
     </div>
 
+    <!-- chat emoji wheel: graphic-only placeholder for future online play --
+         throwing an emoji only shows it locally for now, there's no peer to
+         send it to yet. -->
+    <div class="chat-fab" id="chat-fab">
+        <div class="chat-fab-dots"><span></span><span></span><span></span></div>
+    </div>
+
+    <div id="chat-wheel-overlay" class="chat-wheel-overlay hidden">
+        <div class="chat-wheel" id="chat-wheel">
+            <button class="chat-emoji" data-emoji="🎲" style="--angle:0deg">🎲</button>
+            <button class="chat-emoji" data-emoji="❤️" style="--angle:40deg">❤️</button>
+            <button class="chat-emoji" data-emoji="😮" style="--angle:80deg">😮</button>
+            <button class="chat-emoji" data-emoji="🤣" style="--angle:120deg">🤣</button>
+            <button class="chat-emoji" data-emoji="🙏🏻" style="--angle:160deg">🙏🏻</button>
+            <button class="chat-emoji" data-emoji="😡" style="--angle:200deg">😡</button>
+            <button class="chat-emoji" data-emoji="🥺" style="--angle:240deg">🥺</button>
+            <button class="chat-emoji" data-emoji="🫤" style="--angle:280deg">🫤</button>
+            <button class="chat-emoji" data-emoji="👋" style="--angle:320deg">👋</button>
+        </div>
+    </div>
+
+    <div class="chat-toss-stage" id="chat-toss-stage"></div>
+
     <!-- <script src="/socket.io/socket.io.js"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
     <script type="module" src="linotte.js"></script>
 
 </body>

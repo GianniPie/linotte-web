@@ -812,6 +812,38 @@ body {
   border: .25em solid rgb(170, 36, 101);
 }
 
+/* Vs-bot only: swapped in for ROLL+DONE while it's the bot's turn (see
+   divsOpacity() in linotte.js), spanning both grid columns so it reads as
+   one centered status line instead of sitting in a single button slot. */
+.turn-label {
+  grid-column: 1 / -1;
+  min-height: 3em;
+  max-height: 6em;
+  align-items: center;
+  justify-content: center;
+}
+
+/* font-size lives on the child, not .turn-label itself -- same split as
+   .button/.text-button -- so this element's own min-height:3em above
+   resolves against the same root em .button's does, instead of against
+   its own (then much larger) font-size and ending up visibly taller. */
+.turn-label-text {
+  font-family: "Changa One", sans-serif;
+  font-size: 1.6em;
+  color: #3d240c;
+  text-align: center;
+}
+
+/* Vs-bot only: replaces ROLL+DONE once the game is over (see
+   checkGameOver() in linotte.js) -- green instead of DONE's usual blue so
+   it doesn't read as "one more normal turn", it's the one button left. */
+.button.end-game-done {
+  grid-column: 1 / -1;
+  width: 60%;
+  background-color: rgb(46, 160, 90);
+  border: .25em solid rgb(24, 92, 51);
+}
+
 .text-button {
   color: #fff;
   margin: auto;
@@ -915,43 +947,62 @@ body {
   z-index: 60; /* above options-overlay (50); the game itself is never visible underneath yet */
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  padding: 6dvh 0 2dvh;
+  align-items: center;
+  justify-content: center;
+  gap: 6dvh;
+  padding: 4dvh 8vw;
 }
 
 .home-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .3em;
-  margin-bottom: 2dvh;
+  gap: .2em;
 }
 
 .home-logo {
-  width: 84px;
-  height: 84px;
-  border-radius: 22%;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+  width: 42vw;
+  max-width: 190px;
+  aspect-ratio: 1 / 1;
+  border-radius: 24%;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .35);
 }
 
 .home-title {
   font-family: "Changa One", sans-serif;
-  font-size: 2.4em;
+  font-size: 3em;
   color: #3d240c;
   text-shadow: 0 2px 0 rgba(255, 255, 255, .4);
 }
 
-.home-pages {
-  flex: 1;
-  overflow-y: auto;
+.home-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 340px;
 }
 
-.home-online-card {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  opacity: .6;
-  font-style: italic;
+/* Reuses .button/.text-button (see ROLL/DONE) for the same tactile,
+   thick-bordered card look instead of the thin settings-list pill style
+   the earlier version borrowed from the options overlay.
+   ".button.home-mode-btn" (two classes) rather than the bare class alone:
+   .button's own min-height is declared later in this file, and two equally
+   generic single-class rules are won by whichever comes last in the
+   cascade -- the compound selector outranks it regardless of order (see
+   the same note on .flip-coin-overlay.hidden). */
+.button.home-mode-btn {
+  min-height: 4em;
+}
+
+.home-mode-table {
+  background-color: rgb(46, 160, 90);
+  border: .25em solid rgb(24, 92, 51);
+}
+
+.home-mode-bot {
+  background-color: rgb(230, 140, 40);
+  border: .25em solid rgb(150, 85, 20);
 }
 
 
@@ -1332,10 +1383,10 @@ section {
   transform-style: preserve-3d;
 }
 
-/* Plain CSS gradients + a number, no icon of any kind -- the first version
-   reused the star-shaped points icon (see #coinp1/#coinp2 in the player
-   box) for the coin faces, which looked like a duplicate of that unrelated
-   icon rather than a coin. */
+/* Flat color + solid border, same recipe as .button.roll/.button.done
+   elsewhere in this file -- this app never uses gradients, so the coin
+   doesn't either; its two faces read as a coin from the thick contrasting
+   border ring alone, with a bold flat-color digit for the face itself. */
 .flip-coin-face {
   position: absolute;
   inset: 0;
@@ -1344,24 +1395,31 @@ section {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.flip-coin-digit {
   font-family: "Changa One", sans-serif;
-  font-size: 2.6em;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .4), inset 0 0 14px rgba(255, 255, 255, .35);
+  font-size: 2.8em;
+  line-height: 1;
 }
 
 .flip-coin-front {
-  background: radial-gradient(circle at 35% 30%, #fff2b0, #e8b923 55%, #b8860b 100%);
-  border: 4px solid #8a6708;
-  color: #6b4e00;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+  background-color: rgb(232, 185, 35);
+  border: .4em solid rgb(138, 103, 8);
+}
+
+.flip-coin-front .flip-coin-digit {
+  color: rgb(138, 103, 8);
 }
 
 .flip-coin-back {
-  background: radial-gradient(circle at 35% 30%, #f5f5f5, #c9c9c9 55%, #8a8a8a 100%);
-  border: 4px solid #6e6e6e;
-  color: #5a5a5a;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+  background-color: rgb(205, 215, 222);
+  border: .4em solid rgb(94, 116, 134);
   transform: rotateY(180deg);
+}
+
+.flip-coin-back .flip-coin-digit {
+  color: rgb(94, 116, 134);
 }
 
 .flip-coin-result {
@@ -1705,6 +1763,177 @@ button,
   appearance: button;
   border: 0;
 }
+
+/* ============================================
+   CHAT EMOJI WHEEL
+   Graphic-only placeholder for future online play: a floating button
+   opens a dial of emoji pinned to the bottom-right corner, mostly off
+   -screen, with only the quarter-circle arc nearest the button showing.
+   Dragging the dial rotates it, bringing other emoji into that visible
+   arc; clicking one throws it to the center of the screen. It's fixed
+   positioned so it never takes layout space from ROLL/DONE's own grid.
+   ============================================ */
+
+.chat-fab {
+  position: fixed;
+  /* Tucked into the actual viewport corner -- on a phone-height screen
+     there's only ~20px of clearance below the board in any direction, not
+     enough to float a usable button above/beside ROLL/DONE without
+     touching them. The corner is pinned low enough that it stays clear of
+     the dice row (see .div-dice) above it -- that's the one overlap that
+     actually matters, since the dice are an active drop target and DONE's
+     corner underneath this button isn't. */
+  right: -8px;
+  bottom: -8px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6em;
+  /* Same gold as the coin-flip's front face (see .flip-coin-front) --
+     reads as "yellow" without introducing a brand new color. The border
+     is a flat 4px, not .25em: .chat-fab's own font-size above (1.6em) is
+     what .25em would resolve against here, making it 6px -- noticeably
+     thicker than the 4px every other button's own .25em actually computes
+     to against their own, unscaled font-size. */
+  background-color: rgb(232, 185, 35);
+  border: 4px solid rgb(138, 103, 8);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .3);
+  z-index: 40;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chat-fab:active {
+  animation: bounceButton 0.2s ease-out forwards;
+}
+
+.chat-wheel-overlay.hidden {
+  /* Same compound-selector note as .flip-coin-overlay.hidden elsewhere in
+     this file: a bare .hidden{display:none} would tie on specificity with
+     this component's own later-declared display:block below and could
+     lose depending on source order, so it's paired with the component's
+     own class here instead. */
+  display: none;
+}
+
+.chat-wheel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45; /* above the board, below options/home/winner/flip-coin overlays */
+  background: rgba(0, 0, 0, .15);
+}
+
+.chat-wheel {
+  position: fixed;
+  /* Center pinned on the same point the FAB is pinned above (its own
+     right/bottom offset plus half its own size -- see .chat-fab), so
+     exactly one quadrant of this ring falls inside the screen, anchored
+     right behind the button that opens it. It's fine for this (open only
+     while picking an emoji) to reach up over the dice -- only the FAB
+     that opens it has to stay clear of them, since that one's visible
+     throughout the turn, not just while picking. */
+  width: 220px;
+  height: 220px;
+  right: calc(8px + 22px - 110px);
+  bottom: calc(8px + 22px - 110px);
+  border-radius: 50%;
+  /* clip-path (not just border-radius, which doesn't affect hit-testing)
+     keeps the square element's corners outside the visible circle from
+     eating clicks meant for the backdrop behind them. */
+  clip-path: circle(50%);
+  background-color: rgba(255, 255, 255, .7);
+  touch-action: none; /* dragging is handled manually via pointer events */
+  /* Set from JS (see chatWheelRotation in linotte.js) as a custom property,
+     not a plain transform, so .chat-emoji below can read the same value
+     and cancel it out -- otherwise every emoji would visibly spin along
+     with the dial instead of staying upright as it's dragged. */
+  transform: rotate(var(--wheel-rotation, 0deg));
+}
+
+.chat-emoji {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px;
+  background: none;
+  border: none;
+  font-size: 2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Place each emoji at radius 76px from the wheel's center at its own
+     fixed --angle, counter-rotate it back upright against that placement
+     (the standard "spoke" trick), then counter-rotate again against
+     whatever the dial's own live rotation currently is -- the net result
+     reads as 0deg no matter where on the dial it sits or how far the
+     dial's been spun. */
+  transform:
+    rotate(var(--angle))
+    translate(76px)
+    rotate(calc(-1 * var(--angle)))
+    rotate(calc(-1 * var(--wheel-rotation, 0deg)));
+}
+
+/* Twemoji (see index.html + the twemoji.parse() calls in linotte.js) swaps
+   each emoji's text glyph for a flat-style SVG <img> -- matches this app's
+   own flat, no-gradient look instead of the OS's glossy native emoji font,
+   and renders identically across every browser/OS instead of varying. */
+.chat-emoji img.emoji {
+  width: 38px;
+  height: 38px;
+  pointer-events: none; /* clicks still land on the button, not the image */
+}
+
+/* Plain white dots instead of an emoji -- Twemoji's own speech-balloon
+   glyph is naturally light blue (that's the actual artwork, not a CSS
+   tint), and recoloring an <img> via `filter` isn't an option here: this
+   app's dark-mode safety net (near the top of this file) forces
+   `filter: none !important` on every <img>/<svg> under
+   prefers-color-scheme: dark to stop the OS from touching game art, which
+   would silently eat that filter too. */
+.chat-fab-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.chat-fab-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #fff;
+}
+
+.chat-toss-stage {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 95; /* above winner (70) and coin-flip (80) overlays, so a toss still reads even mid-celebration */
+  overflow: hidden;
+}
+
+.chat-toss-emoji {
+  position: fixed;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  /* No transition/animation here on purpose: left/top/transform/opacity
+     are all driven frame-by-frame from JS for the entire lifetime of a
+     toss (see throwChatEmoji in linotte.js) -- the curved flight, the
+     organic wander while it holds, and the burst are each continuous
+     motion a CSS transition/keyframe (which only interpolates between a
+     couple of fixed stops) can't produce on their own. */
+}
+
+.chat-toss-emoji img.emoji {
+  display: block;
+  width: 48px;
+  height: 48px;
+}
+
 
 label {
   margin-bottom: 5px;
