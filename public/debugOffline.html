@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Linotte Offline Debug</title>
+
+<style>
+
+body{
+  font-family: monospace;
+  background:#0f0f0f;
+  color:#e0e0e0;
+  margin:0;
+}
+
+main{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  padding:10px;
+}
+
+.panel{
+  background:#1c1c1c;
+  padding:10px;
+  border-radius:6px;
+}
+
+pre{
+  white-space:pre-wrap;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(5,40px);
+  gap:4px;
+}
+
+.cell{
+  width:40px;
+  height:40px;
+  border:1px solid #555;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2 style="padding:10px">Linotte Offline Debug</h2>
+
+<main>
+
+<div class="panel">
+
+<h3>Table</h3>
+<div id="table" class="grid"></div>
+
+<h3>Dice</h3>
+<div id="dice"></div>
+
+<h3>Current Player</h3>
+<div id="turn"></div>
+
+</div>
+
+<div class="panel">
+
+<h3>GameState JSON</h3>
+<pre id="state"></pre>
+
+</div>
+
+</main>
+
+<script src="linotte.js"></script>
+
+<script>
+
+function render(state){
+
+  if(!state) return;
+
+  renderJSON(state);
+  renderTable(state.table);
+  renderDice(state.dice);
+  renderTurn(state.currentPlayer);
+
+}
+
+function renderJSON(state){
+
+  document.getElementById("state").textContent =
+    JSON.stringify(state,null,2);
+
+}
+
+function renderTurn(player){
+
+  document.getElementById("turn").textContent =
+    "Player " + player;
+
+}
+
+function renderDice(dice){
+
+  document.getElementById("dice").textContent =
+    "values: " + dice.values.join(" ") +
+    " | locked: " + dice.locked.join(" ") +
+    " | rollsLeft: " + dice.rollsLeft;
+
+}
+
+function renderTable(table){
+
+  const el = document.getElementById("table");
+  el.innerHTML = "";
+
+  for(let y=0;y<5;y++){
+
+    for(let x=0;x<5;x++){
+
+      const cell = document.createElement("div");
+      cell.className="cell";
+
+      const v = table[y][x];
+
+      if(v===1) cell.style.background="#ed1c24";
+      if(v===2) cell.style.background="#40b93c";
+
+      cell.textContent = v || "";
+
+      el.appendChild(cell);
+
+    }
+
+  }
+
+}
+
+setInterval(()=>{
+
+  render(window.gameState);
+
+},200);
+
+</script>
+
+</body>
+</html>

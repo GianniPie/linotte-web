@@ -1,0 +1,2099 @@
+/* ============================================
+   DARK MODE & COLOR FORCING PREVENTION
+   ============================================ */
+
+:root {
+  color-scheme: light !important;
+}
+
+html {
+  color-scheme: light !important;
+}
+
+body {
+  /* filter: none !important; */
+  mix-blend-mode: normal !important;
+  background-blend-mode: normal !important;
+  /* color-scheme: light !important; */
+  forced-color-adjust: none;
+  font-family: "Changa One", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  forced-color-adjust: none !important;
+}
+
+/* Prevent dark mode from affecting images and SVGs */
+@media (prefers-color-scheme: dark) {
+
+  img,
+  svg {
+    filter: none !important;
+    -webkit-filter: none !important;
+    mix-blend-mode: normal !important;
+  }
+}
+
+
+/* Force SVG images to display correctly */
+img[src$=".svg"],
+img[src*=".svg"] {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+
+/* ============================================
+   RESET
+   ============================================ */
+
+.fullscreen {
+  height: calc(var(--vh) * 100);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  font-family: sans-serif;
+  min-height: 100%;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
+  color: black;
+}
+
+/* Horizontal overflow is clipped on html (that's the viewport's scroll
+   container), NOT on body: body gets rotated 180deg by FLIP, and an
+   overflow clip on a rotating element clips its children to its rotated box,
+   which sliced corners off the board mid-rotation. */
+html {
+  overflow-x: hidden;
+}
+
+
+
+
+/* ============================================
+   BODY & MAIN CONTAINER
+   ============================================ */
+
+.body {
+  text-align: center;
+  background-color: whitesmoke;
+  background-image: url("resources/images/backgrounds/sun-tornado.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.flex-block {
+  display: flex;
+  flex-flow: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 700px;
+  min-height: calc(var(--vh) * 100);
+  margin-left: auto;
+  margin-right: auto;
+
+}
+
+/* Groups info/results/dice/buttons for wider/landscape layouts below.
+   display:contents makes the wrapper invisible to the flex layout, so on
+   mobile portrait its children act as direct .flex-block flex items
+   exactly as before (their own `order` values still control the stack). */
+.side-panel {
+  display: contents;
+}
+
+
+
+
+
+/* ============================================
+   INFO SECTION
+   ============================================ */
+
+.div-info {
+  display: grid;
+  grid-template-rows: auto;
+  grid-template-columns: 12% auto 12%;
+  grid-auto-columns: 0;
+  align-self: flex-start;
+  height: 10dvh;
+  width: 95%;
+  margin: auto;
+  user-select: none;
+  order: 1;
+}
+
+.players {
+  flex-flow: row;
+  grid-template-rows: auto;
+  grid-template-columns: auto 10% auto;
+  grid-auto-flow: row;
+  justify-content: stretch;
+  place-items: center;
+  display: grid;
+}
+
+.player {
+  border-radius: 10px;
+  width: 27vw;
+  max-width: 200px;
+  height: 100%;
+  max-height: 200px;
+  border: 0.25em solid rgba(0, 0, 0, 0.35);
+}
+
+.player.current {
+  animation: pulseShadow 2s infinite ease-in-out;
+}
+
+.div-block-15 {
+  grid-column-gap: 0;
+  grid-row-gap: 0;
+  grid-template-rows: 60% 20% 20%;
+  grid-template-columns: 1fr;
+  grid-auto-columns: 1fr;
+  place-items: center stretch;
+  width: auto;
+  height: 90%;
+  display: grid;
+}
+
+.textPlayer {
+  color: black;
+  font-size: 4vw;
+}
+
+.textPlayer.t1 {
+  font-size: 2em;
+}
+
+.textPlayer.t2 {
+  font-size: 1em;
+}
+
+.pawn {
+  display: block;
+  background-image: url("resources/images/p105-pawn.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  width: 0.9em;
+  aspect-ratio: 1/1;
+}
+
+.coin {
+  background-image: url("resources/images/p105-coin.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  width: 1em;
+  aspect-ratio: 1/1;
+}
+
+.vs {
+  margin-left: 30px;
+  margin-right: 30px;
+  background-image: url("resources/images/g10456.svg");
+  width: 100%;
+  height: 100%;
+  background-position: 50%;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.div-info-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.options {
+  background-image: url("resources/images/g10455.svg");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  width: 2.5em;
+  aspect-ratio: 1/1;
+}
+
+.div-info-right {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* While paused (see setPaused in linotte.js) the countdown fades and a pause
+   symbol sits over it. */
+.clock {
+  transition: opacity .3s ease;
+}
+
+.div-info-right.paused .clock {
+  opacity: .3;
+}
+
+.clock-pause {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1.1em;
+  height: 1.4em;
+  box-sizing: border-box;
+  border-left: .4em solid #000;
+  border-right: .4em solid #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s ease;
+  z-index: 1;
+}
+
+.div-info-right.paused .clock-pause {
+  opacity: 1;
+  animation: clockPausePulse 1.1s ease-in-out infinite;
+}
+
+@keyframes clockPausePulse {
+  0%, 100% { opacity: .35; transform: scale(.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* Timer ----------*/
+.clock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2em;
+  width: 100%;
+  height: 90%;
+}
+
+.clock-tile {
+  position: relative;
+  width: 2em;
+  height: 40px;
+}
+
+.half {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  overflow: hidden;
+  color: #fdb800cc;
+  display: flex;
+  justify-content: center;
+  font-size: 1.8em;
+  font-weight: bold;
+  font-family: sans-serif;
+}
+
+.half span {
+  display: block;
+}
+
+.top {
+  top: 0;
+  transform-origin: bottom;
+  border-radius: 0.1em 0.1em 0 0;
+  line-height: 40px;
+  background: #2d1a09;
+  border-bottom: 2px solid rgba(54, 33, 14, 0.2);
+}
+
+.bottom {
+  bottom: 0;
+  transform-origin: top;
+  border-radius: 0 0 0.1em 0.1em;
+  line-height: 0px;
+  background: #3f240d;
+}
+
+.flipTop {
+  animation: flipTop .3s forwards;
+}
+
+.flipBottom {
+  animation: flipBottom .3s forwards;
+}
+
+/*----------*/
+
+
+
+.div-block-16 {
+  margin: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+}
+
+.div-block-17 {
+  margin: auto;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+
+
+
+
+
+/* ============================================
+   TABLE SECTION
+   ============================================ */
+
+.div-table {
+  background-color: rgb(96, 56, 19);
+  border: .75vw solid rgb(96, 56, 19);
+  border-width: .3em;
+  border-radius: 1.3em;
+  width: 95%;
+  aspect-ratio: 1 / 1;
+  margin: auto;
+  margin-top: 1dvh;
+  order: 2;
+  transition: transform .6s ease;
+}
+
+/* FLIP (same-table/hotseat only -- see #flip-table-btn in linotte.js):
+   spins the whole page 180deg so whoever's now facing the screen gets an
+   upright view of their own turn, instead of reading everything upside
+   down after passing the device across the table. The board itself gets
+   an EXTRA 180deg on top of that, canceling the page's own rotation --
+   it's the one shared physical object between both players and has to
+   stay the same way up no matter whose turn it is. */
+body {
+  transition: transform .6s ease;
+}
+
+body.table-flipped {
+  transform: rotate(180deg);
+}
+
+body.table-flipped .div-table {
+  transform: rotate(-180deg);
+}
+
+.grid {
+  grid-column-gap: 0;
+  grid-row-gap: 0;
+  background-color: rgb(97, 57, 21);
+  border-radius: 1.3em;
+  grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  grid-auto-columns: 1fr;
+  justify-content: center;
+  place-items: center;
+  min-width: 100%;
+  min-height: 100%;
+  display: grid;
+}
+
+.tile {
+  background-color: rgb(228, 209, 187);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  border: .15em solid #603813;
+  grid-template-rows: auto auto;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  display: block;
+}
+
+
+.tile.tlc {
+  border-top-left-radius: 1.1em;
+}
+
+.tile.trc {
+  border-top-right-radius: 1.1em;
+}
+
+.tile.blc {
+  border-bottom-left-radius: 1.1em;
+}
+
+.tile.brc {
+  border-bottom-right-radius: 1.1em;
+}
+
+.tile_highlighted {
+  outline-offset: -4px;
+  outline-width: .7em;
+  outline-style: solid;
+  transform: translate3d(0, 0, 65px);
+  border-radius: 5px;
+}
+
+.grid {
+  grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  position: static;
+}
+
+.wrapPiece {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  /* The .img-bounce placement animation (animations.css) ends on
+     "transform: scale(1)" with fill-mode forwards, which sticks around
+     permanently -- and ANY non-"none" transform value, even scale(1),
+     creates its own stacking context. That silently made this element's
+     z-index:auto rank BELOW the fairy-trail canvas's explicit positive
+     z-index (auto/0 always loses to any explicit z-index > 0, regardless
+     of DOM order), no matter what z-index the .piece inside it had. An
+     explicit z-index here, once a piece has actually landed, puts this
+     wrapper's own stacking context above the canvas instead. */
+  position: relative;
+  z-index: 2;
+}
+
+.piece {
+  width: 100%;
+  height: 100%;
+  border-radius: 2em;
+  background-position: 50% 50%;
+  background-size: 80% 80%;
+  background-repeat: no-repeat;
+  opacity: 1;
+  /* Promoted into its own stacking layer, above the fairy-trail canvas
+     (shared/fairyTrail.js, z-index:1) -- so the sparkle burst plays
+     underneath the token that just landed instead of covering it. */
+  position: relative;
+  z-index: 2;
+}
+
+.img-bounce {
+  animation: bounceIn 0.5s ease-out forwards;
+}
+
+.img-disappear {
+  animation: bounceOut 0.2s ease-out forwards;
+}
+
+#t00 {
+  background-image: url("resources/images/g10481.svg");
+}
+
+#t01 {
+  background-image: url("resources/images/g10483.svg");
+}
+
+#t02 {
+  background-image: url("resources/images/g10495.svg");
+}
+
+#t03 {
+  background-image: url("resources/images/g10484.svg");
+}
+
+#t04 {
+  background-image: url("resources/images/g10486.svg");
+}
+
+#t10 {
+  background-image: url("resources/images/g10482.svg");
+}
+
+#t11 {
+  background-image: url("resources/images/g10492.svg");
+}
+
+#t12 {
+  background-image: url("resources/images/g10496.svg");
+}
+
+#t13 {
+  background-image: url("resources/images/g10491.svg");
+}
+
+#t14 {
+  background-image: url("resources/images/g10485.svg");
+}
+
+#t20 {
+  background-image: url("resources/images/g10493.svg");
+}
+
+#t21 {
+  background-image: url("resources/images/g10491.svg");
+}
+
+#t22 {
+  background-image: url("resources/images/g10498.svg");
+}
+
+#t23 {
+  background-image: url("resources/images/g10495.svg");
+}
+
+#t24 {
+  background-image: url("resources/images/g10497.svg");
+}
+
+#t30 {
+  background-image: url("resources/images/g10486.svg");
+}
+
+#t31 {
+  background-image: url("resources/images/g10496.svg");
+}
+
+#t32 {
+  background-image: url("resources/images/g10497.svg");
+}
+
+#t33 {
+  background-image: url("resources/images/g10493.svg");
+}
+
+#t34 {
+  background-image: url("resources/images/g10481.svg");
+}
+
+#t40 {
+  background-image: url("resources/images/g10483.svg");
+}
+
+#t41 {
+  background-image: url("resources/images/g10482.svg");
+}
+
+#t42 {
+  background-image: url("resources/images/g10492.svg");
+}
+
+#t43 {
+  background-image: url("resources/images/g10485.svg");
+}
+
+#t44 {
+  background-image: url("resources/images/g10484.svg");
+}
+
+
+
+
+/* ============================================
+   RESULT AND CALL SECTION
+   ============================================ */
+
+.div-resultsAndCalls {
+  width: 95%;
+  aspect-ratio: 5.45 / 1;
+  order: 3;
+  margin: auto;
+  margin-top: 1dvh;
+}
+
+.result {
+  position: relative;
+}
+
+/* bolla */
+.result::after {
+  font-size: 2em;
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 145%;
+  left: 50%;
+  transform: translateX(-50%) scale(.5);
+
+  background: whitesmoke;
+  color: #603813;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.18s ease;
+}
+
+/* freccina */
+.result::before {
+  content: "";
+  position: absolute;
+  bottom: 102%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: whitesmoke;
+  opacity: 0;
+  transition: 0.2s ease;
+}
+
+/* stato visibile */
+.result.tip-on::after,
+.result.tip-on::before {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.3);
+}
+
+
+.results {
+  grid-column-gap: .6vw;
+  grid-row-gap: .6vw;
+  grid-template-rows: auto;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+  grid-auto-columns: 1fr;
+  height: 65%;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  display: grid;
+}
+
+.result {
+  background-color: #ffffff5e;
+  background-position: center;
+  background-size: 100%;
+  background-repeat: no-repeat;
+  border: .15em solid #fff;
+  border-radius: 8px;
+}
+
+#rr0 {
+  background-image: url("resources/images/g1.svg");
+}
+
+#rr1 {
+  background-image: url("resources/images/g2.svg");
+}
+
+#rr2 {
+  background-image: url("resources/images/g3.svg");
+}
+
+#rr3 {
+  background-image: url("resources/images/g4.svg");
+}
+
+#rr4 {
+  background-image: url("resources/images/g5.svg");
+}
+
+#rr5 {
+  background-image: url("resources/images/g6.svg");
+}
+
+#rr6 {
+  background-image: url("resources/images/g7.svg");
+}
+
+#rr7 {
+  background-image: url("resources/images/g8.svg");
+}
+
+.result.highlighted {
+  background-color: #409ff8;
+}
+
+.calls {
+  grid-column-gap: .6vw;
+  grid-row-gap: .6vw;
+  grid-template-rows: auto;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+  grid-auto-columns: 1fr;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  display: grid;
+}
+
+.call {
+  height: 30%;
+  background-color: #ffffff5e;
+  border: .15em solid #fff;
+  border-radius: 20px;
+  margin: .5em .25em 1em;
+  visibility: hidden;
+  margin-top: 1dvh;
+}
+
+.call.selectable {
+  visibility: visible;
+}
+
+.call.checked {
+  animation: bounceCall 0.3s ease-out forwards;
+}
+
+
+
+
+/* ============================================
+   DICE SECTION
+   ============================================ */
+.div-dice {
+  grid-template-rows: auto;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  grid-auto-columns: 1fr;
+  place-items: center;
+  height: 10dvh;
+  max-height: 45%;
+  width: 95%;
+  margin: auto;
+  margin-top: 1dvh;
+  display: grid;
+  order: 4;
+  margin-top: 0;
+}
+
+.wrapDie {
+  aspect-ratio: 1/1;
+  width: 85%;
+  /* Whole even pixels (so also whole device pixels at 2x/3x): the dice are a
+     sprite scaled to the box, and at a fractional size like 60.56px the
+     sprite's thick outline rasterizes a pixel thinner on one side, which
+     reads as the die being slightly off-center. */
+  width: round(down, 85%, 2px);
+  background-position: 50%;
+  transition: 0.18s ease;
+
+}
+
+/* Game over: dice, results/calls and ROLL are dead weight and get dimmed
+   to the exact same 0.5 the bot's-turn dimming uses (see divsOpacity in
+   linotte.js), while DONE stays 100% visible and clickable — it still
+   works, reopening the winner overlay if the player dismissed it to look
+   at the board. !important because #div-dice/#div-resultsAndCalls/
+   #div-buttons also carry a per-turn inline opacity from divsOpacity()
+   (dimming whichever side isn't the local player's turn) — an inline
+   style otherwise always outranks this class, so without it a game that
+   ends on "my turn" (opacity:1 inline) would silently keep everything
+   fully visible instead of dimming it. */
+.game-over-dim {
+  opacity: 0.5 !important;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.die {
+  border-radius: 0.75em;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-repeat: no-repeat;
+  /* 7 faces */
+  background-size: 700% 100%;
+  /* No translateZ(0)/will-change: they gave every die its own compositor
+     layer, rasterized at a fractional offset (blurry, uneven outline) --
+     only visible until the die was selected, because the selection
+     animation swaps the transform out. */
+}
+
+.die.black-shadow {
+  box-shadow:rgb(0, 0, 0, .4) 3px 5px 7px 3px;
+}
+
+.die.red-shadow {
+  box-shadow:rgba(255, 59, 59, 0.6) 5px 5px 10px 2px;
+}
+
+.die.selected {
+  animation: bounceDie 0.3s ease-out forwards;
+}
+
+.die::after {
+  opacity: 1;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  box-shadow:rgb(65, 252, 18) 3px 5px 7px 3px;  
+}
+
+
+/* ============================================
+   BUTTON SECTION
+   ============================================ */
+.div-buttons {
+  grid-column-gap: 5vh;
+  grid-row-gap: 0;
+  grid-template-rows: auto;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-columns: 1fr;
+  place-items: center;
+  margin: auto;
+  margin-top: 1dvh;
+  display: grid;
+  user-select: none;
+  order: 5;
+  width: 90%;
+}
+
+.button {
+  border-radius: 9px;
+  width: 100%;
+  /* Whole even pixels so the left/right borders land on the device pixel grid
+     instead of rendering a pixel thicker on one side. */
+  width: round(down, 100%, 2px);
+  min-height: 3em;
+  max-height: 6em;
+  margin: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.button:active {
+  animation: bounceButton 0.2s ease-out forwards;
+}
+
+/* setBotControlsDisabled() sets this during the bot's turn — without this
+   rule it was purely an accessibility hint with no visual/interactive
+   effect, so roll/done (and the dice/results/calls it's also applied to)
+   still looked and felt tappable even though clicks were already no-ops.
+   Opacity during the bot's turn is handled uniformly by divsOpacity()'s
+   container-level opacity (div-dice/div-resultsAndCalls/div-buttons all
+   set to the same value) instead of here, so dice, calls and buttons all
+   end up at the exact same dimmed level — a per-element opacity rule here
+   too would stack on top of the container's and double-dim just the
+   buttons. */
+[aria-disabled="true"] {
+  pointer-events: none;
+}
+
+.button.done {
+  background-color: rgb(70, 94, 228);
+  border: .25em solid rgb(31, 46, 124);
+}
+
+.button.roll {
+  background-color: rgb(250, 59, 151);
+  border: .25em solid rgb(170, 36, 101);
+}
+
+/* Vs-bot only: swapped in for ROLL+DONE while it's the bot's turn (see
+   divsOpacity() in linotte.js), spanning both grid columns so it reads as
+   one centered status line instead of sitting in a single button slot. */
+.turn-label {
+  grid-column: 1 / -1;
+  min-height: 3em;
+  max-height: 6em;
+  align-items: center;
+  justify-content: center;
+}
+
+/* font-size lives on the child, not .turn-label itself -- same split as
+   .button/.text-button -- so this element's own min-height:3em above
+   resolves against the same root em .button's does, instead of against
+   its own (then much larger) font-size and ending up visibly taller. */
+.turn-label-text {
+  font-family: "Changa One", sans-serif;
+  font-size: 1.6em;
+  color: #3d240c;
+  text-align: center;
+}
+
+/* Vs-bot only: replaces ROLL+DONE once the game is over (see
+   checkGameOver() in linotte.js) -- green instead of DONE's usual blue so
+   it doesn't read as "one more normal turn", it's the one button left. */
+.button.end-game-done {
+  grid-column: 1 / -1;
+  width: 60%;
+  background-color: rgb(46, 160, 90);
+  border: .25em solid rgb(24, 92, 51);
+}
+
+.text-button {
+  color: #fff;
+  margin: auto;
+  font-size: 2em;
+  font-weight: 400;
+  line-height: 100%;
+  text-decoration: none;
+}
+
+
+/* ============================================
+   RESPONSIVE: TABLET / DESKTOP / LANDSCAPE
+   ============================================ */
+
+@media (orientation: portrait) and (min-width: 600px) {
+  .flex-block {
+    max-width: min(700px, 64dvh);
+  }
+}
+
+/* Landscape (phones rotated, tablets, desktop): a tall column no longer
+   fits the viewport height at all, so the board and the rest of the UI
+   sit side by side instead, each sized off the shared height budget. */
+@media (orientation: landscape) {
+  .flex-block {
+    --side-w: min(38vw, 380px);
+    --side-chrome: 6dvh; /* gap + left/right padding below, kept in sync */
+    flex-flow: row nowrap;
+    max-width: none;
+    width: 100%;
+    height: calc(var(--vh) * 100);
+    min-height: calc(var(--vh) * 100);
+    gap: 2dvh;
+    padding: 0 2dvh;
+  }
+
+  .div-table {
+    order: 1;
+    width: auto;
+    /* Sized by height, but also can't be so wide (a square, so width ==
+       height) that table + gap + sidebar would overflow the viewport
+       width — so also cap it against the width actually left over. */
+    height: min(94dvh, calc(100vw - var(--side-w) - var(--side-chrome)), 900px);
+    aspect-ratio: 1 / 1;
+    margin: 0;
+    flex: 0 0 auto;
+  }
+
+  .side-panel {
+    display: flex;
+    flex-flow: column;
+    justify-content: center;
+    order: 2;
+    height: min(94dvh, calc(100vw - var(--side-w) - var(--side-chrome)), 900px);
+    width: var(--side-w);
+    flex: 0 0 auto;
+    gap: 1.2dvh;
+  }
+
+  .side-panel>.div-info,
+  .side-panel>.div-resultsAndCalls,
+  .side-panel>.div-dice,
+  .side-panel>.div-buttons {
+    width: 100%;
+    height: auto;
+    margin: 0;
+  }
+
+  /* .player/.textPlayer were sized in vw against a near-full-width
+     mobile container; inside the narrower sidebar that overflows, so
+     size them off the sidebar's own grid track / font context instead. */
+  .side-panel .players {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .side-panel .player {
+    width: 100%;
+    max-width: none;
+  }
+
+  .side-panel .textPlayer {
+    font-size: min(3.4vw, 2.6dvh);
+  }
+
+  /* The home screen had no landscape handling at all: it's authored as a
+     tall column (logo over title over two stacked buttons) sized off vw/
+     dvh assuming a narrow-but-tall mobile screen, so on a wide-but-short
+     one it just overflowed past the bottom of the viewport while leaving
+     most of the width empty. Same fix as the board above: row layout,
+     sized off the shared height budget instead of width.
+     "#home-overlay ..." (ID-prefixed), not the bare classes: .home-overlay
+     /.home-logo/etc's own un-mediaqueried rules are declared FURTHER DOWN
+     this file than this landscape block, so on pure class-vs-class
+     specificity those later rules would win the tie and silently override
+     this regardless of the media query actually matching -- same trap
+     documented on .button.home-mode-btn elsewhere in this file. */
+  #home-overlay {
+    flex-direction: row;
+    gap: 6vw;
+    padding: 4dvh 4vw;
+  }
+
+  #home-overlay .home-logo {
+    width: auto;
+    height: min(40dvh, 190px);
+  }
+
+  #home-overlay .home-title {
+    font-size: min(3em, 7dvh);
+  }
+
+  #home-overlay .home-buttons {
+    width: min(38vw, 340px);
+  }
+}
+
+
+
+
+/* ============================================
+    HOME SCREEN
+   ============================================ */
+/* Shown on first load, before any game has started -- hidden via JS
+   setting style.display = "none" directly (not a .hidden class toggle)
+   once a mode is chosen, so there's no risk of the same class-vs-class
+   cascade-order trap .hidden fell into elsewhere in this file (see
+   .flip-coin-overlay.hidden's comment): an inline style always wins
+   regardless of source order, no compound selector needed. */
+.home-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* above options-overlay (50); the game itself is never visible underneath yet */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6dvh;
+  padding: 4dvh 8vw;
+}
+
+.home-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .2em;
+}
+
+.home-logo {
+  width: 42vw;
+  max-width: 190px;
+  aspect-ratio: 1 / 1;
+  border-radius: 24%;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .35);
+}
+
+.home-title {
+  font-family: "Changa One", sans-serif;
+  font-size: 3em;
+  color: #3d240c;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, .4);
+}
+
+.home-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 340px;
+}
+
+/* Reuses .button/.text-button (see ROLL/DONE) for the same tactile,
+   thick-bordered card look instead of the thin settings-list pill style
+   the earlier version borrowed from the options overlay.
+   ".button.home-mode-btn" (two classes) rather than the bare class alone:
+   .button's own min-height is declared later in this file, and two equally
+   generic single-class rules are won by whichever comes last in the
+   cascade -- the compound selector outranks it regardless of order (see
+   the same note on .flip-coin-overlay.hidden). */
+.button.home-mode-btn {
+  min-height: 4em;
+}
+
+.home-mode-table {
+  background-color: rgb(46, 160, 90);
+  border: .25em solid rgb(24, 92, 51);
+}
+
+.home-mode-bot {
+  background-color: rgb(230, 140, 40);
+  border: .25em solid rgb(150, 85, 20);
+}
+
+
+/* ============================================
+    OPTIONS OVERLAY
+   ============================================ */
+
+.options-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+}
+
+.hidden {
+  display: none;
+}
+
+.opt-bg {
+  position: absolute;
+  inset: 0;
+  background-image: url("resources/images/backgrounds/sun-tornado.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  z-index: -1;
+}
+
+/* options overlay header */
+.opt-header {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  align-items: center;
+  height: 60px;
+}
+
+.icon {
+  display: block;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  height: 40px;
+  aspect-ratio: 1/1;
+  margin: 1em;
+}
+
+#icon-back {
+  background-image: url("resources/images/t001.svg");
+}
+
+#icon-tab1 {
+  background-image: url("resources/images/t002.svg");
+}
+
+#icon-tab2 {
+  background-image: url("resources/images/t003.svg");
+}
+
+#icon-tab3 {
+  background-image: url("resources/images/t004.svg");
+}
+
+#icon-tab1.disabled {
+  opacity: 0.35;
+  pointer-events: none; /* click disabled*/
+  cursor: default;
+}
+
+.tab-indicator {
+  margin-top: 70px;
+  position: absolute;
+  height: 8px;
+  width: 60px;
+  background: black;
+  opacity: 50%;
+  border-radius: 4px;
+  transition: left .25s ease;
+}
+
+/* pages */
+.opt-pages {
+  flex: 1;
+  overflow: hidden;
+  margin-top: 1em;
+}
+
+.opt-page {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.opt-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Same box the sound icons draw into their SVGs (white at 50% opacity,
+     80x32, .4em radius) so text buttons here match .sound-btn exactly;
+     selection is the shared .selected glow ring. */
+  background-color: rgba(255, 255, 255, .5);
+  height: 32px;
+  width: 80px;
+  border-radius: .4em;
+  margin: auto;
+  font-size: 1.2em;
+}
+
+.car-btn {
+  height: 40px;
+  background-color: transparent;
+  scroll-snap-align: center;
+  border-radius: 1em;
+}
+
+.sound-btn {
+  display: block;
+  height: 32px;
+  width: 80px;
+  border-radius: .4em;
+  line-height: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+#sound-on {
+  background-image: url("resources/images/sound-on.svg");
+}
+
+#sound-off {
+  background-image: url("resources/images/sound-off.svg");
+}
+
+section {
+  margin-bottom: 1vh;
+  justify-items: center;
+  margin-bottom: 2vh;
+}
+
+.title {
+  height: 38px;
+  width: 90%;
+  margin: auto;
+  border-radius: 10px;
+  border: rgba(0, 0, 0, .5) solid 3px;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  font-size: 7vw;
+
+    color: #000;
+  -webkit-text-fill-color: #000;
+  transform: translateZ(0);
+  isolation: isolate;
+    backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.horizontal-div {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  align-items: start;
+  margin: auto;
+  justify-content: stretch;
+  font-family: sans-serif;
+  margin-bottom: 0.7em;
+}
+
+.vertical-div {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 1em;
+  font-family: sans-serif;
+  line-height: 1.5;
+}
+
+.instruction-title {
+  display: block;
+  font-size: 1.5em;
+  line-height: 1.8em;
+  color: rgba(0, 0, 0, 0.7);
+  /* Changa One, not sans-serif -- every other section header in the app
+     ("Sound", "Same table", etc, see .title) uses it; the body text below
+     stays sans-serif on purpose (a display font hurts long-paragraph
+     readability), so only the headers needed to switch. */
+  font-family: "Changa One", sans-serif;
+  margin-bottom: 0.6em;
+}
+
+.white {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.separator {
+  height: 15px;
+}
+
+.text-how {
+  /* Justify on a narrow mobile column stretches word spacing unevenly
+     ("rivers" of whitespace) since there are so few words per line to
+     distribute the slack across -- left-aligned reads far more evenly. */
+  text-align: left;
+  margin-bottom: 1em;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.v-div {
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+}
+
+.h-div {
+  display: flex;
+  flex-direction: row;
+  align-content: center;
+}
+
+.bold {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.img-expl {
+  margin-left: .8em;
+  text-align: left;
+}
+
+.footer-div {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding-bottom: 4vh;
+  font-family: sans-serif;
+  font-size: 0.8em;
+  line-height: 1.5;
+}
+
+/* carousel */
+.car-list-wrapper {
+  position: relative;
+  width: 90%;
+  display: block;
+}
+
+.car-list {
+  display: flex;
+  gap: 15px;
+  padding: 2vh 0;
+  min-width: 90%;
+  margin: auto;
+  list-style: none;
+  overflow-x: scroll;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.car-list::before,
+.car-list::after {
+  content: "";
+  flex: 0 0 12px;
+}
+
+.list-centered {
+  justify-content: center;
+}
+
+.car-item {
+  height: 70px;
+  aspect-ratio: 1/1;
+  background-color: transparent;
+  scroll-snap-align: center;
+  border-radius: 1em;
+}
+
+.car-item-content {
+  height: 100%;
+  overflow: hidden;
+}
+
+.car-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+
+  width: 2em;
+  aspect-ratio: 1/1;
+
+  background-color: transparent; 
+  border: none;                   
+  padding: 0;
+  cursor: pointer;
+
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.car-button.previous {
+  left: -6px;
+  background-image: url("resources/images/arl.svg");
+}
+
+.car-button.next {
+  right: -6px;
+  background-image: url("resources/images/arr.svg");
+}
+
+.flipped {
+  /* Upside-down on purpose -- a visual pun for what it actually does now
+     (see #flip-table-btn in linotte.js), not a "this is disabled" signal,
+     so unlike before it no longer sits dimmed like an inert placeholder. */
+  /* `rotate`, not `transform`: the shared .selected bounce animation ends on
+     transform: scale(1) with fill-mode forwards, which would wipe a transform
+     rotation the moment this button gets selected. */
+  rotate: 180deg;
+}
+
+.board-options {
+  border-radius: .35em;
+}
+
+.die-options {
+  border-radius: 1em;
+}
+
+.bg-options {
+  border-radius: 1em;
+}
+
+.selected {
+  animation: bounceDie 0.3s ease-out forwards;
+}
+
+
+/* ============================================
+   COIN FLIP OVERLAY
+   ============================================ */
+/* Every class here is prefixed "flip-coin-" (or bare .flip-coin for the
+   spinning element itself) -- the codebase already has a generic .coin
+   class (the small points-icon in the player box, styled completely
+   differently), and reusing that name here made this component silently
+   hijack that unrelated element's styling (it also grabbed the same
+   .coin selector, blowing the tiny points icon up to a 120px circle)
+   instead of just not matching anything. */
+
+.flip-coin-overlay.hidden {
+  /* Same specificity as the bare .hidden{display:none} rule elsewhere in
+     this file (one class each) — whichever is declared LAST in the
+     stylesheet wins a tie, so on its own .hidden here would lose to this
+     block's own display:flex below and never actually hide anything.
+     The compound selector (two classes) outranks either alone,
+     regardless of source order. */
+  display: none;
+}
+
+.flip-coin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80; /* above options-overlay (50) and winner-overlay (70) -- can be triggered from either flow */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(4px);
+}
+
+.flip-coin-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.flip-coin-perspective {
+  perspective: 600px;
+}
+
+.flip-coin {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  transform-style: preserve-3d;
+}
+
+/* Flat color + solid border, same recipe as .button.roll/.button.done
+   elsewhere in this file -- this app never uses gradients, so the coin
+   doesn't either; its two faces read as a coin from the thick contrasting
+   border ring alone, with a bold flat-color digit for the face itself. */
+.flip-coin-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flip-coin-digit {
+  font-family: "Changa One", sans-serif;
+  font-size: 2.8em;
+  line-height: 1;
+}
+
+.flip-coin-front {
+  background-color: rgb(232, 185, 35);
+  border: .4em solid rgb(138, 103, 8);
+}
+
+.flip-coin-front .flip-coin-digit {
+  color: rgb(138, 103, 8);
+}
+
+.flip-coin-back {
+  background-color: rgb(205, 215, 222);
+  border: .4em solid rgb(94, 116, 134);
+  transform: rotateY(180deg);
+}
+
+.flip-coin-back .flip-coin-digit {
+  color: rgb(94, 116, 134);
+}
+
+.flip-coin-result {
+  font-family: "Changa One", sans-serif;
+  color: #fff;
+  font-size: 1.4em;
+  min-height: 1.4em;
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+}
+
+
+/* ============================================
+   WINNER OVERLAY
+   ============================================ */
+
+.winner-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 70;
+  backdrop-filter: blur(5px);
+}
+
+.modal {
+  position: fixed;
+  z-index: 100;
+  /* min(90vw, 90dvh), not a flat 90% (of viewport width, since this is
+     position:fixed): with aspect-ratio 1/1 a width sized off width alone
+     makes the modal exactly as tall as it is wide, which is fine in
+     portrait but on a wide-but-short landscape/desktop screen means a
+     square far taller than the viewport, clipped top and bottom with no
+     way to scroll to the rest of it. Capping by whichever dimension is
+     actually smaller keeps the whole square on-screen either way. */
+  width: min(90vw, 90dvh);
+  aspect-ratio: 1/1;
+  margin: auto;
+  opacity: 1;
+  border-radius: 20px;
+  background-color: whitesmoke;
+  background-position: 0, 0;
+  background-repeat: no-repeat;
+  background-size: cover;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.modal::after {
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+
+.winner-container {
+  display: flex;
+  margin: auto;
+  width: 90%;
+  height: 100%;
+}
+
+.v-winner-table {
+  display: flex;
+  flex-direction: column;
+  align-items:center;
+  justify-content: space-evenly;
+  
+  width: 100%;
+  height: 100%;
+}
+
+.h-winner-table {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-height: 200px;
+  width: 100%;
+}
+
+#winner-icon-back {
+  display: block;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  height: 40px;
+  aspect-ratio: 1/1;
+  background-image: url("resources/images/t001.svg");
+  margin-top: -135px;
+  margin-left: -1vh;
+}
+
+.piece-popup-container {
+  border-radius: 10px;
+  height: 7em;
+  aspect-ratio: 1/1;
+  border: 0.25em solid rgba(0, 0, 0, 0.35);
+  margin: auto;
+  margin-top: 70px;
+  margin-right: 2em;
+  background-color: var(--glow);
+}
+
+.pulse {
+  animation: pulseShadow 2s infinite ease-in-out;
+}
+
+.piece-popup-wrap {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.animate-wrap {
+  animation: springOut 700ms cubic-bezier(.22, 1.25, .32, 1) forwards;
+}
+
+.piece-popup {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-position: center;
+  background-size: 70%;
+  background-repeat: no-repeat;
+  opacity: 1;
+  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.5));
+  will-change: transform;
+}
+
+.animate-piece {
+  animation: spinOut 700ms cubic-bezier(.22, .9, .3, 1) forwards;
+}
+
+.winner-right {
+  display: block;
+  height: 40px;
+  aspect-ratio: 1/1;
+  margin: 1em;
+  visibility: hidden;
+}
+
+.winner-text {
+  font-size: 2.8em;
+  color: rgba(0, 0, 0, .5);
+}
+
+.winner-points {
+  font-size: 1.9em;
+  font-weight: bold;
+  color: #ffea00;
+  -webkit-text-stroke: .5px rgba(0, 0, 0, .3);
+}
+
+/* The continuous shine loop lives on an INNER span (see animateWinnerPoints
+   in linotte.js), not on .winner-points itself: that outer element already
+   gets its own one-shot pop-in animation (.winner-points-reveal, in
+   animations.css) when the score is revealed, and a single element can't
+   run two different `animation` shorthand declarations from two classes at
+   once -- whichever class's `animation` property wins the cascade replaces
+   the other entirely rather than blending (the exact bug .img-bounce vs
+   .piece-jump hit earlier). Splitting the loop onto a child sidesteps that
+   completely: the pop-in transform applies to the outer div, the glow pulse
+   applies to the inner span, and both run at once undisturbed.
+   Flat color throughout (no gradient, no background-clip:text) -- the rest
+   of the app doesn't use gradients, so the "shine" here is a glow pulse
+   (text-shadow blur/intensity animating) instead of a sweeping highlight. */
+.winner-points-shine {
+  /* Mostly solid gold, with a wide-ish soft bright band that glides across
+     once per loop -- not the whole text visibly being a gradient at rest,
+     the way an earlier version read. Widened from an earlier, much
+     narrower band (40%-60%) -- a narrow band crossing a wide positional
+     range is only actually over the visible text for a handful of
+     animation-frames, reading as an instant flash rather than a glide,
+     however slow the keyframes themselves are timed. */
+  background: linear-gradient(100deg, #ffea00 0%, #ffea00 30%, #fffceb 50%, #ffea00 70%, #ffea00 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Without this, some engines never actually repaint a text-clipped
+     gradient's `background-position` frame to frame -- confirmed earlier
+     this session: getComputedStyle shows the animation technically
+     running, but the same value paints every frame, so it looks frozen. */
+  will-change: background-position;
+}
+
+.winner-button {
+  border-radius: 9px;
+  width: 100%;
+  min-height: 1em;
+  margin: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-size: 2em;
+  color: white;
+  background-color: #409ff8;
+  border: .1em solid #1f2e7c;
+}
+
+.winner-button:active {
+  animation: bounceButton 0.2s ease-out forwards;
+}
+
+#confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9050;
+}
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+main,
+menu,
+nav,
+section,
+summary {
+  display: block;
+}
+
+audio,
+canvas,
+progress,
+video {
+  vertical-align: baseline;
+  display: inline-block;
+}
+
+audio:not([controls]) {
+  height: 0;
+  display: none;
+}
+
+[hidden],
+template {
+  display: none;
+}
+
+a {
+  background-color: transparent;
+}
+
+a:active,
+a:hover {
+  outline: 0;
+}
+
+abbr[title] {
+  border-bottom: 1px dotted;
+}
+
+b,
+strong {
+  font-weight: bold;
+}
+
+dfn {
+  font-style: italic;
+}
+
+mark {
+  color: #000;
+  background: #ff0;
+}
+
+small {
+  font-size: 80%;
+}
+
+sub,
+sup {
+  vertical-align: baseline;
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+}
+
+sup {
+  top: -.5em;
+}
+
+sub {
+  bottom: -.25em;
+}
+
+img {
+  border: 0;
+  vertical-align: middle;
+  max-width: 100%;
+  display: inline-block;
+}
+
+svg:not(:root) {
+  overflow: hidden;
+}
+
+hr {
+  box-sizing: content-box;
+  height: 0;
+}
+
+pre {
+  overflow: auto;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: monospace;
+  font-size: 1em;
+}
+
+td,
+th {
+  padding: 0;
+}
+
+fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+button,
+[type="button"],
+[type="reset"] {
+  cursor: pointer;
+  appearance: button;
+  border: 0;
+}
+
+/* ============================================
+   CHAT EMOJI WHEEL
+   Graphic-only placeholder for future online play: a floating button
+   opens a dial of emoji pinned to the bottom-right corner, mostly off
+   -screen, with only the quarter-circle arc nearest the button showing.
+   Dragging the dial rotates it, bringing other emoji into that visible
+   arc; clicking one throws it to the center of the screen. It's fixed
+   positioned so it never takes layout space from ROLL/DONE's own grid.
+   ============================================ */
+
+.chat-fab {
+  position: fixed;
+  /* Tucked into the actual viewport corner -- on a phone-height screen
+     there's only ~20px of clearance below the board in any direction, not
+     enough to float a usable button above/beside ROLL/DONE without
+     touching them. The corner is pinned low enough that it stays clear of
+     the dice row (see .div-dice) above it -- that's the one overlap that
+     actually matters, since the dice are an active drop target and DONE's
+     corner underneath this button isn't. */
+  right: -8px;
+  bottom: -8px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6em;
+  /* Same gold as the coin-flip's front face (see .flip-coin-front) --
+     reads as "yellow" without introducing a brand new color. The border
+     is a flat 4px, not .25em: .chat-fab's own font-size above (1.6em) is
+     what .25em would resolve against here, making it 6px -- noticeably
+     thicker than the 4px every other button's own .25em actually computes
+     to against their own, unscaled font-size. */
+  background-color: rgb(232, 185, 35);
+  border: 4px solid rgb(138, 103, 8);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .3);
+  z-index: 40;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chat-fab:active {
+  animation: bounceButton 0.2s ease-out forwards;
+}
+
+.chat-wheel-overlay.hidden {
+  /* Same compound-selector note as .flip-coin-overlay.hidden elsewhere in
+     this file: a bare .hidden{display:none} would tie on specificity with
+     this component's own later-declared display:block below and could
+     lose depending on source order, so it's paired with the component's
+     own class here instead. */
+  display: none;
+}
+
+.chat-wheel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45; /* above the board, below options/home/winner/flip-coin overlays */
+  background: rgba(0, 0, 0, .15);
+}
+
+.chat-wheel {
+  position: fixed;
+  /* Center pinned on the same point the FAB is pinned above (its own
+     right/bottom offset plus half its own size -- see .chat-fab), so
+     exactly one quadrant of this ring falls inside the screen, anchored
+     right behind the button that opens it. It's fine for this (open only
+     while picking an emoji) to reach up over the dice -- only the FAB
+     that opens it has to stay clear of them, since that one's visible
+     throughout the turn, not just while picking. */
+  width: 220px;
+  height: 220px;
+  right: calc(8px + 22px - 110px);
+  bottom: calc(8px + 22px - 110px);
+  border-radius: 50%;
+  /* clip-path (not just border-radius, which doesn't affect hit-testing)
+     keeps the square element's corners outside the visible circle from
+     eating clicks meant for the backdrop behind them. */
+  clip-path: circle(50%);
+  background-color: rgba(255, 255, 255, .7);
+  touch-action: none; /* dragging is handled manually via pointer events */
+  /* Set from JS (see chatWheelRotation in linotte.js) as a custom property,
+     not a plain transform, so .chat-emoji below can read the same value
+     and cancel it out -- otherwise every emoji would visibly spin along
+     with the dial instead of staying upright as it's dragged. */
+  transform: rotate(var(--wheel-rotation, 0deg));
+}
+
+.chat-emoji {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px;
+  background: none;
+  border: none;
+  font-size: 2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Place each emoji at radius 76px from the wheel's center at its own
+     fixed --angle, counter-rotate it back upright against that placement
+     (the standard "spoke" trick), then counter-rotate again against
+     whatever the dial's own live rotation currently is -- the net result
+     reads as 0deg no matter where on the dial it sits or how far the
+     dial's been spun. */
+  transform:
+    rotate(var(--angle))
+    translate(76px)
+    rotate(calc(-1 * var(--angle)))
+    rotate(calc(-1 * var(--wheel-rotation, 0deg)));
+}
+
+/* Twemoji (see index.html + the twemoji.parse() calls in linotte.js) swaps
+   each emoji's text glyph for a flat-style SVG <img> -- matches this app's
+   own flat, no-gradient look instead of the OS's glossy native emoji font,
+   and renders identically across every browser/OS instead of varying. */
+.chat-emoji img.emoji {
+  width: 38px;
+  height: 38px;
+  pointer-events: none; /* clicks still land on the button, not the image */
+}
+
+/* Plain white dots instead of an emoji -- Twemoji's own speech-balloon
+   glyph is naturally light blue (that's the actual artwork, not a CSS
+   tint), and recoloring an <img> via `filter` isn't an option here: this
+   app's dark-mode safety net (near the top of this file) forces
+   `filter: none !important` on every <img>/<svg> under
+   prefers-color-scheme: dark to stop the OS from touching game art, which
+   would silently eat that filter too. */
+.chat-fab-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.chat-fab-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #fff;
+}
+
+.chat-toss-stage {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 95; /* above winner (70) and coin-flip (80) overlays, so a toss still reads even mid-celebration */
+  overflow: hidden;
+}
+
+.chat-toss-emoji {
+  position: fixed;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  /* No transition/animation here on purpose: left/top/transform/opacity
+     are all driven frame-by-frame from JS for the entire lifetime of a
+     toss (see throwChatEmoji in linotte.js) -- the curved flight, the
+     organic wander while it holds, and the burst are each continuous
+     motion a CSS transition/keyframe (which only interpolates between a
+     couple of fixed stops) can't produce on their own. */
+}
+
+.chat-toss-emoji img.emoji {
+  display: block;
+  width: 48px;
+  height: 48px;
+}
+
+
+label {
+  margin-bottom: 5px;
+  font-weight: bold;
+  display: block;
+}
+
+
+/* Placeholder line under a section whose feature doesn't exist yet. */
+.not-available {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  font-size: 1.2em;
+  color: rgba(0, 0, 0, .5);
+}
+
+
+/* Play/pause button (Game section of the options menu): two bars while the
+   game is running, a triangle while it's paused. */
+.pause-icon {
+  display: block;
+  width: 14px;
+  height: 16px;
+  box-sizing: border-box;
+  border-left: 5px solid #000;
+  border-right: 5px solid #000;
+}
+
+#pause-btn.is-paused .pause-icon {
+  width: 0;
+  height: 0;
+  border-left: 15px solid #000;
+  border-right: none;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+}
