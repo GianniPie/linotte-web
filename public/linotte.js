@@ -112,7 +112,9 @@ const rollBtnText = document.querySelector("#rollBtn .text-button");
 const body = document.getElementById("body");
 const modal = document.getElementById("modal");
 const optionsOverlay = document.getElementById("options-overlay");
-const optBg = document.getElementById("opt-bg");
+// Every .opt-bg: the options overlay's AND the home screen's, so both always
+// show the selected background (the home screen's used to stay on the CSS default).
+const optBgs = document.querySelectorAll(".opt-bg");
 
 let LOCAL_PLAYER = null;
 let rollAnimationID;
@@ -153,6 +155,11 @@ gameState.players[2].name = "BOT";
 
 //----------- GAME CONTROLLER ---------------
 let controller;
+// False until a mode is actually picked on the home screen. The default
+// controller below only exists so the code doesn't crash while the home
+// screen is up; with this false there is no game: no turn timer, no bot, no
+// keyboard shortcuts, nothing highlighted as the running mode.
+let gameInProgress = false;
 let botStrategy = "points";
 startBot(botStrategy); // default to player-vs-bot, ready to play on open --
 // silently discarded the moment a real mode is chosen on the home screen
@@ -174,7 +181,7 @@ function hideHomeScreen() {
 // Temporary: highlights the options-menu section for whichever mode the
 // current game is actually running in.
 function markActiveMode() {
-    const mode = controller && controller.mode;
+    const mode = gameInProgress ? controller.mode : null;
     document.getElementById("title-same-table").classList.toggle("selected", mode === "offline");
     document.getElementById("title-vs-bot").classList.toggle("selected", mode === "bot");
 }
@@ -538,7 +545,7 @@ for (let i = 0; i < backgrounds.length; i++) {
     preload(bgPath + backgrounds[i]);
 }
 body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
-optBg.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]));
 modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
 
 let isVolumeOn = true;
@@ -650,9 +657,9 @@ function stopTimer() {
     }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-    startTurnTimer();
-});
+// (No turn timer on load: it starts with the game, in newGameVsBot/newGameOffline.
+// A timer running behind the home screen eventually expired, ended a turn
+// nobody was playing, and started the bot rolling dice with sound.)
 
 //----------- PAUSE -----------------
 // Freezes the turn timer and the bot (sleep() below holds while paused) and
@@ -894,6 +901,7 @@ botStrategyButtons.forEach(btn => {
 });
 
 function newGameVsBot(strategy, startingPlayer = 1) {
+    gameInProgress = true;
     setPaused(false);
     gameState = createInitialGameState();
     gameState.currentPlayer = startingPlayer;
@@ -917,6 +925,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
     divsOpacity(gameState.currentPlayer);
 
     if (gameState.currentPlayer === 2) {
+        startTurnTimer(); // the bot's turn is timed too, same as when it follows the player's
         playBotTurn(); // the coin flip picked the bot to go first
     } else {
         startTurnTimer();
@@ -927,6 +936,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
 // P1/P2 -- see isMyTurn()'s "offline" branch, which never dims/disables
 // either side's controls since there's only one local player either way.
 function newGameOffline(startingPlayer = 1) {
+    gameInProgress = true;
     setPaused(false);
     gameState = createInitialGameState();
     gameState.currentPlayer = startingPlayer;
@@ -993,7 +1003,7 @@ bgOptions.forEach(bgOption => {
         document.getElementById("bg-title").textContent = humanizeBgName(backgrounds[bgId]);
 
         body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
-        optBg.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+        optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]));
         modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
         setCookie("background", bgId);
     });
@@ -1260,6 +1270,11 @@ function renderDice(values) {
     if (tidyness == 0) { r = 0; t = 0; }
     if (tidyness == 1) { r = 10; t = 0; }
     if (tidyness == 2) { r = 10; t = 7; }
+    // The dice sit in a single tight row, so the pieces' ±7px "natural"
+    // position scatter just read as dice that are slightly off-centre
+    // (worse on a small phone screen). The tilt keeps the natural look; the
+    // position stays close to centre.
+    t = Math.min(t, 2);
 
     for (let i = 0; i < 5; i++) {
         if (!gameState.dice.locked[i]) {
@@ -1660,6 +1675,32 @@ function performEndTurn() {
     // });
 }
 
+// A short earthquake shake of the board (see @keyframes boardQuake in
+// linotte.css) that builds up and is at its peak the moment it ends -- it
+// leads straight into the winner popup. `onDone` runs exactly when it ends.
+function shakeBoard(onDone) {
+    const board = document.querySelector(".div-table");
+    let finished = false;
+    const finish = () => {
+        if (finished) return;
+        finished = true;
+        board.classList.remove("quake");
+        board.removeEventListener("animationend", onEnd);
+        if (onDone) onDone();
+    };
+    // Only this animation's own end: animationend bubbles, and the pieces
+    // inside the board hop (jumpPiece) right around the same time, whose end
+    // would otherwise cut the shake short.
+    const onEnd = (e) => {
+        if (e.target === board && e.animationName === "boardQuake") finish();
+    };
+    board.classList.remove("quake");
+    void board.offsetWidth; // restart the animation if it's still running
+    board.classList.add("quake");
+    board.addEventListener("animationend", onEnd);
+    setTimeout(finish, 1200); // safety net if animationend never arrives
+}
+
 // Runs once the game has just ended (see checkGameOver): replays the line
 // that finished it first, if the very last move completed one, then every
 // other line the winner has on the board as a celebratory sweep -- one at
@@ -1687,20 +1728,29 @@ function playEndGameSequence(lastMoveLines, before) {
     // earned it, not after a victory lap over lines that scored turns ago.
     playLinesSequentially(lastMoveLines, () => {
         celebratePoints(lastMoveLines, before, () => {
-            let sweepLines = [];
-            if (winner) {
-                const alreadyShown = new Set(lastMoveLines.map((line) => JSON.stringify(line)));
-                sweepLines = findAllPlayerLines(gameState.table, winner)
-                    .filter((line) => !alreadyShown.has(JSON.stringify(line)));
-            }
-            // Step 2: sweep every other line the winner has on the board,
+            // The winner's lines on the board, as whole runs.
+            const winnerLines = winner ? findAllPlayerLines(gameState.table, winner) : [];
+            // Exactly one line, and it's the one the deciding move just
+            // played in step 1: nothing left to replay, so the popup follows
+            // right away (after the usual beat). With more than one line,
+            // the sweep below plays ALL of them, the deciding line included --
+            // it already got its own turn in step 1, and then goes again as
+            // part of the full victory lap.
+            const justPlayedTheOnlyLine = winnerLines.length === 1
+                && lastMoveLines.length > 0
+                && lastMoveLines.every((window) =>
+                    window.every(([wr, wc]) => winnerLines[0].some(([lr, lc]) => lr === wr && lc === wc)));
+            const sweepLines = justPlayedTheOnlyLine ? [] : winnerLines;
+            // Step 2: sweep the winner's lines on the board,
             // purely as a victory lap -- no further point changes, those
             // already happened in earlier turns.
             playLinesSequentially(sweepLines, () => {
-                // A beat of empty board between the celebration and the
-                // popup, so the last line doesn't feel like it's cut off
-                // by the overlay appearing the instant it finishes.
-                setTimeout(() => showWinnerPopup(winner), 1000);
+                // A beat between the celebration and the popup, so the last
+                // line doesn't feel cut off by the overlay appearing the
+                // instant it finishes: the board shakes, building up, and the
+                // popup lands the moment the shake ends (the shake is .5s, so
+                // starting it 500ms in keeps the usual 1s beat overall).
+                setTimeout(() => shakeBoard(() => showWinnerPopup(winner)), 500);
             });
         });
     });
@@ -2125,6 +2175,37 @@ const CALL_KEY_TO_RESULT_INDEX = { "6": 3, "7": 4, "8": 5, "9": 6, "0": 7 };
 // (see shared/fairyTrail.js) over a sample row/column/diagonal, so it can
 // be seen without actually completing a combo in a real game. Safe to
 // remove once the effect itself is finalized.
+// Debug (key "E"): sets up a finished game on the board -- one winning line,
+// then three -- and runs the REAL playEndGameSequence on it, so the whole
+// ending (last-line trail, points hop, sweep, shake, popup) can be watched
+// without playing a game out. Overwrites the current game's board/points.
+let endDebugIndex = -1;
+const END_DEBUG_SCENARIOS = [
+    { lines: [[[0, 0], [0, 1], [0, 2]]], last: 0 },
+    { lines: [[[0, 0], [0, 1], [0, 2]], [[2, 0], [2, 1], [2, 2]], [[4, 2], [4, 3], [4, 4]]], last: 1 },
+];
+
+function runEndGameDebugScenario() {
+    endDebugIndex = (endDebugIndex + 1) % END_DEBUG_SCENARIOS.length;
+    const scenario = END_DEBUG_SCENARIOS[endDebugIndex];
+    clearBoardVisuals();
+    document.getElementById("winner-overlay").style.display = "none";
+    gameState.table = Array.from({ length: 5 }, () => Array(5).fill(0));
+    scenario.lines.flat().forEach(([r, c]) => {
+        gameState.table[r][c] = 1;
+        const piece = document.getElementById(`p${r}${c}`);
+        piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);
+        piece.parentElement.style.opacity = "1";
+    });
+    gameState.players[1].points = scenario.lines.length;
+    gameState.players[2].points = 0;
+    coinP1Text.textContent = 0;
+    coinP2Text.textContent = 0;
+    const before = { pieces: { 1: 12, 2: 12 }, points: { 1: 0, 2: 0 } };
+    endGameSequenceStarted = false;
+    playEndGameSequence([scenario.lines[scenario.last]], before);
+}
+
 let fairyDebugIndex = -1;
 const FAIRY_DEBUG_LINES = [
     [[0, 0], [0, 1], [0, 2]], // row
@@ -2134,6 +2215,7 @@ const FAIRY_DEBUG_LINES = [
 
 document.addEventListener("keydown", (e) => {
     if (e.repeat) return;
+    if (!gameInProgress) return; // home screen: nothing to roll/place yet
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     const targetTag = e.target && e.target.tagName;
@@ -2148,6 +2230,16 @@ document.addEventListener("keydown", (e) => {
 
     if (e.key === "d" || e.key === "D") {
         doneBtn.click();
+        return;
+    }
+
+    if (e.key === "q" || e.key === "Q") { // debug: just the shake, no game needed
+        shakeBoard();
+        return;
+    }
+
+    if (e.key === "e" || e.key === "E") { // debug: stage a finished game and run the real end-game sequence
+        runEndGameDebugScenario();
         return;
     }
 

@@ -17,10 +17,10 @@
 //    loaded from fonts.googleapis.com/fonts.gstatic.com, not bundled), and
 //    anything precaching missed.
 
-// Bump when sw.js's own strategy changes. App files (see isAppShell) no
+// Bump when sw.js's own strategy changes, or to flush stale copies. App files (see isAppShell) no
 // longer depend on this to update -- they are fetched network-first -- but a
 // new name evicts the stale copies older installs are holding.
-const CACHE_VERSION = "linotte-v2";
+const CACHE_VERSION = "linotte-v3";
 
 const PRECACHE_URLS = [
     "/",
@@ -239,10 +239,29 @@ self.addEventListener("fetch", (event) => {
         return;
     }
 
-    // Art, sounds, fonts and other CDN files never change under the same URL:
-    // cache-first, filling the cache with anything precaching missed (this is
-    // also what stores the Google Fonts CSS + woff2, whose exact URLs Google
-    // generates and can change).
+    // Our own art and sounds: stale-while-revalidate -- served instantly from
+    // the cache (works offline), and refreshed from the network in the
+    // background so a file replaced under the same URL (the app icons were)
+    // shows up on the next open instead of being pinned to the old copy.
+    if (url.origin === self.location.origin) {
+        event.respondWith(
+            caches.match(event.request).then((cached) => {
+                const refresh = fetch(event.request)
+                    .then((response) => {
+                        putInCache(event.request, response);
+                        return response;
+                    })
+                    .catch(() => undefined);
+                return cached || refresh;
+            })
+        );
+        return;
+    }
+
+    // Third-party files (Google Fonts, jsDelivr libraries and emoji) are
+    // versioned in their URLs and never change: cache-first, filling the
+    // cache with anything precaching missed (this is also what stores the
+    // Google Fonts CSS + woff2, whose exact URLs Google generates).
     event.respondWith(
         caches.match(event.request).then((cached) => {
             if (cached) return cached;

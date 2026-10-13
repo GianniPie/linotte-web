@@ -2097,3 +2097,33 @@ label {
   border-top: 9px solid transparent;
   border-bottom: 9px solid transparent;
 }
+
+
+/* Earthquake shake of the board (see shakeBoard in linotte.js). Uses the
+   separate `translate`/`rotate` properties, not `transform`, so it can't
+   clobber the board's own transform while the page is flipped (FLIP gives
+   it rotate(-180deg)). Builds up instead of fading out: it's at its
+   strongest right before the end, where the winner popup takes over.
+   The sign pattern of translate vs rotate is deliberately cycled so the
+   stillest corner moves TL->TR->BR->BL: when they always shared a sign, the
+   bottom-left corner barely moved and read as a fulcrum. */
+.div-table.quake {
+  animation: boardQuake .5s linear;
+}
+
+@keyframes boardQuake {
+  0%   { translate: 0 0; rotate: 0deg; }
+  8%  { translate: -0.43px 0.22px; rotate: 0.04deg; }
+  15%  { translate: 0.87px 0.43px; rotate: -0.08deg; }
+  23%  { translate: 1.3px -0.65px; rotate: 0.12deg; }
+  31%  { translate: -1.73px -0.87px; rotate: -0.17deg; }
+  38%  { translate: -2.17px 1.08px; rotate: 0.21deg; }
+  46%  { translate: 2.6px 1.3px; rotate: -0.25deg; }
+  54%  { translate: 3.03px -1.52px; rotate: 0.29deg; }
+  62%  { translate: -3.47px -1.73px; rotate: -0.33deg; }
+  69%  { translate: -3.9px 1.95px; rotate: 0.38deg; }
+  77%  { translate: 4.33px 2.17px; rotate: -0.42deg; }
+  85%  { translate: 4.77px -2.38px; rotate: 0.46deg; }
+  92%  { translate: -5.2px -2.6px; rotate: -0.5deg; }
+  100% { translate: 0 0; rotate: 0deg; }
+}
