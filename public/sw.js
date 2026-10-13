@@ -17,7 +17,10 @@
 //    loaded from fonts.googleapis.com/fonts.gstatic.com, not bundled), and
 //    anything precaching missed.
 
-const CACHE_VERSION = "linotte-v1";
+// Bump when sw.js's own strategy changes. App files (see isAppShell) no
+// longer depend on this to update -- they are fetched network-first -- but a
+// new name evicts the stale copies older installs are holding.
+const CACHE_VERSION = "linotte-v2";
 
 const PRECACHE_URLS = [
     "/",
@@ -197,39 +200,58 @@ self.addEventListener("activate", (event) => {
     );
 });
 
+// HTML/CSS/JS/manifest: network-first, so a deploy reaches users on their next
+// online visit instead of being hidden behind a cache-first copy forever;
+// the cached copy is only the offline fallback.
+function isAppShell(url) {
+    if (url.origin !== self.location.origin) return false;
+    return url.pathname === "/" || /\.(html|css|js|json)$/.test(url.pathname);
+}
+
+function putInCache(request, response) {
+    // Only cache real, complete responses; "opaque" cross-origin ones
+    // (status 0) can't be inspected but are still usable offline later.
+    if (response && (response.status === 200 || response.type === "opaque")) {
+        const copy = response.clone();
+        caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+    }
+}
+
 self.addEventListener("fetch", (event) => {
     if (event.request.method !== "GET") return;
+    const url = new URL(event.request.url);
 
+    if (isAppShell(url)) {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    putInCache(event.request, response);
+                    return response;
+                })
+                .catch(() =>
+                    caches.match(event.request).then((cached) => {
+                        if (cached) return cached;
+                        if (event.request.mode === "navigate") return caches.match("/index.html");
+                        return undefined;
+                    })
+                )
+        );
+        return;
+    }
+
+    // Art, sounds, fonts and other CDN files never change under the same URL:
+    // cache-first, filling the cache with anything precaching missed (this is
+    // also what stores the Google Fonts CSS + woff2, whose exact URLs Google
+    // generates and can change).
     event.respondWith(
         caches.match(event.request).then((cached) => {
             if (cached) return cached;
-
             return fetch(event.request)
                 .then((response) => {
-                    // Opportunistic runtime caching -- same-origin assets
-                    // precaching missed, plus cross-origin ones that can't
-                    // be precached by a fixed URL list at all (the Google
-                    // Fonts CSS and the woff2 files it in turn references,
-                    // whose exact URLs Google generates and can change).
-                    // Only cache real, complete responses: "opaque"
-                    // cross-origin ones with status 0 are stored as-is
-                    // (their body is unreadable to us but still cacheable
-                    // and still usable offline later), basic ones only
-                    // when they actually succeeded.
-                    if (response && (response.status === 200 || response.type === "opaque")) {
-                        const toCache = response.clone();
-                        caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, toCache));
-                    }
+                    putInCache(event.request, response);
                     return response;
                 })
-                .catch(() => {
-                    // Offline and not cached: a full page navigation still
-                    // gets the app shell instead of a browser error page.
-                    if (event.request.mode === "navigate") {
-                        return caches.match("/index.html");
-                    }
-                    return undefined;
-                });
+                .catch(() => undefined);
         })
     );
 });
