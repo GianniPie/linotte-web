@@ -2171,48 +2171,6 @@ document.querySelectorAll(".result").forEach(el => {
 // first-throw gate, etc.) apply identically — nothing is duplicated here.
 const CALL_KEY_TO_RESULT_INDEX = { "6": 3, "7": 4, "8": 5, "9": 6, "0": 7 };
 
-// DEBUG PREVIEW ONLY (key "F"): cycles the fairy-trail sparkle effect
-// (see shared/fairyTrail.js) over a sample row/column/diagonal, so it can
-// be seen without actually completing a combo in a real game. Safe to
-// remove once the effect itself is finalized.
-// Debug (key "E"): sets up a finished game on the board -- one winning line,
-// then three -- and runs the REAL playEndGameSequence on it, so the whole
-// ending (last-line trail, points hop, sweep, shake, popup) can be watched
-// without playing a game out. Overwrites the current game's board/points.
-let endDebugIndex = -1;
-const END_DEBUG_SCENARIOS = [
-    { lines: [[[0, 0], [0, 1], [0, 2]]], last: 0 },
-    { lines: [[[0, 0], [0, 1], [0, 2]], [[2, 0], [2, 1], [2, 2]], [[4, 2], [4, 3], [4, 4]]], last: 1 },
-];
-
-function runEndGameDebugScenario() {
-    endDebugIndex = (endDebugIndex + 1) % END_DEBUG_SCENARIOS.length;
-    const scenario = END_DEBUG_SCENARIOS[endDebugIndex];
-    clearBoardVisuals();
-    document.getElementById("winner-overlay").style.display = "none";
-    gameState.table = Array.from({ length: 5 }, () => Array(5).fill(0));
-    scenario.lines.flat().forEach(([r, c]) => {
-        gameState.table[r][c] = 1;
-        const piece = document.getElementById(`p${r}${c}`);
-        piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);
-        piece.parentElement.style.opacity = "1";
-    });
-    gameState.players[1].points = scenario.lines.length;
-    gameState.players[2].points = 0;
-    coinP1Text.textContent = 0;
-    coinP2Text.textContent = 0;
-    const before = { pieces: { 1: 12, 2: 12 }, points: { 1: 0, 2: 0 } };
-    endGameSequenceStarted = false;
-    playEndGameSequence([scenario.lines[scenario.last]], before);
-}
-
-let fairyDebugIndex = -1;
-const FAIRY_DEBUG_LINES = [
-    [[0, 0], [0, 1], [0, 2]], // row
-    [[0, 4], [1, 4], [2, 4]], // column
-    [[0, 0], [1, 1], [2, 2]], // main diagonal
-];
-
 document.addEventListener("keydown", (e) => {
     if (e.repeat) return;
     if (!gameInProgress) return; // home screen: nothing to roll/place yet
@@ -2230,32 +2188,6 @@ document.addEventListener("keydown", (e) => {
 
     if (e.key === "d" || e.key === "D") {
         doneBtn.click();
-        return;
-    }
-
-    if (e.key === "q" || e.key === "Q") { // debug: just the shake, no game needed
-        shakeBoard();
-        return;
-    }
-
-    if (e.key === "e" || e.key === "E") { // debug: stage a finished game and run the real end-game sequence
-        runEndGameDebugScenario();
-        return;
-    }
-
-    if (e.key === "f" || e.key === "F") {
-        fairyDebugIndex = (fairyDebugIndex + 1) % FAIRY_DEBUG_LINES.length;
-        const cells = FAIRY_DEBUG_LINES[fairyDebugIndex];
-        // Simulate an actual placed piece on each cell first (a real
-        // triple always has one) so the jump-on-arrival is visible too,
-        // not just the sparks -- without needing to play out a real game.
-        cells.forEach(([r, c]) => {
-            const piece = document.getElementById(`p${r}${c}`);
-            if (!piece) return;
-            piece.style.backgroundImage = urlOf(gameState.players[1].pieceImage);
-            piece.parentElement.style.opacity = "1";
-        });
-        playFairyTrail(cells, { onWaypoint: ([wr, wc]) => jumpPiece(wr, wc) });
         return;
     }
 
