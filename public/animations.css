@@ -271,6 +271,25 @@
   animation-iteration-count: 1;
 }
 
+/* Tapping a placed piece: a damped spring -- squashes down, launches, then
+   settles through a few shrinking over/undershoots instead of one clean hop. */
+@keyframes pieceTapSpring {
+  0%   { transform: translateY(0) scale(1, 1); }
+  14%  { transform: translateY(2%) scale(1.16, 0.84); }
+  32%  { transform: translateY(-10%) scale(0.92, 1.1); }
+  50%  { transform: translateY(1.5%) scale(1.08, 0.93); }
+  66%  { transform: translateY(-3.5%) scale(0.97, 1.04); }
+  80%  { transform: translateY(0.5%) scale(1.03, 0.98); }
+  91%  { transform: translateY(-0.8%) scale(0.99, 1.01); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+.piece-jump.piece-tap {
+  animation-name: pieceTapSpring;
+  animation-duration: 0.85s;
+  animation-timing-function: ease-in-out;
+}
+
 /* Player info table: the pieces-remaining and points numbers pop when
    they change (see popStat() in linotte.js) -- pieces pop immediately
    when a placement commits; points pop only once the fairy trail's extra

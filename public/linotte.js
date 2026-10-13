@@ -1340,10 +1340,20 @@ function renderTableHighlight() {
 //----------- PIECE PLACEMENT ---------------
 document.querySelectorAll(".tile").forEach(el => {
     el.addEventListener("click", function () {
-        if (!isMyTurn()) return;
-        if (pieceEnabled == false) return;
-
-        handleTile(el.id);
+        // A tap that can place/remove a piece does that; any other tap on an
+        // occupied tile (either player's, any time) just makes its piece
+        // bounce a little.
+        const canAct = isMyTurn() && pieceEnabled &&
+            matrixCheck(idToCoo(el.id), possibleMovesLocal) !== 0;
+        if (canAct) {
+            handleTile(el.id);
+            return;
+        }
+        const piece = document.getElementById("p" + idToCoo(el.id));
+        if (piece && piece.style.backgroundImage &&
+            getComputedStyle(piece.parentElement).opacity === "1") {
+            jumpPiece(...idToCoo(el.id), true);
+        }
     });
 });
 
@@ -1502,7 +1512,7 @@ function playLinesSequentially(lines, onAllDone) {
 // playFairyTrail). Re-triggerable even if it's still mid-jump from a
 // moment ago (e.g. two lines sharing a corner cell), by forcing a reflow
 // between removing and re-adding the class.
-function jumpPiece(r, c) {
+function jumpPiece(r, c, small = false) {
     const piece = document.getElementById(`p${r}${c}`);
     if (!piece) return;
     // Animate the WRAPPER (.wrapPiece), never .piece itself: applyTidyness
@@ -1516,11 +1526,12 @@ function jumpPiece(r, c) {
     // true identity with no rotation, so overriding it during the jump
     // and reverting after is visually silent.
     const wrapper = piece.parentElement;
-    wrapper.classList.remove("piece-jump");
+    wrapper.classList.remove("piece-jump", "piece-tap");
     void wrapper.offsetWidth;
     wrapper.classList.add("piece-jump");
+    if (small) wrapper.classList.add("piece-tap"); // gentler bounce for a plain tap
     wrapper.addEventListener("animationend", () => {
-        wrapper.classList.remove("piece-jump");
+        wrapper.classList.remove("piece-jump", "piece-tap");
     }, { once: true });
 }
 
