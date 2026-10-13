@@ -10,6 +10,22 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js")
         .then(() => console.log("SW registered"))
         .catch(err => console.error(err));
+
+    // The very first visit (nothing cached yet) only gets "controlled" by
+    // the service worker once it finishes installing -- any request THIS
+    // page itself makes before that point (a randomly-assigned piece
+    // image, for instance -- pieces/backgrounds/dice are all picked from a
+    // pool at runtime, see shared/assets.js) was issued with no controller
+    // yet and so was never going through sw.js's cache at all, precached
+    // or not. Reloading once, right as control actually starts, is what
+    // makes this same first visit fully offline-capable too, instead of
+    // only every visit after it.
+    let refreshedForSW = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (refreshedForSW) return;
+        refreshedForSW = true;
+        window.location.reload();
+    });
 }
 
 // const socket = io();
@@ -155,9 +171,18 @@ function hideHomeScreen() {
     document.getElementById("home-overlay").style.display = "none";
 }
 
+// Temporary: highlights the options-menu section for whichever mode the
+// current game is actually running in.
+function markActiveMode() {
+    const mode = controller && controller.mode;
+    document.getElementById("title-same-table").classList.toggle("selected", mode === "offline");
+    document.getElementById("title-vs-bot").classList.toggle("selected", mode === "bot");
+}
+
 function startOffline() {
     controller = new GameController("offline");
     controller.setState(gameState);
+    markActiveMode();
 }
 
 function startOnline() {
@@ -170,6 +195,7 @@ function startBot(strategy = "points") {
     LOCAL_PLAYER = 1;
     controller = new GameController("bot");
     controller.setState(gameState);
+    markActiveMode();
 }
 
 
@@ -252,6 +278,7 @@ function applyPlayerVisuals() {
 
 
 function isMyTurn() {
+    if (isPaused) return false;
     if (controller.mode === "offline") return true;
     if (controller.mode === "bot") return gameState.currentPlayer === 1;
     return gameState.currentPlayer === LOCAL_PLAYER;
@@ -478,6 +505,19 @@ function showPlusPopup(anchorEl, amount) {
 }
 
 
+// Background filenames are hyphenated slugs ("sun-tornado.svg"), not
+// display names -- bg-title used to just slice off the ".svg" and show the
+// raw slug verbatim ("sun-tornado"), which read like an internal filename
+// leaking into the UI. This turns it into a normal human label ("Sun
+// Tornado") instead.
+function humanizeBgName(filename) {
+    return filename
+        .slice(0, -4)
+        .split("-")
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+}
+
 //----------- COOKIES ---------------
 let tidyness = getCookie("tidyness", 2);
 document.getElementById("bo" + tidyness).classList.add("selected"); //option section
@@ -493,7 +533,7 @@ preload(selectedDie);
 
 let selectedBg = getCookie("background", 4);
 document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
-document.getElementById("bg-title").textContent = backgrounds[selectedBg].slice(0, -4);
+document.getElementById("bg-title").textContent = humanizeBgName(backgrounds[selectedBg]);
 for (let i = 0; i < backgrounds.length; i++) {
     preload(bgPath + backgrounds[i]);
 }
@@ -614,6 +654,36 @@ document.addEventListener("DOMContentLoaded", () => {
     startTurnTimer();
 });
 
+//----------- PAUSE -----------------
+// Freezes the turn timer and the bot (sleep() below holds while paused) and
+// makes isMyTurn() false so dice/calls/tiles/ROLL/DONE ignore input too.
+let isPaused = false;
+let timerWasRunning = false;
+let pauseWaiters = [];
+const pauseBtn = document.getElementById("pause-btn");
+
+function setPaused(paused) {
+    if (paused === isPaused) return;
+    isPaused = paused;
+    pauseBtn.classList.toggle("is-paused", paused);
+    pauseBtn.classList.toggle("selected", paused);
+    document.getElementById("clock-wrap").classList.toggle("paused", paused);
+    if (paused) {
+        timerWasRunning = timerId !== null;
+        stopTimer();
+    } else {
+        // Resume from where it stopped: the next tick lands a full second
+        // later instead of re-running tick() (which would drop a second).
+        if (timerWasRunning && timerId === null) timerId = setTimeout(tick, 1000);
+        timerWasRunning = false;
+        const waiters = pauseWaiters;
+        pauseWaiters = [];
+        waiters.forEach(resolve => resolve());
+    }
+}
+
+pauseBtn.addEventListener("click", () => setPaused(!isPaused));
+
 
 
 
@@ -658,7 +728,7 @@ function renderDiceFace(id) {
 //----------- OPTIONS OVERLAY -----------------
 openBtn.onclick = () => {
     optionsOverlay.classList.remove("hidden");
-    handleTab("options");
+    handleTab("game");
     centerLists();
 }
 
@@ -768,9 +838,26 @@ function flipCoin(nameP1, nameP2) {
     });
 }
 
-// The pre-existing "FLIP" button (.opt-btn.flipped, no id) is reserved
-// for a different, not-yet-built feature -- PLAY is this session's own
-// button for starting a same-table game, coin flip included.
+// Same-table (hotseat) only: passes the "upright" view to whoever's turn
+// it actually is, without the board itself turning with it -- see
+// body.table-flipped/.div-table in linotte.css for the actual mechanism
+// (page rotates 180deg, board rotates an extra 180deg on top to cancel
+// that back out).
+// FLIP is a selectable option (like the sound buttons): when selected, the
+// page only flips while it's player 2's turn, so each person gets an upright
+// view on their own turn. See body.table-flipped in linotte.css.
+let flipOptionOn = false;
+function applyFlip() {
+    const flipped = flipOptionOn && controller.mode === "offline" && gameState.currentPlayer === 2;
+    document.body.classList.toggle("table-flipped", flipped);
+}
+document.getElementById("flip-table-btn").addEventListener("click", () => {
+    if (controller.mode !== "offline") return;
+    flipOptionOn = !flipOptionOn;
+    document.getElementById("flip-table-btn").classList.toggle("selected", flipOptionOn);
+    applyFlip();
+});
+
 document.getElementById("play-offline-btn").addEventListener("click", () => {
     flipCoin("P1", "P2").then((startingPlayer) => {
         newGameOffline(startingPlayer);
@@ -807,6 +894,7 @@ botStrategyButtons.forEach(btn => {
 });
 
 function newGameVsBot(strategy, startingPlayer = 1) {
+    setPaused(false);
     gameState = createInitialGameState();
     gameState.currentPlayer = startingPlayer;
     gameState.players[1].name = "YOU";
@@ -839,6 +927,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
 // P1/P2 -- see isMyTurn()'s "offline" branch, which never dims/disables
 // either side's controls since there's only one local player either way.
 function newGameOffline(startingPlayer = 1) {
+    setPaused(false);
     gameState = createInitialGameState();
     gameState.currentPlayer = startingPlayer;
     gameState.players[1].name = "P1";
@@ -859,6 +948,7 @@ function newGameOffline(startingPlayer = 1) {
     renderPieceCounts();
     renderPointCounts();
     divsOpacity(gameState.currentPlayer);
+    applyFlip();
     startTurnTimer();
 }
 
@@ -900,7 +990,7 @@ bgOptions.forEach(bgOption => {
         bgOption.classList.add("selected");
 
         var bgId = Number(bgOption.id[2]);
-        document.getElementById("bg-title").textContent = backgrounds[bgId].slice(0, -4);
+        document.getElementById("bg-title").textContent = humanizeBgName(backgrounds[bgId]);
 
         body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
         optBg.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
@@ -1531,6 +1621,7 @@ function performEndTurn() {
     controller.dispatch({ type: "END_TURN" });
     clearForNextTurn()
     renderPlayerBox(gameState.currentPlayer);
+    applyFlip();
     // The piece count pops right away -- the piece really did just land on
     // the board -- but the score (see renderPointCounts below) waits until
     // the line that earned it has actually played.
@@ -1641,8 +1732,19 @@ function playEndGameSequence(lastMoveLines, before) {
 
 
 //----------- BOT TURN ---------------
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+// Counts only unpaused time, so a paused bot turn resumes mid-wait instead of
+// carrying on (or skipping ahead) behind the player's back.
+async function sleep(ms) {
+    let left = ms;
+    while (left > 0) {
+        if (isPaused) {
+            await new Promise(resolve => pauseWaiters.push(resolve));
+            continue;
+        }
+        const step = Math.min(left, 100);
+        await new Promise(resolve => setTimeout(resolve, step));
+        if (!isPaused) left -= step;
+    }
 }
 
 

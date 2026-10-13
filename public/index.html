@@ -225,7 +225,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="div-info-right">
+                <div class="div-info-right" id="clock-wrap">
+                    <div class="clock-pause"></div>
                     <div class="clock">
                         <div class="clock-tile" id="tens">
                             <div class="half top"><span>0</span></div>
@@ -318,27 +319,40 @@
 
                 <section>
                     <div class="separator"></div>
-                    <div class="title selected">Same table</div>
-                    <div class="card">
-                        <div class="opt-btn flipped">FLIP</div>
+                    <div class="title">Game</div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered">
+                            <div class="car-btn"><div class="opt-btn" id="pause-btn"><span class="pause-icon"></span></div></div>
+                        </div>
                     </div>
-                    <div class="card">
-                        <div class="opt-btn" id="play-offline-btn">PLAY</div>
+                </section>
+
+                <section>
+                    <div class="title" id="title-same-table">Same table</div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered">
+                            <div class="car-btn"><div class="opt-btn flipped" id="flip-table-btn">FLIP</div></div>
+                            <div class="car-btn"><div class="opt-btn" id="play-offline-btn">PLAY</div></div>
+                        </div>
                     </div>
                 </section>
 
                 <section>
                     <div class="title">Online</div>
-                    <div class="card"></div>
-                    <div class="card"></div>
-                    <div class="card"></div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered">
+                            <div class="not-available">Not available yet</div>
+                        </div>
+                    </div>
                 </section>
 
                 <section>
-                    <div class="title">AI opponent</div>
-                    <div class="h-div">
-                        <div class="card"><div class="opt-btn bot-strategy" id="bot-points" data-strategy="points">POINTS</div></div>
-                        <div class="card"><div class="opt-btn bot-strategy" id="bot-speed" data-strategy="speed">SPEED</div></div>
+                    <div class="title" id="title-vs-bot">Vs Bot</div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered">
+                            <div class="car-btn"><div class="opt-btn bot-strategy" id="bot-points" data-strategy="points">POINTS</div></div>
+                            <div class="car-btn"><div class="opt-btn bot-strategy" id="bot-speed" data-strategy="speed">SPEED</div></div>
+                        </div>
                     </div>
                 </section>
             </div>
