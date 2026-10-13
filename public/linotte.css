@@ -1049,6 +1049,10 @@ body.table-flipped .div-table {
   position: fixed;
   inset: 0;
   z-index: 60; /* above options-overlay (50); the game itself is never visible underneath yet */
+  /* Opaque even before the background art (.opt-bg, an SVG set from JS)
+     has loaded -- on a first visit that can take a moment, and with a
+     transparent overlay the game board showed through the home buttons. */
+  background-color: whitesmoke;
   display: flex;
   flex-direction: column;
   align-items: center;

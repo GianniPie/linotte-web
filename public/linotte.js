@@ -23,6 +23,9 @@ if ("serviceWorker" in navigator) {
     let refreshedForSW = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
         if (refreshedForSW) return;
+        // Never yank a game away: if one was already started in the few
+        // seconds the install took, skip -- it's picked up on the next visit.
+        if (gameInProgress) return;
         refreshedForSW = true;
         window.location.reload();
     });
@@ -284,8 +287,15 @@ function applyPlayerVisuals() {
 // divsOpacity(gameState.currentPlayer);
 
 
+// True from the moment a turn is committed (DONE) until every animation that
+// turn triggered has finished and the next turn is handed over -- nobody can
+// act, the page doesn't rotate and the active-player highlight doesn't move
+// before then.
+let turnHandoverPending = false;
+
 function isMyTurn() {
     if (isPaused) return false;
+    if (turnHandoverPending) return false;
     if (controller.mode === "offline") return true;
     if (controller.mode === "bot") return gameState.currentPlayer === 1;
     return gameState.currentPlayer === LOCAL_PLAYER;
@@ -854,8 +864,13 @@ function flipCoin(nameP1, nameP2) {
 // page only flips while it's player 2's turn, so each person gets an upright
 // view on their own turn. See body.table-flipped in linotte.css.
 let flipOptionOn = false;
-function applyFlip() {
-    const flipped = flipOptionOn && controller.mode === "offline" && gameState.currentPlayer === 2;
+// `viewPlayer` is whose side the page is currently turned to; it only changes
+// when a turn is actually handed over (or the winner is shown), never at the
+// moment a turn is committed, so the page doesn't rotate mid-animation.
+let viewPlayer = 1;
+function applyFlip(player = viewPlayer) {
+    viewPlayer = player;
+    const flipped = flipOptionOn && controller.mode === "offline" && player === 2;
     document.body.classList.toggle("table-flipped", flipped);
 }
 document.getElementById("flip-table-btn").addEventListener("click", () => {
@@ -902,6 +917,7 @@ botStrategyButtons.forEach(btn => {
 
 function newGameVsBot(strategy, startingPlayer = 1) {
     gameInProgress = true;
+    turnHandoverPending = false;
     setPaused(false);
     gameState = createInitialGameState();
     gameState.currentPlayer = startingPlayer;
@@ -937,6 +953,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
 // either side's controls since there's only one local player either way.
 function newGameOffline(startingPlayer = 1) {
     gameInProgress = true;
+    turnHandoverPending = false;
     setPaused(false);
     gameState = createInitialGameState();
     gameState.currentPlayer = startingPlayer;
@@ -958,7 +975,7 @@ function newGameOffline(startingPlayer = 1) {
     renderPieceCounts();
     renderPointCounts();
     divsOpacity(gameState.currentPlayer);
-    applyFlip();
+    applyFlip(gameState.currentPlayer);
     startTurnTimer();
 }
 
@@ -1646,13 +1663,11 @@ function performEndTurn() {
     possibleMovesLocal = Array.from({ length: 5 }, () => Array(5).fill(0));
     controller.dispatch({ type: "END_TURN" });
     clearForNextTurn()
-    renderPlayerBox(gameState.currentPlayer);
-    applyFlip();
+    turnHandoverPending = true;
     // The piece count pops right away -- the piece really did just land on
     // the board -- but the score (see renderPointCounts below) waits until
     // the line that earned it has actually played.
     renderPieceCounts(before);
-    divsOpacity(gameState.currentPlayer);
 
     if (checkGameOver()) {
         stopTimer();
@@ -1669,6 +1684,12 @@ function performEndTurn() {
     // turn's celebration still playing out.
     playLinesSequentially(lastMoveLines, () => {
         celebratePoints(lastMoveLines, before, () => {
+            // Only now, with every animation done, does the turn actually
+            // pass: highlight, controls dimming and (same-table) page flip.
+            turnHandoverPending = false;
+            renderPlayerBox(gameState.currentPlayer);
+            divsOpacity(gameState.currentPlayer);
+            applyFlip(gameState.currentPlayer);
             startTurnTimer(); // fresh 60s -- keeps running through the bot's own turn too, not just the human's
             if (controller.mode === "bot" && gameState.currentPlayer === 2) {
                 playBotTurn();
@@ -1684,6 +1705,18 @@ function performEndTurn() {
     //     localPlayer: LOCAL_PLAYER,
     //     tileCoordinate: selectedTile === null ? null : selectedTile.id
     // });
+}
+
+// Same-table game over: leaves the page as it is unless the winner sits on
+// the other side (player 2 is the upside-down side), in which case it turns
+// to them and waits for the rotation (.6s, see body in linotte.css) before
+// calling `then`. A tie leaves the page where it is.
+function turnPageToWinner(winner, then) {
+    const wasFlipped = document.body.classList.contains("table-flipped");
+    if (winner) applyFlip(winner);
+    const changed = wasFlipped !== document.body.classList.contains("table-flipped");
+    if (changed) setTimeout(then, 650);
+    else then();
 }
 
 // A short earthquake shake of the board (see @keyframes boardQuake in
@@ -1756,12 +1789,16 @@ function playEndGameSequence(lastMoveLines, before) {
             // purely as a victory lap -- no further point changes, those
             // already happened in earlier turns.
             playLinesSequentially(sweepLines, () => {
+                // Same-table: turn the page to the winner first, so the
+                // shake and the popup both appear the right way up for them.
+                turnPageToWinner(winner, () => {
                 // A beat between the celebration and the popup, so the last
                 // line doesn't feel cut off by the overlay appearing the
                 // instant it finishes: the board shakes, building up, and the
                 // popup lands the moment the shake ends (the shake is .5s, so
                 // starting it 500ms in keeps the usual 1s beat overall).
                 setTimeout(() => shakeBoard(() => showWinnerPopup(winner)), 500);
+                });
             });
         });
     });
