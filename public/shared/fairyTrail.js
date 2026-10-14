@@ -78,6 +78,7 @@ export function setTunables(partial) {
 function ensureCanvas() {
   if (canvas) return;
   canvas = document.createElement("canvas");
+  canvas.className = "fairy-canvas"; // see body.table-flipped .fairy-canvas in linotte.css
   canvas.style.position = "fixed";
   canvas.style.inset = "0";
   canvas.style.pointerEvents = "none";

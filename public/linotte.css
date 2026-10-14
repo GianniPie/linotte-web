@@ -394,6 +394,42 @@ body.table-flipped .div-table {
   transform: rotate(-180deg);
 }
 
+/* Effects drawn in screen coordinates (the fairy-trail canvas covers the
+   whole page and its points come from getBoundingClientRect) would be turned
+   180deg along with the flipped body and land mirrored. Turning the canvas
+   back the same amount cancels it out. */
+.fairy-canvas {
+  transition: rotate .6s ease;
+}
+
+body.table-flipped .fairy-canvas {
+  rotate: 180deg;
+}
+
+/* The board keeps its layout for both players (it's the shared object), but
+   each tile's symbol turns 180deg with the page so it reads the right way up
+   for whoever's turn it is. The symbol is drawn by a pseudo-element (image
+   comes from the tile's --tile-img, see #t00 etc.) so only it rotates --
+   the tile itself, its corners and the pieces on it stay put. */
+.tile {
+  position: relative;
+}
+
+.tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--tile-img);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  transition: rotate .6s ease;
+}
+
+body.table-flipped .tile::before {
+  rotate: 180deg;
+}
+
 .grid {
   grid-column-gap: 0;
   grid-row-gap: 0;
@@ -440,6 +476,9 @@ body.table-flipped .div-table {
 }
 
 .tile_highlighted {
+  /* Tiles are all position:relative (for the ::before symbol layer), so
+     without this a later neighbour paints over this tile's outline. */
+  z-index: 1;
   outline-offset: -4px;
   outline-width: .7em;
   outline-style: solid;
@@ -495,103 +534,103 @@ body.table-flipped .div-table {
 }
 
 #t00 {
-  background-image: url("resources/images/g10481.svg");
+  --tile-img: url("resources/images/g10481.svg");
 }
 
 #t01 {
-  background-image: url("resources/images/g10483.svg");
+  --tile-img: url("resources/images/g10483.svg");
 }
 
 #t02 {
-  background-image: url("resources/images/g10495.svg");
+  --tile-img: url("resources/images/g10495.svg");
 }
 
 #t03 {
-  background-image: url("resources/images/g10484.svg");
+  --tile-img: url("resources/images/g10484.svg");
 }
 
 #t04 {
-  background-image: url("resources/images/g10486.svg");
+  --tile-img: url("resources/images/g10486.svg");
 }
 
 #t10 {
-  background-image: url("resources/images/g10482.svg");
+  --tile-img: url("resources/images/g10482.svg");
 }
 
 #t11 {
-  background-image: url("resources/images/g10492.svg");
+  --tile-img: url("resources/images/g10492.svg");
 }
 
 #t12 {
-  background-image: url("resources/images/g10496.svg");
+  --tile-img: url("resources/images/g10496.svg");
 }
 
 #t13 {
-  background-image: url("resources/images/g10491.svg");
+  --tile-img: url("resources/images/g10491.svg");
 }
 
 #t14 {
-  background-image: url("resources/images/g10485.svg");
+  --tile-img: url("resources/images/g10485.svg");
 }
 
 #t20 {
-  background-image: url("resources/images/g10493.svg");
+  --tile-img: url("resources/images/g10493.svg");
 }
 
 #t21 {
-  background-image: url("resources/images/g10491.svg");
+  --tile-img: url("resources/images/g10491.svg");
 }
 
 #t22 {
-  background-image: url("resources/images/g10498.svg");
+  --tile-img: url("resources/images/g10498.svg");
 }
 
 #t23 {
-  background-image: url("resources/images/g10495.svg");
+  --tile-img: url("resources/images/g10495.svg");
 }
 
 #t24 {
-  background-image: url("resources/images/g10497.svg");
+  --tile-img: url("resources/images/g10497.svg");
 }
 
 #t30 {
-  background-image: url("resources/images/g10486.svg");
+  --tile-img: url("resources/images/g10486.svg");
 }
 
 #t31 {
-  background-image: url("resources/images/g10496.svg");
+  --tile-img: url("resources/images/g10496.svg");
 }
 
 #t32 {
-  background-image: url("resources/images/g10497.svg");
+  --tile-img: url("resources/images/g10497.svg");
 }
 
 #t33 {
-  background-image: url("resources/images/g10493.svg");
+  --tile-img: url("resources/images/g10493.svg");
 }
 
 #t34 {
-  background-image: url("resources/images/g10481.svg");
+  --tile-img: url("resources/images/g10481.svg");
 }
 
 #t40 {
-  background-image: url("resources/images/g10483.svg");
+  --tile-img: url("resources/images/g10483.svg");
 }
 
 #t41 {
-  background-image: url("resources/images/g10482.svg");
+  --tile-img: url("resources/images/g10482.svg");
 }
 
 #t42 {
-  background-image: url("resources/images/g10492.svg");
+  --tile-img: url("resources/images/g10492.svg");
 }
 
 #t43 {
-  background-image: url("resources/images/g10485.svg");
+  --tile-img: url("resources/images/g10485.svg");
 }
 
 #t44 {
-  background-image: url("resources/images/g10484.svg");
+  --tile-img: url("resources/images/g10484.svg");
 }
 
 
@@ -815,6 +854,14 @@ body.table-flipped .div-table {
 
 .die.selected {
   animation: bounceDie 0.3s ease-out forwards;
+}
+
+/* The selection ring is .3em of the element's own font size, so the larger
+   text of the section titles and the FLIP/PLAY style buttons made it much
+   thicker than on the 16px icon/option selections. Same px for all of them. */
+.title.selected,
+.opt-btn.selected {
+  --select-ring: 4.8px;
 }
 
 .die::after {

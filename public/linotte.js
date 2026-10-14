@@ -292,6 +292,7 @@ function applyPlayerVisuals() {
 // act, the page doesn't rotate and the active-player highlight doesn't move
 // before then.
 let turnHandoverPending = false;
+const TURN_HANDOVER_BEAT_MS = 700; // pause after the last animation, before the page flips / the turn passes
 
 function isMyTurn() {
     if (isPaused) return false;
@@ -366,7 +367,12 @@ function tickStat(el, newValue) {
     outgoing.style.height = rect.height + "px";
     outgoing.style.font = cs.font;
     outgoing.style.color = cs.color;
-    document.body.appendChild(outgoing);
+    // Appended to <html>, not <body>: its position comes from screen
+    // coordinates, and the body is itself turned 180deg while flipped, which
+    // would land it mirrored. Turned to match the page so it reads the same
+    // way up (and slides the same way) as the number it replaces.
+    document.documentElement.appendChild(outgoing);
+    if (document.body.classList.contains("table-flipped")) outgoing.style.rotate = "180deg";
     outgoing.addEventListener("animationend", () => outgoing.remove(), { once: true });
 
     el.textContent = newValue;
@@ -517,7 +523,10 @@ function showPlusPopup(anchorEl, amount) {
     popup.textContent = "+" + amount;
     popup.style.left = (rect.left + rect.width / 2) + "px";
     popup.style.top = rect.top + "px";
-    document.body.appendChild(popup);
+    // On <html>, turned with the page when flipped: same reason as the
+    // outgoing number in tickStat (screen coordinates, body is turned).
+    document.documentElement.appendChild(popup);
+    if (document.body.classList.contains("table-flipped")) popup.style.rotate = "180deg";
     popup.addEventListener("animationend", () => popup.remove(), { once: true });
 }
 
@@ -863,7 +872,9 @@ function flipCoin(nameP1, nameP2) {
 // FLIP is a selectable option (like the sound buttons): when selected, the
 // page only flips while it's player 2's turn, so each person gets an upright
 // view on their own turn. See body.table-flipped in linotte.css.
-let flipOptionOn = false;
+// Remembered between games and visits (cookie, like the other options).
+let flipOptionOn = toBoolean(getCookie("flipOn", "false"));
+document.getElementById("flip-table-btn").classList.toggle("selected", flipOptionOn);
 // `viewPlayer` is whose side the page is currently turned to; it only changes
 // when a turn is actually handed over (or the winner is shown), never at the
 // moment a turn is committed, so the page doesn't rotate mid-animation.
@@ -876,6 +887,7 @@ function applyFlip(player = viewPlayer) {
 document.getElementById("flip-table-btn").addEventListener("click", () => {
     if (controller.mode !== "offline") return;
     flipOptionOn = !flipOptionOn;
+    setCookie("flipOn", flipOptionOn);
     document.getElementById("flip-table-btn").classList.toggle("selected", flipOptionOn);
     applyFlip();
 });
@@ -1129,16 +1141,14 @@ function checkGameOver() {
     document.getElementById("div-resultsAndCalls").classList.add("game-over-dim");
     rollBtn.classList.add("game-over-dim");
 
-    // Vs-bot: ROLL/DONE and the "[name] turn" label (see divsOpacity) are
-    // both dead now that there's no next turn -- replaced by a single
+    // ROLL/DONE and the "[name] turn" label (see divsOpacity) are all dead
+    // now that there's no next turn -- replaced, in both modes, by a single
     // green DONE in their place, which just reopens the winner popup (see
     // doneButton's isGameOver branch) if it gets dismissed.
-    if (controller.mode === "bot") {
-        rollBtn.style.display = "none";
-        doneBtn.style.display = "none";
-        turnLabelEl.style.display = "none";
-        endGameDoneBtn.style.display = "flex";
-    }
+    rollBtn.style.display = "none";
+    doneBtn.style.display = "none";
+    turnLabelEl.style.display = "none";
+    endGameDoneBtn.style.display = "flex";
 
     // The popup itself is shown by the caller (see playEndGameSequence in
     // performEndTurn), once the end-of-game fairy trail celebration has
@@ -1683,7 +1693,14 @@ function performEndTurn() {
     // have actually finished, so it never starts overlapping the previous
     // turn's celebration still playing out.
     playLinesSequentially(lastMoveLines, () => {
-        celebratePoints(lastMoveLines, before, () => {
+        celebratePoints(lastMoveLines, before, async () => {
+            // A short beat after the last animation (the points change
+            // included) before the turn actually passes -- only when
+            // something played, so a plain turn isn't slowed down.
+            if (lastMoveLines.length > 0) {
+                await sleep(TURN_HANDOVER_BEAT_MS);
+                if (!turnHandoverPending) return; // a new game started meanwhile
+            }
             // Only now, with every animation done, does the turn actually
             // pass: highlight, controls dimming and (same-table) page flip.
             turnHandoverPending = false;
@@ -1705,18 +1722,6 @@ function performEndTurn() {
     //     localPlayer: LOCAL_PLAYER,
     //     tileCoordinate: selectedTile === null ? null : selectedTile.id
     // });
-}
-
-// Same-table game over: leaves the page as it is unless the winner sits on
-// the other side (player 2 is the upside-down side), in which case it turns
-// to them and waits for the rotation (.6s, see body in linotte.css) before
-// calling `then`. A tie leaves the page where it is.
-function turnPageToWinner(winner, then) {
-    const wasFlipped = document.body.classList.contains("table-flipped");
-    if (winner) applyFlip(winner);
-    const changed = wasFlipped !== document.body.classList.contains("table-flipped");
-    if (changed) setTimeout(then, 650);
-    else then();
 }
 
 // A short earthquake shake of the board (see @keyframes boardQuake in
@@ -1770,6 +1775,10 @@ function playEndGameSequence(lastMoveLines, before) {
     // number actually increments. Only once THAT is done does the sweep
     // (step 2) start, so the score updates right after the line that
     // earned it, not after a victory lap over lines that scored turns ago.
+    // The page is never turned at the end of a game: it stays however it was
+    // for the player who made the last move (upside down if that was player 2
+    // in same-table mode) through every ending animation, the shake and the
+    // popup, whoever ends up winning.
     playLinesSequentially(lastMoveLines, () => {
         celebratePoints(lastMoveLines, before, () => {
             // The winner's lines on the board, as whole runs.
@@ -1788,18 +1797,15 @@ function playEndGameSequence(lastMoveLines, before) {
             // Step 2: sweep the winner's lines on the board,
             // purely as a victory lap -- no further point changes, those
             // already happened in earlier turns.
-            playLinesSequentially(sweepLines, () => {
-                // Same-table: turn the page to the winner first, so the
-                // shake and the popup both appear the right way up for them.
-                turnPageToWinner(winner, () => {
+            // A beat after the points land and before the victory lap starts.
+            setTimeout(() => playLinesSequentially(sweepLines, () => {
                 // A beat between the celebration and the popup, so the last
                 // line doesn't feel cut off by the overlay appearing the
                 // instant it finishes: the board shakes, building up, and the
                 // popup lands the moment the shake ends (the shake is .5s, so
                 // starting it 500ms in keeps the usual 1s beat overall).
                 setTimeout(() => shakeBoard(() => showWinnerPopup(winner)), 500);
-                });
-            });
+            }), sweepLines.length > 0 ? TURN_HANDOVER_BEAT_MS : 0);
         });
     });
 }
@@ -2278,6 +2284,14 @@ function stateUpdate() {
 
 
 function divsOpacity(currentPlayer) {
+    // Every call marks the start of a live turn (or game), so the
+    // end-of-game button (see checkGameOver()) resets to hidden here, in
+    // every mode -- checkGameOver() shows it again on the turn that ends
+    // the game.
+    endGameDoneBtn.style.display = "none";
+    rollBtn.style.display = "";
+    doneBtn.style.display = "";
+    turnLabelEl.style.display = "none";
     if (controller.mode === "offline") return; // hotseat: never dim, both players share the controls
     if (!currentPlayer) return;
     // Dice and results/calls just dim a touch on the opponent's turn -- see
@@ -2291,14 +2305,6 @@ function divsOpacity(currentPlayer) {
     document.getElementById("div-dice").style.opacity = opacity;
     document.getElementById("div-resultsAndCalls").style.opacity = opacity;
 
-    // Every divsOpacity() call marks the start of a live turn, so the
-    // end-of-game button (see checkGameOver()) resets to hidden here --
-    // checkGameOver() runs right after this on the turn that actually ends
-    // the game and will show it again if needed.
-    endGameDoneBtn.style.display = "none";
-    rollBtn.style.display = "";
-    doneBtn.style.display = "";
-    turnLabelEl.style.display = "none";
     if (isBotTurn) {
         rollBtn.style.display = "none";
         doneBtn.style.display = "none";
