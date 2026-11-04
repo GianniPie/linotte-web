@@ -154,7 +154,14 @@ function onViewportChange() {
     if (!optionsOverlay.classList.contains("hidden")) moveIndicator(currentOptionsTab);
     document.documentElement.classList.add('is-resizing');
     clearTimeout(resizingTimer);
-    resizingTimer = setTimeout(() => document.documentElement.classList.remove('is-resizing'), 250);
+    resizingTimer = setTimeout(() => {
+        document.documentElement.classList.remove('is-resizing');
+        // iOS fires orientationchange before the new size is known, and the
+        // height read then is still the old one: measure again once the
+        // rotation has settled.
+        setRealVh();
+        if (!optionsOverlay.classList.contains("hidden")) moveIndicator(currentOptionsTab);
+    }, 250);
 }
 window.addEventListener('resize', onViewportChange);
 window.addEventListener('orientationchange', onViewportChange);

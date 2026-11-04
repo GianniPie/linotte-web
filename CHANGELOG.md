@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+### Fixed
+- Landscape: the side column is the phone's column at the same size relative to the board (it had grown oversized and didn't fit with the browser bars), with square combination tiles, unsquashed player boxes, the four rows (players, combinations, dice, ROLL/DONE) at one width on one centre line, and rows lined up with the top and bottom of the board.
+- Landscape: no more zoomed-in page after rotating the phone (the height is re-measured once the rotation settles, and the page can't be auto-zoomed or double-tap zoomed).
+- The lines between board tiles are as thin on tablets and desktops as on phones (they had grown to 8 and 12 px).
+
 ## [2.8.0] - 2026-11-04
 
 ### Added

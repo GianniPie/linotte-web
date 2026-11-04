@@ -25,7 +25,11 @@ const io = new Server(server, {
 
 // Static client (html/css/js, and shared/ so /shared/utils.js resolves both
 // here and on a static deploy).
-app.use(express.static(path.join(here, "..", "public")));
+// "no-cache" = the browser may keep a copy but must check it's current
+// before using it, so a phone testing over Wi-Fi never shows stale CSS/JS.
+app.use(express.static(path.join(here, "..", "public"), {
+  setHeaders: (res) => res.setHeader("Cache-Control", "no-cache"),
+}));
 
 app.get("/healthz", (req, res) => res.json({ ok: true }));
 

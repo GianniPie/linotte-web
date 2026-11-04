@@ -81,6 +81,8 @@ html {
   -ms-text-size-adjust: 100%;
   font-family: sans-serif;
   min-height: 100%;
+  /* No double-tap zoom: quick taps on dice and buttons are play, not zoom. */
+  touch-action: manipulation;
 }
 
 html,
@@ -137,6 +139,7 @@ html {
   width: 100%;
   max-width: 700px;
   min-height: calc(var(--vh) * 100);
+  min-height: 100dvh;
   margin-left: auto;
   margin-right: auto;
   /* Notch / home indicator (viewport-fit=cover is on). */
@@ -505,7 +508,12 @@ body.table-flipped .tile::before {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  border: round(.15em, 1px) solid #603813;
+  /* The lines between tiles stay as thin as on the phone (2px per tile, so
+     4px between two) on every board size. They used to follow the board's
+     em scale like the frame and the highlight do, which made them 8px on a
+     tablet and 12px on a desktop. Only a board smaller than the phone's
+     gets thinner (1px). */
+  border: max(1px, round(min(.15em, 2px), 1px)) solid #603813;
   grid-template-rows: auto auto;
   width: 100%;
   height: 100%;
@@ -1086,15 +1094,20 @@ body.table-flipped .tile::before {
     /* ...and the sidebar takes whatever width is left, up to 520px. The
        font (and so every control in it) scales with that width. */
     --side-w: min(calc(100vw - var(--board) - var(--side-chrome)), 520px);
-    --col-w: var(--side-w);
+    /* The game column inside the rail keeps the size it has next to the
+       board in portrait: about the board's width (375px column, 356px board
+       on the phone). Sized off the rail's width alone it grew to 450px+ on
+       a landscape phone, everything in it looked oversized and, with the
+       browser's bars taking height, no longer fitted. */
+    --col-w: min(var(--side-w), calc(var(--board) * 1.05));
     --board-w: var(--board);
-    /* Height isn't the limit here (the sidebar is as tall as the board). */
-    font-size: round(down, calc(var(--side-w) * 0.04267), 1px);
+    font-size: round(down, calc(var(--col-w) * 0.04267), 1px);
     flex-flow: row nowrap;
     max-width: none;
     width: 100%;
     height: calc(var(--vh) * 100);
-    min-height: calc(var(--vh) * 100);
+    height: 100dvh;
+    min-height: 0;
     gap: var(--edge);
     padding: env(safe-area-inset-top, 0px) max(var(--edge), env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(var(--edge), env(safe-area-inset-left, 0px));
   }
@@ -1108,58 +1121,53 @@ body.table-flipped .tile::before {
     flex: 0 0 auto;
   }
 
+  /* The rail is the phone's column, scaled to the rail's width: every row
+     keeps the size and proportions it has in portrait (square combination
+     tiles, the same player boxes, dice and buttons centred). The rows run
+     the board's full height -- the players line up with its top edge,
+     ROLL/DONE with its bottom edge -- with equal gaps in between. */
   .side-panel {
     display: flex;
     flex-flow: column;
-    /* The rail is laid out top to bottom in the order of play: who's
-       playing and the clock at the top, the combination strip, the dice
-       taking whatever height is left, and ROLL/DONE pinned at the bottom
-       where the right thumb rests. */
     justify-content: space-between;
     order: 2;
-    height: var(--board);
+    /* On a phone that's the board's height; on a tablet the board is much
+       taller than the rows need, so the rail stops at about its own width
+       and sits centred beside the board instead of spreading its rows
+       100px apart. */
+    height: min(var(--board), calc(var(--col-w) * 1.05));
     width: var(--side-w);
+    /* The rail spans the space next to the board; its rows use the game
+       column's width (--col-w), centred in it. */
+    padding-inline: calc((var(--side-w) - var(--col-w)) / 2);
     flex: 0 0 auto;
     gap: var(--edge);
   }
 
+  /* The four rows share one width and one centre line, so they stack as a
+     single block (in portrait the buttons were 90%: here all are 95%). */
   .side-panel>.div-info,
   .side-panel>.div-resultsAndCalls,
   .side-panel>.div-dice,
   .side-panel>.div-buttons {
-    width: 100%;
-    height: auto;
-    margin: 0;
-  }
-
-  /* Taller combination strip (4.6:1 instead of 5.45:1): the call tiles are
-     tapped, so on a small phone they get closer to a 44px target. */
-  .side-panel>.div-resultsAndCalls {
-    aspect-ratio: 4.6 / 1;
     flex: 0 0 auto;
+    width: 95%;
+    margin: 0 auto;
   }
 
-  /* The dice take the rail's spare height and sit centred in it. Each die
-     is capped by that height (container query unit) so it never spills. */
+  /* Portrait's 10dvh tall info row, as a share of the column's width
+     (81px on the 375px phone), so the player boxes keep their shape. */
+  .side-panel>.div-info {
+    height: calc(var(--col-w) * .216);
+    grid-template-columns: max(12%, 44px) auto max(12%, 44px);
+  }
+
+  /* Dice sized by width as in portrait (10dvh would be far too short on a
+     landscape phone); the row grows to fit them. */
   .side-panel>.div-dice {
-    flex: 1 1 auto;
-    min-height: 0;
+    height: auto;
     max-height: none;
-    container-type: size;
-  }
-
-  .side-panel .wrapDie {
-    /* Rounded AFTER the height cap, so the die stays a whole even number
-       of pixels (see .wrapDie) whichever of the two limits wins. */
-    width: round(down, min(85%, 100cqh), 2px);
-  }
-
-  /* ROLL and DONE: bigger, and clear of the chat button that floats in the
-     bottom-right corner so the two never overlap. */
-  .side-panel>.div-buttons {
-    flex: 0 0 auto;
-    min-height: 3.6em;
-    padding-right: 52px;
+    padding-block: 4px;
   }
 
   /* 44px minimum touch targets, whatever the rail's font size works out to. */
@@ -1171,36 +1179,6 @@ body.table-flipped .tile::before {
 
   .side-panel .options {
     width: max(2.5em, 44px);
-  }
-
-  /* ...and the info row's side columns are at least that wide, so the
-     12% track can't squeeze the options button back under 44px. */
-  .side-panel>.div-info {
-    grid-template-columns: max(12%, 44px) auto max(12%, 44px);
-  }
-
-  /* .player/.textPlayer were sized in vw against a near-full-width
-     mobile container; inside the narrower sidebar that overflows, so
-     size them off the sidebar's own grid track / font context instead. */
-  .side-panel .players {
-    grid-template-columns: 1fr auto 1fr;
-  }
-
-  .side-panel .player {
-    width: 100%;
-    max-width: none;
-  }
-
-  .side-panel .textPlayer.t1 {
-    font-size: 1.7em;
-  }
-
-  .side-panel .textPlayer.t2 {
-    font-size: 1em;
-  }
-
-  .side-panel .textPlayer.t1.long {
-    font-size: 1.3em;
   }
 
   /* The home screen had no landscape handling at all: it's authored as a
