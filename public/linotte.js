@@ -559,6 +559,11 @@ function showPlusPopup(anchorEl, amount) {
     popup.textContent = "+" + amount;
     popup.style.left = (rect.left + rect.width / 2) + "px";
     popup.style.top = rect.top + "px";
+    // Sized off the game column's font (30px next to the 16px one on a
+    // portrait phone), not the screen: the stylesheet's 8vw made it 67px
+    // on a landscape phone.
+    const colFont = parseFloat(getComputedStyle(anchorEl.closest(".flex-block") || anchorEl).fontSize);
+    if (colFont) popup.style.fontSize = (colFont * 1.875) + "px";
     // On <html>, turned with the page when flipped: same reason as the
     // outgoing number in tickStat (screen coordinates, body is turned).
     document.documentElement.appendChild(popup);
@@ -1171,7 +1176,9 @@ document.getElementById("winner-icon-back").addEventListener("click", (e) => {
     document.getElementById("winner-overlay").style.display = "none";
 });
 
-document.getElementById("winner-container").addEventListener("click", (e) => {
+// A tap anywhere on the winner screen, the dimmed backdrop included, throws
+// a burst (the back icon and the piece have their own taps and stop it).
+document.getElementById("winner-overlay").addEventListener("click", () => {
     fireWinnerConfetti(200);
 });
 
@@ -1287,18 +1294,22 @@ function animateWinnerPoints(el, total) {
 
 function fireWinnerConfetti(duration) {
     const end = Date.now() + duration;
+    // Shot from the two side edges. Nearly straight up suits a tall portrait
+    // screen; on a wide landscape one that keeps them at the edges, so there
+    // they're aimed further in, toward the middle.
+    const tilt = window.matchMedia("(orientation: landscape)").matches ? 30 : 5;
 
     (function frame() {
         confetti({
             particleCount: 6,
-            angle: 85,
+            angle: 90 - tilt,
             spread: 60,
             origin: { x: 0 }
         });
 
         confetti({
             particleCount: 6,
-            angle: 95,
+            angle: 90 + tilt,
             spread: 60,
             origin: { x: 1 }
         });

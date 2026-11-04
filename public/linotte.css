@@ -1099,7 +1099,12 @@ body.table-flipped .tile::before {
        on the phone). Sized off the rail's width alone it grew to 450px+ on
        a landscape phone, everything in it looked oversized and, with the
        browser's bars taking height, no longer fitted. */
-    --col-w: min(var(--side-w), calc(var(--board) * 1.05));
+    --col-w0: min(var(--side-w), calc(var(--board) * 1.05));
+    /* ...then about 20% larger, taking the room out of the gaps between the
+       rows: never wider than the rail, never taller than the board can hold
+       (the rows add up to about 0.72 x the column's width, plus the gaps). */
+    --col-w: min(var(--side-w), calc(var(--board) * 1.24),
+      calc((var(--board) - 3 * var(--edge)) / .72));
     --board-w: var(--board);
     font-size: round(down, calc(var(--col-w) * 0.04267), 1px);
     flex-flow: row nowrap;
@@ -1170,6 +1175,31 @@ body.table-flipped .tile::before {
     padding-block: 4px;
   }
 
+  /* ROLL/DONE keep the size they had before the rows grew (the --col-w0
+     font): only their width follows the shared column. */
+  .side-panel>.div-buttons {
+    font-size: round(down, calc(var(--col-w0) * 0.04267), 1px);
+  }
+
+  /* The call pills were sized in vw/dvh, which on a wide, short screen made
+     them thinner and their "called" lift twice as tall. In em they keep the
+     portrait phone's proportions (8px gap, 8.4px pill, 11px lift at 16px). */
+  .side-panel .call {
+    height: .525em;
+    margin-top: .5em;
+  }
+
+  .side-panel .call.checked {
+    margin-bottom: .7em;
+  }
+
+  /* Portrait's .6vw gap (2.25px on the phone) was 5px here, which made the
+     combination tiles narrower than tall. */
+  .side-panel .results,
+  .side-panel .calls {
+    gap: .14em;
+  }
+
   /* 44px minimum touch targets, whatever the rail's font size works out to. */
   .side-panel .button.roll,
   .side-panel .button.done,
@@ -1179,6 +1209,32 @@ body.table-flipped .tile::before {
 
   .side-panel .options {
     width: max(2.5em, 44px);
+  }
+
+  /* FLIP in landscape: turning the whole page would swap the board over to
+     the other side of the screen. Here the board doesn't move by a pixel:
+     only the game column (and the full-screen panels that belong to the
+     player whose turn it is) turn upside down, in place. The tile symbols
+     still turn (body.table-flipped .tile::before, above). */
+  body.table-flipped,
+  body.table-flipped .div-table {
+    transform: none;
+  }
+
+  body.table-flipped .fairy-canvas {
+    rotate: none;
+  }
+
+  .side-panel,
+  #options-overlay,
+  #winner-overlay {
+    transition: rotate .6s ease;
+  }
+
+  body.table-flipped .side-panel,
+  body.table-flipped #options-overlay,
+  body.table-flipped #winner-overlay {
+    rotate: 180deg;
   }
 
   /* The home screen had no landscape handling at all: it's authored as a
@@ -1913,29 +1969,28 @@ section {
   backdrop-filter: blur(5px);
 }
 
+/* The winner card is a square that scales as one piece: everything in it
+   is sized in cqw (1cqw = 1% of the card's width), so rotating or resizing
+   the screen changes its size but never its layout. The proportions are the
+   portrait phone's original card (338px wide): 40px back icon, 112px piece,
+   45px title, 30px points, 40px NEW GAME button. */
 .modal {
   position: fixed;
   z-index: 100;
-  /* min(90vw, 90dvh), not a flat 90% (of viewport width, since this is
-     position:fixed): with aspect-ratio 1/1 a width sized off width alone
-     makes the modal exactly as tall as it is wide, which is fine in
-     portrait but on a wide-but-short landscape/desktop screen means a
-     square far taller than the viewport, clipped top and bottom with no
-     way to scroll to the rest of it. Capping by whichever dimension is
-     actually smaller keeps the whole square on-screen either way. */
-  width: min(90vw, 90dvh);
+  /* Whichever side of the screen is shorter, so the whole square is always
+     on screen, and never larger than a comfortable card on a tablet. */
+  width: min(90vw, 90dvh, 480px);
   aspect-ratio: 1/1;
+  container-type: size;
   margin: auto;
   opacity: 1;
-  border-radius: 20px;
+  border-radius: 6cqw;
   background-color: whitesmoke;
   background-position: 0, 0;
   background-repeat: no-repeat;
   background-size: cover;
-
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
   align-items: center;
 }
 
@@ -1946,7 +2001,7 @@ section {
 
 .winner-container {
   display: flex;
-  margin: auto;
+  margin: 0 auto;
   width: 90%;
   height: 100%;
 }
@@ -1954,41 +2009,37 @@ section {
 .v-winner-table {
   display: flex;
   flex-direction: column;
-  align-items:center;
-  justify-content: space-evenly;
-  
+  align-items: center;
   width: 100%;
   height: 100%;
 }
 
 .h-winner-table {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  min-height: 200px;
+  justify-content: center;
   width: 100%;
+  margin-top: 17cqw;
 }
 
+/* Pinned to the card's top-left corner (the card is the positioned box). */
 #winner-icon-back {
-  display: block;
+  position: absolute;
+  top: 4cqw;
+  left: 3cqw;
+  width: 11.8cqw;
+  aspect-ratio: 1/1;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  height: 40px;
-  aspect-ratio: 1/1;
   background-image: url("resources/images/t001.svg");
-  margin-top: -135px;
-  margin-left: -1vh;
+  cursor: pointer;
 }
 
 .piece-popup-container {
-  border-radius: 10px;
-  height: 7em;
+  width: 33cqw;
   aspect-ratio: 1/1;
-  border: round(.25em, 1px) solid rgba(0, 0, 0, 0.35);
-  margin: auto;
-  margin-top: 70px;
-  margin-right: 2em;
+  border-radius: 3cqw;
+  border: max(1px, round(1.2cqw, 1px)) solid rgba(0, 0, 0, 0.35);
   background-color: var(--glow);
 }
 
@@ -2016,7 +2067,7 @@ section {
   background-size: 70%;
   background-repeat: no-repeat;
   opacity: 1;
-  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 2.4cqw 2.4cqw rgba(0, 0, 0, 0.5));
   will-change: transform;
 }
 
@@ -2024,21 +2075,23 @@ section {
   animation: spinOut 700ms cubic-bezier(.22, .9, .3, 1) forwards;
 }
 
+/* Was an invisible twin of the back icon, keeping the piece centred; the
+   icon is now pinned to the corner, so it isn't needed. */
 .winner-right {
-  display: block;
-  height: 40px;
-  aspect-ratio: 1/1;
-  margin: 1em;
-  visibility: hidden;
+  display: none;
 }
 
 .winner-text {
-  font-size: 2.8em;
+  margin-top: 4cqw;
+  font-size: 13.3cqw;
+  line-height: 1.1;
+  white-space: nowrap;
   color: rgba(0, 0, 0, .5);
 }
 
 .winner-points {
-  font-size: 1.9em;
+  font-size: 9cqw;
+  line-height: 1.1;
   font-weight: bold;
   color: #ffea00;
   -webkit-text-stroke: .5px rgba(0, 0, 0, .3);
@@ -2078,18 +2131,18 @@ section {
 }
 
 .winner-button {
-  border-radius: 9px;
+  border-radius: 2.7cqw;
   width: 100%;
-  min-height: 1em;
-  margin: auto;
+  height: 11.8cqw;
+  margin: auto 0 4cqw;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  font-size: 2em;
+  font-size: 9.5cqw;
   color: white;
   background-color: #409ff8;
-  border: round(.1em, 1px) solid #1f2e7c;
+  border: max(1px, round(.1em, 1px)) solid #1f2e7c;
 }
 
 .winner-button:active {

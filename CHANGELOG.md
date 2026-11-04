@@ -16,6 +16,13 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 - Landscape: the side column is the phone's column at the same size relative to the board (it had grown oversized and didn't fit with the browser bars), with square combination tiles, unsquashed player boxes, the four rows (players, combinations, dice, ROLL/DONE) at one width on one centre line, and rows lined up with the top and bottom of the board.
 - Landscape: no more zoomed-in page after rotating the phone (the height is re-measured once the rotation settles, and the page can't be auto-zoomed or double-tap zoomed).
 - The lines between board tiles are as thin on tablets and desktops as on phones (they had grown to 8 and 12 px).
+- Landscape home screen: the four mode buttons are the same size with every label on one line ("SAME TABLE" used to wrap and grow taller), the buttons are larger, and the logo is bigger.
+- Landscape, same table with FLIP: the board stays exactly where it is; only the game column (players, combinations, dice, ROLL/DONE), the options panel and the winner screen turn upside down, in place. Before, the whole page turned and the board jumped to the other side.
+- Landscape: the player boxes, combinations and dice are about 20% larger, using some of the space between the rows; ROLL/DONE keep their size. The combination tiles are square again.
+- Landscape: the yellow "+N" points popup is sized off the game column (it was more than twice its portrait size), and the call pills keep their portrait proportions.
+- Winner screen: the card scales as one piece, so on every screen and after rotating it keeps the portrait phone's layout (back arrow in the corner, piece, title, points, NEW GAME). Before, its parts had fixed pixel sizes and offsets and drifted apart or off the card in landscape and on tablets. It stops growing at 480px.
+- Winner screen: tapping the dimmed backdrop throws confetti too, not only the card.
+- Landscape winner screen: the confetti is aimed further toward the middle instead of nearly straight up along the edges.
 
 ## [2.8.0] - 2026-11-04
 
