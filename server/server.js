@@ -1,126 +1,128 @@
-//npm init -y  //crea file json
-//npm install express socket.io
-//npm start //nella root per avviare il server
-//http://localhost:3000
-
+//npm install     //installs express + socket.io
+//npm start        //from the repo root, then http://localhost:3000
 
 //----------- SERVER SETTINGS ---------------
-
 import express from "express";
 import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 
+import { PORT, CONSENT_VERSION, EMOTES, isOriginAllowed } from "./config.js";
+import { Lobby, normalizeCode } from "./lobby.js";
+import { nameFromId } from "./names.js";
+import { isPro } from "./entitlements.js";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  // Native apps (Capacitor) and any separately hosted web client connect
+  // cross-origin; see isOriginAllowed.
+  cors: { origin: (origin, cb) => cb(null, isOriginAllowed(origin)) },
+  maxHttpBufferSize: 10 * 1024, // actions are tiny; anything bigger is abuse
+});
 
-// cartella con html/css/js del client — include anche shared/, così le
-// stesse richieste (es. /shared/utils.js) funzionano anche nei deploy
-// statici (Vercel) dove solo "public" viene servito.
-app.use(express.static("public"));
+// Static client (html/css/js, and shared/ so /shared/utils.js resolves both
+// here and on a static deploy).
+app.use(express.static(path.join(here, "..", "public")));
+
+app.get("/healthz", (req, res) => res.json({ ok: true }));
+
+// Invite links: https://host/j/K7QF opens the app already trying to join.
+app.get("/j/:code", (req, res) => {
+  const code = normalizeCode(req.params.code);
+  res.redirect(code ? `/?join=${code}` : "/");
+});
+
+const lobby = new Lobby(io);
+
+//----------- CONNECTIONS ---------------
+const PLAYER_ID = /^[A-Za-z0-9_-]{8,64}$/;
+
+// Per-socket token bucket: a real client sends a handful of events a second.
+function allow(socket) {
+  const now = Date.now();
+  const b = socket.data.bucket || (socket.data.bucket = { tokens: 40, at: now });
+  b.tokens = Math.min(40, b.tokens + ((now - b.at) / 1000) * 20);
+  b.at = now;
+  if (b.tokens < 1) return false;
+  b.tokens -= 1;
+  return true;
+}
 
 io.on("connection", (socket) => {
-  console.log("player connected");
-});
+  // Every handler goes through this: rate limit, hello required, and the
+  // consent version checked wherever it matters.
+  const on = (event, { needsHello = true, needsConsent = false } = {}, handler) => {
+    socket.on(event, async (payload, ack) => {
+      const reply = typeof ack === "function" ? ack : () => {};
+      try {
+        if (!allow(socket)) return reply({ ok: false, error: "rate_limited" });
+        if (needsHello && !socket.data.playerId) return reply({ ok: false, error: "no_hello" });
+        if (needsConsent && socket.data.consentVersion < CONSENT_VERSION) return reply({ ok: false, error: "consent_required" });
+        reply(await handler(payload || {}));
+      } catch (err) {
+        console.error(`${event} failed:`, err);
+        reply({ ok: false, error: "server_error" });
+      }
+    });
+  };
 
-server.listen(3000, () => {
-  console.log("server running on port 3000");
-});
-
-
-
-
-
-//----------- GAME STATE ---------------
-import {
-  urlOf,
-  rndNum,
-  idToCoo,
-  matrixCheck,
-  matrixFill,
-  toBoolean,
-  createInitialGameState
-} from "../public/shared/utils.js";
-
-import {
-  dicePath,
-  diceFaces,
-  dicePos,
-  diceNames,
-  bgPath,
-  backgrounds,
-  piecesPath,
-  pieces
-} from "../public/shared/assets.js";
-
-import { updateGame } from "../public/shared/gameEngine.js";
-
-
-let gameState = createInitialGameState();
-
-let p1p = rndNum(8, pieces.length - 1);
-gameState.players[1].pieceImage = piecesPath + pieces[p1p];
-let p2p = p1p;
-while (p2p == p1p) {
-  p2p = rndNum(8, pieces.length - 1);
-}
-gameState.players[2].pieceImage = piecesPath + pieces[p2p];
-
-gameState.players[1].color = "#" + gameState.players[1].pieceImage.split("_")[1].slice(0, 6);
-gameState.players[2].color = "#" + gameState.players[2].pieceImage.split("_")[1].slice(0, 6);
-
-
-
-// metodo                    chi riceve
-// socket.emit()             solo il client
-// io.emit()                 tutti
-// socket.broadcast.emit()   tutti tranne mittente
-// io.to(room).emit()        una room
-// socket.to(room).emit()    room tranne mittente
-// io.to(socketId).emit()    un client specifico
-
-
-//------------- HANDLE CONNECTIONS --------------
-const sockets = {};
-
-io.on("connection", socket => {
-  console.log("CONNECT", socket.id, "sockets:", Object.keys(sockets));
-
-  let playerNumber = null;
-
-  if (!sockets[1]) {
-    playerNumber = 1;
-    sockets[1] = socket;
-  } else if (!sockets[2]) {
-    playerNumber = 2;
-    sockets[2] = socket;
-  } else {
-    socket.emit("roomFull");
-    return;
-  }
-  socket.playerNumber = playerNumber;
-  console.log("ASSIGNED player", playerNumber);
-  gameState.currentPlayer = 1;
-
-  //------------- GAME INIT --------------
-  socket.emit("init", {
-    playerNumber,
-    gameState
-    // socket.emit("state_update", gameState);
+  on("hello", { needsHello: false }, (p) => {
+    if (!PLAYER_ID.test(String(p.playerId || ""))) return { ok: false, error: "bad_player_id" };
+    socket.data.playerId = p.playerId;
+    socket.data.name = nameFromId(p.playerId);
+    socket.data.consentVersion = Number(p.consentVersion) || 0;
+    socket.data.entitlement = p.entitlement && typeof p.entitlement === "object" ? p.entitlement : null;
+    return {
+      ok: true,
+      name: socket.data.name,
+      consentVersion: CONSENT_VERSION,
+      consentOk: socket.data.consentVersion >= CONSENT_VERSION,
+      emotes: EMOTES,
+    };
   });
 
-  //------------- HANDLE ACTIONS --------------
-  socket.on("action", action => {
-    if (action.localPlayer !== undefined && action.localPlayer !== gameState.currentPlayer) return;
-    console.log("Action received:", action);
-    gameState = updateGame(gameState, action);
-    io.emit("state_update", gameState);
+  // Same screen can re-send consent (after accepting a newer version).
+  on("consent", {}, (p) => {
+    socket.data.consentVersion = Number(p.consentVersion) || 0;
+    return { ok: socket.data.consentVersion >= CONSENT_VERSION };
   });
 
-  //------------- CLOSE CONNECTION --------------
+  on("rejoin", {}, () => lobby.rejoin(socket));
+
+  on("queue_join", { needsConsent: true }, () => lobby.joinQueue(socket));
+  on("queue_leave", {}, () => ({ ok: lobby.leaveQueue(socket.data.playerId) }));
+
+  // Creating a friend room is the paid feature; joining one is free.
+  on("room_create", { needsConsent: true }, async () => {
+    if (!(await isPro(socket.data.entitlement))) return { ok: false, error: "pro_required" };
+    return lobby.createPrivate(socket);
+  });
+  on("room_join", { needsConsent: true }, (p) => lobby.joinByCode(socket, p.code));
+  on("room_leave", {}, () => { lobby.leaveRoom(socket); return { ok: true }; });
+
+  on("action", {}, (action) => {
+    const room = lobby.roomOfSocket(socket);
+    if (!room) return { ok: false, reason: "no_room" };
+    const res = room.handleAction(socket.data.seat, action);
+    // A rejected action means this client's screen has drifted from the
+    // server's truth: hand it the authoritative state to redraw from.
+    if (!res.ok && res.snapshot) res.snapshot = { ...res.snapshot, seat: socket.data.seat };
+    return res;
+  });
+
+  on("emote", {}, (p) => {
+    const room = lobby.roomOfSocket(socket);
+    return room ? room.emote(socket.data.seat, p.id) : { ok: false };
+  });
+
   socket.on("disconnect", () => {
-    console.log("DISCONNECT", socket.id, "player", socket.playerNumber);
-    delete sockets[playerNumber];
+    if (socket.data.playerId) lobby.handleDisconnect(socket);
   });
 });
 
+server.listen(PORT, () => {
+  console.log(`server running on port ${PORT}`);
+});

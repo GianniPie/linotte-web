@@ -1,0 +1,174 @@
+//----------- ONLINE CLIENT ---------------
+// Everything about talking to the game server, with none of the game's own
+// UI: identity (no accounts -- a random id kept on the device), the consent
+// record, the socket, and promise-based calls for the lobby. linotte.js turns
+// the events this emits into screens and replays the opponent's moves.
+
+import { io } from "./vendor/socket.io.esm.min.js";
+import { SERVER_URL } from "./config.js";
+
+// Must equal CONSENT_VERSION in server/config.js. Bump both whenever the
+// Terms / Privacy / bot notice text changes: everyone is asked again.
+export const CONSENT_VERSION = 1;
+
+const PLAYER_ID_KEY = "linotte-player-id";
+const CONSENT_KEY = "linotte-consent";
+const DEV_PRO_KEY = "linotte-dev-pro";
+
+// localStorage can throw or be empty (private windows, blocked storage): the
+// game must still run, it just forgets between visits.
+const memory = {};
+function read(key) {
+    try { return localStorage.getItem(key); } catch { return memory[key] ?? null; }
+}
+function write(key, value) {
+    try { localStorage.setItem(key, value); } catch { memory[key] = value; }
+}
+
+export function getPlayerId() {
+    let id = read(PLAYER_ID_KEY);
+    if (!id) {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        id = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+        write(PLAYER_ID_KEY, id);
+    }
+    return id;
+}
+
+// True from the moment a game (or a waiting friend room) exists until it ends:
+// on the next launch -- after a crash, a swiped-away app, a reload -- that is
+// what makes the client reconnect and rejoin by itself instead of leaving the
+// opponent waiting for a player who's actually still there.
+const SESSION_KEY = "linotte-online-session";
+export function setOnlineSession(active) {
+    write(SESSION_KEY, active ? "1" : "");
+}
+export function wasInOnlineSession() {
+    return read(SESSION_KEY) === "1";
+}
+
+export function hasConsent() {
+    const stored = Number(read(CONSENT_KEY));
+    return stored >= CONSENT_VERSION;
+}
+
+export function saveConsent() {
+    write(CONSENT_KEY, String(CONSENT_VERSION));
+}
+
+// ?devpro=1 once on a non-production server unlocks private rooms for testing;
+// the store builds put the RevenueCat app-user id on window.LinotteNative.
+function entitlement() {
+    if (new URLSearchParams(location.search).has("devpro")) write(DEV_PRO_KEY, "dev-pro");
+    const e = {};
+    if (window.LinotteNative?.appUserId) e.appUserId = window.LinotteNative.appUserId;
+    const dev = read(DEV_PRO_KEY);
+    if (dev) e.devToken = dev;
+    return e;
+}
+
+export class OnlineClient {
+    // handlers: onGameStart(snapshot), onSnapshot(snapshot), onAction(msg),
+    // onEmote(msg), onOpponentStatus(msg), onGameOver(msg), onRoomExpired(),
+    // onConnection(connected)
+    constructor(handlers) {
+        this.h = handlers;
+        this.socket = null;
+        this.ready = null; // Promise resolved once the server has accepted our hello
+        this.name = "";
+    }
+
+    available() {
+        // Native/static builds with no server configured can't play online.
+        return SERVER_URL !== "" || location.protocol.startsWith("http");
+    }
+
+    connect() {
+        if (this.ready) return this.ready;
+        this.socket = io(SERVER_URL || undefined, {
+            transports: ["websocket", "polling"],
+            reconnectionDelayMax: 4000,
+        });
+        const s = this.socket;
+
+        this.ready = new Promise((resolve) => {
+            s.on("connect", () => {
+                s.emit("hello", {
+                    playerId: getPlayerId(),
+                    consentVersion: hasConsent() ? CONSENT_VERSION : 0,
+                    entitlement: entitlement(),
+                }, (res) => {
+                    if (res?.ok) this.name = res.name;
+                    this.h.onConnection?.(true, res);
+                    resolve(res);
+                    // Back after a drop (or a backgrounded app): ask for our room.
+                    this.rejoin();
+                });
+            });
+        });
+
+        s.on("disconnect", () => this.h.onConnection?.(false));
+        s.on("game_start", (snap) => this.h.onGameStart?.(snap));
+        s.on("action", (msg) => this.h.onAction?.(msg));
+        s.on("emote", (msg) => this.h.onEmote?.(msg));
+        s.on("opponent_status", (msg) => this.h.onOpponentStatus?.(msg));
+        s.on("game_over", (msg) => this.h.onGameOver?.(msg));
+        s.on("room_expired", () => this.h.onRoomExpired?.());
+
+        // A phone coming back from the background often has a dead socket the
+        // browser hasn't noticed yet.
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible" && this.socket && !this.socket.connected) this.socket.connect();
+        });
+        return this.ready;
+    }
+
+    call(event, payload = {}) {
+        return new Promise((resolve) => {
+            if (!this.socket?.connected) return resolve({ ok: false, error: "offline" });
+            this.socket.timeout(8000).emit(event, payload, (err, res) => resolve(err ? { ok: false, error: "timeout" } : res));
+        });
+    }
+
+    async rejoin() {
+        const res = await this.call("rejoin");
+        if (res?.ok && res.status === "playing") this.h.onSnapshot?.(res.snapshot);
+        else if (res?.ok && res.status === "waiting") this.h.onWaitingRoom?.(res.code);
+        else if (res && !res.ok && !res.error) setOnlineSession(false); // nothing to go back to
+        return res;
+    }
+
+    //--------- lobby ---------
+    async ensureConsentSent() {
+        await this.ready;
+        return this.call("consent", { consentVersion: hasConsent() ? CONSENT_VERSION : 0 });
+    }
+    joinQueue() { return this.call("queue_join"); }
+    leaveQueue() { return this.call("queue_leave"); }
+    createRoom() { return this.call("room_create"); }
+    joinRoom(code) { return this.call("room_join", { code }); }
+    leaveRoom() { return this.call("room_leave"); }
+
+    //--------- in game ---------
+    // Fire-and-forget with a rejection handler: a refused action means this
+    // screen drifted from the server, which sends the truth back to redraw.
+    sendAction(action) {
+        if (!this.socket?.connected) return;
+        this.socket.emit("action", action, (res) => {
+            if (res && !res.ok && res.snapshot) this.h.onSnapshot?.(res.snapshot);
+        });
+    }
+    sendEmote(id) {
+        if (this.socket?.connected) this.socket.emit("emote", { id });
+    }
+}
+
+// Invite links look like /j/K7QF (redirected to /?join=K7QF) or ?join=K7QF.
+export function inviteLink(code) {
+    return `${location.origin}/j/${code}`;
+}
+
+export function pendingJoinCode() {
+    const code = new URLSearchParams(location.search).get("join");
+    return code ? code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) : null;
+}

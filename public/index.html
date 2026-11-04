@@ -20,8 +20,10 @@
 
     <link href="animations.css" rel="stylesheet" type="text/css" />
     <link href="linotte.css" rel="stylesheet" type="text/css" />
+    <link href="online.css" rel="stylesheet" type="text/css" />
+    <link href="demo.css" rel="stylesheet" type="text/css" />
 
-    <link href="https://fonts.googleapis.com/css2?family=Changa+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Changa+One&display=swap" rel="stylesheet">
 
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#000000">
@@ -51,8 +53,84 @@
             <div class="button home-mode-btn home-mode-bot bot-strategy" id="home-vs-bot-btn" data-strategy="speed">
                 <div class="text-button">VS BOT</div>
             </div>
+            <div class="button home-mode-btn home-mode-online" id="home-online-btn">
+                <div class="text-button">ONLINE</div>
+            </div>
+            <div class="button home-mode-btn home-mode-friend" id="home-friend-btn">
+                <div class="text-button">FRIEND</div>
+            </div>
         </div>
     </div>
+
+    <!-- first-run consent: terms, privacy, age, and the notice that a random
+         online opponent can be computer-controlled. Shown before the home
+         screen until the current version has been accepted. -->
+    <div id="consent-overlay" class="sheet-overlay" style="display:none">
+        <div class="opt-bg"></div>
+        <div class="sheet" role="dialog" aria-labelledby="consent-title">
+            <div class="sheet-title" id="consent-title">Before you play</div>
+            <ul class="sheet-list">
+                <li>Linotte is free to play and shows ads. You can change how ads are personalised at any time.</li>
+                <li>Random online games may be played against a <b>computer-controlled opponent</b> when few players are online, and its emoji reactions may be automated too.</li>
+                <li>A private game against a friend is always against a real person.</li>
+                <li>No account is needed. A random ID stays on your device so a dropped game can be resumed.</li>
+            </ul>
+            <label class="sheet-check">
+                <input type="checkbox" id="consent-check">
+                <span>I am 16 or older and I accept the <a href="legal/terms.html" target="_blank" rel="noopener">Terms of Service</a> and the <a href="legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+            </label>
+            <div class="button sheet-btn go" id="consent-continue" aria-disabled="true">
+                <div class="text-button">CONTINUE</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- online: searching / friend room / enter code / messages (one view at a time) -->
+    <div id="online-overlay" class="sheet-overlay" style="display:none" data-view="">
+        <div class="opt-bg"></div>
+        <div class="sheet">
+            <div class="sheet-view" data-view="searching">
+                <div class="sheet-title">Looking for an opponent</div>
+                <div class="spinner" aria-hidden="true"></div>
+                <div class="sheet-text" id="searching-text">This usually takes a few seconds.</div>
+                <div class="button sheet-btn cancel" id="searching-cancel"><div class="text-button">CANCEL</div></div>
+            </div>
+
+            <div class="sheet-view" data-view="friend">
+                <div class="sheet-title">Play a friend</div>
+                <div class="sheet-text">Create a private room and send your friend the link, or join one with a code.</div>
+                <div class="button sheet-btn go" id="friend-create"><div class="text-button">CREATE ROOM <span class="pro-tag">PRO</span></div></div>
+                <div class="button sheet-btn alt" id="friend-join"><div class="text-button">I HAVE A CODE</div></div>
+                <div class="button sheet-btn cancel" id="friend-back"><div class="text-button">BACK</div></div>
+            </div>
+
+            <div class="sheet-view" data-view="waiting">
+                <div class="sheet-title">Waiting for your friend</div>
+                <div class="room-code" id="room-code" aria-live="polite">----</div>
+                <div class="sheet-text">Send the link, or tell them the code. The game starts as soon as they join.</div>
+                <div class="button sheet-btn go" id="room-share"><div class="text-button">SHARE LINK</div></div>
+                <div class="button sheet-btn alt" id="room-copy"><div class="text-button">COPY LINK</div></div>
+                <div class="button sheet-btn cancel" id="room-cancel"><div class="text-button">CANCEL</div></div>
+            </div>
+
+            <div class="sheet-view" data-view="joincode">
+                <div class="sheet-title">Enter the code</div>
+                <input id="code-input" class="code-input" type="text" inputmode="text" autocomplete="off"
+                    autocapitalize="characters" spellcheck="false" maxlength="4" placeholder="ABCD" aria-label="Room code">
+                <div class="sheet-text error" id="code-error"></div>
+                <div class="button sheet-btn go" id="code-submit"><div class="text-button">JOIN</div></div>
+                <div class="button sheet-btn cancel" id="code-back"><div class="text-button">BACK</div></div>
+            </div>
+
+            <div class="sheet-view" data-view="message">
+                <div class="sheet-title" id="message-title"></div>
+                <div class="sheet-text" id="message-text"></div>
+                <div class="button sheet-btn go" id="message-ok"><div class="text-button">OK</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <div class="flex-block">
         <div class="div-table">
@@ -338,10 +416,11 @@
                 </section>
 
                 <section>
-                    <div class="title">Online</div>
+                    <div class="title" id="title-online">Online</div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
-                            <div class="not-available">Not available yet</div>
+                            <div class="car-btn"><div class="opt-btn" id="online-random-btn">RANDOM</div></div>
+                            <div class="car-btn"><div class="opt-btn" id="online-friend-btn">FRIEND</div></div>
                         </div>
                     </div>
                 </section>
@@ -471,115 +550,146 @@
 
             <!-- HELP -->
             <div class="opt-page hidden" id="page-help">
-                <div id="help-scroll" class="help-scroll">
-
+                <!-- Read top to bottom in the order the game is played: goal, a
+                     turn, what the dice can make, scoring, the end. Built from
+                     the same pieces as the other tabs (the .title pill, the
+                     translucent white of .opt-btn and the strip's .result tiles),
+                     so it sits on whichever background the player picked.
+                     Combinations follow the strip's order, with its icons. -->
+                <div id="help-scroll" class="help-scroll rules">
                     <div class="separator"></div>
-                    <div class="title">Linotte</div>
 
-                    <div class="vertical-div">
-                        <div class="instruction-title">Goal</div>
-                        <div>Create as many alignments as possible (horizontal, vertical, or diagonal).</div>
-                        <div></div>
-                    </div>
+                    <section class="rules-section" aria-labelledby="rules-goal">
+                        <h2 class="title rules-h" id="rules-goal">How to play</h2>
+                        <div class="rules-block">
+                            <p>Line up your pieces on the board: across, down or diagonally. Longer lines score more
+                                points.</p>
+                        </div>
+                    </section>
 
-                    <div class="vertical-div white">
-                        <div class="instruction-title">How to play</div>
-                        <div class="text-how">On your turn, roll 5 dice. You may roll up to three times, keeping any
-                            dice you want after each roll and re-rolling the others.</div>
-                        <div class="text-how">If you make a valid combination, place one of your tokens on one and just
-                            one matching empty space on the board. Then the turn passes to the next player.</div>
-                        <div class="text-how">If no combination is made after three rolls, your turn ends.</div>
-                        <div class="text-how">You are never forced to place a token.</div>
-                        <div class="text-how">The game ends when a player has placed all their tokens or completes a
-                            line of five tokens</div>
-                        <div class="text-how">Highest score wins.</div>
-                    </div>
+                    <section class="rules-section" aria-labelledby="rules-turn">
+                        <h2 class="title rules-h" id="rules-turn">Your turn</h2>
+                        <div class="rules-block">
+                            <ol class="rules-steps">
+                                <li>Roll the five dice. You get up to three rolls.</li>
+                                <li>Between rolls, tap the dice you want to keep. The others are rolled again.</li>
+                                <li>When the dice make a combination, the free tiles for it light up. Tap one to put a
+                                    piece there.</li>
+                                <li>Tap DONE to end your turn.</li>
+                            </ol>
+                            <p class="rules-note">Placing a piece is never required. If three rolls make nothing, your
+                                turn simply ends. Each turn lasts 60 seconds.</p>
+                        </div>
+                    </section>
 
-                    <div class="vertical-div">
-                        <div class="instruction-title">Main combinations</div>
+                    <section class="rules-section" aria-labelledby="rules-combos">
+                        <h2 class="title rules-h" id="rules-combos">Combinations</h2>
+                        <ul class="rules-combos">
+                            <li>
+                                <span class="rules-icon"><img src="resources/images/g1.svg" alt=""></span>
+                                <div class="rules-block"><span class="rules-name">Brelan</span>
+                                    <span class="rules-desc">Three of a kind. It goes on a tile showing that
+                                        number.</span></div>
+                                <button class="rules-play" type="button" data-demo="brelan" aria-label="Watch how to make a Brelan"></button>
+                            </li>
+                            <li>
+                                <span class="rules-icon"><img src="resources/images/g4.svg" alt=""></span>
+                                <div class="rules-block"><span class="rules-name">Full</span>
+                                    <span class="rules-desc">Three of a kind and a pair.</span></div>
+                                <button class="rules-play" type="button" data-demo="full" aria-label="Watch how to make a Full"></button>
+                            </li>
+                            <li>
+                                <span class="rules-icon"><img src="resources/images/g5.svg" alt=""></span>
+                                <div class="rules-block"><span class="rules-name">Carré</span>
+                                    <span class="rules-desc">Four of a kind.</span></div>
+                                <button class="rules-play" type="button" data-demo="carre" aria-label="Watch how to make a Carré"></button>
+                            </li>
+                            <li>
+                                <span class="rules-icon"><img src="resources/images/g6.svg" alt=""></span>
+                                <div class="rules-block"><span class="rules-name">Petite</span>
+                                    <span class="rules-desc">The five dice add up to 8 or less.</span></div>
+                                <button class="rules-play" type="button" data-demo="petite" aria-label="Watch how to make a Petite"></button>
+                            </li>
+                            <li>
+                                <span class="rules-icon"><img src="resources/images/g7.svg" alt=""></span>
+                                <div class="rules-block"><span class="rules-name">Suite</span>
+                                    <span class="rules-desc">1-2-3-4-5 or 2-3-4-5-6.</span></div>
+                                <button class="rules-play" type="button" data-demo="suite" aria-label="Watch how to make a Suite"></button>
+                            </li>
+                            <li>
+                                <span class="rules-icon"><img src="resources/images/g8.svg" alt=""></span>
+                                <div class="rules-block"><span class="rules-name">Yam</span>
+                                    <span class="rules-desc">Five of a kind.</span></div>
+                                <button class="rules-play" type="button" data-demo="yam" aria-label="Watch how to make a Yam"></button>
+                            </li>
+                        </ul>
+                    </section>
 
-                        <div class="horizontal-div">
-                            <div class="result"><img src="resources/images/g1.svg" style="height: 50px;"></div>
-                            <div class="v-div img-expl">
-                                <div class="bold">Brelan</div>
-                                <div class="img-expl">3 of a kind</div>
-                            </div>
-                        </div>
-                        <div class="horizontal-div">
-                            <div class="result"><img src="resources/images/g5.svg" style="height: 50px;"></div>
-                            <div class="v-div img-expl">
-                                <div class="bold">Carré</div>
-                                <div class="img-expl">4 of a kind</div>
-                            </div>
-                        </div>
-                        <div class="horizontal-div">
-                            <div class="result"><img src="resources/images/g8.svg" style="height: 50px;"></div>
-                            <div class="v-div img-expl">
-                                <div class="bold">Yam</div>
-                                <div class="img-expl">5 of a kind</div>
-                            </div>
-                        </div>
-                        <div class="horizontal-div">
-                            <div class="result"><img src="resources/images/g4.svg" style="height: 50px;"></div>
-                            <div class="v-div img-expl">
-                                <div class="bold">Full</div>
-                                <div class="img-expl">full house (3 + 2)</div>
-                            </div>
-                        </div>
-                        <div class="horizontal-div">
-                            <div class="result"><img src="resources/images/g7.svg" style="height: 50px;"></div>
-                            <div class="v-div img-expl">
-                                <div class="bold">Suite</div>
-                                <div class="img-expl">Straight (1 to 5 or 2 to 6)</div>
-                            </div>
-                        </div>
-                        <div class="horizontal-div">
-                            <div class="result"><img src="resources/images/g6.svg" style="height: 50px;"></div>
-                            <div class="v-div img-expl">
-                                <div class="bold">Petite</div>
-                                <div class="img-expl">sum of dice less than 9</div>
-                            </div>
-                        </div>
-                    </div>
+                    <section class="rules-section" aria-labelledby="rules-bonus">
+                        <h2 class="title rules-h" id="rules-bonus">Bonus tiles</h2>
+                        <ul class="rules-combos">
+                            <li>
+                                <span class="rules-icon"><img src="resources/images/g2.svg" alt=""></span>
+                                <div class="rules-block"><span class="rules-name">Sec</span>
+                                    <span class="rules-desc">A full, carré, petite, suite or yam made in one throw of
+                                        all five dice, without keeping any.</span></div>
+                                <button class="rules-play" type="button" data-demo="sec" aria-label="Watch how to make a Sec"></button>
+                            </li>
+                            <li>
+                                <span class="rules-icon"><img src="resources/images/g3.svg" alt=""></span>
+                                <div class="rules-block"><span class="rules-name">Appel</span>
+                                    <span class="rules-desc">After a roll, tap a combination in the strip to call it.
+                                        If a later roll makes it, you may also use an Appel tile.</span>
+                                    <ul class="rules-sub">
+                                        <li>A brelan can't be called.</li>
+                                        <li>At least one die must be rolled again.</li>
+                                        <li>A carré already on the dice can't be called.</li>
+                                    </ul>
+                                </div>
+                                <button class="rules-play" type="button" data-demo="appel" aria-label="Watch how to use an Appel"></button>
+                            </li>
+                        </ul>
+                    </section>
 
-                    <div class="vertical-div">
-                        <div class="instruction-title">Special combinations</div>
+                    <section class="rules-section" aria-labelledby="rules-score">
+                        <h2 class="title rules-h" id="rules-score">Scoring</h2>
+                        <table class="rules-block rules-score">
+                            <tbody>
+                                <tr><td>Line of 3</td><td>1 point</td></tr>
+                                <tr><td>Line of 4</td><td>2 points</td></tr>
+                                <tr><td>Line of 5</td><td>3 points</td></tr>
+                            </tbody>
+                        </table>
+                    </section>
 
-                        <div class="horizontal-div">
-                            <div class="result"><img src="resources/images/g2.svg" style="height: 50px;"></div>
-                            <div class="v-div img-expl">
-                                <div class="bold">Sec</div>
-                                <div class="img-expl">Any main combination in a roll of 5 dice</div>
-                                <div class="img-expl">- brelan not included</div>
-                            </div>
+                    <section class="rules-section" aria-labelledby="rules-end">
+                        <h2 class="title rules-h" id="rules-end">End of the game</h2>
+                        <div class="rules-block">
+                            <p>The game ends as soon as a player has placed all 12 pieces or makes a line of five. The
+                                highest score wins.</p>
                         </div>
+                    </section>
 
-                        <div class="horizontal-div">
-                            <div class="result"><img src="resources/images/g3.svg" style="height: 50px;"></div>
-                            <div class="v-div img-expl">
-                                <div class="bold">Appel</div>
-                                <div class="img-expl">A declared combination after the</div>
-                                <div class="img-expl">first roll</div>
-                                <div class="img-expl">- brelan not included</div>
-                                <div class="img-expl">- Must re-roll at least one die</div>
-                                <div class="img-expl">- Not possible to call carrè on carrè</div>
-                            </div>
-                        </div>
-                    </div>
+                    <footer class="rules-foot">
+                        <p class="rules-foot-name">Linotte, <span id="version">version </span></p>
+                        <p>Made by GianniPie, inspired by the traditional French dice game.</p>
 
-                    <div class="vertical-div white">
-                        <div class="instruction-title">Scoring</div>
-                        <div>3 in a row = 1 point </div>
-                        <div>4 in a row = 2 points</div>
-                        <div>5 in a row = 3 points</div>
-                        <div class="separator"></div>
-                    </div>
-                    <div class="separator"></div>
-                    <div class="separator"></div>
-                    <div class="footer-div">Linotte</div>
-                    <div class="footer-div">This WebApp is created by Giannipie, inspired by the original French game.
-                    </div>
-                    <div class="footer-div" id="version">Version:</div>
+                        <h2 class="rules-foot-h">Credits</h2>
+                        <ul class="rules-credits">
+                            <li>Confetti: <a href="https://github.com/catdad/canvas-confetti" target="_blank" rel="noopener">canvas-confetti</a>
+                                by Kiril Vatev, ISC License.</li>
+                            <li>Backgrounds: Confetti Doodles, Diamond Sunset, Liquid Cheese, Tortoise Shell, Sun Tornado,
+                                Pattern Randomized, Subtle Prism, Parabolic Ellipse and Repeating Triangles by
+                                <a href="https://www.svgbackgrounds.com" target="_blank" rel="noopener">SVGBackgrounds.com</a>.</li>
+                            <li>Fonts: Changa One by Eduardo Tunni and Atkinson Hyperlegible by the Braille Institute,
+                                SIL Open Font License.</li>
+                        </ul>
+
+                        <h2 class="rules-foot-h">Piece designs</h2>
+                        <p>Some piece designs may be covered by copyright. If you hold the rights to one, contact the
+                            developer<span id="contact-email"></span> to have it removed right away, or to discuss a commercial
+                            agreement.</p>
+                    </footer>
                 </div>
             </div>
 
@@ -653,7 +763,6 @@
 
     <!-- <script src="/socket.io/socket.io.js"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
     <script type="module" src="linotte.js"></script>
 
 </body>

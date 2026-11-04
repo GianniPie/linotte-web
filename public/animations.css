@@ -82,33 +82,20 @@
   }
 }
 
-/* piece placement */
+/* Tap feedback below (piece in/out, die, call, button) is deliberately
+   quiet: one small move, transform and opacity only, timed by the --tap /
+   --state tokens in linotte.css. The easing comes from the rule using it. */
+
+/* piece placement: grows in from a little smaller, one slight overshoot */
 @keyframes bounceIn {
-
-  0%,20%,40%,60%,80%,to {
-    animation-timing-function: cubic-bezier(.215, .61, .355, 1)
-  }
-
   0% {
     opacity: 0;
-    transform: scale(.3);
+    transform: scale(.6);
   }
 
-  20% {
-    transform: scale(1.1);
-  }
-
-  40% {
-    transform: scale(.9);
-  }
-
-  60% {
+  70% {
     opacity: 1;
-    transform: scale(1.03);
-  }
-
-  80% {
-    transform: scale(.97);
+    transform: scale(1.04);
   }
 
   to {
@@ -117,48 +104,28 @@
   }
 }
 
-/* piece romoved */
+/* piece removed: shrinks a touch while it fades */
 @keyframes bounceOut {
-    0% {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0;
-        transform: scale(2);
-    }
-
-    to {
-        opacity: 0;
-        transform: scale(1);
-    }
-}
-
-/* die selection */
-@keyframes bounceDie {
-40%,60%,80%,to {
-    animation-timing-function: cubic-bezier(.215, .61, .355, 1)
-  }
-
-  40% {
-    transform: scale(.9)
-  }
-
-  60% {
+  0% {
     opacity: 1;
-    transform: scale(1.1)
-  }
-
-  80% {
-    transform: scale(.95)
+    transform: scale(1);
   }
 
   to {
-    opacity: 1;
+    opacity: 0;
+    transform: scale(.85);
+  }
+}
+
+/* die (and option) selection: a short press. The ring itself is a plain
+   style on .selected in linotte.css, so nothing stays filled afterwards. */
+@keyframes bounceDie {
+  50% {
+    transform: scale(.94);
+  }
+
+  to {
     transform: scale(1);
-    /* background-color: rgb(255, 234, 0); */
-    box-shadow: rgb(255, 234, 0) 0 0 0 var(--select-ring, 0.3em);
   }
 }
 
@@ -180,42 +147,22 @@
   }
 }
 
-/* call selection */
+/* call selection: a small lift as it lights up */
 @keyframes bounceCall {
-  40%,60%,80%,to {
-    animation-timing-function: cubic-bezier(.215, .61, .355, 1)
-  }
-
-  40% {
-    transform: scale(.9)
-  }
-
-  60% {
-    opacity: 1;
-    transform: scale(1.3)
-  }
-
-  80% {
-    transform: scale(.97)
+  50% {
+    transform: scale(1.1);
   }
 
   to {
-    background-color: #ffea00;
-    border: .15em solid #ffea00;
-    border-radius: 20px;
-    margin: .5em .25em 3vw;
+    transform: scale(1);
   }
 }
 
 
-/* call selection */
+/* button press: a slight push in */
 @keyframes bounceButton {
-  40%,60%,80%,to {
-    animation-timing-function: cubic-bezier(.215, .61, .355, 1)
-  }
-
-  40% {
-    transform: scale(.9)
+  50% {
+    transform: scale(.95);
   }
 
   to {
@@ -271,23 +218,21 @@
   animation-iteration-count: 1;
 }
 
-/* Tapping a placed piece: a damped spring -- squashes down, launches, then
-   settles through a few shrinking over/undershoots instead of one clean hop. */
+/* Tapping a placed piece: one small hop and a single settle -- the same
+   spring idea as before, at the quiet tap-feedback scale (was 0.85s with
+   seven over/undershoots). The fairy-trail jump above is a celebration and
+   keeps its own size and timing. */
 @keyframes pieceTapSpring {
   0%   { transform: translateY(0) scale(1, 1); }
-  14%  { transform: translateY(2%) scale(1.16, 0.84); }
-  32%  { transform: translateY(-10%) scale(0.92, 1.1); }
-  50%  { transform: translateY(1.5%) scale(1.08, 0.93); }
-  66%  { transform: translateY(-3.5%) scale(0.97, 1.04); }
-  80%  { transform: translateY(0.5%) scale(1.03, 0.98); }
-  91%  { transform: translateY(-0.8%) scale(0.99, 1.01); }
+  35%  { transform: translateY(-6%) scale(0.96, 1.05); }
+  70%  { transform: translateY(1%) scale(1.02, 0.98); }
   100% { transform: translateY(0) scale(1, 1); }
 }
 
 .piece-jump.piece-tap {
   animation-name: pieceTapSpring;
-  animation-duration: 0.85s;
-  animation-timing-function: ease-in-out;
+  animation-duration: 300ms;
+  animation-timing-function: var(--ease-out);
 }
 
 /* Player info table: the pieces-remaining and points numbers pop when

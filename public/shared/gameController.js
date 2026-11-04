@@ -2,10 +2,17 @@ import { updateGame } from "../shared/gameEngine.js";
 
 export default class GameController {
 
+    // `socket` is the OnlineClient in "online" mode.
     constructor(mode, socket = null) {
         this.mode = mode;
         this.socket = socket;
         this.state = null;
+        // True while the opponent's relayed moves are being replayed on this
+        // screen: they update the local state but must never be sent back.
+        this.replaying = false;
+        // Online dice come from the server: false from the moment this player
+        // asks for a roll until the server's numbers have been applied.
+        this.rollArrived = true;
     }
 
     setState(state) {
@@ -22,7 +29,24 @@ export default class GameController {
             this.localAction(action);
         }
         if (this.mode === "online") {
-            this.socket.emit("action", action);
+            if (this.replaying) {
+                // The opponent's move, already validated and numbered by the
+                // server: apply it and stop.
+                this.localAction(action);
+                return;
+            }
+            if (action.type === "ROLL_DICE") {
+                // Only the server rolls. The faces come back in the relayed
+                // action (see applyOwnRoll in linotte.js), so nothing changes
+                // locally until then.
+                this.rollArrived = false;
+                this.socket.sendAction({ type: "ROLL_DICE" });
+                return;
+            }
+            // Everything else is deterministic: apply it right away so the UI
+            // answers instantly, and tell the server, which re-checks it.
+            this.localAction(action);
+            this.socket.sendAction(action);
         }
     }
 

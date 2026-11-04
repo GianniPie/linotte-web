@@ -1,0 +1,259 @@
+/* ============================================
+   ONLINE / CONSENT SHEETS
+   Full-screen overlays that hold one centered card: the first-run consent
+   screen, "looking for an opponent", the friend-room flow and messages.
+   They sit outside the game column, so sizes are plain em/min() values that
+   hold from a 320px phone to a desktop window.
+   ============================================ */
+
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90; /* above the coin flip (80): consent and errors must never hide behind it */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: whitesmoke; /* opaque before .opt-bg's art has loaded */
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
+    max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+}
+
+/* The online flow floats over a game or the home screen, so it dims what's under it. */
+#online-overlay {
+  background-color: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(4px);
+}
+
+#online-overlay .opt-bg {
+  display: none;
+}
+
+.sheet {
+  position: relative;
+  width: min(100%, 440px);
+  max-height: 100%;
+  overflow-y: auto;
+  background: whitesmoke;
+  /* The app's border: black at low opacity (as on the player boxes). Brown
+     is the board's colour only. */
+  border: round(.25em, 1px) solid rgba(0, 0, 0, .35);
+  border-radius: 1.2em;
+  padding: 1.2em 1.2em 1.4em;
+  text-align: center;
+  color: #3d240c;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .35);
+  display: flex;
+  flex-direction: column;
+  gap: .9em;
+}
+
+.sheet-title {
+  font-family: "Changa One", sans-serif;
+  font-size: 1.9em;
+  line-height: 1.1;
+}
+
+.sheet-text {
+  font-family: sans-serif;
+  font-size: 1em;
+  line-height: 1.45;
+}
+
+.sheet-text.error {
+  color: #b3261e;
+  min-height: 1.45em;
+}
+
+.sheet-list {
+  margin: 0;
+  padding-left: 1.2em;
+  text-align: left;
+  font-family: sans-serif;
+  font-size: .95em;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  gap: .5em;
+}
+
+.sheet-check {
+  display: flex;
+  align-items: flex-start;
+  gap: .7em;
+  text-align: left;
+  font-family: sans-serif;
+  font-size: .95em;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.sheet-check input {
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+  margin: .05em 0 0;
+  accent-color: rgb(46, 160, 90);
+}
+
+.sheet-check a {
+  color: rgb(31, 46, 124);
+}
+
+.sheet-view {
+  display: none;
+  flex-direction: column;
+  gap: .9em;
+}
+
+#online-overlay[data-view="searching"] .sheet-view[data-view="searching"],
+#online-overlay[data-view="friend"] .sheet-view[data-view="friend"],
+#online-overlay[data-view="waiting"] .sheet-view[data-view="waiting"],
+#online-overlay[data-view="joincode"] .sheet-view[data-view="joincode"],
+#online-overlay[data-view="message"] .sheet-view[data-view="message"] {
+  display: flex;
+}
+
+.sheet .button {
+  min-height: 2.8em;
+  cursor: pointer;
+}
+
+.sheet .text-button {
+  font-size: 1.35em;
+}
+
+.sheet-btn.go {
+  background-color: rgb(46, 160, 90);
+  border: round(.25em, 1px) solid rgb(24, 92, 51);
+}
+
+.sheet-btn.alt {
+  background-color: rgb(70, 94, 228);
+  border: round(.25em, 1px) solid rgb(31, 46, 124);
+}
+
+.sheet-btn.cancel {
+  background-color: rgb(150, 130, 110);
+  border: round(.25em, 1px) solid rgb(100, 84, 68);
+}
+
+/* the consent button stays dead until the box is ticked */
+#consent-continue[aria-disabled="true"] {
+  opacity: .45;
+}
+
+.pro-tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: .3em;
+  padding: .1em .45em;
+  border-radius: .5em;
+  background: rgb(232, 185, 35);
+  color: rgb(95, 70, 4);
+  font-size: .6em;
+}
+
+.room-code {
+  font-family: "Changa One", sans-serif;
+  font-size: 3.4em;
+  letter-spacing: .18em;
+  padding-left: .18em; /* balances the trailing letter-spacing so it looks centered */
+  line-height: 1.1;
+  background: rgba(0, 0, 0, .06);
+  border-radius: .3em;
+  user-select: all;
+}
+
+.code-input {
+  font-family: "Changa One", sans-serif;
+  font-size: 2.6em;
+  letter-spacing: .25em;
+  text-align: center;
+  text-transform: uppercase;
+  width: 100%;
+  padding: .15em 0;
+  border: round(.08em, 1px) solid rgba(0, 0, 0, .35);
+  border-radius: .3em;
+  background: #fff;
+  color: #3d240c;
+}
+
+.spinner {
+  width: 3em;
+  height: 3em;
+  margin: .3em auto;
+  border-radius: 50%;
+  border: .3em solid rgba(0, 0, 0, .12);
+  border-top-color: rgba(0, 0, 0, .5);
+  animation: sheetSpin 0.9s linear infinite;
+}
+
+@keyframes sheetSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* short landscape phones: shrink the card so it still fits without scrolling */
+@media (max-height: 460px) {
+  .sheet {
+    font-size: 13px;
+    padding: .8em 1em 1em;
+    gap: .6em;
+  }
+
+  .room-code {
+    font-size: 2.4em;
+  }
+}
+
+/* Small transient message ("Opponent disconnected"...). */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 7dvh);
+  transform: translate(-50%, 20px);
+  max-width: min(86vw, 420px);
+  padding: .7em 1.1em;
+  border-radius: 1em;
+  background: rgba(30, 20, 10, .9);
+  color: #fff;
+  font-family: sans-serif;
+  font-size: 15px;
+  line-height: 1.3;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms cubic-bezier(.25, 1, .5, 1), transform 150ms cubic-bezier(.25, 1, .5, 1);
+  z-index: 95;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ============================================
+   HOME: the two online buttons
+   ============================================ */
+.home-mode-online {
+  background-color: rgb(120, 80, 200);
+  border: round(.25em, 1px) solid rgb(70, 40, 130);
+}
+
+.home-mode-friend {
+  background-color: rgb(250, 59, 151);
+  border: round(.25em, 1px) solid rgb(170, 36, 101);
+}
+
+/* Four buttons no longer fit a short landscape screen in one column: 2 x 2. */
+@media (orientation: landscape) {
+  #home-overlay .home-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: min(56vw, 520px);
+    gap: 12px;
+  }
+
+  #home-overlay .button.home-mode-btn {
+    min-height: min(4em, 14dvh);
+  }
+}

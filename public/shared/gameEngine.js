@@ -5,7 +5,7 @@ import { tile, rndNum, matrixFill, matrixCheck } from "../shared/utils.js";
 export function updateGame(state, action) {
     switch (action.type) {
         case "ROLL_DICE":
-            return rollDice(state);
+            return rollDice(state, action.values);
         case "STOP_ROLL":
             return stopRoll(state);
         case "LOCK_DICE":
@@ -22,11 +22,15 @@ export function updateGame(state, action) {
 }
 
 
-function rollDice(state) {
+// `values` (online only): the five faces the server rolled. Every client and
+// the server apply the same action with the same faces, so the dice never
+// depend on a client's own Math.random. Offline/bot games omit it and the
+// engine rolls locally as before.
+function rollDice(state, values) {
     if (state.dice.rollsLeft <= 0) return state;
     for (let i = 0; i < 5; i++) {
         if (!state.dice.locked[i]) {
-            state.dice.values[i] = rndNum(1, 6);
+            state.dice.values[i] = values ? values[i] : rndNum(1, 6);
         }
     }
     state.dice.rollsLeft--;
@@ -83,8 +87,10 @@ function endTurn(state) {
     state.dice.locked.fill(false);
     state.combinationsRealized.fill(0);
     state.possibleMoves = Array.from({ length: 5 }, () => Array(5).fill(0));
+    // The call (appel) only lasts for the turn it was made in. The client
+    // also clears it in clearForNextTurn(); the server relies on this one.
+    state.called = [null, null, null, false, false, false, false, false];
 
-    //socket.broadcast.emit("place_piece", action.tileCoordinate);
     return state;
 }
 

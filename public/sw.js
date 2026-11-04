@@ -20,24 +20,34 @@
 // Bump when sw.js's own strategy changes, or to flush stale copies. App files (see isAppShell) no
 // longer depend on this to update -- they are fetched network-first -- but a
 // new name evicts the stale copies older installs are holding.
-const CACHE_VERSION = "linotte-v3";
+const CACHE_VERSION = "linotte-v2.8.0";
 
 const PRECACHE_URLS = [
     "/",
     "/index.html",
     "/linotte.css",
+    "/online.css",
     "/animations.css",
     "/linotte.js",
+    "/version.js",
+    "/online.js",
+    "/demo.js",
+    "/emoji.js",
+    "/demo.css",
+    "/config.js",
+    "/vendor/socket.io.esm.min.js",
+    "/legal/terms.html",
+    "/legal/privacy.html",
     "/manifest.json",
 
     "/shared/assets.js",
     "/shared/botAI.js",
+    "/shared/demoScripts.js",
     "/shared/fairyTrail.js",
     "/shared/gameController.js",
     "/shared/gameEngine.js",
     "/shared/utils.js",
 
-    "/resources/confetti.js",
 
     "/resources/favicon/apple-touch-icon.png",
     "/resources/favicon/favicon-96x96.png",
@@ -220,6 +230,11 @@ function putInCache(request, response) {
 self.addEventListener("fetch", (event) => {
     if (event.request.method !== "GET") return;
     const url = new URL(event.request.url);
+
+    // Live game traffic (socket.io long-polling, same- or cross-origin) and
+    // invite links must always hit the network -- a cached poll response
+    // would feed the game stale or someone else's messages.
+    if (url.pathname.startsWith("/socket.io/") || url.pathname.startsWith("/j/") || url.pathname === "/healthz") return;
 
     if (isAppShell(url)) {
         event.respondWith(

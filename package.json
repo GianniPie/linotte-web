@@ -1,12 +1,13 @@
 {
   "name": "linotte-web",
-  "version": "1.0.0",
+  "version": "2.8.0",
   "type": "module",
   "description": "Linotte web",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server/server.js"
+    "test": "BOT_TIME_SCALE=0.002 node server/smoke-test.js && node test/check-demos.js",
+    "start": "node server/server.js",
+    "release": "node scripts/release.mjs"
   },
   "repository": {
     "type": "git",

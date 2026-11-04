@@ -1,0 +1,276 @@
+/* ============================================
+   COMBINATION DEMOS
+   A small copy of the game screen that plays itself (public/demo.js).
+   It is the game's own pieces -- board, strip, dice, ROLL/DONE -- on the
+   player's own background, so it reads as the game, not as a video in a
+   box. Sizes come from two numbers set by layout() in demo.js: --S, the
+   board's side, and --R, the width of the rail with everything else.
+   ============================================ */
+
+.demo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 92; /* above the options menu (50) it is opened from */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(4px);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+
+.demo-overlay[hidden] {
+  display: none;
+}
+
+.demo-dialog {
+  --S: 300px;
+  --R: 300px;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--S);
+  gap: 12px;
+  padding: 12px;
+  border-radius: 20px;
+  border: 4px solid rgba(0, 0, 0, .35);
+  background-color: whitesmoke;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  /* The background image runs under the border too (the default starts it
+     inside the border), so the translucent border darkens the same image
+     all the way round instead of showing the grey fallback colour as a
+     second, differently shaped frame. */
+  background-origin: border-box;
+  overflow: hidden;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .35);
+}
+
+/* Landscape: board on the left, rail on the right, as in the game. */
+.demo-dialog.is-row {
+  grid-template-columns: var(--S) var(--R);
+  column-gap: 16px;
+}
+
+/* Portrait: the rail's pieces become rows of the dialog itself, so the
+   title can go above the board and the rest below it. */
+.demo-dialog:not(.is-row) .demo-rail {
+  display: contents;
+}
+
+/* Explicit order for both layouts: the game's own classes carry `order`
+   values for the game screen (.div-resultsAndCalls 3, .div-dice 4, ...)
+   that would otherwise put the caption between the board and the strip. */
+.demo-head { order: -1; }
+.demo-board { order: 0; }
+.demo-strip { order: 1; }
+.demo-dice { order: 2; }
+.demo-buttons { order: 3; }
+.demo-caption { order: 4; }
+
+.demo-rail {
+  font-size: round(down, calc(var(--R) * .04267), 1px);
+  width: var(--R);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* The game's board, sized by --S instead of the screen. */
+.demo-board.div-table {
+  font-size: round(down, calc(var(--S) * .045), 1px);
+  width: var(--S);
+  height: var(--S);
+  margin: 0;
+}
+
+.demo-strip.div-resultsAndCalls,
+.demo-dice.div-dice,
+.demo-buttons.div-buttons {
+  width: 100%;
+  margin: 0;
+}
+
+.demo-dice.div-dice {
+  height: auto;
+  max-height: none;
+  padding-block: 4px;
+}
+
+.demo-press {
+  animation: bounceButton var(--tap) var(--ease-out);
+}
+
+.demo-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title.demo-title {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  font-weight: 400;
+  /* The pill uses its own capped size, not the rail's scaled font. */
+  font-size: min(7vw, 24px);
+}
+
+.demo-icon-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, .35);
+  background-color: rgba(255, 255, 255, .5);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.demo-icon-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: rgba(0, 0, 0, .75);
+}
+
+.demo-icon-btn:active {
+  animation: bounceButton var(--tap) var(--ease-out);
+}
+
+.demo-icon-btn:focus-visible,
+.rules-play:focus-visible {
+  outline: 3px solid #000;
+  outline-offset: 2px;
+}
+
+/* Karaoke captions: a window about three lines tall, one sentence per
+   line. New lines arrive at the bottom and the earlier ones move up,
+   faded but readable, then fade out at the top; the box scrolls by hand
+   to reread them (see addCaption in demo.js). */
+.demo-caption {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, .62);
+  color: #000;
+  font-family: var(--text-font);
+  font-size: 16px;
+  line-height: 1.45;
+  text-align: left;
+  height: calc(3 * 1.45em + 20px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 30%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 30%);
+}
+
+.demo-caption::-webkit-scrollbar {
+  display: none;
+}
+
+.demo-lines {
+  /* Pushes the stack to the bottom while it is short; once it overflows
+     the margin is zero and the box scrolls normally (justify-content:
+     flex-end would make the top of an overflowing stack unreachable). */
+  margin-top: auto;
+  /* Room above the first line: scrolled all the way up, it sits below the
+     top fade instead of inside it. */
+  padding-top: 1.75em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: transform var(--state) var(--ease-out);
+}
+
+.demo-line {
+  margin: 0;
+  opacity: .45;
+  transition: opacity var(--state) var(--ease-out);
+}
+
+.demo-line.is-current {
+  opacity: 1;
+  animation: demoLineIn var(--state) var(--ease-out);
+}
+
+@keyframes demoLineIn {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The finger that taps each control. */
+.demo-finger {
+  --x: 50%;
+  --y: 90%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, .8);
+  border: 2px solid rgba(0, 0, 0, .35);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .3);
+  transform: translate(var(--x), var(--y));
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+  transition: transform 420ms var(--ease-out), opacity var(--state) var(--ease-out);
+}
+
+.demo-finger.is-visible {
+  opacity: 1;
+}
+
+.demo-finger.is-tapping {
+  transform: translate(var(--x), var(--y)) scale(.75);
+  transition-duration: var(--tap);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-finger {
+    transition: opacity var(--tap) linear;
+  }
+}
+
+/* ============================================
+   The play button on each combination in the help page.
+   ============================================ */
+.rules-combos > li {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+}
+
+.rules-play {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, .35);
+  background-color: rgba(255, 255, 255, .5);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.rules-play::before {
+  content: "";
+  width: 13px;
+  height: 15px;
+  margin-left: 3px; /* a triangle looks centred a little right of centre */
+  background-color: rgba(0, 0, 0, .75);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.rules-play:active {
+  animation: bounceButton var(--tap) var(--ease-out);
+}

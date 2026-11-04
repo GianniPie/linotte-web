@@ -4,6 +4,20 @@
 
 :root {
   color-scheme: light !important;
+
+  /* Motion tokens. Anything that answers a tap (dice, buttons, calls,
+     pieces) uses --tap with --ease-out; something appearing on the board is
+     a state change and gets --state; things leaving use --ease-in.
+     Celebrations (fairy trail, points, winner) keep their own timings. */
+  --tap: 150ms;
+  --state: 200ms;
+  --ease-out: cubic-bezier(.25, 1, .5, 1);
+  --ease-in: cubic-bezier(.5, 0, .75, 0);
+
+  /* Running text (rules, captions, credits): Atkinson Hyperlegible, a face
+     drawn for legibility (open counters, letters that can't be confused).
+     Changa One stays for headings and names. */
+  --text-font: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
 }
 
 html {
@@ -52,10 +66,14 @@ img[src*=".svg"] {
   height: calc(var(--vh) * 100);
 }
 
+/* No global backface-visibility:hidden here any more: on every element it
+   pushed Safari (and Chrome, for anything with a transform) to paint each
+   one on its own compositing layer, placed at sub-pixel offsets -- which is
+   what made button and dice borders look thicker on one side and blurry.
+   Only the clock tiles and the coin flip actually show a back face (3D
+   flips), and they set it themselves. */
 * {
   box-sizing: border-box;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
 }
 
 html {
@@ -98,6 +116,20 @@ html {
 }
 
 .flex-block {
+  /* --col-w is the width of the "mobile column" the game is laid out in
+     (the whole screen in portrait, the sidebar in landscape -- see the
+     media queries below). Everything inside is authored in em against a
+     16px base at a 375px column, so scaling the font with the column (and
+     capping it by height, so a short screen shrinks the controls instead of
+     overflowing) scales the whole UI to phones, tablets and desktops.
+     The result is rounded to a whole pixel so em-based borders, radii and
+     rings land on whole pixels too instead of values like 3.58px. */
+  --col-w: min(100vw, 700px);
+  /* The board's own width (same formula as .div-table's width below; the
+     landscape block replaces it). The board scales its details off this,
+     not off the column's font -- see .div-table. */
+  --board-w: min(calc(var(--col-w) * .95), 60dvh);
+  font-size: round(down, min(calc(var(--col-w) * 0.04267), 1.971dvh), 1px);
   display: flex;
   flex-flow: column;
   justify-content: center;
@@ -107,7 +139,8 @@ html {
   min-height: calc(var(--vh) * 100);
   margin-left: auto;
   margin-right: auto;
-
+  /* Notch / home indicator (viewport-fit=cover is on). */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 /* Groups info/results/dice/buttons for wider/landscape layouts below.
@@ -151,11 +184,11 @@ html {
 
 .player {
   border-radius: 10px;
-  width: 27vw;
+  width: calc(var(--col-w) * 0.27);
   max-width: 200px;
   height: 100%;
   max-height: 200px;
-  border: 0.25em solid rgba(0, 0, 0, 0.35);
+  border: round(.25em, 1px) solid rgba(0, 0, 0, 0.35);
 }
 
 .player.current {
@@ -181,10 +214,19 @@ html {
 
 .textPlayer.t1 {
   font-size: 2em;
+  /* Online opponents have arbitrary names: never let one push the box wide. */
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .textPlayer.t2 {
   font-size: 1em;
+}
+
+.textPlayer.t1.long {
+  font-size: 1.2em;
 }
 
 .pawn {
@@ -302,6 +344,9 @@ html {
   font-size: 1.8em;
   font-weight: bold;
   font-family: sans-serif;
+  /* The flip clones turn past 90deg (rotateX); their back must not show. */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .half span {
@@ -363,11 +408,21 @@ html {
    ============================================ */
 
 .div-table {
+  /* The board's em scale follows the board itself: 16px on the 356px board
+     of a 375px phone, and proportionally more on a bigger board. Without
+     this the frame, the corners and the tile highlight followed the
+     column's font instead, which on tablets is capped by the screen height
+     (portrait) or set by the narrow sidebar (landscape) -- they came out
+     thin and square next to the much larger tiles. */
+  font-size: round(down, calc(var(--board-w) * 0.045), 1px);
   background-color: rgb(96, 56, 19);
   border: .75vw solid rgb(96, 56, 19);
-  border-width: .3em;
+  border-width: round(.3em, 1px);
   border-radius: 1.3em;
-  width: 95%;
+  /* Also bounded by height, so a short portrait window (split-screen,
+     browser chrome, small phone) shrinks the board instead of pushing
+     ROLL/DONE off the bottom. */
+  width: min(95%, 60dvh);
   aspect-ratio: 1 / 1;
   margin: auto;
   margin-top: 1dvh;
@@ -450,7 +505,7 @@ body.table-flipped .tile::before {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  border: .15em solid #603813;
+  border: round(.15em, 1px) solid #603813;
   grid-template-rows: auto auto;
   width: 100%;
   height: 100%;
@@ -479,11 +534,15 @@ body.table-flipped .tile::before {
   /* Tiles are all position:relative (for the ::before symbol layer), so
      without this a later neighbour paints over this tile's outline. */
   z-index: 1;
-  outline-offset: -4px;
-  outline-width: .7em;
+  /* All three in em of the board's scale (see .div-table), so the highlight
+     keeps the phone's proportions on any board size: on the phone these are
+     exactly the old -4px / 11px / 5px. */
+  outline-offset: round(-.25em, 1px);
+  outline-width: round(.7em, 1px);
   outline-style: solid;
-  transform: translate3d(0, 0, 65px);
-  border-radius: 5px;
+  /* z-index above is enough to keep the outline over its neighbours; the
+     old translate3d only moved the tile onto its own (blurry) layer. */
+  border-radius: round(.3125em, 1px);
 }
 
 .grid {
@@ -526,11 +585,11 @@ body.table-flipped .tile::before {
 }
 
 .img-bounce {
-  animation: bounceIn 0.5s ease-out forwards;
+  animation: bounceIn var(--state) var(--ease-out) forwards;
 }
 
 .img-disappear {
-  animation: bounceOut 0.2s ease-out forwards;
+  animation: bounceOut var(--tap) var(--ease-in) forwards;
 }
 
 #t00 {
@@ -669,7 +728,7 @@ body.table-flipped .tile::before {
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: 0.18s ease;
+  transition: opacity var(--tap) var(--ease-out), transform var(--tap) var(--ease-out);
 }
 
 /* freccina */
@@ -682,7 +741,7 @@ body.table-flipped .tile::before {
   border: 8px solid transparent;
   border-top-color: whitesmoke;
   opacity: 0;
-  transition: 0.2s ease;
+  transition: opacity var(--tap) var(--ease-out);
 }
 
 /* stato visibile */
@@ -711,7 +770,7 @@ body.table-flipped .tile::before {
   background-position: center;
   background-size: 100%;
   background-repeat: no-repeat;
-  border: .15em solid #fff;
+  border: round(.15em, 1px) solid #fff;
   border-radius: 8px;
 }
 
@@ -766,7 +825,7 @@ body.table-flipped .tile::before {
 .call {
   height: 30%;
   background-color: #ffffff5e;
-  border: .15em solid #fff;
+  border: round(.15em, 1px) solid #fff;
   border-radius: 20px;
   margin: .5em .25em 1em;
   visibility: hidden;
@@ -777,8 +836,15 @@ body.table-flipped .tile::before {
   visibility: visible;
 }
 
+/* The checked look is a plain style, not the end of a "forwards" animation:
+   a filled animation keeps a transform on the element for good, which puts
+   it on its own layer and softens its edges. The animation is only the lift. */
 .call.checked {
-  animation: bounceCall 0.3s ease-out forwards;
+  background-color: #ffea00;
+  border: round(.15em, 1px) solid #ffea00;
+  border-radius: 20px;
+  margin: .5em .25em 3vw;
+  animation: bounceCall var(--tap) var(--ease-out);
 }
 
 
@@ -800,6 +866,9 @@ body.table-flipped .tile::before {
   display: grid;
   order: 4;
   margin-top: 0;
+  /* The dice size their corners and selection ring off this tray (cqi
+     units in .die), not off the column's font. */
+  container-type: inline-size;
 }
 
 .wrapDie {
@@ -811,7 +880,7 @@ body.table-flipped .tile::before {
      reads as the die being slightly off-center. */
   width: round(down, 85%, 2px);
   background-position: 50%;
-  transition: 0.18s ease;
+  transition: transform var(--tap) var(--ease-out);
 
 }
 
@@ -832,6 +901,11 @@ body.table-flipped .tile::before {
 }
 
 .die {
+  /* em scale proportional to the die itself (a die is 17% of the tray's
+     width, or the tray's height when that's smaller -- see .wrapDie), so its
+     corner radius and selection ring look the same on a phone and a tablet:
+     16px for the phone's 60px die. */
+  font-size: round(down, calc(min(17cqi, 100cqh) * .2667), 1px);
   border-radius: 0.75em;
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -852,8 +926,12 @@ body.table-flipped .tile::before {
   box-shadow:rgba(255, 59, 59, 0.6) 5px 5px 10px 2px;
 }
 
+/* Same idea as .call.checked: the ring is a plain style (declared after
+   .die.black-shadow/.red-shadow, so it replaces their shadow), and the
+   press animation doesn't stay filled on the die afterwards. */
 .die.selected {
-  animation: bounceDie 0.3s ease-out forwards;
+  box-shadow: rgb(255, 234, 0) 0 0 0 var(--select-ring, round(.3em, 1px));
+  animation: bounceDie var(--tap) var(--ease-out);
 }
 
 /* The selection ring is .3em of the element's own font size, so the larger
@@ -905,7 +983,7 @@ body.table-flipped .tile::before {
 }
 
 .button:active {
-  animation: bounceButton 0.2s ease-out forwards;
+  animation: bounceButton var(--tap) var(--ease-out);
 }
 
 /* setBotControlsDisabled() sets this during the bot's turn — without this
@@ -924,12 +1002,12 @@ body.table-flipped .tile::before {
 
 .button.done {
   background-color: rgb(70, 94, 228);
-  border: .25em solid rgb(31, 46, 124);
+  border: round(.25em, 1px) solid rgb(31, 46, 124);
 }
 
 .button.roll {
   background-color: rgb(250, 59, 151);
-  border: .25em solid rgb(170, 36, 101);
+  border: round(.25em, 1px) solid rgb(170, 36, 101);
 }
 
 /* Vs-bot only: swapped in for ROLL+DONE while it's the bot's turn (see
@@ -961,7 +1039,7 @@ body.table-flipped .tile::before {
   grid-column: 1 / -1;
   width: 60%;
   background-color: rgb(46, 160, 90);
-  border: .25em solid rgb(24, 92, 51);
+  border: round(.25em, 1px) solid rgb(24, 92, 51);
 }
 
 .text-button {
@@ -980,7 +1058,8 @@ body.table-flipped .tile::before {
 
 @media (orientation: portrait) and (min-width: 600px) {
   .flex-block {
-    max-width: min(700px, 64dvh);
+    --col-w: min(700px, 64dvh);
+    max-width: var(--col-w);
   }
 }
 
@@ -989,24 +1068,41 @@ body.table-flipped .tile::before {
    sit side by side instead, each sized off the shared height budget. */
 @media (orientation: landscape) {
   .flex-block {
-    --side-w: min(38vw, 380px);
-    --side-chrome: 6dvh; /* gap + left/right padding below, kept in sync */
+    /* One spacing step from the 8/16/24 scale for the screen edges, the
+       board-to-rail gap and the gaps inside the rail (8px on short phones,
+       see below). */
+    --edge: 16px;
+    --inset-x: calc(env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
+    --inset-y: calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
+    --side-chrome: calc(3 * var(--edge) + var(--inset-x)); /* gap + left/right padding below, kept in sync */
+    /* The rail never gets narrower than 360px (that's what lets its eight
+       combination tiles reach a ~44px touch target), except on very small
+       phones, where it stops at half the screen so the board stays playable. */
+    --rail-min: min(max(360px, 34vw), 50vw);
+    /* The board is a square sized off the height, but always leaves the
+       rail its minimum width... */
+    --board: min(94dvh, calc(100dvh - var(--inset-y)), 900px, 58vw,
+      calc(100vw - var(--rail-min) - var(--side-chrome)));
+    /* ...and the sidebar takes whatever width is left, up to 520px. The
+       font (and so every control in it) scales with that width. */
+    --side-w: min(calc(100vw - var(--board) - var(--side-chrome)), 520px);
+    --col-w: var(--side-w);
+    --board-w: var(--board);
+    /* Height isn't the limit here (the sidebar is as tall as the board). */
+    font-size: round(down, calc(var(--side-w) * 0.04267), 1px);
     flex-flow: row nowrap;
     max-width: none;
     width: 100%;
     height: calc(var(--vh) * 100);
     min-height: calc(var(--vh) * 100);
-    gap: 2dvh;
-    padding: 0 2dvh;
+    gap: var(--edge);
+    padding: env(safe-area-inset-top, 0px) max(var(--edge), env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(var(--edge), env(safe-area-inset-left, 0px));
   }
 
   .div-table {
     order: 1;
     width: auto;
-    /* Sized by height, but also can't be so wide (a square, so width ==
-       height) that table + gap + sidebar would overflow the viewport
-       width — so also cap it against the width actually left over. */
-    height: min(94dvh, calc(100vw - var(--side-w) - var(--side-chrome)), 900px);
+    height: var(--board);
     aspect-ratio: 1 / 1;
     margin: 0;
     flex: 0 0 auto;
@@ -1015,12 +1111,16 @@ body.table-flipped .tile::before {
   .side-panel {
     display: flex;
     flex-flow: column;
-    justify-content: center;
+    /* The rail is laid out top to bottom in the order of play: who's
+       playing and the clock at the top, the combination strip, the dice
+       taking whatever height is left, and ROLL/DONE pinned at the bottom
+       where the right thumb rests. */
+    justify-content: space-between;
     order: 2;
-    height: min(94dvh, calc(100vw - var(--side-w) - var(--side-chrome)), 900px);
+    height: var(--board);
     width: var(--side-w);
     flex: 0 0 auto;
-    gap: 1.2dvh;
+    gap: var(--edge);
   }
 
   .side-panel>.div-info,
@@ -1030,6 +1130,53 @@ body.table-flipped .tile::before {
     width: 100%;
     height: auto;
     margin: 0;
+  }
+
+  /* Taller combination strip (4.6:1 instead of 5.45:1): the call tiles are
+     tapped, so on a small phone they get closer to a 44px target. */
+  .side-panel>.div-resultsAndCalls {
+    aspect-ratio: 4.6 / 1;
+    flex: 0 0 auto;
+  }
+
+  /* The dice take the rail's spare height and sit centred in it. Each die
+     is capped by that height (container query unit) so it never spills. */
+  .side-panel>.div-dice {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    container-type: size;
+  }
+
+  .side-panel .wrapDie {
+    /* Rounded AFTER the height cap, so the die stays a whole even number
+       of pixels (see .wrapDie) whichever of the two limits wins. */
+    width: round(down, min(85%, 100cqh), 2px);
+  }
+
+  /* ROLL and DONE: bigger, and clear of the chat button that floats in the
+     bottom-right corner so the two never overlap. */
+  .side-panel>.div-buttons {
+    flex: 0 0 auto;
+    min-height: 3.6em;
+    padding-right: 52px;
+  }
+
+  /* 44px minimum touch targets, whatever the rail's font size works out to. */
+  .side-panel .button.roll,
+  .side-panel .button.done,
+  .side-panel .button.end-game-done {
+    min-height: max(3.2em, 44px);
+  }
+
+  .side-panel .options {
+    width: max(2.5em, 44px);
+  }
+
+  /* ...and the info row's side columns are at least that wide, so the
+     12% track can't squeeze the options button back under 44px. */
+  .side-panel>.div-info {
+    grid-template-columns: max(12%, 44px) auto max(12%, 44px);
   }
 
   /* .player/.textPlayer were sized in vw against a near-full-width
@@ -1044,8 +1191,16 @@ body.table-flipped .tile::before {
     max-width: none;
   }
 
-  .side-panel .textPlayer {
-    font-size: min(3.4vw, 2.6dvh);
+  .side-panel .textPlayer.t1 {
+    font-size: 1.7em;
+  }
+
+  .side-panel .textPlayer.t2 {
+    font-size: 1em;
+  }
+
+  .side-panel .textPlayer.t1.long {
+    font-size: 1.3em;
   }
 
   /* The home screen had no landscape handling at all: it's authored as a
@@ -1080,6 +1235,35 @@ body.table-flipped .tile::before {
   }
 }
 
+/* Short landscape phones: the next step down the spacing scale. */
+@media (orientation: landscape) and (max-height: 430px) {
+  .flex-block {
+    --edge: 8px;
+  }
+}
+
+/* Rotating or resizing the window re-lays everything out at once; nothing
+   may animate that reflow itself (it reads as the UI sliding around). The
+   class is set for a moment by the resize handler in linotte.js. */
+html.is-resizing *,
+html.is-resizing *::before,
+html.is-resizing *::after {
+  transition: none !important;
+}
+
+/* Reduced motion: the always-on loops stop; what answers a tap stays, shortened. */
+@media (prefers-reduced-motion: reduce) {
+  .player.current {
+    animation: none;
+  }
+
+  .button:active,
+  .die.selected,
+  .selected {
+    animation-duration: 0.01ms;
+  }
+}
+
 
 
 
@@ -1105,7 +1289,9 @@ body.table-flipped .tile::before {
   align-items: center;
   justify-content: center;
   gap: 6dvh;
-  padding: 4dvh 8vw;
+  padding: calc(4dvh + env(safe-area-inset-top, 0px)) calc(8vw + env(safe-area-inset-right, 0px)) calc(4dvh + env(safe-area-inset-bottom, 0px)) calc(8vw + env(safe-area-inset-left, 0px));
+  /* Never clip the buttons on a very short screen: scroll instead. */
+  overflow-y: auto;
 }
 
 .home-header {
@@ -1152,12 +1338,12 @@ body.table-flipped .tile::before {
 
 .home-mode-table {
   background-color: rgb(46, 160, 90);
-  border: .25em solid rgb(24, 92, 51);
+  border: round(.25em, 1px) solid rgb(24, 92, 51);
 }
 
 .home-mode-bot {
   background-color: rgb(230, 140, 40);
-  border: .25em solid rgb(150, 85, 20);
+  border: round(.25em, 1px) solid rgb(150, 85, 20);
 }
 
 
@@ -1171,6 +1357,16 @@ body.table-flipped .tile::before {
   z-index: 50;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+/* Settings are a single phone-width column on every screen size; on wide
+   screens it's centered instead of stretching its rows across the window. */
+.opt-header,
+.opt-pages {
+  width: 100%;
+  max-width: 520px;
 }
 
 .hidden {
@@ -1236,7 +1432,7 @@ body.table-flipped .tile::before {
   background: black;
   opacity: 50%;
   border-radius: 4px;
-  transition: left .25s ease;
+  transition: left var(--state) var(--ease-out);
 }
 
 /* pages */
@@ -1307,102 +1503,223 @@ section {
   display: flex;
   justify-content: center;
   align-content: center;
-  font-size: 7vw;
+  /* 7vw alone grew without limit on wide screens (100px+ on a desktop,
+     overlapping everything under it): capped at its 375px-phone size. */
+  font-size: min(7vw, 26px);
 
     color: #000;
   -webkit-text-fill-color: #000;
-  transform: translateZ(0);
   isolation: isolate;
-    backface-visibility: hidden;
-  perspective: 1000px;
-}
-
-.horizontal-div {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  align-items: start;
-  margin: auto;
-  justify-content: stretch;
-  font-family: sans-serif;
-  margin-bottom: 0.7em;
-}
-
-.vertical-div {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  padding: 1em;
-  font-family: sans-serif;
-  line-height: 1.5;
-}
-
-.instruction-title {
-  display: block;
-  font-size: 1.5em;
-  line-height: 1.8em;
-  color: rgba(0, 0, 0, 0.7);
-  /* Changa One, not sans-serif -- every other section header in the app
-     ("Sound", "Same table", etc, see .title) uses it; the body text below
-     stays sans-serif on purpose (a display font hurts long-paragraph
-     readability), so only the headers needed to switch. */
-  font-family: "Changa One", sans-serif;
-  margin-bottom: 0.6em;
-}
-
-.white {
-  background-color: rgba(255, 255, 255, 0.5);
 }
 
 .separator {
   height: 15px;
 }
 
-.text-how {
-  /* Justify on a narrow mobile column stretches word spacing unevenly
-     ("rivers" of whitespace) since there are so few words per line to
-     distribute the slack across -- left-aligned reads far more evenly. */
-  text-align: left;
-  margin-bottom: 1em;
+/* ============================================
+   HELP: HOW TO PLAY
+   Built from the same pieces as the other option tabs: each section opens
+   with the .title pill, its text sits on the translucent white of .opt-btn,
+   and each combination icon is the strip's own .result tile, standing
+   straight on the background like it does under the board. Nothing is
+   opaque or hard-coloured, so the page takes on whichever background the
+   player picked. Changa One for headings and names, sans-serif for
+   sentences, everything left-aligned.
+   ============================================ */
+.rules {
+  padding-bottom: 24px;
 }
 
-.text-left {
-  text-align: left;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.v-div {
+.rules-section {
   display: flex;
   flex-direction: column;
-  align-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-.h-div {
-  display: flex;
-  flex-direction: row;
-  align-content: center;
+/* .title is a div elsewhere; as a heading it must not pick up h2's own
+   margins and bold weight. */
+.title.rules-h {
+  margin: 0 auto;
+  font-weight: 400;
 }
 
-.bold {
-  color: rgba(0, 0, 0, 0.7);
-}
-
-.img-expl {
-  margin-left: .8em;
-  text-align: left;
-}
-
-.footer-div {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  padding-bottom: 4vh;
-  font-family: sans-serif;
-  font-size: 0.8em;
+.rules-block {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px; /* same as .title */
+  /* A touch more opaque than .opt-btn's .5, so long text stays readable
+     on busy or dark backgrounds. */
+  background-color: rgba(255, 255, 255, .62);
+  color: #000;
+  font-family: var(--text-font);
+  font-size: 16px;
   line-height: 1.5;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Blocks that stand alone in a section line up with the .title pill above. */
+.rules-section > .rules-block {
+  width: 90%;
+  margin: 0 auto;
+}
+
+.rules-block p {
+  margin: 0;
+}
+
+.rules-steps {
+  margin: 0;
+  padding-left: 1.5em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rules-steps li {
+  padding-left: .2em;
+}
+
+.rules-steps li::marker {
+  font-family: "Changa One", sans-serif;
+}
+
+.rules-note,
+.rules-desc,
+.rules-sub {
+  color: rgba(0, 0, 0, .78);
+}
+
+.rules-combos {
+  list-style: none;
+  width: 90%;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rules-combos > li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.rules-combos .rules-block {
+  gap: 0;
+  padding: 8px 12px;
+  min-height: 44px;
+}
+
+/* Exactly the strip's .result tile: translucent white, white frame. */
+.rules-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background-color: #ffffff5e;
+  border: round(.15em, 1px) solid #fff;
+  overflow: hidden;
+}
+
+.rules-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.rules-name {
+  display: block;
+  font-family: "Changa One", sans-serif;
+  font-size: 1.1em;
+  line-height: 1.25;
+}
+
+.rules-desc {
+  display: block;
+}
+
+.rules-sub {
+  margin: 6px 0 0;
+  padding-left: 1.1em;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* A table can't be a flex box: undo that part of .rules-block. */
+.rules-block.rules-score {
+  display: table;
+  border-collapse: separate;
+  border-spacing: 0;
+  padding: 4px 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rules-score td {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, .1);
+}
+
+.rules-score tr:last-child td {
+  border-bottom: 0;
+}
+
+.rules-score td:last-child {
+  text-align: right;
+  font-weight: 700;
+}
+
+/* Version, credits and the piece-design notice: set apart from the rules
+   by space and a thin line (the app's black-at-low-opacity), straight on
+   the background like the rest of the menu's plain text. */
+.rules-foot {
+  width: 90%;
+  margin: 96px auto 0;
+  padding-top: 20px;
+  border-top: 1px solid rgba(0, 0, 0, .35);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--text-font);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  color: rgba(0, 0, 0, .78);
+}
+
+.rules-foot p {
+  margin: 0;
+}
+
+.rules-foot a {
+  color: inherit;
+}
+
+.rules-foot-name {
+  font-family: "Changa One", sans-serif;
+  font-size: 16px;
+  color: #000;
+}
+
+.rules-foot-h {
+  margin: 14px 0 0;
+  font-family: "Changa One", sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  color: #000;
+}
+
+.rules-credits {
+  margin: 0;
+  padding-left: 1.1em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 /* carousel */
@@ -1499,7 +1816,8 @@ section {
 }
 
 .selected {
-  animation: bounceDie 0.3s ease-out forwards;
+  box-shadow: rgb(255, 234, 0) 0 0 0 var(--select-ring, round(.3em, 1px));
+  animation: bounceDie var(--tap) var(--ease-out);
 }
 
 
@@ -1689,7 +2007,7 @@ section {
   border-radius: 10px;
   height: 7em;
   aspect-ratio: 1/1;
-  border: 0.25em solid rgba(0, 0, 0, 0.35);
+  border: round(.25em, 1px) solid rgba(0, 0, 0, 0.35);
   margin: auto;
   margin-top: 70px;
   margin-right: 2em;
@@ -1793,11 +2111,11 @@ section {
   font-size: 2em;
   color: white;
   background-color: #409ff8;
-  border: .1em solid #1f2e7c;
+  border: round(.1em, 1px) solid #1f2e7c;
 }
 
 .winner-button:active {
-  animation: bounceButton 0.2s ease-out forwards;
+  animation: bounceButton var(--tap) var(--ease-out);
 }
 
 #confetti-canvas {
@@ -1984,7 +2302,7 @@ button,
 }
 
 .chat-fab:active {
-  animation: bounceButton 0.2s ease-out forwards;
+  animation: bounceButton var(--tap) var(--ease-out);
 }
 
 .chat-wheel-overlay.hidden {
@@ -2056,23 +2374,17 @@ button,
     rotate(calc(-1 * var(--wheel-rotation, 0deg)));
 }
 
-/* Twemoji (see index.html + the twemoji.parse() calls in linotte.js) swaps
-   each emoji's text glyph for a flat-style SVG <img> -- matches this app's
-   own flat, no-gradient look instead of the OS's glossy native emoji font,
-   and renders identically across every browser/OS instead of varying. */
-.chat-emoji img.emoji {
+/* The emoji are the app's own inline SVG drawings (emoji.js), not the OS's
+   glossy emoji font: flat like the rest of the game, identical everywhere. */
+.chat-emoji .emoji {
   width: 38px;
   height: 38px;
   pointer-events: none; /* clicks still land on the button, not the image */
 }
 
-/* Plain white dots instead of an emoji -- Twemoji's own speech-balloon
-   glyph is naturally light blue (that's the actual artwork, not a CSS
-   tint), and recoloring an <img> via `filter` isn't an option here: this
-   app's dark-mode safety net (near the top of this file) forces
-   `filter: none !important` on every <img>/<svg> under
-   prefers-color-scheme: dark to stop the OS from touching game art, which
-   would silently eat that filter too. */
+/* Plain white dots on the chat button, drawn with CSS -- simpler than an
+   emoji glyph and immune to the dark-mode safety net near the top of this
+   file (which forces `filter: none` on every <img>/<svg>). */
 .chat-fab-dots {
   display: flex;
   gap: 4px;
@@ -2105,7 +2417,7 @@ button,
      couple of fixed stops) can't produce on their own. */
 }
 
-.chat-toss-emoji img.emoji {
+.chat-toss-emoji .emoji {
   display: block;
   width: 48px;
   height: 48px;

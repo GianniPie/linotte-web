@@ -1,6 +1,16 @@
-//Version 
-const VERSION = "2.7.0";
-document.getElementById("version").innerHTML += VERSION;
+//Version (single source: version.js, bumped by `npm run release`)
+import { VERSION } from "./version.js";
+import { CONTACT_EMAIL } from "./config.js";
+document.getElementById("version").textContent += VERSION;
+
+// The developer contact in the help page's credits (set in config.js).
+if (CONTACT_EMAIL) {
+    const contact = document.getElementById("contact-email");
+    const link = document.createElement("a");
+    link.href = "mailto:" + CONTACT_EMAIL;
+    link.textContent = CONTACT_EMAIL;
+    contact.append(" at ", link);
+}
 
 // open
 // http://127.0.0.1:5500/public/index.html
@@ -136,8 +146,18 @@ function setRealVh() {
     document.documentElement.style.setProperty('--vh', `${vh}px`);
 }
 setRealVh();
-window.addEventListener('resize', setRealVh);
-window.addEventListener('orientationchange', setRealVh);
+// While the window is being resized or rotated, transitions are switched off
+// (see html.is-resizing in linotte.css) so the new layout lands in one frame.
+let resizingTimer;
+function onViewportChange() {
+    setRealVh();
+    if (!optionsOverlay.classList.contains("hidden")) moveIndicator(currentOptionsTab);
+    document.documentElement.classList.add('is-resizing');
+    clearTimeout(resizingTimer);
+    resizingTimer = setTimeout(() => document.documentElement.classList.remove('is-resizing'), 250);
+}
+window.addEventListener('resize', onViewportChange);
+window.addEventListener('orientationchange', onViewportChange);
 
 
 
@@ -149,6 +169,9 @@ import { updateGame } from "./shared/gameEngine.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget } from "./shared/botAI.js";
 import GameController from './shared/gameController.js';
 import { playFairyTrail } from "./shared/fairyTrail.js";
+import { initCombinationDemos } from "./demo.js";
+import { emojiMarkup, emojiLabel } from "./emoji.js";
+import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession } from "./online.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = "YOU";
 gameState.players[2].name = "BOT";
@@ -187,6 +210,7 @@ function markActiveMode() {
     const mode = gameInProgress ? controller.mode : null;
     document.getElementById("title-same-table").classList.toggle("selected", mode === "offline");
     document.getElementById("title-vs-bot").classList.toggle("selected", mode === "bot");
+    document.getElementById("title-online").classList.toggle("selected", mode === "online");
 }
 
 function startOffline() {
@@ -196,8 +220,9 @@ function startOffline() {
 }
 
 function startOnline() {
-    controller = new GameController("online", socket);
+    controller = new GameController("online", onlineClient);
     controller.setState(gameState);
+    markActiveMode();
 }
 
 function startBot(strategy = "points") {
@@ -318,6 +343,10 @@ function renderPlayerBox(player) {
 
     textPlayerP1.textContent = gameState.players[1].name;
     textPlayerP2.textContent = gameState.players[2].name;
+    // Online names ("Crane36") are longer than YOU/BOT/P1: a smaller size
+    // keeps them whole instead of ending in "...".
+    textPlayerP1.classList.toggle("long", gameState.players[1].name.length > 5);
+    textPlayerP2.classList.toggle("long", gameState.players[2].name.length > 5);
 }
 
 // Restarts a CSS animation on `el` even if it's already mid-play (e.g. two
@@ -708,7 +737,19 @@ function setPaused(paused) {
     }
 }
 
-pauseBtn.addEventListener("click", () => setPaused(!isPaused));
+// No pausing a game with another person in it (the server's clock runs on).
+pauseBtn.addEventListener("click", () => {
+    if (controller.mode === "online") return;
+    setPaused(!isPaused);
+});
+
+// Restarts the turn clock from `seconds` (a game resumed mid-turn), instead
+// of the fresh MAX_TIMER startTurnTimer() gives.
+function resumeTurnTimer(seconds) {
+    stopTimer();
+    value = Math.max(0, Math.min(MAX_TIMER, seconds));
+    startTimer();
+}
 
 
 
@@ -760,7 +801,9 @@ openBtn.onclick = () => {
 
 optionsOverlay.addEventListener("click", (e) => {
     if (e.target === optionsOverlay) {
-        optionsOverlay.style.display = "none";
+        // The "hidden" class, not display:none -- the open button only
+        // removes that class, so an inline display:none could never be undone.
+        optionsOverlay.classList.add("hidden");
     }
 });
 
@@ -772,6 +815,10 @@ document.querySelectorAll(".icon").forEach(icon => {
     };
 });
 
+// The options tab showing now, so the indicator can be put back under it
+// after a rotation or resize moves the icons (see onViewportChange).
+let currentOptionsTab = "game";
+
 function handleTab(page) {
     if (page === "back") {
         optionsOverlay.classList.add("hidden");
@@ -782,18 +829,22 @@ function handleTab(page) {
     document.querySelectorAll(".opt-page").forEach(p => p.classList.add("hidden"));
     document.getElementById("page-" + page).classList.remove("hidden");
 
+    currentOptionsTab = page;
     moveIndicator(page);
 }
 
 function moveIndicator(page) {
+    // Relative to the header (the indicator's positioned parent), which is
+    // centered and no longer starts at x=0 on wide screens.
+    const headerLeft = document.querySelector(".opt-header").getBoundingClientRect().left;
     const rect1 = document.getElementById("icon-tab1").getBoundingClientRect();
     const rect2 = document.getElementById("icon-tab2").getBoundingClientRect();
     const rect3 = document.getElementById("icon-tab3").getBoundingClientRect();
 
     const map = {
-        game: rect1.left - 10,
-        options: rect2.left - 10,
-        help: rect3.left - 10
+        game: rect1.left - headerLeft - 10,
+        options: rect2.left - headerLeft - 10,
+        help: rect3.left - headerLeft - 10
     };
     document.getElementById("tabIndicator").style.left = map[page] + "px";
 }
@@ -833,7 +884,9 @@ boardOptions.forEach(boardOption => {
 // than read from gameState, since the caller flips BEFORE resetting
 // gameState for the new game (the old one may still hold stale names, or
 // none at all on the very first load).
-function flipCoin(nameP1, nameP2) {
+// `forcedWinner` (online): the server already decided who starts; the coin
+// only animates to that result.
+function flipCoin(nameP1, nameP2, forcedWinner = 0) {
     return new Promise((resolve) => {
         const overlay = document.getElementById("coin-flip-overlay");
         const coin = document.getElementById("flip-coin");
@@ -842,7 +895,7 @@ function flipCoin(nameP1, nameP2) {
         resultText.textContent = "";
         overlay.classList.remove("hidden");
 
-        const winner = Math.random() < 0.5 ? 1 : 2; // 1 = front face lands up, 2 = back face
+        const winner = forcedWinner || (Math.random() < 0.5 ? 1 : 2); // 1 = front face lands up, 2 = back face
         const spins = 5; // extra full turns before landing, purely for a satisfying flip
         const finalDeg = spins * 360 + (winner === 2 ? 180 : 0);
 
@@ -928,6 +981,7 @@ botStrategyButtons.forEach(btn => {
 });
 
 function newGameVsBot(strategy, startingPlayer = 1) {
+    leaveOnlineGameIfAny();
     gameInProgress = true;
     turnHandoverPending = false;
     setPaused(false);
@@ -964,6 +1018,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
 // P1/P2 -- see isMyTurn()'s "offline" branch, which never dims/disables
 // either side's controls since there's only one local player either way.
 function newGameOffline(startingPlayer = 1) {
+    leaveOnlineGameIfAny();
     gameInProgress = true;
     turnHandoverPending = false;
     setPaused(false);
@@ -992,6 +1047,7 @@ function newGameOffline(startingPlayer = 1) {
 }
 
 function clearBoardVisuals() {
+    forcedWinner = null; // every new game (any mode) starts with no forfeit on record
     for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 5; c++) {
             const piece = document.getElementById("p" + r + c);
@@ -1157,7 +1213,12 @@ function checkGameOver() {
     return true;
 }
 
+// Set when an online game ends by someone leaving, so DONE (which reopens the
+// winner popup) keeps naming that player instead of comparing points.
+let forcedWinner = null;
+
 function determineWinner() {
+    if (forcedWinner !== null) return forcedWinner;
     if (gameState.players[1].points > gameState.players[2].points) return 1;
     if (gameState.players[1].points < gameState.players[2].points) return 2;
     return 0; // tie
@@ -1270,11 +1331,14 @@ rollBtn.addEventListener("click", function () {
     if (isVolumeOn) {
         new Audio("resources/sounds/roll.mp3").play();
     }
+    const rollsBefore = gameState.dice.rollsLeft;
     controller.dispatch({ type: "ROLL_DICE" });
     rollAnimationID = setInterval(rollAnimation, 100);
     stopRollID = setInterval(stopRoll, 1200);
 
-    rollBtnText.innerText = "ROLL " + gameState.dice.rollsLeft;
+    // Online, the roll only lands when the server's dice come back, so the
+    // counter can't be read from the state yet.
+    rollBtnText.innerText = "ROLL " + (controller.mode === "online" ? rollsBefore - 1 : gameState.dice.rollsLeft);
     tileElements.forEach(el => el.classList.remove("tile_highlighted"));
     rrElements.forEach(el => el.classList.remove("highlighted"));
     removePiece(selectedTileId);
@@ -1316,6 +1380,9 @@ function renderDice(values) {
 let possibleMovesLocal = Array.from({ length: 5 }, () => Array(5).fill(0));
 //--------------- STOP ROLL ------------------
 function stopRoll() {
+    // Online: keep the dice tumbling until the server's numbers have arrived
+    // (this interval simply fires again 1.2s later).
+    if (controller.mode === "online" && !controller.rollArrived) return;
     clearInterval(rollAnimationID);
     clearInterval(stopRollID);
     renderDice(gameState.dice.values);
@@ -1409,6 +1476,10 @@ function removePiece(pieceId) {
     if (pieceId === null) return;
     let piece = document.getElementById(pieceId);
     let wrapper = piece.parentElement;
+
+    // The tentative piece is gone: don't let the next placement "remove" it
+    // a second time (that would also send a second cancel online).
+    if (prewPiece && prewPiece.id === pieceId) prewPiece = null;
 
     wrapper.classList.remove("img-bounce");
     wrapper.classList.add("img-disappear");
@@ -2204,17 +2275,24 @@ document.querySelectorAll(".result").forEach(el => {
                 gameState.called[idToIndex(el.id)] = 0;
             });
             //Not possible to call carre if 4 dice are locked
-            if (document.querySelectorAll(".die.selected").length === 4 && targetDiv === "cc5") return;
+            if (document.querySelectorAll(".die.selected").length === 4 && targetDiv === "cc5") { syncCall(); return; }
             //Not possible to call carre on carre
-            if (gameState.combinationsRealized[4] === 1 && targetDiv === "cc5") return;
+            if (gameState.combinationsRealized[4] === 1 && targetDiv === "cc5") { syncCall(); return; }
             //Only if at least one die is rolled
-            if (document.querySelectorAll(".die.selected").length === 5) return;
+            if (document.querySelectorAll(".die.selected").length === 5) { syncCall(); return; }
 
             targetDiv.classList.add("checked");
             gameState.called[targetId] = 1;
         }
+        syncCall();
     });
 });
+
+// Tells the controller what the call selection now is -- online, that's what
+// lets the opponent see the call being made.
+function syncCall() {
+    controller.dispatch({ type: "SELEC_CALL", called: gameState.called.slice() });
+}
 
 
 //----------- KEYBOARD SHORTCUTS ---------------
@@ -2354,23 +2432,14 @@ const chatWheelOverlay = document.getElementById("chat-wheel-overlay");
 const chatWheel = document.getElementById("chat-wheel");
 const chatTossStage = document.getElementById("chat-toss-stage");
 
-// Flat-style SVG emoji (see the twemoji <script> tag in index.html) instead
-// of the OS's own glossy native emoji font -- matches this app's flat,
-// no-gradient look and renders identically everywhere. Swaps each glyph's
-// text node for an <img class="emoji">; sized via CSS (.chat-emoji img.emoji
-// etc). Safe to call repeatedly/on already-parsed content -- it only
-// touches raw emoji text nodes, never an existing <img>.
-//
-// The library's own default image host (twemoji.maxcdn.com) is unreliable
-// -- it silently fails to load for a lot of visitors (blocked, rate
-// -limited, or just down), which is why the thrown emoji could render as
-// nothing at all. jsDelivr serving the same assets straight from the
-// twemoji GitHub repo is the dependable alternative.
-const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@v14.0.2/assets/";
-function parseTwemoji(el) {
-    if (window.twemoji) window.twemoji.parse(el, { base: TWEMOJI_BASE, folder: "svg", ext: ".svg" });
-}
-parseTwemoji(chatWheel);
+// The app's own emoji drawings (emoji.js) instead of the OS's glossy emoji
+// font: flat and outlined like the rest of the game, identical everywhere,
+// and part of the app (nothing to download, works offline). The buttons
+// keep the emoji character in data-emoji -- that's what is sent online.
+chatWheel.querySelectorAll(".chat-emoji").forEach((btn) => {
+    btn.innerHTML = emojiMarkup(btn.dataset.emoji);
+    btn.setAttribute("aria-label", emojiLabel(btn.dataset.emoji));
+});
 
 let chatWheelRotation = 0;
 let chatWheelDragging = false;
@@ -2478,6 +2547,9 @@ function endChatWheelDrag(e) {
     if (!chatWheelDidDrag && chatWheelDownBtn) {
         stopChatWheelInertia();
         throwChatEmoji(chatWheelDownBtn.dataset.emoji, chatWheelDownBtn.getBoundingClientRect());
+        if (controller.mode === "online" && gameInProgress && !isGameOver) {
+            onlineClient.sendEmote(chatWheelDownBtn.dataset.emoji);
+        }
         chatWheelOverlay.classList.add("hidden");
         chatWheelDownBtn = null;
         return;
@@ -2512,8 +2584,7 @@ function quadBezierPoint(p0, p1, p2, t) {
 function throwChatEmoji(emoji, originRect) {
     const el = document.createElement("div");
     el.className = "chat-toss-emoji";
-    el.textContent = emoji;
-    parseTwemoji(el);
+    el.innerHTML = emojiMarkup(emoji);
 
     const startX = originRect.left + originRect.width / 2;
     const startY = originRect.top + originRect.height / 2;
@@ -2665,3 +2736,505 @@ function throwChatEmoji(emoji, originRect) {
 
 
 
+
+
+//----------- ONLINE PLAY ---------------
+// The server (see server/) is the only referee: it rolls the dice, checks
+// every move and numbers everything it relays. This side does three things:
+//   - the player's own taps are applied at once (so the UI answers instantly)
+//     and sent to the server (see GameController.dispatch);
+//   - the opponent's taps arrive as numbered actions and are replayed here one
+//     at a time, with the same animations a local tap makes -- that is what
+//     lets the waiting player watch every move live;
+//   - if anything ever drifts (a refused action, a missed number, a dropped
+//     connection) the server's full snapshot is drawn instead.
+
+const onlineClient = new OnlineClient({
+    onConnection: (connected) => {
+        if (!gameInProgress || controller.mode !== "online" || isGameOver) return;
+        showToast(connected ? "Back online" : "Connection lost, reconnecting...", connected ? 1800 : 5000);
+    },
+    onGameStart: (snap) => beginOnlineGame(snap),
+    onSnapshot: (snap) => beginOnlineGame({ ...snap, fresh: false }),
+    onWaitingRoom: (code) => showWaitingRoom(code),
+    onAction: onRemoteAction,
+    onEmote: ({ from, id }) => {
+        const box = document.getElementById(from === 1 ? "playerP1" : "playerP2");
+        throwChatEmoji(id, box.getBoundingClientRect());
+    },
+    onOpponentStatus: ({ connected }) => {
+        if (controller.mode !== "online" || isGameOver) return;
+        showToast(connected ? "Your opponent is back" : "Your opponent disconnected, waiting for them...", connected ? 2000 : 6000);
+    },
+    onGameOver: onRemoteGameOver,
+    onRoomExpired: () => {
+        showMessage("Room expired", "Nobody joined in time. Create a new room to try again.");
+    },
+});
+
+//--------- small UI helpers ---------
+const onlineOverlay = document.getElementById("online-overlay");
+const toastEl = document.getElementById("toast");
+let toastTimer = null;
+
+function showOnlineView(view) {
+    onlineOverlay.dataset.view = view;
+    onlineOverlay.style.display = "flex";
+}
+
+function closeOnlineOverlay() {
+    onlineOverlay.style.display = "none";
+    onlineOverlay.dataset.view = "";
+}
+
+function showMessage(title, text) {
+    document.getElementById("message-title").textContent = title;
+    document.getElementById("message-text").textContent = text;
+    showOnlineView("message");
+}
+
+function showToast(text, ms = 2500) {
+    toastEl.textContent = text;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
+}
+
+function waitUntil(condition, pollMs = 80) {
+    return new Promise((resolve) => {
+        (function check() {
+            if (condition()) resolve();
+            else setTimeout(check, pollMs);
+        })();
+    });
+}
+
+//--------- consent (first run, and again whenever the text changes) ---------
+const consentOverlay = document.getElementById("consent-overlay");
+const consentCheck = document.getElementById("consent-check");
+const consentContinue = document.getElementById("consent-continue");
+
+function showConsent() {
+    consentCheck.checked = false;
+    consentContinue.setAttribute("aria-disabled", "true");
+    consentOverlay.style.display = "flex";
+}
+
+consentCheck.addEventListener("change", () => {
+    consentContinue.setAttribute("aria-disabled", String(!consentCheck.checked));
+});
+
+consentContinue.addEventListener("click", () => {
+    if (!consentCheck.checked) return;
+    saveConsent();
+    consentOverlay.style.display = "none";
+    if (onlineClient.socket) onlineClient.ensureConsentSent();
+    autoJoinFromLink();
+});
+
+if (!hasConsent()) showConsent();
+
+//--------- starting online games ---------
+// Resolves true once there is a server connection that has our hello and our
+// consent; otherwise shows why not and resolves false.
+async function prepareOnline() {
+    if (!hasConsent()) { showConsent(); return false; }
+    if (!onlineClient.available()) {
+        showMessage("Online unavailable", "This build isn't connected to a game server.");
+        return false;
+    }
+    const hello = await Promise.race([
+        onlineClient.connect(),
+        new Promise((resolve) => setTimeout(() => resolve(null), 6000)),
+    ]);
+    if (!hello?.ok) {
+        showMessage("Can't reach the server", "Check your connection and try again.");
+        return false;
+    }
+    await onlineClient.ensureConsentSent();
+    return true;
+}
+
+function describeOnlineError(res) {
+    switch (res?.error) {
+        case "consent_required": showConsent(); return null;
+        case "pro_required":
+            return ["Linotte Pro", "Creating a private room is part of Linotte Pro. Your friend can always join a room for free."];
+        case "bad_code": return ["Room not found", "Check the code and try again. Rooms close after 15 minutes."];
+        case "room_full": return ["Room is full", "That game already has two players."];
+        case "own_room": return ["That's your room", "Send the link or code to your friend instead."];
+        case "already_in_game": return null; // handled by rejoin()
+        default: return ["Something went wrong", "Please try again in a moment."];
+    }
+}
+
+function handleOnlineError(res) {
+    if (res?.error === "already_in_game") { onlineClient.rejoin(); return; }
+    const info = describeOnlineError(res);
+    if (info) showMessage(info[0], info[1]);
+    else closeOnlineOverlay();
+}
+
+async function startRandomOnline() {
+    if (!(await prepareOnline())) return;
+    document.getElementById("searching-text").textContent = "This usually takes a few seconds.";
+    showOnlineView("searching");
+    const res = await onlineClient.joinQueue();
+    if (!res.ok) handleOnlineError(res);
+}
+
+async function createFriendRoom() {
+    if (!(await prepareOnline())) return;
+    const res = await onlineClient.createRoom();
+    if (res.ok) showWaitingRoom(res.code);
+    else handleOnlineError(res);
+}
+
+async function joinFriendByCode(code) {
+    const errorEl = document.getElementById("code-error");
+    errorEl.textContent = "";
+    if (!(await prepareOnline())) return;
+    document.getElementById("searching-text").textContent = "Joining the game...";
+    showOnlineView("searching");
+    const res = await onlineClient.joinRoom(code);
+    if (res.ok) return; // game_start follows right away
+    if (res.error === "already_in_game") { onlineClient.rejoin(); return; }
+    const info = describeOnlineError(res);
+    if (info && res.error !== "pro_required") {
+        showOnlineView("joincode");
+        errorEl.textContent = info[1];
+    } else {
+        handleOnlineError(res);
+    }
+}
+
+let currentRoomCode = null;
+function showWaitingRoom(code) {
+    setOnlineSession(true);
+    currentRoomCode = code;
+    document.getElementById("room-code").textContent = code;
+    hideHomeScreen();
+    showOnlineView("waiting");
+}
+
+// An invite link (https://host/j/ABCD -> /?join=ABCD) opens the app already
+// joining that room, once the consent has been given.
+let autoJoinDone = false;
+function autoJoinFromLink() {
+    const code = pendingJoinCode();
+    if (!code || autoJoinDone || !hasConsent()) return;
+    autoJoinDone = true;
+    history.replaceState(null, "", location.pathname);
+    hideHomeScreen();
+    joinFriendByCode(code);
+}
+
+document.getElementById("home-online-btn").addEventListener("click", startRandomOnline);
+document.getElementById("online-random-btn").addEventListener("click", startRandomOnline);
+document.getElementById("home-friend-btn").addEventListener("click", () => showOnlineView("friend"));
+document.getElementById("online-friend-btn").addEventListener("click", () => showOnlineView("friend"));
+
+document.getElementById("searching-cancel").addEventListener("click", () => {
+    onlineClient.leaveQueue();
+    onlineClient.leaveRoom();
+    closeOnlineOverlay();
+});
+document.getElementById("friend-back").addEventListener("click", closeOnlineOverlay);
+document.getElementById("friend-create").addEventListener("click", createFriendRoom);
+document.getElementById("friend-join").addEventListener("click", () => {
+    document.getElementById("code-error").textContent = "";
+    showOnlineView("joincode");
+    document.getElementById("code-input").focus();
+});
+document.getElementById("code-back").addEventListener("click", () => showOnlineView("friend"));
+document.getElementById("code-submit").addEventListener("click", () => {
+    const code = document.getElementById("code-input").value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (code.length !== 4) {
+        document.getElementById("code-error").textContent = "The code has 4 characters.";
+        return;
+    }
+    joinFriendByCode(code);
+});
+document.getElementById("code-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("code-submit").click();
+});
+document.getElementById("message-ok").addEventListener("click", closeOnlineOverlay);
+
+document.getElementById("room-share").addEventListener("click", async () => {
+    if (!currentRoomCode) return;
+    const url = inviteLink(currentRoomCode);
+    if (navigator.share) {
+        try { await navigator.share({ title: "Linotte", text: `Play Linotte with me! Code: ${currentRoomCode}`, url }); return; }
+        catch { /* dismissed the share sheet -- nothing to do */ }
+    }
+    copyInviteLink();
+});
+document.getElementById("room-copy").addEventListener("click", copyInviteLink);
+document.getElementById("room-cancel").addEventListener("click", () => {
+    setOnlineSession(false);
+    onlineClient.leaveRoom();
+    currentRoomCode = null;
+    closeOnlineOverlay();
+});
+
+async function copyInviteLink() {
+    if (!currentRoomCode) return;
+    const url = inviteLink(currentRoomCode);
+    try {
+        await navigator.clipboard.writeText(url);
+        showToast("Link copied");
+    } catch {
+        window.prompt("Copy this link", url);
+    }
+}
+
+//--------- the game itself ---------
+let onlineReady = false; // false until the game's screen is up (and the coin has landed)
+let expectedSeq = 1;
+let remoteGen = 0; // bumped on every (re)start so an old replay stops touching the screen
+let remoteBusy = false;
+const remoteQueue = [];
+
+// Runs `fn` (which dispatches through the controller) with the "this came
+// from the opponent" flag set just for its synchronous part -- never across an
+// await, or the local player's next real tap would be swallowed.
+function withReplay(fn) {
+    controller.replaying = true;
+    try { fn(); } finally { controller.replaying = false; }
+}
+
+async function beginOnlineGame(snap) {
+    setOnlineSession(true);
+    remoteGen++;
+    remoteQueue.length = 0;
+    onlineReady = false;
+    closeOnlineOverlay();
+    hideHomeScreen();
+    optionsOverlay.classList.add("hidden");
+    document.getElementById("coin-flip-overlay").classList.add("hidden");
+
+    gameInProgress = true;
+    turnHandoverPending = false;
+    setPaused(false);
+    isGameOver = false;
+    endGameSequenceStarted = false;
+    clearInterval(rollAnimationID);
+    clearInterval(stopRollID);
+    rollBtnEnabled = true;
+    doneBtnEnabled = true;
+    pieceEnabled = true;
+    possibleMovesLocal = Array.from({ length: 5 }, () => Array(5).fill(0));
+
+    gameState = snap.state;
+    LOCAL_PLAYER = snap.seat;
+    gameState.players[snap.seat].name = "YOU";
+    startOnline();
+    expectedSeq = snap.seq + 1;
+    renderOnlineBoard();
+
+    if (snap.fresh) {
+        const label = (seat) => gameState.players[seat].name;
+        await flipCoin(label(1), label(2), snap.starter);
+        startTurnTimer();
+    } else {
+        resumeTurnTimer(Math.ceil(snap.timeLeftMs / 1000));
+    }
+    onlineReady = true;
+    pumpRemote();
+}
+
+// Draws the whole screen from gameState: used for a new game and whenever
+// the server's snapshot replaces what this screen thought was true.
+function renderOnlineBoard() {
+    forcedWinner = null;
+    document.getElementById("winner-overlay").style.display = "none";
+    document.getElementById("div-dice").classList.remove("game-over-dim");
+    document.getElementById("div-resultsAndCalls").classList.remove("game-over-dim");
+    rollBtn.classList.remove("game-over-dim");
+    document.body.classList.remove("table-flipped");
+
+    clearBoardVisuals();
+    document.querySelectorAll(".wrapPiece").forEach((w) => {
+        w.style.opacity = "";
+        w.classList.remove("piece-jump", "piece-tap", "img-disappear");
+    });
+    prewPiece = null;
+    selectedTileId = null;
+
+    const showPiece = (r, c, player) => {
+        const piece = document.getElementById(`p${r}${c}`);
+        piece.style.backgroundImage = urlOf(gameState.players[player].pieceImage);
+        applyTidyness(piece);
+        piece.parentElement.style.opacity = "1";
+        return piece;
+    };
+    for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 5; c++) {
+            if (gameState.table[r][c]) showPiece(r, c, gameState.table[r][c]);
+        }
+    }
+    if (gameState.currentPosition) { // a piece placed but not yet committed with DONE
+        const [r, c] = [Number(gameState.currentPosition[0]), Number(gameState.currentPosition[1])];
+        prewPiece = showPiece(r, c, gameState.currentPlayer);
+        selectedTileId = prewPiece.id;
+    }
+
+    const rolled = gameState.dice.rollsLeft < 3;
+    ddElements.forEach((dd, i) => {
+        dd.style.backgroundPosition = dicePos[rolled ? gameState.dice.values[i] : 0];
+        dd.classList.toggle("selected", Boolean(gameState.dice.locked[i]));
+    });
+    wdElements.forEach((wd) => { wd.style.transform = "rotate(0deg) translate(0px,0px)"; });
+    ccElements.forEach((cc, i) => cc.classList.toggle("checked", i >= 3 && Boolean(gameState.called[i])));
+    rollBtnText.innerText = "ROLL " + gameState.dice.rollsLeft;
+
+    possibleMovesLocal = gameState.possibleMoves;
+    renderResultsHighlight();
+    renderTableHighlight();
+
+    applyPlayerVisuals();
+    renderPlayerBox(gameState.currentPlayer);
+    renderPieceCounts();
+    renderPointCounts();
+    divsOpacity(gameState.currentPlayer);
+}
+
+function leaveOnlineGameIfAny() {
+    if (controller.mode !== "online") return;
+    setOnlineSession(false);
+    onlineClient.leaveRoom();
+    remoteGen++;
+    remoteQueue.length = 0;
+    onlineReady = false;
+}
+
+//--------- replaying the opponent ---------
+function onRemoteAction({ seq, seat, action }) {
+    if (controller.mode !== "online") return;
+    if (seq < expectedSeq) return; // already part of the snapshot this screen was drawn from
+    if (seq > expectedSeq) { onlineClient.rejoin(); return; } // missed one: redraw from the server's truth
+    expectedSeq = seq + 1;
+
+    if (seat === LOCAL_PLAYER) {
+        // Our own moves were applied when we tapped. Two exceptions: the dice
+        // (the server rolls them) and a turn the server ended for us because
+        // our clock ran out while this screen was somewhere else.
+        if (action.type === "ROLL_DICE") {
+            controller.localAction(action);
+            controller.rollArrived = true;
+            return;
+        }
+        if (!(action.type === "END_TURN" && action.forced && gameState.currentPlayer === LOCAL_PLAYER)) return;
+    }
+    remoteQueue.push(action);
+    pumpRemote();
+}
+
+async function pumpRemote() {
+    if (remoteBusy || !onlineReady) return;
+    remoteBusy = true;
+    const gen = remoteGen;
+    try {
+        while (remoteQueue.length && gen === remoteGen) {
+            // The previous turn's celebration still has to finish before the
+            // next player's moves start showing.
+            await waitUntil(() => !turnHandoverPending || gen !== remoteGen);
+            if (gen !== remoteGen) break;
+            await replayRemote(remoteQueue.shift(), gen);
+        }
+    } finally {
+        remoteBusy = false;
+        if (remoteQueue.length && onlineReady) pumpRemote();
+    }
+}
+
+async function replayRemote(action, gen) {
+    switch (action.type) {
+        case "ROLL_DICE":
+            if (isVolumeOn) new Audio("resources/sounds/roll.mp3").play();
+            withReplay(() => controller.dispatch(action));
+            rollBtnText.innerText = "ROLL " + gameState.dice.rollsLeft;
+            tileElements.forEach((el) => el.classList.remove("tile_highlighted"));
+            rrElements.forEach((el) => el.classList.remove("highlighted"));
+            for (let i = 0; i < 12 && gen === remoteGen; i++) {
+                renderDice([0, 0, 0, 0, 0].map(() => rndNum(1, 6)));
+                await sleep(100);
+            }
+            renderDice(gameState.dice.values);
+            break;
+        case "STOP_ROLL":
+            withReplay(() => controller.dispatch(action));
+            renderDice(gameState.dice.values);
+            possibleMovesLocal = gameState.possibleMoves;
+            renderResultsHighlight();
+            renderTableHighlight();
+            break;
+        case "LOCK_DICE":
+            withReplay(() => controller.dispatch(action));
+            ddElements.forEach((dd, i) => dd.classList.toggle("selected", Boolean(action.locked[i])));
+            break;
+        case "SELEC_CALL":
+            withReplay(() => controller.dispatch(action));
+            ccElements.forEach((cc, i) => cc.classList.toggle("checked", i >= 3 && Boolean(action.called[i])));
+            break;
+        case "PLACE_PIECE":
+            if (action.player === 0) withReplay(() => removePiece("p" + action.coordinates));
+            else withReplay(() => placePiece("p" + action.coordinates));
+            break;
+        case "END_TURN":
+            withReplay(() => performEndTurn());
+            await waitUntil(() => !turnHandoverPending || isGameOver || gen !== remoteGen);
+            break;
+    }
+}
+
+//--------- the game ending early ---------
+function onRemoteGameOver({ winner, reason }) {
+    setOnlineSession(false); // over: a relaunch has nothing to rejoin
+    if (controller.mode !== "online" || isGameOver) return;
+    if (reason === "normal") return; // both screens play their own ending
+    remoteGen++;
+    remoteQueue.length = 0;
+    clearInterval(rollAnimationID);
+    clearInterval(stopRollID);
+    stopTimer();
+    turnHandoverPending = false;
+    forcedWinner = winner;
+    isGameOver = true;
+    rollBtnEnabled = false;
+    doneBtnEnabled = false;
+
+    // Same end-of-game controls checkGameOver() leaves.
+    document.getElementById("div-dice").classList.add("game-over-dim");
+    document.getElementById("div-resultsAndCalls").classList.add("game-over-dim");
+    rollBtn.classList.add("game-over-dim");
+    rollBtn.style.display = "none";
+    doneBtn.style.display = "none";
+    turnLabelEl.style.display = "none";
+    endGameDoneBtn.style.display = "flex";
+
+    showWinnerPopup(winner);
+    if (winner === LOCAL_PLAYER) {
+        document.getElementById("winner-text").textContent =
+            reason === "disconnect" ? "Your opponent disconnected. You win!" : "Your opponent left. You win!";
+    }
+}
+
+document.addEventListener("DOMContentLoaded", autoJoinFromLink);
+if (document.readyState !== "loading") autoJoinFromLink();
+
+// Relaunched in the middle of an online game (or while a friend room was
+// waiting): reconnect now -- the client asks the server for its room as soon
+// as it's connected -- instead of waiting for a tap on ONLINE.
+if (hasConsent() && wasInOnlineSession() && onlineClient.available()) onlineClient.connect();
+
+
+//----------- COMBINATION DEMOS (help page) ---------------
+// The ▶ next to each combination plays a short scripted turn in a copy of
+// this screen (see demo.js), with this player's own piece and colour.
+initCombinationDemos({
+    getVisuals: () => {
+        const me = gameState.players[LOCAL_PLAYER || 1];
+        return { pieceImage: me.pieceImage, color: me.color };
+    },
+});
