@@ -2494,6 +2494,10 @@ function divsOpacity(currentPlayer) {
     rollBtn.style.display = "";
     doneBtn.style.display = "";
     turnLabelEl.style.display = "none";
+    // Undo a dimming left by the previous game (it can end on the bot's or
+    // the opponent's turn); the hotseat never sets one of its own.
+    document.getElementById("div-dice").style.opacity = "";
+    document.getElementById("div-resultsAndCalls").style.opacity = "";
     if (controller.mode === "offline") return; // hotseat: never dim, both players share the controls
     if (!currentPlayer) return;
     // Dice and results/calls just dim a touch on the opponent's turn -- see

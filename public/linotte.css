@@ -2018,12 +2018,16 @@ section {
   z-index: 100;
   /* Whichever side of the screen is shorter, so the whole square is always
      on screen, and never larger than a comfortable card on a tablet. */
-  width: min(90vw, 90dvh, 480px);
+  --card: min(90vw, 90dvh, 480px);
+  width: var(--card);
   aspect-ratio: 1/1;
   container-type: size;
   margin: auto;
   opacity: 1;
-  border-radius: 6cqw;
+  /* 6% of the card. Not 6cqw: on the card itself cqw measures the screen
+     (its own container units only apply to its children), which made the
+     corners far too round in landscape. */
+  border-radius: calc(var(--card) * .06);
   /* The buttons' 3px on the phone's 337px card, scaling with the card
      (resolved in each child, where cqw means this card). */
   --winner-border: .891cqw solid var(--btn-border-color);

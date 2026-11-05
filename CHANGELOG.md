@@ -12,6 +12,12 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.9.1] - 2026-11-05
+
+### Fixed
+- Winner screen in landscape: the card's corners have the same roundness as in portrait (they measured the screen instead of the card and came out far too round).
+- A new game no longer starts with the dice and combinations half transparent when the previous game ended on the bot's or the online opponent's turn.
+
 ## [2.9.0] - 2026-11-05
 
 ### Added
