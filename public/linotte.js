@@ -200,25 +200,48 @@ startBot(botStrategy); // default to player-vs-bot, ready to play on open --
 // needs to be "correct", just non-crashing while the home screen sits on
 // top of it (z-index 60, covers the whole viewport).
 
-// Shown on load (see index.html) so a fresh visit always lands on a mode
-// choice instead of straight into that default bot game above. Hidden via
-// a direct style.display write, not a class toggle -- this element is
-// never shown again after the first choice, so there's no ".hidden" state
-// to manage or any cascade-order risk to worry about (see the CSS
-// comment on .flip-coin-overlay.hidden for why that distinction mattered
-// there).
+// The home screen (see index.html and home.css): shown on load, and again
+// whenever a player leaves a game (HOME in the Game tab, NEW GAME on the
+// winner screen). Shown/hidden with an inline display, so no ".hidden"
+// cascade-order issues (see .flip-coin-overlay.hidden in linotte.css).
+const homeOverlay = document.getElementById("home-overlay");
+
 function hideHomeScreen() {
-    document.getElementById("home-overlay").style.display = "none";
+    homeOverlay.style.display = "none";
 }
 
-// Temporary: highlights the options-menu section for whichever mode the
-// current game is actually running in.
-function markActiveMode() {
-    const mode = gameInProgress ? controller.mode : null;
-    document.getElementById("title-same-table").classList.toggle("selected", mode === "offline");
-    document.getElementById("title-vs-bot").classList.toggle("selected", mode === "bot");
-    document.getElementById("title-online").classList.toggle("selected", mode === "online");
+function isHomeShown() {
+    return homeOverlay.style.display !== "none";
 }
+
+// A game left for the home stays in memory, paused, and the home offers to
+// continue it. Online games can't wait (the server's clock runs on), so
+// leaving one ends it; a finished game has nothing to continue.
+function canContinueGame() {
+    return gameInProgress && !isGameOver && controller.mode !== "online";
+}
+
+function showHomeScreen() {
+    optionsOverlay.classList.add("hidden");
+    flipPending = false;
+    document.body.classList.remove("table-flipped"); // the home is never upside down
+    document.getElementById("winner-overlay").style.display = "none";
+    const card = document.getElementById("home-continue");
+    if (canContinueGame()) {
+        setPaused(true);
+        const p = gameState.players;
+        const turn = p[gameState.currentPlayer].name;
+        document.getElementById("home-continue-desc").textContent = controller.mode === "bot"
+            ? `Vs bot · You ${p[1].points} – Bot ${p[2].points}`
+            : `Same table · ${p[1].name} ${p[1].points} – ${p[2].name} ${p[2].points} · ${turn}'s turn`;
+        card.hidden = false;
+    } else {
+        card.hidden = true;
+    }
+    homeOverlay.style.display = "";
+}
+
+function markActiveMode() {}
 
 function startOffline() {
     controller = new GameController("offline");
@@ -615,6 +638,11 @@ if (isVolumeOn == true) {
 } else {
     document.getElementById("sound-off").classList.add("selected");
 }
+// The section title says which one is on.
+function updateSoundTitle() {
+    document.getElementById("sound-title").textContent = isVolumeOn ? "Sound" : "No sound";
+}
+updateSoundTitle();
 
 
 function setCookie(name, value, days = 365) {
@@ -805,18 +833,44 @@ function renderDiceFace(id) {
 
 
 //----------- OPTIONS OVERLAY -----------------
-openBtn.onclick = () => {
+// From the game (the options icon) the menu opens on the Game tab; from the
+// home (the settings button) it has no Game tab and opens on Options, or on
+// How to play.
+function openOptions(context, page) {
+    optionsOverlay.dataset.context = context;
+    if (context === "game") updateGameTab();
     optionsOverlay.classList.remove("hidden");
-    handleTab("game");
+    handleTab(page);
     centerLists();
 }
 
-optionsOverlay.addEventListener("click", (e) => {
-    if (e.target === optionsOverlay) {
-        // The "hidden" class, not display:none -- the open button only
-        // removes that class, so an inline display:none could never be undone.
-        optionsOverlay.classList.add("hidden");
+openBtn.onclick = () => openOptions("game", "game");
+
+// The Game tab only offers what fits the game in progress: pause and
+// restart off-line (an online game's clock runs on the server), FLIP only
+// at the same table.
+function updateGameTab() {
+    const mode = controller.mode;
+    const live = gameInProgress && !isGameOver;
+    document.getElementById("pause-slot").hidden = mode === "online" || !live;
+    document.getElementById("flip-slot").hidden = mode !== "offline";
+    document.getElementById("restart-slot").hidden = mode === "online" || !gameInProgress;
+}
+
+// Closes the menu. The "hidden" class, not display:none -- the open button
+// only removes that class, so an inline display:none could never be undone.
+// A FLIP that happened while it was open (the option toggled, or a turn
+// handed over) turns the game now, once the menu is out of the way.
+function closeOptions() {
+    optionsOverlay.classList.add("hidden");
+    if (flipPending) {
+        flipPending = false;
+        applyFlip();
     }
+}
+
+optionsOverlay.addEventListener("click", (e) => {
+    if (e.target === optionsOverlay) closeOptions();
 });
 
 document.querySelectorAll(".icon").forEach(icon => {
@@ -833,7 +887,7 @@ let currentOptionsTab = "game";
 
 function handleTab(page) {
     if (page === "back") {
-        optionsOverlay.classList.add("hidden");
+        closeOptions();
         return;
     }
 
@@ -843,6 +897,7 @@ function handleTab(page) {
 
     currentOptionsTab = page;
     moveIndicator(page);
+    if (page === "options") requestAnimationFrame(() => centerLists());
 }
 
 function moveIndicator(page) {
@@ -874,6 +929,7 @@ volumeOptions.forEach(volumeOption => {
             isVolumeOn = true;
         }
         setCookie("volumeOn", isVolumeOn);
+        updateSoundTitle();
     });
 });
 
@@ -944,8 +1000,15 @@ document.getElementById("flip-table-btn").classList.toggle("selected", flipOptio
 // when a turn is actually handed over (or the winner is shown), never at the
 // moment a turn is committed, so the page doesn't rotate mid-animation.
 let viewPlayer = 1;
+// Set when the game should turn while the menu is open: the menu itself
+// doesn't turn under the player's finger; closeOptions() turns the game.
+let flipPending = false;
 function applyFlip(player = viewPlayer) {
     viewPlayer = player;
+    if (!optionsOverlay.classList.contains("hidden") && optionsOverlay.dataset.context === "game") {
+        flipPending = true;
+        return;
+    }
     const flipped = flipOptionOn && controller.mode === "offline" && player === 2;
     document.body.classList.toggle("table-flipped", flipped);
 }
@@ -955,14 +1018,6 @@ document.getElementById("flip-table-btn").addEventListener("click", () => {
     setCookie("flipOn", flipOptionOn);
     document.getElementById("flip-table-btn").classList.toggle("selected", flipOptionOn);
     applyFlip();
-});
-
-document.getElementById("play-offline-btn").addEventListener("click", () => {
-    flipCoin("P1", "P2").then((startingPlayer) => {
-        newGameOffline(startingPlayer);
-        hideHomeScreen();
-        handleTab("back");
-    });
 });
 
 document.getElementById("home-play-btn").addEventListener("click", () => {
@@ -984,6 +1039,7 @@ botStrategyButtons.forEach(btn => {
         botStrategyButtons.forEach(b => b.classList.remove("selected"));
         btn.classList.add("selected");
 
+        closeOnlineOverlay();
         flipCoin("YOU", "BOT").then((startingPlayer) => {
             newGameVsBot(btn.dataset.strategy, startingPlayer);
             hideHomeScreen();
@@ -1086,6 +1142,7 @@ dieOptions.forEach(dieOption => {
         diceSpriteImg.src = selectedDie;
         setCookie("diceFaces", dieId);
         renderDiceFace(dieId);
+        centerLists(true);
     });
 });
 
@@ -1103,6 +1160,7 @@ bgOptions.forEach(bgOption => {
         optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]));
         modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
         setCookie("background", bgId);
+        centerLists(true);
     });
 });
 
@@ -1135,16 +1193,19 @@ function applyTidyness(element) {
 
 
 // It centers the selected item in the carousels in the options overlay 
-function centerLists() {
-    document.querySelectorAll(".car-list").forEach(list => {
+// Each carousel (dice, backgrounds...) scrolls sideways to its current
+// choice. Only the carousel moves: scrollIntoView would also scroll the page
+// up or down to it. Runs whenever the Options tab is shown (a hidden list
+// has no size to scroll), right away, without an animation.
+function centerLists(smooth = false) {
+    document.querySelectorAll("#page-options .car-list").forEach(list => {
         const selected = list.querySelector(".selected");
-        if (selected) {
-            selected.scrollIntoView({
-                behavior: "smooth",
-                inline: "center",
-                block: "nearest"
-            });
-        }
+        if (!selected || !list.clientWidth) return;
+        const item = selected.closest(".car-item") || selected;
+        const listBox = list.getBoundingClientRect();
+        const itemBox = item.getBoundingClientRect();
+        const left = list.scrollLeft + (itemBox.left - listBox.left) - (list.clientWidth - itemBox.width) / 2;
+        list.scrollTo({ left, behavior: smooth ? "smooth" : "auto" });
     });
 }
 
@@ -1187,9 +1248,11 @@ document.getElementById("piece-popup").addEventListener("click", (e) => {
     restartAnimation();
 });
 
+// NEW GAME: back to the home screen, to pick the next mode (it used to
+// reload the whole page).
 document.getElementById("winner-button").addEventListener("click", (e) => {
     e.stopPropagation();
-    location.reload();
+    leaveToHome();
 });
 
 
@@ -1349,6 +1412,14 @@ rollBtn.addEventListener("click", function () {
     if (isVolumeOn) {
         new Audio("resources/sounds/roll.mp3").play();
     }
+    // Take back a tentative piece BEFORE rolling: online the moves reach
+    // the server in this order, and while the dice roll it refused the
+    // cancel, then redrew the screen with the piece still placed and no
+    // dice animation.
+    tileElements.forEach(el => el.classList.remove("tile_highlighted"));
+    rrElements.forEach(el => el.classList.remove("highlighted"));
+    removePiece(selectedTileId);
+
     const rollsBefore = gameState.dice.rollsLeft;
     controller.dispatch({ type: "ROLL_DICE" });
     rollAnimationID = setInterval(rollAnimation, 100);
@@ -1356,10 +1427,7 @@ rollBtn.addEventListener("click", function () {
 
     // Online, the roll only lands when the server's dice come back, so the
     // counter can't be read from the state yet.
-    rollBtnText.innerText = "ROLL " + (controller.mode === "online" ? rollsBefore - 1 : gameState.dice.rollsLeft);
-    tileElements.forEach(el => el.classList.remove("tile_highlighted"));
-    rrElements.forEach(el => el.classList.remove("highlighted"));
-    removePiece(selectedTileId);
+    setRollsLeftUI(controller.mode === "online" ? rollsBefore - 1 : gameState.dice.rollsLeft);
 });
 
 
@@ -1450,17 +1518,18 @@ function renderTableHighlight() {
 
 
 //----------- PIECE PLACEMENT ---------------
+// A tap that can place/remove a piece does that, on release (a finger that
+// slides off cancels it). Any other touch on an occupied tile (either
+// player's, any time) makes its piece bounce right away, as the finger lands.
+const tileCanAct = (el) => isMyTurn() && pieceEnabled &&
+    matrixCheck(idToCoo(el.id), possibleMovesLocal) !== 0;
+
 document.querySelectorAll(".tile").forEach(el => {
     el.addEventListener("click", function () {
-        // A tap that can place/remove a piece does that; any other tap on an
-        // occupied tile (either player's, any time) just makes its piece
-        // bounce a little.
-        const canAct = isMyTurn() && pieceEnabled &&
-            matrixCheck(idToCoo(el.id), possibleMovesLocal) !== 0;
-        if (canAct) {
-            handleTile(el.id);
-            return;
-        }
+        if (tileCanAct(el)) handleTile(el.id);
+    });
+    el.addEventListener("pointerdown", function () {
+        if (tileCanAct(el)) return;
         const piece = document.getElementById("p" + idToCoo(el.id));
         if (piece && piece.style.backgroundImage &&
             getComputedStyle(piece.parentElement).opacity === "1") {
@@ -1705,7 +1774,44 @@ function checkTable(coordinates) {
 
 
 //------------------ DONE BUTTON ----------------------
-doneBtn.addEventListener("click", doneButton);
+// DONE needs at least one roll this turn (it used to pass the turn without
+// rolling at all). Only the tap is gated: the turn clock running out still
+// ends the turn through doneButton() directly.
+doneBtn.addEventListener("click", () => {
+    if (!isGameOver && gameState.dice.rollsLeft >= 3) return;
+    doneButton();
+});
+
+// The ROLL label and the inactive look of ROLL/DONE (see .button.is-inactive
+// in linotte.css) always change together: ROLL with no rolls left, DONE
+// before the turn's first roll. Online, `n` is the count the player is about
+// to have (the server's dice are still on their way).
+function setRollsLeftUI(n) {
+    rollBtnText.innerText = "ROLL " + n;
+    rollBtn.classList.toggle("is-inactive", n < 1);
+    doneBtn.classList.toggle("is-inactive", n >= 3);
+}
+
+//----------- PRESS FEEDBACK -----------------
+// Every button sinks while it's held (.is-pressed in linotte.css). The class
+// stays on for at least PRESS_MIN_MS so a quick tap still shows it.
+const PRESSABLE = ".button, .winner-button, .chat-fab, .options, #icon-back, #winner-icon-back, .rules-play, .demo-icon-btn, .home-profile, .home-pro, .home-settings, .home-extra, .home-ad";
+const PRESS_MIN_MS = 90;
+
+document.addEventListener("pointerdown", (e) => {
+    const el = e.target.closest(PRESSABLE);
+    if (!el || el.classList.contains("is-inactive")) return;
+    el.classList.add("is-pressed");
+    const pressedAt = performance.now();
+    const release = () => {
+        window.removeEventListener("pointerup", release, true);
+        window.removeEventListener("pointercancel", release, true);
+        const wait = Math.max(0, PRESS_MIN_MS - (performance.now() - pressedAt));
+        setTimeout(() => el.classList.remove("is-pressed"), wait);
+    };
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", release, true);
+}, { passive: true });
 
 function doneButton(e) {
     if (isGameOver) {
@@ -2119,7 +2225,7 @@ async function botRoll() {
         new Audio("resources/sounds/roll.mp3").play();
     }
     controller.dispatch({ type: "ROLL_DICE" });
-    rollBtnText.innerText = "ROLL " + gameState.dice.rollsLeft;
+    setRollsLeftUI(gameState.dice.rollsLeft);
     tileElements.forEach(el => el.classList.remove("tile_highlighted"));
     rrElements.forEach(el => el.classList.remove("highlighted"));
 
@@ -2206,7 +2312,7 @@ function clearForNextTurn() {
     ddElements.forEach(dd => dd.style.backgroundPosition = dicePos[0]);
 
     //Roll button reset
-    rollBtnText.innerText = "ROLL 3";
+    setRollsLeftUI(3);
     gameState.dice.rollsLeft = 3;
     gameState.called = [null, null, null, false, false, false, false, false];
 
@@ -2323,7 +2429,7 @@ const CALL_KEY_TO_RESULT_INDEX = { "6": 3, "7": 4, "8": 5, "9": 6, "0": 7 };
 
 document.addEventListener("keydown", (e) => {
     if (e.repeat) return;
-    if (!gameInProgress) return; // home screen: nothing to roll/place yet
+    if (!gameInProgress || isHomeShown()) return; // home screen: nothing to roll/place
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     const targetTag = e.target && e.target.tagName;
@@ -2947,10 +3053,91 @@ function autoJoinFromLink() {
     joinFriendByCode(code);
 }
 
-document.getElementById("home-online-btn").addEventListener("click", startRandomOnline);
-document.getElementById("online-random-btn").addEventListener("click", startRandomOnline);
-document.getElementById("home-friend-btn").addEventListener("click", () => showOnlineView("friend"));
-document.getElementById("online-friend-btn").addEventListener("click", () => showOnlineView("friend"));
+// Online play needs a game server the published site doesn't have yet, so
+// ONLINE and FRIEND only say "coming soon". A developer can switch them on
+// for one device by opening the page once with ?online=1 (and off again
+// with ?online=0) -- for local tests through `npm start` or ngrok.
+const DEV_ONLINE_KEY = "linotte-dev-online";
+const onlineEnabled = (() => {
+    try {
+        const q = new URLSearchParams(location.search);
+        if (q.has("online")) localStorage.setItem(DEV_ONLINE_KEY, q.get("online") === "0" ? "" : "1");
+        return localStorage.getItem(DEV_ONLINE_KEY) === "1";
+    } catch {
+        return false;
+    }
+})();
+document.body.classList.toggle("online-enabled", onlineEnabled);
+
+document.getElementById("home-online-btn").addEventListener("click", () => {
+    if (onlineEnabled) startRandomOnline();
+    else showToast("Online play is coming soon.");
+});
+document.getElementById("home-friend-btn").addEventListener("click", () => {
+    if (onlineEnabled) showOnlineView("friend");
+    else showToast("Playing with a friend is coming soon.");
+});
+
+//--------- home screen: the rest ---------
+const byId = (id) => document.getElementById(id);
+byId("home-vs-bot-btn").addEventListener("click", () => showOnlineView("bot"));
+byId("home-settings").addEventListener("click", () => openOptions("home", "options"));
+byId("home-help").addEventListener("click", () => openOptions("home", "help"));
+// Everything marked SOON only says so (the sign-in and Pro panels are kept
+// in index.html for when accounts and purchases arrive).
+byId("home-profile").addEventListener("click", () => showToast("Sign-in is coming soon."));
+byId("home-pro").addEventListener("click", () => showToast("Linotte Pro is coming soon."));
+byId("home-ad").addEventListener("click", () => showToast("Linotte Pro is coming soon."));
+byId("home-shop").addEventListener("click", () => showToast("The shop is coming soon."));
+byId("home-stats").addEventListener("click", () => showToast("Stats are coming soon."));
+document.querySelectorAll("[data-sheet-close]").forEach((el) => el.addEventListener("click", closeOnlineOverlay));
+// Sign-in and purchases come with the native apps; their buttons say so.
+document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("click", () => showToast(el.dataset.soon)));
+
+byId("home-continue-btn").addEventListener("click", () => {
+    hideHomeScreen();
+    applyFlip(); // back to whoever's turn it is, as the game was left
+    setPaused(false);
+});
+
+// HOME in the Game tab. An online game ends when you leave it, so that one
+// asks first.
+byId("game-home-btn").addEventListener("click", () => {
+    if (controller.mode === "online" && gameInProgress && !isGameOver) {
+        showOnlineView("leave");
+        return;
+    }
+    showHomeScreen();
+});
+
+function leaveToHome() {
+    leaveOnlineGameIfAny();
+    if (controller.mode === "online") gameInProgress = false;
+    closeOnlineOverlay();
+    showHomeScreen();
+}
+
+byId("leave-confirm").addEventListener("click", leaveToHome);
+
+// RESTART in the Game tab asks first; the new game is in the same mode
+// (off-line only).
+byId("restart-btn").addEventListener("click", () => showOnlineView("restart"));
+
+byId("restart-confirm").addEventListener("click", () => {
+    closeOnlineOverlay();
+    if (controller.mode === "offline") {
+        flipCoin("P1", "P2").then((startingPlayer) => {
+            newGameOffline(startingPlayer);
+            handleTab("back");
+        });
+    } else if (controller.mode === "bot") {
+        const strategy = botStrategy;
+        flipCoin("YOU", "BOT").then((startingPlayer) => {
+            newGameVsBot(strategy, startingPlayer);
+            handleTab("back");
+        });
+    }
+});
 
 document.getElementById("searching-cancel").addEventListener("click", () => {
     onlineClient.leaveQueue();
@@ -3104,7 +3291,7 @@ function renderOnlineBoard() {
     });
     wdElements.forEach((wd) => { wd.style.transform = "rotate(0deg) translate(0px,0px)"; });
     ccElements.forEach((cc, i) => cc.classList.toggle("checked", i >= 3 && Boolean(gameState.called[i])));
-    rollBtnText.innerText = "ROLL " + gameState.dice.rollsLeft;
+    setRollsLeftUI(gameState.dice.rollsLeft);
 
     possibleMovesLocal = gameState.possibleMoves;
     renderResultsHighlight();
@@ -3171,7 +3358,7 @@ async function replayRemote(action, gen) {
         case "ROLL_DICE":
             if (isVolumeOn) new Audio("resources/sounds/roll.mp3").play();
             withReplay(() => controller.dispatch(action));
-            rollBtnText.innerText = "ROLL " + gameState.dice.rollsLeft;
+            setRollsLeftUI(gameState.dice.rollsLeft);
             tileElements.forEach((el) => el.classList.remove("tile_highlighted"));
             rrElements.forEach((el) => el.classList.remove("highlighted"));
             for (let i = 0; i < 12 && gen === remoteGen; i++) {

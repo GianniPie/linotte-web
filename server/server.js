@@ -8,7 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 
-import { PORT, CONSENT_VERSION, EMOTES, isOriginAllowed } from "./config.js";
+import { PORT, CONSENT_VERSION, EMOTES, ROOMS_NEED_PRO, isOriginAllowed } from "./config.js";
 import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
 import { isPro } from "./entitlements.js";
@@ -99,9 +99,10 @@ io.on("connection", (socket) => {
   on("queue_join", { needsConsent: true }, () => lobby.joinQueue(socket));
   on("queue_leave", {}, () => ({ ok: lobby.leaveQueue(socket.data.playerId) }));
 
-  // Creating a friend room is the paid feature; joining one is free.
+  // Creating a friend room is meant to be the paid feature (joining is
+  // always free); free for everyone until ROOMS_NEED_PRO is switched on.
   on("room_create", { needsConsent: true }, async () => {
-    if (!(await isPro(socket.data.entitlement))) return { ok: false, error: "pro_required" };
+    if (ROOMS_NEED_PRO && !(await isPro(socket.data.entitlement))) return { ok: false, error: "pro_required" };
     return lobby.createPrivate(socket);
   });
   on("room_join", { needsConsent: true }, (p) => lobby.joinByCode(socket, p.code));

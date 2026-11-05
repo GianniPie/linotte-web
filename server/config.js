@@ -45,6 +45,11 @@ export const REVENUECAT_SECRET_KEY = process.env.REVENUECAT_SECRET_KEY || "";
 export const PRO_ENTITLEMENT_ID = process.env.PRO_ENTITLEMENT_ID || "pro";
 export const ALLOW_DEV_PRO = !IS_PRODUCTION || process.env.ALLOW_DEV_PRO === "1";
 
+// Creating a friend room is planned as a Pro feature, but Pro can't be
+// bought yet, so for now anyone can create one. Set ROOMS_NEED_PRO=1 once
+// purchases are live to put it behind Pro again (joining stays free).
+export const ROOMS_NEED_PRO = process.env.ROOMS_NEED_PRO === "1";
+
 // Browsers on the same origin are always fine; the native apps (Capacitor)
 // load from capacitor://localhost (iOS) / https://localhost (Android), and a
 // separately hosted web client has to be listed here.

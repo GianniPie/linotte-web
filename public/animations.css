@@ -6,15 +6,15 @@
 /* highlight current player */
 @keyframes pulseShadow {
     0% {
-        box-shadow: var(--glow) 0 0 0 4px;
+        box-shadow: var(--glow) 0 0 0 .25em;
     }
 
     50% {
-        box-shadow: var(--glow) 0 0 0 8px;
+        box-shadow: var(--glow) 0 0 0 .5em;
     }
 
     100% {
-        box-shadow: var(--glow) 0 0 0 4px;
+        box-shadow: var(--glow) 0 0 0 .25em;
     }
 }
 
@@ -88,14 +88,32 @@
 
 /* piece placement: grows in from a little smaller, one slight overshoot */
 @keyframes bounceIn {
-  0% {
-    opacity: 0;
-    transform: scale(.6);
+  /* The 2.7.0 placement: the piece pops in from small with a few
+     settling bounces (restored on the user's request). */
+  0%, 20%, 40%, 60%, 80%, to {
+    animation-timing-function: cubic-bezier(.215, .61, .355, 1);
   }
 
-  70% {
+  0% {
+    opacity: 0;
+    transform: scale(.3);
+  }
+
+  20% {
+    transform: scale(1.1);
+  }
+
+  40% {
+    transform: scale(.9);
+  }
+
+  60% {
     opacity: 1;
-    transform: scale(1.04);
+    transform: scale(1.03);
+  }
+
+  80% {
+    transform: scale(.97);
   }
 
   to {
@@ -106,22 +124,42 @@
 
 /* piece removed: shrinks a touch while it fades */
 @keyframes bounceOut {
+  /* The 2.7.0 removal: the piece swells and fades out. */
   0% {
     opacity: 1;
     transform: scale(1);
   }
 
+  50% {
+    opacity: 0;
+    transform: scale(2);
+  }
+
   to {
     opacity: 0;
-    transform: scale(.85);
+    transform: scale(1);
   }
 }
 
 /* die (and option) selection: a short press. The ring itself is a plain
    style on .selected in linotte.css, so nothing stays filled afterwards. */
 @keyframes bounceDie {
-  50% {
-    transform: scale(.94);
+  /* The 2.7.0 selection bounce: in, out, settle. The ring itself is a
+     plain style on .selected (linotte.css), so nothing stays filled. */
+  40%, 60%, 80%, to {
+    animation-timing-function: cubic-bezier(.215, .61, .355, 1);
+  }
+
+  40% {
+    transform: scale(.9);
+  }
+
+  60% {
+    transform: scale(1.1);
+  }
+
+  80% {
+    transform: scale(.95);
   }
 
   to {
@@ -149,8 +187,21 @@
 
 /* call selection: a small lift as it lights up */
 @keyframes bounceCall {
-  50% {
-    transform: scale(1.1);
+  /* The 2.7.0 call: it swells as it lights up, then settles. */
+  40%, 60%, 80%, to {
+    animation-timing-function: cubic-bezier(.215, .61, .355, 1);
+  }
+
+  40% {
+    transform: scale(.9);
+  }
+
+  60% {
+    transform: scale(1.3);
+  }
+
+  80% {
+    transform: scale(.97);
   }
 
   to {
@@ -218,21 +269,26 @@
   animation-iteration-count: 1;
 }
 
-/* Tapping a placed piece: one small hop and a single settle -- the same
-   spring idea as before, at the quiet tap-feedback scale (was 0.85s with
-   seven over/undershoots). The fairy-trail jump above is a celebration and
-   keeps its own size and timing. */
-@keyframes pieceTapSpring {
-  0%   { transform: translateY(0) scale(1, 1); }
-  35%  { transform: translateY(-6%) scale(0.96, 1.05); }
-  70%  { transform: translateY(1%) scale(1.02, 0.98); }
-  100% { transform: translateY(0) scale(1, 1); }
+/* Touching a placed piece: a soft jelly wobble, chosen by the user on a
+   test page ("I", 840ms, 65%). The piece stays on its base (transform-origin
+   at the bottom) and squashes and stretches in waves that die out, like a
+   dense jelly. The fairy-trail jump above is a celebration and keeps its
+   own size and timing. */
+@keyframes pieceTapJelly {
+  0%   { transform: none; }
+  15%  { transform: scale(1.0858, 0.922); }
+  30%  { transform: scale(0.9376, 1.0702); }
+  45%  { transform: scale(1.039, 0.9649); }
+  60%  { transform: scale(0.9805, 1.0195); }
+  75%  { transform: scale(1.0098, 0.9922); }
+  100% { transform: none; }
 }
 
 .piece-jump.piece-tap {
-  animation-name: pieceTapSpring;
-  animation-duration: 300ms;
-  animation-timing-function: var(--ease-out);
+  animation-name: pieceTapJelly;
+  animation-duration: 840ms;
+  animation-timing-function: cubic-bezier(.3, .6, .4, 1);
+  transform-origin: 50% 95%;
 }
 
 /* Player info table: the pieces-remaining and points numbers pop when
@@ -289,7 +345,10 @@
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  z-index: 55;
+  /* Above the game, below every menu and panel (options 50, home 60...):
+     a piece or point that changes while the menu is open must not show
+     on top of it. */
+  z-index: 44;
   animation: statTickOut 480ms cubic-bezier(.4, 0, .2, 1) forwards;
 }
 
@@ -411,6 +470,6 @@
   font-weight: bold;
   text-shadow: 0 0 .15em rgba(0, 0, 0, .7), 0 0 .3em rgba(0, 0, 0, .4);
   pointer-events: none;
-  z-index: 60;
+  z-index: 44; /* above the game, below every menu (see .stat-tick-out) */
   animation: statPlusFloat 900ms ease-out forwards;
 }

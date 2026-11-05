@@ -186,12 +186,12 @@ html {
 }
 
 .player {
-  border-radius: 10px;
+  border-radius: .625em; /* 10px on the phone, scaling with the column */
   width: calc(var(--col-w) * 0.27);
   max-width: 200px;
   height: 100%;
   max-height: 200px;
-  border: round(.25em, 1px) solid rgba(0, 0, 0, 0.35);
+  border: .25em solid rgba(0, 0, 0, 0.35);
 }
 
 .player.current {
@@ -332,7 +332,7 @@ html {
 .clock-tile {
   position: relative;
   width: 2em;
-  height: 40px;
+  height: 2.5em; /* 40px on the phone; a fixed 40px squashed it on tablets */
 }
 
 .half {
@@ -360,9 +360,11 @@ html {
   top: 0;
   transform-origin: bottom;
   border-radius: 0.1em 0.1em 0 0;
-  line-height: 40px;
+  /* The tile's 2.5em height in this element's own (1.8x) em: 40px and 2px
+     on the phone, scaling with the column. */
+  line-height: 1.389em;
   background: #2d1a09;
-  border-bottom: 2px solid rgba(54, 33, 14, 0.2);
+  border-bottom: .0695em solid rgba(54, 33, 14, 0.2); /* 2px on the phone (.0694 lands a hair under and rounds down) */
 }
 
 .bottom {
@@ -420,7 +422,7 @@ html {
   font-size: round(down, calc(var(--board-w) * 0.045), 1px);
   background-color: rgb(96, 56, 19);
   border: .75vw solid rgb(96, 56, 19);
-  border-width: round(.3em, 1px);
+  border-width: .3125em; /* 5px on the phone's board */
   border-radius: 1.3em;
   /* Also bounded by height, so a short portrait window (split-screen,
      browser chrome, small phone) shrinks the board instead of pushing
@@ -508,12 +510,9 @@ body.table-flipped .tile::before {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  /* The lines between tiles stay as thin as on the phone (2px per tile, so
-     4px between two) on every board size. They used to follow the board's
-     em scale like the frame and the highlight do, which made them 8px on a
-     tablet and 12px on a desktop. Only a board smaller than the phone's
-     gets thinner (1px). */
-  border: max(1px, round(min(.15em, 2px), 1px)) solid #603813;
+  /* 2px per tile on the phone (4px between two), growing with the board
+     like every other thickness. */
+  border: .125em solid #603813;
   grid-template-rows: auto auto;
   width: 100%;
   height: 100%;
@@ -522,20 +521,28 @@ body.table-flipped .tile::before {
 }
 
 
+/* The corner tiles curve exactly with the board: the board's 1.3em outer
+   corner minus its .3125em frame, so the two arcs share a centre (they
+   were 1.1em, 1.8px off on the phone), and so does a highlight on a corner
+   tile, whose ring widens that same radius. */
+.tile {
+  --corner-r: calc(1.3em - .3125em);
+}
+
 .tile.tlc {
-  border-top-left-radius: 1.1em;
+  border-top-left-radius: var(--corner-r);
 }
 
 .tile.trc {
-  border-top-right-radius: 1.1em;
+  border-top-right-radius: var(--corner-r);
 }
 
 .tile.blc {
-  border-bottom-left-radius: 1.1em;
+  border-bottom-left-radius: var(--corner-r);
 }
 
 .tile.brc {
-  border-bottom-right-radius: 1.1em;
+  border-bottom-right-radius: var(--corner-r);
 }
 
 .tile_highlighted {
@@ -544,13 +551,15 @@ body.table-flipped .tile::before {
   z-index: 1;
   /* All three in em of the board's scale (see .div-table), so the highlight
      keeps the phone's proportions on any board size: on the phone these are
-     exactly the old -4px / 11px / 5px. */
-  outline-offset: round(-.25em, 1px);
-  outline-width: round(.7em, 1px);
+     exactly -5px / 10px / 5px, so the 10px ring sits half inside the tile
+     and half outside (on an edge tile it ends flush with the board's 5px
+     frame). */
+  outline-offset: -.3125em;
+  outline-width: .625em;
   outline-style: solid;
   /* z-index above is enough to keep the outline over its neighbours; the
      old translate3d only moved the tile onto its own (blurry) layer. */
-  border-radius: round(.3125em, 1px);
+  border-radius: .3125em;
 }
 
 .grid {
@@ -593,11 +602,11 @@ body.table-flipped .tile::before {
 }
 
 .img-bounce {
-  animation: bounceIn var(--state) var(--ease-out) forwards;
+  animation: bounceIn .5s ease-out forwards; /* 2.7.0 timing */
 }
 
 .img-disappear {
-  animation: bounceOut var(--tap) var(--ease-in) forwards;
+  animation: bounceOut .2s ease-out forwards; /* 2.7.0 timing */
 }
 
 #t00 {
@@ -730,9 +739,9 @@ body.table-flipped .tile::before {
 
   background: whitesmoke;
   color: #603813;
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 12px;
+  font-size: .75em;
+  padding: .333em .667em;
+  border-radius: .667em;
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
@@ -746,7 +755,7 @@ body.table-flipped .tile::before {
   bottom: 102%;
   left: 50%;
   transform: translateX(-50%);
-  border: 8px solid transparent;
+  border: .5em solid transparent;
   border-top-color: whitesmoke;
   opacity: 0;
   transition: opacity var(--tap) var(--ease-out);
@@ -761,8 +770,10 @@ body.table-flipped .tile::before {
 
 
 .results {
-  grid-column-gap: .6vw;
-  grid-row-gap: .6vw;
+  /* .14em = the phone's 2.25px (it was .6vw, which grew with the screen's
+     width rather than the column). */
+  grid-column-gap: .14em;
+  grid-row-gap: .14em;
   grid-template-rows: auto;
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
   grid-auto-columns: 1fr;
@@ -778,8 +789,12 @@ body.table-flipped .tile::before {
   background-position: center;
   background-size: 100%;
   background-repeat: no-repeat;
-  border: round(.15em, 1px) solid #fff;
-  border-radius: 8px;
+  border: .125em solid #fff; /* 2px on the phone */
+  border-radius: .5em; /* 8px on the phone */
+  /* The background art behind the tile is blurred, so its shapes don't
+     read as part of the combination's symbol. */
+  -webkit-backdrop-filter: blur(.375em);
+  backdrop-filter: blur(.375em);
 }
 
 #rr0 {
@@ -819,8 +834,8 @@ body.table-flipped .tile::before {
 }
 
 .calls {
-  grid-column-gap: .6vw;
-  grid-row-gap: .6vw;
+  grid-column-gap: .14em;
+  grid-row-gap: .14em;
   grid-template-rows: auto;
   grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
   grid-auto-columns: 1fr;
@@ -833,7 +848,7 @@ body.table-flipped .tile::before {
 .call {
   height: 30%;
   background-color: #ffffff5e;
-  border: round(.15em, 1px) solid #fff;
+  border: .125em solid #fff; /* 2px on the phone */
   border-radius: 20px;
   margin: .5em .25em 1em;
   visibility: hidden;
@@ -849,10 +864,10 @@ body.table-flipped .tile::before {
    it on its own layer and softens its edges. The animation is only the lift. */
 .call.checked {
   background-color: #ffea00;
-  border: round(.15em, 1px) solid #ffea00;
+  border: .125em solid #ffea00;
   border-radius: 20px;
-  margin: .5em .25em 3vw;
-  animation: bounceCall var(--tap) var(--ease-out);
+  margin: .5em .25em .7em; /* .7em = the phone's 3vw */
+  animation: bounceCall .3s ease-out; /* 2.7.0 timing */
 }
 
 
@@ -927,19 +942,19 @@ body.table-flipped .tile::before {
 }
 
 .die.black-shadow {
-  box-shadow:rgb(0, 0, 0, .4) 3px 5px 7px 3px;
+  box-shadow: rgb(0, 0, 0, .4) .1875em .3125em .4375em .1875em;
 }
 
 .die.red-shadow {
-  box-shadow:rgba(255, 59, 59, 0.6) 5px 5px 10px 2px;
+  box-shadow: rgba(255, 59, 59, 0.6) .3125em .3125em .625em .125em;
 }
 
 /* Same idea as .call.checked: the ring is a plain style (declared after
    .die.black-shadow/.red-shadow, so it replaces their shadow), and the
    press animation doesn't stay filled on the die afterwards. */
 .die.selected {
-  box-shadow: rgb(255, 234, 0) 0 0 0 var(--select-ring, round(.3em, 1px));
-  animation: bounceDie var(--tap) var(--ease-out);
+  box-shadow: rgb(255, 234, 0) 0 0 0 var(--select-ring, .3125em);
+  animation: bounceDie .3s ease-out; /* 2.7.0 timing */
 }
 
 /* The selection ring is .3em of the element's own font size, so the larger
@@ -954,7 +969,7 @@ body.table-flipped .tile::before {
   opacity: 1;
   width: 100%;
   aspect-ratio: 1 / 1;
-  box-shadow:rgb(65, 252, 18) 3px 5px 7px 3px;  
+  box-shadow: rgb(65, 252, 18) .1875em .3125em .4375em .1875em;
 }
 
 
@@ -977,7 +992,7 @@ body.table-flipped .tile::before {
 }
 
 .button {
-  border-radius: 9px;
+  border-radius: .5625em; /* 9px at 16px */
   width: 100%;
   /* Whole even pixels so the left/right borders land on the device pixel grid
      instead of rendering a pixel thicker on one side. */
@@ -990,8 +1005,72 @@ body.table-flipped .tile::before {
   align-items: center;
 }
 
-.button:active {
-  animation: bounceButton var(--tap) var(--ease-out);
+/* One border for every button (ROLL/DONE, end-game DONE, home modes,
+   online sheets, NEW GAME, chat, the help page's play button, the demos'
+   restart/close and ROLL/DONE): 3px of black at 50% over the button's own
+   colour, so each one reads as a darker shade of itself at the same
+   strength. Chosen by eye next to the round icons (options, back), whose
+   circle and lines are 13 units of 180.86 -- 2.88px on the phone's 40px
+   icon.
+   Where the icons grow with the game (the demos' buttons, the winner card)
+   the borders grow with them. Every thickness is the phone's value in the
+   element's own em (or the card's cqw), so it keeps its proportion whenever
+   the element is scaled. ROLL/DONE are a step heavier, below. */
+:root {
+  --btn-border-color: rgba(0, 0, 0, .5);
+  /* em, resolved on each button: 3px at 16px (home, sheets, menus), and
+     proportionally less on the short-screen sheets' 13px. */
+  --btn-border: .1875em solid var(--btn-border-color);
+}
+
+.button {
+  border: var(--btn-border);
+}
+
+/* ROLL/DONE (and the end-of-game DONE) are a step heavier: 4px on the
+   phone (.25em of the column's 16px), growing with the game on a tablet.
+   The demos are a smaller copy of the game (13px em on the phone), so the
+   same .25em keeps their ROLL/DONE in proportion (3.25px there). */
+.flex-block .button,
+.demo-rail .button {
+  border: .25em solid var(--btn-border-color);
+}
+
+/* Press feedback, the same on every button: it sinks a little and darkens
+   while the finger is on it, and springs back on release. Driven by the
+   .is-pressed class (set on pointerdown in linotte.js, held for at least a
+   moment) instead of :active, which iOS Safari only applies to elements
+   with touch listeners and which a quick tap ends before it shows. */
+.button,
+.winner-button,
+.chat-fab,
+.options,
+#icon-back,
+#winner-icon-back,
+.rules-play,
+.demo-icon-btn,
+.home-profile,
+.home-pro,
+.home-settings,
+.home-extra,
+.home-ad {
+  transition: transform var(--tap) var(--ease-out), filter var(--tap) var(--ease-out);
+}
+
+.is-pressed {
+  transform: scale(.94);
+  filter: brightness(.85);
+  transition-duration: 60ms;
+}
+
+/* Not usable right now (DONE before the turn's first roll, ROLL with no
+   rolls left): washed out towards grey, and it doesn't react to a press.
+   Opaque on purpose: with opacity the player's background showed through
+   and tinted it (a green background made ROLL look green). */
+.button.is-inactive,
+#consent-continue[aria-disabled="true"] {
+  filter: saturate(.3) contrast(.55) brightness(1.2);
+  cursor: default;
 }
 
 /* setBotControlsDisabled() sets this during the bot's turn — without this
@@ -1010,12 +1089,10 @@ body.table-flipped .tile::before {
 
 .button.done {
   background-color: rgb(70, 94, 228);
-  border: round(.25em, 1px) solid rgb(31, 46, 124);
 }
 
 .button.roll {
   background-color: rgb(250, 59, 151);
-  border: round(.25em, 1px) solid rgb(170, 36, 101);
 }
 
 /* Vs-bot only: swapped in for ROLL+DONE while it's the bot's turn (see
@@ -1047,7 +1124,6 @@ body.table-flipped .tile::before {
   grid-column: 1 / -1;
   width: 60%;
   background-color: rgb(46, 160, 90);
-  border: round(.25em, 1px) solid rgb(24, 92, 51);
 }
 
 .text-button {
@@ -1066,7 +1142,15 @@ body.table-flipped .tile::before {
 
 @media (orientation: portrait) and (min-width: 600px) {
   .flex-block {
-    --col-w: min(700px, 64dvh);
+    /* The phone's own column-to-height ratio (375 / 812 = 46.18%), so a
+       tablet shows the phone scaled up: the board, the player boxes, the
+       strip, the dice and ROLL/DONE all grow by the same factor. With 64dvh
+       the board and the strip grew with the width while the font (and so
+       everything sized in em) was held back by the height: on an iPad the
+       board was 30 ems wide instead of 22, ROLL/DONE came out flat, the
+       player boxes squarer, the countdown squashed, and DONE touched the
+       bottom edge. */
+    --col-w: min(700px, 46.18dvh);
     max-width: var(--col-w);
   }
 }
@@ -1088,12 +1172,17 @@ body.table-flipped .tile::before {
        phones, where it stops at half the screen so the board stays playable. */
     --rail-min: min(max(360px, 34vw), 50vw);
     /* The board is a square sized off the height, but always leaves the
-       rail its minimum width... */
-    --board: min(94dvh, calc(100dvh - var(--inset-y)), 900px, 58vw,
+       rail its minimum width, and never takes more than the share of the
+       width it has on a landscape phone (rail about 1.2x the board): with
+       58vw a 1024x768 tablet got a 594px board next to a rail no wider
+       than a phone's, so every control looked shrunk beside the board. */
+    --board: min(94dvh, calc(100dvh - var(--inset-y)), 900px,
+      calc((100vw - var(--side-chrome)) / 2.2),
       calc(100vw - var(--rail-min) - var(--side-chrome)));
-    /* ...and the sidebar takes whatever width is left, up to 520px. The
-       font (and so every control in it) scales with that width. */
-    --side-w: min(calc(100vw - var(--board) - var(--side-chrome)), 520px);
+    /* ...and the sidebar takes whatever width is left, up to 700px (the
+       portrait column's limit). The font (and so every control in it)
+       scales with that width. */
+    --side-w: min(calc(100vw - var(--board) - var(--side-chrome)), 700px);
     /* The game column inside the rail keeps the size it has next to the
        board in portrait: about the board's width (375px column, 356px board
        on the phone). Sized off the rail's width alone it grew to 450px+ on
@@ -1236,37 +1325,6 @@ body.table-flipped .tile::before {
   body.table-flipped #winner-overlay {
     rotate: 180deg;
   }
-
-  /* The home screen had no landscape handling at all: it's authored as a
-     tall column (logo over title over two stacked buttons) sized off vw/
-     dvh assuming a narrow-but-tall mobile screen, so on a wide-but-short
-     one it just overflowed past the bottom of the viewport while leaving
-     most of the width empty. Same fix as the board above: row layout,
-     sized off the shared height budget instead of width.
-     "#home-overlay ..." (ID-prefixed), not the bare classes: .home-overlay
-     /.home-logo/etc's own un-mediaqueried rules are declared FURTHER DOWN
-     this file than this landscape block, so on pure class-vs-class
-     specificity those later rules would win the tie and silently override
-     this regardless of the media query actually matching -- same trap
-     documented on .button.home-mode-btn elsewhere in this file. */
-  #home-overlay {
-    flex-direction: row;
-    gap: 6vw;
-    padding: 4dvh 4vw;
-  }
-
-  #home-overlay .home-logo {
-    width: auto;
-    height: min(40dvh, 190px);
-  }
-
-  #home-overlay .home-title {
-    font-size: min(3em, 7dvh);
-  }
-
-  #home-overlay .home-buttons {
-    width: min(38vw, 340px);
-  }
 }
 
 /* Short landscape phones: the next step down the spacing scale. */
@@ -1291,7 +1349,10 @@ html.is-resizing *::after {
     animation: none;
   }
 
-  .button:active,
+  .is-pressed {
+    transform: none;
+  }
+
   .die.selected,
   .selected {
     animation-duration: 0.01ms;
@@ -1304,80 +1365,30 @@ html.is-resizing *::after {
 /* ============================================
     HOME SCREEN
    ============================================ */
-/* Shown on first load, before any game has started -- hidden via JS
-   setting style.display = "none" directly (not a .hidden class toggle)
-   once a mode is chosen, so there's no risk of the same class-vs-class
-   cascade-order trap .hidden fell into elsewhere in this file (see
-   .flip-coin-overlay.hidden's comment): an inline style always wins
-   regardless of source order, no compound selector needed. */
-.home-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60; /* above options-overlay (50); the game itself is never visible underneath yet */
-  /* Opaque even before the background art (.opt-bg, an SVG set from JS)
-     has loaded -- on a first visit that can take a moment, and with a
-     transparent overlay the game board showed through the home buttons. */
-  background-color: whitesmoke;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6dvh;
-  padding: calc(4dvh + env(safe-area-inset-top, 0px)) calc(8vw + env(safe-area-inset-right, 0px)) calc(4dvh + env(safe-area-inset-bottom, 0px)) calc(8vw + env(safe-area-inset-left, 0px));
-  /* Never clip the buttons on a very short screen: scroll instead. */
-  overflow-y: auto;
+/* The home screen lives in home.css. */
+
+/* SOON: on anything shown but not working yet (sign-in, purchases, shop,
+   stats). In em, so it keeps its proportion with the element it sits on:
+   10px on the phone's 16px buttons. Those elements still answer a tap
+   with a short "coming soon" message. */
+.has-soon {
+  position: relative;
 }
 
-.home-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .2em;
-}
-
-.home-logo {
-  width: 42vw;
-  max-width: 190px;
-  aspect-ratio: 1 / 1;
-  border-radius: 24%;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, .35);
-}
-
-.home-title {
-  font-family: "Changa One", sans-serif;
-  font-size: 3em;
-  color: #3d240c;
-  text-shadow: 0 2px 0 rgba(255, 255, 255, .4);
-}
-
-.home-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  width: 100%;
-  max-width: 340px;
-}
-
-/* Reuses .button/.text-button (see ROLL/DONE) for the same tactile,
-   thick-bordered card look instead of the thin settings-list pill style
-   the earlier version borrowed from the options overlay.
-   ".button.home-mode-btn" (two classes) rather than the bare class alone:
-   .button's own min-height is declared later in this file, and two equally
-   generic single-class rules are won by whichever comes last in the
-   cascade -- the compound selector outranks it regardless of order (see
-   the same note on .flip-coin-overlay.hidden). */
-.button.home-mode-btn {
-  min-height: 4em;
-}
-
-.home-mode-table {
-  background-color: rgb(46, 160, 90);
-  border: round(.25em, 1px) solid rgb(24, 92, 51);
-}
-
-.home-mode-bot {
-  background-color: rgb(230, 140, 40);
-  border: round(.25em, 1px) solid rgb(150, 85, 20);
+.soon-badge {
+  position: absolute;
+  top: -.55em;
+  right: -.4em;
+  z-index: 1;
+  padding: 0 .5em;
+  border-radius: .5em;
+  background: #3d240c;
+  color: #fff;
+  font: 600 .625rem / 1.6 system-ui, sans-serif;
+  font-size: .625em;
+  letter-spacing: .02em;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 
@@ -1393,6 +1404,34 @@ html.is-resizing *::after {
   flex-direction: column;
   align-items: center;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+/* Opened from the home screen: above it, and without the Game tab (the
+   modes are on the home itself). */
+.options-overlay[data-context="home"] {
+  z-index: 65;
+}
+
+.options-overlay[data-context="home"] #icon-tab1 {
+  display: none;
+}
+
+.options-overlay[data-context="home"] .opt-header {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* HOME in the Game tab. */
+.game-home {
+  display: flex;
+  justify-content: center;
+  padding: 0 5%;
+}
+
+.button.game-home-btn {
+  width: 90%;
+  min-height: 3em;
+  margin: 1em auto 0;
+  background-color: rgb(150, 130, 110);
 }
 
 /* Settings are a single phone-width column on every screen size; on wide
@@ -1656,7 +1695,7 @@ section {
   height: 44px;
   border-radius: 8px;
   background-color: #ffffff5e;
-  border: round(.15em, 1px) solid #fff;
+  border: .125em solid #fff; /* 2px on the phone */
   overflow: hidden;
 }
 
@@ -1850,8 +1889,8 @@ section {
 }
 
 .selected {
-  box-shadow: rgb(255, 234, 0) 0 0 0 var(--select-ring, round(.3em, 1px));
-  animation: bounceDie var(--tap) var(--ease-out);
+  box-shadow: rgb(255, 234, 0) 0 0 0 var(--select-ring, .3125em);
+  animation: bounceDie .3s ease-out; /* 2.7.0 timing */
 }
 
 
@@ -1985,6 +2024,9 @@ section {
   margin: auto;
   opacity: 1;
   border-radius: 6cqw;
+  /* The buttons' 3px on the phone's 337px card, scaling with the card
+     (resolved in each child, where cqw means this card). */
+  --winner-border: .891cqw solid var(--btn-border-color);
   background-color: whitesmoke;
   background-position: 0, 0;
   background-repeat: no-repeat;
@@ -2039,7 +2081,7 @@ section {
   width: 33cqw;
   aspect-ratio: 1/1;
   border-radius: 3cqw;
-  border: max(1px, round(1.2cqw, 1px)) solid rgba(0, 0, 0, 0.35);
+  border: 1.187cqw solid rgba(0, 0, 0, 0.35); /* 4px on the phone's card */
   background-color: var(--glow);
 }
 
@@ -2142,11 +2184,7 @@ section {
   font-size: 9.5cqw;
   color: white;
   background-color: #409ff8;
-  border: max(1px, round(.1em, 1px)) solid #1f2e7c;
-}
-
-.winner-button:active {
-  animation: bounceButton var(--tap) var(--ease-out);
+  border: var(--winner-border);
 }
 
 #confetti-canvas {
@@ -2319,21 +2357,14 @@ button,
   justify-content: center;
   font-size: 1.6em;
   /* Same gold as the coin-flip's front face (see .flip-coin-front) --
-     reads as "yellow" without introducing a brand new color. The border
-     is a flat 4px, not .25em: .chat-fab's own font-size above (1.6em) is
-     what .25em would resolve against here, making it 6px -- noticeably
-     thicker than the 4px every other button's own .25em actually computes
-     to against their own, unscaled font-size. */
+     reads as "yellow" without introducing a brand new color. Same border
+     as every other button (--btn-border). */
   background-color: rgb(232, 185, 35);
-  border: 4px solid rgb(138, 103, 8);
+  border: 3px solid var(--btn-border-color); /* a fixed 44px circle */
   box-shadow: 0 4px 10px rgba(0, 0, 0, .3);
   z-index: 40;
   cursor: pointer;
   user-select: none;
-}
-
-.chat-fab:active {
-  animation: bounceButton var(--tap) var(--ease-out);
 }
 
 .chat-wheel-overlay.hidden {
@@ -2434,6 +2465,12 @@ button,
   pointer-events: none;
   z-index: 95; /* above winner (70) and coin-flip (80) overlays, so a toss still reads even mid-celebration */
   overflow: hidden;
+}
+
+/* ...but not over the options menu: nothing from the game shows on top of
+   it while it's open. */
+body:has(#options-overlay:not(.hidden)) .chat-toss-stage {
+  visibility: hidden;
 }
 
 .chat-toss-emoji {

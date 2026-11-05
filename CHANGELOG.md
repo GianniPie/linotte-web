@@ -12,6 +12,53 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-11-05
+
+### Added
+- A new home screen: a top bar with the profile (guest for now, with a sign-in panel for Apple and Google), Linotte Pro and settings; the logo; "Continue your game" when a game was left in progress; the four modes as equal buttons (Online, Friend, Vs Bot, Same table) with a line on what each is; shortcuts to How to play, Shop and Stats (the last two marked SOON); and the place for a banner ad at the bottom, which promotes Pro until ads come with the native apps.
+- The home can be reached from a game: HOME in the Game tab. An off-line game is kept, paused, and continues from the home; leaving an online game asks first, since the opponent wins.
+- The Pro panel (monthly, for life, restore purchases) and the sign-in panel, as graphics: purchases and accounts come with the native apps, and their buttons say so.
+- A temporary Stats icon drawn in the style of the menu icons.
+
+### Changed
+- Home: ONLINE and FRIEND carry a SOON badge (online play needs a game server, which the published site doesn't have yet), and the four mode buttons have more room under them (about twice the gap between their rows).
+- Everything marked SOON on the home (sign-in, Pro, the banner, Online, Friend, Shop, Stats) only shows a short "... is coming soon" message instead of opening a panel that can't do anything yet. For local tests, opening the page once with ?online=1 switches Online and Friend back on for that device (?online=0 turns them off).
+- Anyone can create a private room for a friend: it was locked behind Linotte Pro, which can't be bought yet. The PRO labels on Friend and CREATE ROOM are gone, and the Pro offer no longer lists private rooms. The server keeps a switch (ROOMS_NEED_PRO=1) to put it behind Pro again once purchases are live.
+- The guest's avatar on the home is a generic buddy (head and shoulders, in the menu icons' style) instead of a red piece.
+- Everything shown but not working yet carries a SOON badge: sign-in (the profile and the Apple/Google buttons), Linotte Pro (the PRO button, the banner, and the Monthly, For life and Restore purchases buttons), Shop and Stats. One badge style everywhere, in proportion with what it sits on.
+- The home logo is the vector one (favicon.svg), sharp at any size; it was a 192px picture that looked soft on high-resolution screens.
+- The 2.7.0 animations are back for selecting a die (0.3s: in, out, settle), lighting a call (0.3s, it swells), placing a piece (0.5s, it pops in with a few bounces) and removing one (0.2s, it swells and fades). 2.8.0 had made them shorter and flatter. The die and call animations no longer stay applied once finished (as they did in 2.7.0), so their edges stay sharp.
+- The highlight on the board's free tiles is 10px on a phone, half inside the tile and half outside (it was 11px, mostly outside), growing with the board on larger screens.
+- The board's corner tiles curve exactly with the board's frame (their corners were slightly tighter), and so does the highlight on a corner tile.
+- RESTART in the Game tab asks "Restart?" before ending the game in progress.
+- The combination tiles blur the background behind them, so its shapes don't mix with the symbols.
+- Options: the sound section's title says "Sound" or "No sound", following the selected button.
+- The dice and background carousels scroll to the current choice again whenever the Options tab opens, and when a new one is picked (only sideways; the page doesn't jump).
+- Home: the logo and its title fill the room between the top bar and the modes, centred in it (up to 190px, with the title a quarter of the logo's height); the modes sit just above the banner.
+- FLIP waits for the menu: toggling it (or a turn handed over) while the menu is open turns the game only once the menu closes, never the menu under the player's finger. The home screen is never shown upside down.
+- Nothing from the game shows over an open menu: the "-1" pieces tick and the "+N" points popup now sit below every menu (they used to float on top when the bot played), and an opponent's thrown emoji waits until the menu is closed.
+- The Game tab only holds what belongs to the game in progress: pause, FLIP (same table only), RESTART (same mode, off-line) and HOME. The modes moved to the home screen. Opened from the home, the settings menu shows only Options and How to play.
+- Vs Bot asks how the bot plays (POINTS or SPEED) in a panel, like Friend.
+- NEW GAME on the winner screen goes back to the home screen instead of reloading the page.
+- Landscape home screen: the logo stays square on taller screens (it was stretched to 190x240 on a 1024x768 tablet).
+- Every button (ROLL, DONE, home modes, online screens, NEW GAME, chat, the help page's play button, the demos' restart, close and ROLL/DONE) has the same border: black at 50% over the button's own colour, 3px on a phone (4px for ROLL and DONE), growing in proportion with the game, the demos and the winner screen on a tablet. They used to range from 2 to 8px with hand-picked dark colours of different strength.
+- The options and back icons are drawn with one line thickness, 13 units like the other menu icons: the back icon's circle was thinner than its arrow, and the options icon's lines were thinner than the menu icons.
+- The demos' restart and close buttons are as tall as the title next to them, and their symbols are single shapes with the same line as the border (the arrow's head is part of the arc, so nothing shows darker where they meet), turning counterclockwise.
+- In the combination demos, ROLL/DONE's border is in proportion with the demo (a smaller copy of the game), and the demo's board, dice and ROLL/DONE can't be tapped (they used to react to a press).
+- Opening or closing a combination demo with a tap no longer leaves a black focus ring around the close button or the play button (the focus still moves into the demo for keyboard users).
+- Touching a placed piece makes it wobble like a soft jelly (840ms, from its base) as soon as the finger lands, instead of a small hop when the finger lifts. Placing and removing a piece still happen on release.
+- Every button sinks and darkens while it's pressed, also on iPhone, on quick taps, on the help page's buttons and on the taps the demos show.
+- DONE is greyed out and does nothing until the turn's first roll (it used to pass the turn without rolling); ROLL is greyed out once the rolls are used up. The consent screen's CONTINUE uses the same greyed-out look. The turn clock running out still ends the turn as before.
+- Tablets in portrait show the phone's layout scaled up: board, player boxes, combinations, dice, ROLL/DONE and the countdown all grow by the same factor. Before, the board and the combination strip grew with the width while everything else was held back by the height, so ROLL/DONE were flat, the player boxes squarer, the countdown squashed, borders and corners thinner than on the phone, and DONE touched the bottom edge.
+- Tablets and desktops in landscape keep the landscape phone's balance between board and side column (the column about 1.1 to 1.2 times the board): on a 1024x768 tablet the column was the size of a phone's next to a much larger board.
+- The player boxes', buttons' and combination tiles' corners, the countdown tiles and the gaps in the combination strip scale with the game instead of being fixed pixels.
+- Every line thickness keeps its proportion when its element is scaled: borders of buttons, player boxes, combination tiles and calls, the board's frame and the lines between tiles, the tile highlight, the selection rings, the current player's pulsing glow, the dice shadows, the countdown's split line, the combination tooltip, the winner card's piece frame, the online screens' card and code field, the demos' frame and finger. They keep the phone's values on the phone. The lines between board tiles grow with the board again (2px on a phone, 2.5px on a tablet), instead of staying 2px everywhere.
+- The combination demos scale as one piece on tablets: title, restart/close buttons, captions and frame grow with the board instead of staying phone-sized.
+- "Before you play" opens with the age requirement (16 or older) and explains it: the game suits any age, but it has ads and online play, and under GDPR younger players may need a parent's consent. The Terms of Service give the same reason. The line about computer-controlled opponents in random games is plain text instead of bold. The Terms of Service still describe it in section 3.
+
+### Fixed
+- Online: rolling again after placing a piece now takes the piece back and the dice roll as usual. Before, the app sent the roll before taking the piece back, the server refused the take-back while the dice were rolling, and the screen was redrawn with the piece still on the board and no dice animation (and the piece could stay at the end of the turn). The app now takes the piece back first, and the server accepts a take-back at any time.
+
 ## [2.8.1] - 2026-11-04
 
 ### Fixed

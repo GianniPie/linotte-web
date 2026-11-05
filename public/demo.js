@@ -29,7 +29,9 @@ export function initCombinationDemos(options) {
     build();
     document.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-demo]");
-        if (btn && DEMOS[btn.dataset.demo]) openDemo(btn.dataset.demo, btn);
+        // detail 0: the click came from the keyboard (Enter/Space), not a
+        // finger or the mouse.
+        if (btn && DEMOS[btn.dataset.demo]) openDemo(btn.dataset.demo, btn, e.detail === 0);
     });
 }
 
@@ -41,11 +43,13 @@ function el(tag, className, parent) {
     return node;
 }
 
-function iconButton(className, label, svgPath) {
+// `shape`: the symbol's lines, drawn in opaque black; the group's opacity
+// turns the whole symbol 75% black as one shape (see .demo-icon-btn svg).
+function iconButton(className, label, shape) {
     const b = el("button", "demo-icon-btn " + className);
     b.type = "button";
     b.setAttribute("aria-label", label);
-    b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${svgPath}"/></svg>`;
+    b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><g opacity=".75" fill="none" stroke="#000" stroke-width="3.79" stroke-linecap="round" stroke-linejoin="round">${shape}</g></svg>`;
     return b;
 }
 
@@ -81,12 +85,13 @@ function build() {
     const head = el("div", "demo-head", rail);
     titleEl = el("h2", "title demo-title", head);
     titleEl.id = "demo-title";
+    // Counter-clockwise arc with a rounded, filled arrowhead at the top.
     const replay = iconButton("demo-replay", "Play again",
-        "M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z");
+        '<path d="M5.5 12A6.5 6.5 0 1 0 12.8 5.55"/><path d="M13 2.9 9 5.6 13 8.3z" fill="#000"/>');
     replay.addEventListener("click", () => play(currentKey));
     head.appendChild(replay);
     const close = iconButton("demo-close", "Close",
-        "M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z");
+        '<path d="M6.8 6.8 17.2 17.2M17.2 6.8 6.8 17.2"/>');
     close.addEventListener("click", closeDemo);
     head.appendChild(close);
 
@@ -128,20 +133,27 @@ function build() {
 }
 
 //--------- open / close ---------
-function openDemo(key, from) {
+// Focus moves into the dialog (and back to the play button on close) only
+// for keyboard users: a focus set from code shows the browser's focus ring
+// even after a tap, which drew a black circle around X and play.
+let openedByKeyboard = false;
+
+function openDemo(key, from, byKeyboard) {
     opener = from || document.activeElement;
+    openedByKeyboard = Boolean(byKeyboard);
     currentKey = key;
     overlay.hidden = false;
     dressLikeTheGame();
     layout();
-    dialog.querySelector(".demo-close").focus();
+    if (openedByKeyboard) dialog.querySelector(".demo-close").focus();
+    else if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     play(key);
 }
 
 function closeDemo() {
     runId++; // stops the running script at its next pause
     overlay.hidden = true;
-    if (opener && opener.focus) opener.focus();
+    if (openedByKeyboard && opener && opener.focus) opener.focus();
 }
 
 // The player's own choices, read from the real game screen, so the demo
@@ -279,10 +291,11 @@ async function tap(target, wait) {
     finger.classList.remove("is-tapping");
 }
 
+// The same press a real finger gives a button in the game (.is-pressed in
+// linotte.css): it sinks and darkens, then springs back.
 function press(button) {
-    button.classList.remove("demo-press");
-    void button.offsetWidth;
-    button.classList.add("demo-press");
+    button.classList.add("is-pressed");
+    setTimeout(() => button.classList.remove("is-pressed"), 150);
 }
 
 function showRoll() {

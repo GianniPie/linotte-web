@@ -36,7 +36,7 @@
   background: whitesmoke;
   /* The app's border: black at low opacity (as on the player boxes). Brown
      is the board's colour only. */
-  border: round(.25em, 1px) solid rgba(0, 0, 0, .35);
+  border: .25em solid rgba(0, 0, 0, .35);
   border-radius: 1.2em;
   padding: 1.2em 1.2em 1.4em;
   text-align: center;
@@ -109,7 +109,12 @@
 #online-overlay[data-view="friend"] .sheet-view[data-view="friend"],
 #online-overlay[data-view="waiting"] .sheet-view[data-view="waiting"],
 #online-overlay[data-view="joincode"] .sheet-view[data-view="joincode"],
-#online-overlay[data-view="message"] .sheet-view[data-view="message"] {
+#online-overlay[data-view="message"] .sheet-view[data-view="message"],
+#online-overlay[data-view="bot"] .sheet-view[data-view="bot"],
+#online-overlay[data-view="login"] .sheet-view[data-view="login"],
+#online-overlay[data-view="pro"] .sheet-view[data-view="pro"],
+#online-overlay[data-view="leave"] .sheet-view[data-view="leave"],
+#online-overlay[data-view="restart"] .sheet-view[data-view="restart"] {
   display: flex;
 }
 
@@ -124,23 +129,45 @@
 
 .sheet-btn.go {
   background-color: rgb(46, 160, 90);
-  border: round(.25em, 1px) solid rgb(24, 92, 51);
 }
 
 .sheet-btn.alt {
   background-color: rgb(70, 94, 228);
-  border: round(.25em, 1px) solid rgb(31, 46, 124);
 }
 
 .sheet-btn.cancel {
   background-color: rgb(150, 130, 110);
-  border: round(.25em, 1px) solid rgb(100, 84, 68);
 }
 
-/* the consent button stays dead until the box is ticked */
-#consent-continue[aria-disabled="true"] {
-  opacity: .45;
+.sheet-btn.bot {
+  background-color: rgb(230, 140, 40);
 }
+
+.sheet-btn.apple {
+  background-color: #111;
+}
+
+.sheet-btn.google {
+  background-color: #fff;
+}
+
+.sheet-btn.google .text-button {
+  color: #222;
+}
+
+/* Two buttons side by side (POINTS / SPEED, MONTHLY / FOR LIFE, LEAVE / STAY). */
+.sheet-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .9em;
+}
+
+.sheet-row .button {
+  margin: 0;
+}
+
+/* the consent button stays dead until the box is ticked (the inactive
+   look is shared with ROLL/DONE, see .button.is-inactive in linotte.css) */
 
 .pro-tag {
   display: inline-block;
@@ -172,7 +199,7 @@
   text-transform: uppercase;
   width: 100%;
   padding: .15em 0;
-  border: round(.08em, 1px) solid rgba(0, 0, 0, .35);
+  border: .0722em solid rgba(0, 0, 0, .35); /* 3px at the phone's 41.6px */
   border-radius: .3em;
   background: #fff;
   color: #3d240c;
@@ -229,62 +256,4 @@
 .toast.show {
   opacity: 1;
   transform: translate(-50%, 0);
-}
-
-/* ============================================
-   HOME: the two online buttons
-   ============================================ */
-.home-mode-online {
-  background-color: rgb(120, 80, 200);
-  border: round(.25em, 1px) solid rgb(70, 40, 130);
-}
-
-.home-mode-friend {
-  background-color: rgb(250, 59, 151);
-  border: round(.25em, 1px) solid rgb(170, 36, 101);
-}
-
-/* Landscape home: logo and title on the left, the four modes as a 2 x 2
-   grid on the right. All four buttons are the same size and every label
-   stays on one line ("SAME TABLE" used to wrap and make its button taller):
-   the grid is wide enough for it, and the label shrinks with the grid
-   (cqi) only on the narrowest phones. */
-@media (orientation: landscape) {
-  #home-overlay {
-    padding: calc(4dvh + env(safe-area-inset-top, 0px)) calc(4vw + env(safe-area-inset-right, 0px))
-      calc(4dvh + env(safe-area-inset-bottom, 0px)) calc(4vw + env(safe-area-inset-left, 0px));
-  }
-
-  #home-overlay .home-logo {
-    height: min(46dvh, 240px);
-  }
-
-  #home-overlay .home-title {
-    font-size: min(3em, 9dvh);
-  }
-
-  #home-overlay .home-buttons {
-    display: grid;
-    /* minmax(0, 1fr): a long label must not widen its own column */
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-rows: 1fr;
-    flex: 0 1 min(58vw, 560px);
-    width: auto;
-    max-width: none;
-    min-width: 0;
-    gap: 14px;
-  }
-
-  #home-overlay .button.home-mode-btn {
-    min-height: min(4.4em, 20dvh);
-    padding: 0 10px;
-    min-width: 0;
-    container-type: inline-size;
-  }
-
-  /* "SAME TABLE" is about 4.9em wide: 19cqi keeps it inside the button. */
-  #home-overlay .home-mode-btn .text-button {
-    white-space: nowrap;
-    font-size: min(2em, 19cqi);
-  }
 }

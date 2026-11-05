@@ -206,16 +206,20 @@ export class Room {
         return this.relay(seat, { type: "SELEC_CALL", called: called.slice() });
       }
       case "PLACE_PIECE": {
-        if (this.rolling) return this.reject("cannot_place");
         const coordinates = String(raw.coordinates ?? "");
         if (!COORD.test(coordinates)) return this.reject("bad_action");
         if (raw.player === 0) {
+          // Allowed while the dice roll: rolling again takes the tentative
+          // piece back, and a client that sent the roll first (older apps)
+          // would otherwise see the cancel refused, its screen redrawn with
+          // the piece still there, and that piece committed at END_TURN.
           // Taking back a tentative placement. A stale cancel for a tile that
           // isn't the pending one is ignored rather than cancelling the real one.
           if (s.currentPosition !== coordinates) return { ok: true, ignored: true };
           updateGame(s, { type: "PLACE_PIECE", coordinates, player: 0 });
           return this.relay(seat, { type: "PLACE_PIECE", coordinates, player: 0 });
         }
+        if (this.rolling) return this.reject("cannot_place");
         const [r, c] = [Number(coordinates[0]), Number(coordinates[1])];
         if (s.possibleMoves[r][c] !== 1 || s.table[r][c] !== 0) return this.reject("illegal_move");
         updateGame(s, { type: "PLACE_PIECE", coordinates, player: seat });

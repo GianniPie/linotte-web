@@ -21,6 +21,7 @@
     <link href="animations.css" rel="stylesheet" type="text/css" />
     <link href="linotte.css" rel="stylesheet" type="text/css" />
     <link href="online.css" rel="stylesheet" type="text/css" />
+    <link href="home.css" rel="stylesheet" type="text/css" />
     <link href="demo.css" rel="stylesheet" type="text/css" />
 
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Changa+One&display=swap" rel="stylesheet">
@@ -37,29 +38,81 @@
 
 <body id="body" class="body" style="color-scheme: light; filter: none !important;">
 
-    <!-- home screen: shown on first load, before any game has started -->
+    <!-- home screen: shown on load and whenever a player leaves a game
+         (HOME in the Game tab, NEW GAME on the winner screen) -->
     <div id="home-overlay" class="home-overlay">
         <div class="opt-bg"></div>
 
+        <div class="home-top">
+            <button class="home-profile has-soon" id="home-profile" type="button">
+                <span class="home-avatar" aria-hidden="true"></span>
+                <span class="home-pinfo">
+                    <span class="home-pname" id="home-pname">Guest</span>
+                    <span class="home-psub" id="home-psub">Tap to sign in</span>
+                </span>
+                <span class="soon-badge">SOON</span>
+            </button>
+            <button class="home-pro has-soon" id="home-pro" type="button">PRO<span class="soon-badge">SOON</span></button>
+            <button class="home-settings" id="home-settings" type="button" aria-label="Settings"></button>
+        </div>
+
         <div class="home-header">
-            <img class="home-logo" src="resources/favicon/web-app-manifest-192x192.png" alt="">
+            <img class="home-logo" src="resources/favicon/favicon.svg" alt="">
             <div class="home-title">Linotte</div>
         </div>
 
-        <div class="home-buttons">
-            <div class="button home-mode-btn home-mode-table" id="home-play-btn">
-                <div class="text-button">SAME TABLE</div>
+        <div class="home-main">
+            <div class="home-continue" id="home-continue" hidden>
+                <div class="home-continue-text">
+                    <b>Continue your game</b>
+                    <span id="home-continue-desc"></span>
+                </div>
+                <div class="button home-continue-btn" id="home-continue-btn">
+                    <div class="text-button">PLAY</div>
+                </div>
             </div>
-            <div class="button home-mode-btn home-mode-bot bot-strategy" id="home-vs-bot-btn" data-strategy="speed">
-                <div class="text-button">VS BOT</div>
+
+            <div class="home-buttons">
+                <div class="button home-mode-btn home-mode-online has-soon" id="home-online-btn">
+                    <div class="text-button">ONLINE</div>
+                    <div class="home-mode-sub">Random opponent · free</div>
+                    <span class="soon-badge">SOON</span>
+                </div>
+                <div class="button home-mode-btn home-mode-friend has-soon" id="home-friend-btn">
+                    <div class="text-button">FRIEND</div>
+                    <div class="home-mode-sub">Private room</div>
+                    <span class="soon-badge">SOON</span>
+                </div>
+                <div class="button home-mode-btn home-mode-bot" id="home-vs-bot-btn">
+                    <div class="text-button">VS BOT</div>
+                    <div class="home-mode-sub">Offline</div>
+                </div>
+                <div class="button home-mode-btn home-mode-table" id="home-play-btn">
+                    <div class="text-button">SAME TABLE</div>
+                    <div class="home-mode-sub">2 players, 1 phone</div>
+                </div>
             </div>
-            <div class="button home-mode-btn home-mode-online" id="home-online-btn">
-                <div class="text-button">ONLINE</div>
-            </div>
-            <div class="button home-mode-btn home-mode-friend" id="home-friend-btn">
-                <div class="text-button">FRIEND</div>
+
+            <div class="home-extras">
+                <button class="home-extra" id="home-help" type="button">
+                    <span class="home-extra-icon" style="background-image:url(resources/images/t004.svg)"></span>How to play
+                </button>
+                <button class="home-extra" id="home-shop" type="button">
+                    <span class="home-extra-icon" style="background-image:url(resources/images/p105-coin.svg)"></span>Shop<span class="soon-badge">SOON</span>
+                </button>
+                <button class="home-extra" id="home-stats" type="button">
+                    <span class="home-extra-icon" style="background-image:url(resources/images/stats.svg)"></span>Stats<span class="soon-badge">SOON</span>
+                </button>
             </div>
         </div>
+
+        <!-- The banner's place: kept free (and clear of the buttons) for the
+             AdMob banner of the native apps. Until then it promotes Pro. -->
+        <button class="home-ad has-soon" id="home-ad" type="button">
+            <span class="home-ad-text"><b>Linotte Pro</b> No ads · exclusive pieces and boards</span>
+            <span class="home-ad-cta">PRO</span>
+            <span class="soon-badge">SOON</span>
+        </button>
     </div>
 
     <!-- first-run consent: terms, privacy, age, and the notice that a random
@@ -70,8 +123,9 @@
         <div class="sheet" role="dialog" aria-labelledby="consent-title">
             <div class="sheet-title" id="consent-title">Before you play</div>
             <ul class="sheet-list">
-                <li>Linotte is free to play and shows ads. You can change how ads are personalised at any time.</li>
-                <li>Random online games may be played against a <b>computer-controlled opponent</b> when few players are online, and its emoji reactions may be automated too.</li>
+                <li>You must be 16 or older. The game is fine for any age, but it shows ads and has online play, and under EU privacy law (GDPR) younger players may need a parent's consent for that.</li>
+                <li>Linotte is free to play. You can change how its ads are personalised at any time.</li>
+                <li>Random online games may be played against a computer-controlled opponent when few players are online, and its emoji reactions may be automated too.</li>
                 <li>A private game against a friend is always against a real person.</li>
                 <li>No account is needed. A random ID stays on your device so a dropped game can be resumed.</li>
             </ul>
@@ -99,7 +153,7 @@
             <div class="sheet-view" data-view="friend">
                 <div class="sheet-title">Play a friend</div>
                 <div class="sheet-text">Create a private room and send your friend the link, or join one with a code.</div>
-                <div class="button sheet-btn go" id="friend-create"><div class="text-button">CREATE ROOM <span class="pro-tag">PRO</span></div></div>
+                <div class="button sheet-btn go" id="friend-create"><div class="text-button">CREATE ROOM</div></div>
                 <div class="button sheet-btn alt" id="friend-join"><div class="text-button">I HAVE A CODE</div></div>
                 <div class="button sheet-btn cancel" id="friend-back"><div class="text-button">BACK</div></div>
             </div>
@@ -126,6 +180,53 @@
                 <div class="sheet-title" id="message-title"></div>
                 <div class="sheet-text" id="message-text"></div>
                 <div class="button sheet-btn go" id="message-ok"><div class="text-button">OK</div></div>
+            </div>
+            <!-- vs bot: how the bot plays -->
+            <div class="sheet-view" data-view="bot">
+                <div class="sheet-title">Vs Bot</div>
+                <div class="sheet-text">Choose how the bot plays.</div>
+                <div class="sheet-row">
+                    <div class="button sheet-btn bot bot-strategy" data-strategy="points"><div class="text-button">POINTS</div></div>
+                    <div class="button sheet-btn bot bot-strategy" data-strategy="speed"><div class="text-button">SPEED</div></div>
+                </div>
+                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button">BACK</div></div>
+            </div>
+            <!-- sign in: graphics only for now (accounts come with the native apps) -->
+            <div class="sheet-view" data-view="login">
+                <div class="sheet-title">Sign in</div>
+                <div class="sheet-text">Keep your progress, Pro and your collection, and get them back on a new phone. You can keep playing as a guest.</div>
+                <div class="button sheet-btn has-soon apple" data-soon="Sign-in comes with the app."><div class="text-button">SIGN IN WITH APPLE</div><span class="soon-badge">SOON</span></div>
+                <div class="button sheet-btn has-soon google" data-soon="Sign-in comes with the app."><div class="text-button">SIGN IN WITH GOOGLE</div><span class="soon-badge">SOON</span></div>
+                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button">NOT NOW</div></div>
+            </div>
+            <!-- Pro: graphics only for now (purchases come with the native apps) -->
+            <div class="sheet-view" data-view="pro">
+                <div class="sheet-title">Linotte Pro</div>
+                <div class="sheet-text">No ads, and exclusive pieces and boards.</div>
+                <div class="sheet-row">
+                    <div class="button sheet-btn has-soon bot" data-soon="Purchases come with the app."><div class="text-button">MONTHLY</div><span class="soon-badge">SOON</span></div>
+                    <div class="button sheet-btn has-soon go" data-soon="Purchases come with the app."><div class="text-button">FOR LIFE</div><span class="soon-badge">SOON</span></div>
+                </div>
+                <div class="button sheet-btn has-soon cancel" data-soon="Purchases come with the app."><div class="text-button">RESTORE PURCHASES</div><span class="soon-badge">SOON</span></div>
+                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button">NOT NOW</div></div>
+            </div>
+            <!-- leaving an online game for the home -->
+            <div class="sheet-view" data-view="leave">
+                <div class="sheet-title">Leave the game?</div>
+                <div class="sheet-text">Your opponent wins if you leave an online game.</div>
+                <div class="sheet-row">
+                    <div class="button sheet-btn cancel" id="leave-confirm"><div class="text-button">LEAVE</div></div>
+                    <div class="button sheet-btn go" data-sheet-close><div class="text-button">STAY</div></div>
+                </div>
+            </div>
+            <!-- RESTART in the Game tab -->
+            <div class="sheet-view" data-view="restart">
+                <div class="sheet-title">Restart?</div>
+                <div class="sheet-text">The game in progress ends and a new one starts.</div>
+                <div class="sheet-row">
+                    <div class="button sheet-btn cancel" id="restart-confirm"><div class="text-button">RESTART</div></div>
+                    <div class="button sheet-btn go" data-sheet-close><div class="text-button">CANCEL</div></div>
+                </div>
             </div>
         </div>
     </div>
@@ -394,52 +495,29 @@
 
             <!-- GAME -->
             <div class="opt-page" id="page-game">
-
+                <!-- Only what belongs to the game in progress; the modes are
+                     on the home screen. -->
                 <section>
                     <div class="separator"></div>
                     <div class="title">Game</div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
-                            <div class="car-btn"><div class="opt-btn" id="pause-btn"><span class="pause-icon"></span></div></div>
+                            <div class="car-btn" id="pause-slot"><div class="opt-btn" id="pause-btn"><span class="pause-icon"></span></div></div>
+                            <div class="car-btn" id="flip-slot"><div class="opt-btn flipped" id="flip-table-btn">FLIP</div></div>
+                            <div class="car-btn" id="restart-slot"><div class="opt-btn" id="restart-btn">RESTART</div></div>
                         </div>
                     </div>
                 </section>
 
-                <section>
-                    <div class="title" id="title-same-table">Same table</div>
-                    <div class="car-list-wrapper">
-                        <div class="car-list list-centered">
-                            <div class="car-btn"><div class="opt-btn flipped" id="flip-table-btn">FLIP</div></div>
-                            <div class="car-btn"><div class="opt-btn" id="play-offline-btn">PLAY</div></div>
-                        </div>
-                    </div>
-                </section>
-
-                <section>
-                    <div class="title" id="title-online">Online</div>
-                    <div class="car-list-wrapper">
-                        <div class="car-list list-centered">
-                            <div class="car-btn"><div class="opt-btn" id="online-random-btn">RANDOM</div></div>
-                            <div class="car-btn"><div class="opt-btn" id="online-friend-btn">FRIEND</div></div>
-                        </div>
-                    </div>
-                </section>
-
-                <section>
-                    <div class="title" id="title-vs-bot">Vs Bot</div>
-                    <div class="car-list-wrapper">
-                        <div class="car-list list-centered">
-                            <div class="car-btn"><div class="opt-btn bot-strategy" id="bot-points" data-strategy="points">POINTS</div></div>
-                            <div class="car-btn"><div class="opt-btn bot-strategy" id="bot-speed" data-strategy="speed">SPEED</div></div>
-                        </div>
-                    </div>
+                <section class="game-home">
+                    <div class="button game-home-btn" id="game-home-btn"><div class="text-button">HOME</div></div>
                 </section>
             </div>
 
             <!-- OPTIONS -->
             <div class="opt-page hidden" id="page-options">
                 <section>
-                    <div class="title">Sound</div>
+                    <div class="title" id="sound-title">Sound</div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
                             <div class="car-btn">

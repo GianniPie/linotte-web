@@ -1,0 +1,419 @@
+/* ============================================
+   HOME SCREEN
+   Top bar (profile, Pro, settings), logo, "continue your game", the four
+   modes, shortcuts, and the banner's place at the bottom.
+   Every size is in em of one scale set on .home-overlay: 16px on the
+   375x812 phone (where each em value equals the px it stands for), and the
+   whole screen grows or shrinks together on other screens, borders and
+   corners included. Shown and hidden from linotte.js (showHomeScreen /
+   hideHomeScreen) with an inline display, so no .hidden cascade issues.
+   ============================================ */
+
+.home-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* above the game and the options menu (50) */
+  /* Opaque before the background art (.opt-bg) has loaded, so the board
+     never shows through on a first visit. */
+  background-color: whitesmoke;
+  /* The phone's 16px, scaled by whichever side runs out first. */
+  font-size: round(down, min(100vw / 23.4375, 100dvh / 50.75, 22px), 1px);
+  font-family: "Changa One", sans-serif;
+  color: #3d240c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .875em;
+  padding: calc(.75em + env(safe-area-inset-top, 0px)) calc(1em + env(safe-area-inset-right, 0px))
+    calc(.5em + env(safe-area-inset-bottom, 0px)) calc(1em + env(safe-area-inset-left, 0px));
+  box-sizing: border-box;
+  /* Never clip anything on a very short screen: scroll instead. */
+  overflow-y: auto;
+}
+
+.home-top,
+.home-header,
+.home-main,
+.home-ad {
+  position: relative;
+  width: min(100%, 26.875em); /* 430px on the phone */
+  flex: none;
+}
+
+/* Buttons don't inherit the font by default. */
+.home-overlay button {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- top bar ---------- */
+.home-top {
+  display: flex;
+  align-items: center;
+  gap: .625em;
+}
+
+.home-profile {
+  flex: 1;
+  min-width: 0;
+  max-width: 18em; /* on a wide landscape bar it would run across the screen */
+  height: 2.75em;
+  display: flex;
+  align-items: center;
+  gap: .5em;
+  padding: 0 .75em 0 .25em !important;
+  border-radius: 1.375em;
+  background: rgba(255, 255, 255, .5);
+  border: var(--btn-border);
+  box-sizing: border-box;
+  text-align: left;
+}
+
+/* PRO and settings stay on the right (two classes: beats the buttons'
+   margin reset above). */
+.home-top .home-profile {
+  margin-right: auto;
+}
+
+.home-avatar {
+  flex: none;
+  width: 2em;
+  height: 2em;
+  border-radius: 50%;
+  box-sizing: border-box;
+  /* A generic buddy until the player signs in; the circle crops the
+     shoulders like a profile photo. */
+  background: url("resources/images/avatar-guest.svg") center / 100% no-repeat, rgb(228, 209, 187);
+  background-origin: border-box; /* the buddy reaches under the rim too */
+  border: .125em solid rgba(0, 0, 0, .35);
+}
+
+.home-pinfo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-pname {
+  font-size: 1.0625em;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-psub {
+  font-family: system-ui, sans-serif;
+  font-size: .6875em;
+  line-height: 1.2;
+  opacity: .75;
+}
+
+.home-pro {
+  flex: none;
+  height: 2.75em;
+  padding: 0 1em !important;
+  border-radius: 1.375em;
+  background: rgb(232, 185, 35);
+  border: var(--btn-border);
+  box-sizing: border-box;
+  font-size: 1.0625em !important;
+  color: #5f4604 !important;
+}
+
+.home-pro::before {
+  content: "\2605\00a0"; /* star */
+  font-family: system-ui, sans-serif;
+}
+
+.home-settings {
+  flex: none;
+  width: 2.75em;
+  height: 2.75em;
+  border: 0;
+  background: url("resources/images/g10455.svg") center / contain no-repeat;
+}
+
+/* ---------- logo ---------- */
+/* The logo and its title take all the room between the top bar and the
+   modes, centred in it, and the logo grows to fill it: up to 190px (the
+   old home's logo) and never wider than the column. The title is a quarter
+   of the logo's height, as on the old home (48px under a 190px logo).
+   Container units (cqh/cqw) measure that room. */
+.home-header {
+  flex: 1 1 0;
+  min-height: 9em; /* a very short screen scrolls instead of crushing it */
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .1em;
+}
+
+.home-logo {
+  width: min(70cqh, 11.875em, 100cqw);
+  height: min(70cqh, 11.875em, 100cqw);
+  border-radius: 24%;
+  box-shadow: 0 .5em 1.25em rgba(0, 0, 0, .3);
+}
+
+.home-title {
+  font-size: calc(min(70cqh, 11.875em, 100cqw) * .25);
+  line-height: 1.1;
+  text-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+}
+
+/* ---------- main block ---------- */
+.home-main {
+  display: flex;
+  flex-direction: column;
+  gap: .75em;
+}
+
+.home-continue {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .625em;
+  padding: .625em .625em .625em .875em;
+  border-radius: .875em;
+  background: rgba(255, 255, 255, .5);
+  border: var(--btn-border);
+}
+
+.home-continue[hidden] {
+  display: none;
+}
+
+.home-continue-text b {
+  display: block;
+  font-weight: 400;
+  font-size: 1.125em;
+  line-height: 1.1;
+}
+
+.home-continue-text span {
+  font-family: system-ui, sans-serif;
+  font-size: .8125em;
+}
+
+.button.home-continue-btn {
+  width: 6em;
+  min-height: 2.5em;
+  margin: 0;
+  background-color: rgb(46, 160, 90);
+}
+
+.home-continue-btn .text-button {
+  font-size: 1.125em;
+}
+
+/* The four modes, all the same size, with a little more room under them
+   than between the other rows (they are the screen's main choice). */
+.home-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75em;
+  margin-bottom: 1.5em;
+}
+
+.button.home-mode-btn {
+  width: 100%;
+  min-height: 0;
+  height: 4.875em;
+  margin: 0;
+  flex-direction: column;
+  gap: .25em;
+}
+
+.home-mode-btn .text-button {
+  margin: 0;
+  font-size: 1.625em;
+  white-space: nowrap;
+}
+
+.home-mode-btn .pro-tag {
+  font-size: .42em;
+  vertical-align: .35em;
+}
+
+.home-mode-sub {
+  font-family: system-ui, sans-serif;
+  font-size: .75em;
+  color: rgba(255, 255, 255, .92);
+  white-space: nowrap;
+}
+
+.home-mode-online {
+  background-color: rgb(120, 80, 200);
+}
+
+.home-mode-friend {
+  background-color: rgb(250, 59, 151);
+}
+
+.home-mode-bot {
+  background-color: rgb(230, 140, 40);
+}
+
+.home-mode-table {
+  background-color: rgb(46, 160, 90);
+}
+
+/* Shortcuts: translucent white tiles, like the options menu's buttons. */
+.home-extras {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .625em;
+}
+
+.home-extra {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .25em;
+  padding: .5em .25em !important;
+  border: 0;
+  border-radius: .875em;
+  background: rgba(255, 255, 255, .5);
+  font-size: .9375em !important;
+}
+
+.home-extra-icon {
+  width: 2.25em;
+  height: 2.25em;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+
+/* ---------- banner ---------- */
+/* An anchored banner is about 50px tall on a phone; the place is kept even
+   before AdMob is in, so the home doesn't jump when it arrives, and a
+   gap separates it from the buttons (so it isn't tapped by mistake). */
+.home-ad {
+  margin-top: .5em; /* a little more room between the buttons and the ad */
+  min-height: 3.125em;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .75em;
+  padding: 0 .75em !important;
+  border-radius: .5em;
+  background: rgba(255, 255, 255, .85);
+  border: .0625em solid rgba(0, 0, 0, .2);
+  box-sizing: border-box;
+  text-align: left;
+  font-family: system-ui, sans-serif !important;
+  font-size: .8125em !important;
+}
+
+.home-ad b {
+  font-family: "Changa One", sans-serif;
+  font-weight: 400;
+  font-size: 1.15em;
+  margin-right: .3em;
+}
+
+.home-ad-cta {
+  padding: .25em .75em;
+  border-radius: 1em;
+  background: rgb(232, 185, 35);
+  color: #5f4604;
+  font: 1.1em "Changa One", sans-serif;
+}
+
+/* ---------- landscape ---------- */
+/* Logo on the left, the main block on the right, top bar above and the
+   banner below both. The scale comes from the height. */
+@media (orientation: landscape) {
+  .home-overlay {
+    font-size: round(down, min(100dvh / 27, 100vw / 52.75, 22px), 1px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 30em);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "top top"
+      "header main"
+      "ad ad";
+    justify-content: center;
+    align-items: center;
+    column-gap: 2em;
+    row-gap: .75em;
+  }
+
+  .home-top {
+    grid-area: top;
+    width: 100%;
+  }
+
+  /* The whole left column, logo and title centred in it. */
+  .home-header {
+    grid-area: header;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  .home-main {
+    grid-area: main;
+    width: 100%;
+    margin: 0;
+    gap: .625em;
+  }
+
+  .home-continue {
+    padding-block: .375em;
+  }
+
+  .button.home-mode-btn {
+    height: 3.75em;
+  }
+
+  .home-extra {
+    flex-direction: row;
+    justify-content: center;
+    gap: .4em;
+    padding: .375em .25em !important;
+  }
+
+  .home-extra-icon {
+    width: 1.75em;
+    height: 1.75em;
+  }
+
+  .home-ad {
+    grid-area: ad;
+    width: min(100%, 45.5em); /* a 728px leaderboard on a wide screen */
+    justify-self: center;
+  }
+}
+
+/* The banner's text is 13px on the phone: its SOON matches the others' 10px. */
+.home-ad > .soon-badge {
+  font-size: .77em;
+}
+
+/* Same for PRO (17px text) and the shortcut tiles (15px text). */
+.home-pro > .soon-badge {
+  font-size: .588em;
+}
+
+.home-extra > .soon-badge {
+  font-size: .667em;
+}
+
+/* A developer who switched online play on (?online=1, see linotte.js) sees
+   ONLINE and FRIEND without their SOON badge. */
+.online-enabled #home-online-btn .soon-badge,
+.online-enabled #home-friend-btn .soon-badge {
+  display: none;
+}

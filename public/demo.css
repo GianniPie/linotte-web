@@ -27,13 +27,19 @@
 .demo-dialog {
   --S: 300px;
   --R: 300px;
+  /* The rail's em (below), set here too so the dialog's own padding, gaps
+     and frame scale with the demo: 13px on a 375px phone, where every em
+     value in this file equals the px it replaced; larger on a tablet, where
+     fixed px left the header, captions and frame phone-sized next to a
+     much bigger board. */
+  font-size: round(down, calc(var(--R) * .04267), 1px);
   position: relative;
   display: grid;
   grid-template-columns: var(--S);
-  gap: 12px;
-  padding: 12px;
-  border-radius: 20px;
-  border: 4px solid rgba(0, 0, 0, .35);
+  gap: .923em;
+  padding: .923em;
+  border-radius: 1.54em;
+  border: .3077em solid rgba(0, 0, 0, .35);
   background-color: whitesmoke;
   background-position: center;
   background-repeat: no-repeat;
@@ -50,7 +56,7 @@
 /* Landscape: board on the left, rail on the right, as in the game. */
 .demo-dialog.is-row {
   grid-template-columns: var(--S) var(--R);
-  column-gap: 16px;
+  column-gap: 1.23em;
 }
 
 /* Portrait: the rail's pieces become rows of the dialog itself, so the
@@ -75,7 +81,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 10px;
+  gap: .77em;
 }
 
 /* The game's board, sized by --S instead of the screen. */
@@ -93,20 +99,25 @@
   margin: 0;
 }
 
+/* The demo plays itself: its board, strip, dice and ROLL/DONE ignore taps
+   (no press feedback, nothing happens). Only replay and close respond. */
+.demo-board,
+.demo-strip,
+.demo-dice,
+.demo-buttons {
+  pointer-events: none;
+}
+
 .demo-dice.div-dice {
   height: auto;
   max-height: none;
   padding-block: 4px;
 }
 
-.demo-press {
-  animation: bounceButton var(--tap) var(--ease-out);
-}
-
 .demo-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: .615em;
 }
 
 .title.demo-title {
@@ -115,31 +126,48 @@
   min-width: 0;
   margin: 0;
   font-weight: 400;
-  /* The pill uses its own capped size, not the rail's scaled font. */
-  font-size: min(7vw, 24px);
+  /* 24px on the phone, scaling with the demo; the pill's height, frame and
+     corners follow (they are fixed px on the options pages' .title). */
+  font-size: 1.846em;
+  height: 1.583em;
+  border-width: .125em;
+  border-radius: .417em;
 }
 
 .demo-icon-btn {
+  position: relative;
   flex: none;
-  width: 44px;
-  height: 44px;
+  /* As tall as the title pill next to them (38px on the phone), scaling
+     with the demo. font-size: inherit because a <button> doesn't inherit
+     it by default. */
+  font-size: inherit;
+  width: 2.923em;
+  height: 2.923em;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, .35);
+  border: .2308em solid var(--btn-border-color); /* 3px on the phone */
   background-color: rgba(255, 255, 255, .5);
   display: grid;
   place-items: center;
   cursor: pointer;
 }
 
-.demo-icon-btn svg {
-  width: 22px;
-  height: 22px;
-  fill: rgba(0, 0, 0, .75);
+/* The tap area still reaches 44px around the 38px circle. */
+.demo-icon-btn::after {
+  content: "";
+  position: absolute;
+  inset: min(-3px, -.23em);
+  border-radius: 50%;
 }
 
-.demo-icon-btn:active {
-  animation: bounceButton var(--tap) var(--ease-out);
+/* Each symbol is one shape: drawn in opaque black inside a group that
+   carries the 75% (see iconButton in demo.js), so where the arc meets the
+   arrowhead, or the X's bars cross, nothing shows darker. Its line is as
+   thick as the border (3px at the phone's 19px symbol = 3.79 of 24 units). */
+.demo-icon-btn svg {
+  width: 50%;
+  height: 50%;
+  overflow: visible;
 }
 
 .demo-icon-btn:focus-visible,
@@ -154,15 +182,17 @@
    to reread them (see addCaption in demo.js). */
 .demo-caption {
   margin: 0;
-  padding: 10px 12px;
-  border-radius: 10px;
+  /* 16px text, 10/12px padding and 10px corners on the phone (in this
+     element's own em from here on). */
+  font-size: 1.231em;
+  padding: .625em .75em;
+  border-radius: .625em;
   background-color: rgba(255, 255, 255, .62);
   color: #000;
   font-family: var(--text-font);
-  font-size: 16px;
   line-height: 1.45;
   text-align: left;
-  height: calc(3 * 1.45em + 20px);
+  height: calc(3 * 1.45em + 1.25em);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: none;
@@ -214,13 +244,13 @@
   position: absolute;
   left: 0;
   top: 0;
-  width: 34px;
-  height: 34px;
-  margin: -17px 0 0 -17px;
+  width: 2.615em;
+  height: 2.615em;
+  margin: -1.308em 0 0 -1.308em;
   border-radius: 50%;
   background-color: rgba(255, 255, 255, .8);
-  border: 2px solid rgba(0, 0, 0, .35);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, .3);
+  border: .154em solid rgba(0, 0, 0, .35);
+  box-shadow: 0 .23em .615em rgba(0, 0, 0, .3);
   transform: translate(var(--x), var(--y));
   opacity: 0;
   pointer-events: none;
@@ -255,7 +285,7 @@
   height: 44px;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, .35);
+  border: 3px solid var(--btn-border-color); /* a fixed 44px circle */
   background-color: rgba(255, 255, 255, .5);
   display: grid;
   place-items: center;
@@ -269,8 +299,4 @@
   margin-left: 3px; /* a triangle looks centred a little right of centre */
   background-color: rgba(0, 0, 0, .75);
   clip-path: polygon(0 0, 100% 50%, 0 100%);
-}
-
-.rules-play:active {
-  animation: bounceButton var(--tap) var(--ease-out);
 }

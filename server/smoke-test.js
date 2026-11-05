@@ -123,6 +123,42 @@ const lobby = new Lobby(io);
   console.log("ok: invalid actions rejected");
 }
 
+// 3b. rolling again takes a tentative piece back, in either order
+{
+  const a = fakeSocket("player-ffff0001", "Wren66");
+  const b = fakeSocket("player-ffff0002", "Lark77");
+  lobby.joinQueue(a); lobby.joinQueue(b);
+  const room = lobby.roomOfSocket(a);
+  const cur = room.state.currentPlayer;
+  const place = () => {
+    // make one free tile playable, whatever the dice showed
+    const r = room.state.table.findIndex((row) => row.includes(0));
+    const c = room.state.table[r].indexOf(0);
+    room.state.possibleMoves[r][c] = 1;
+    const coordinates = `${r}${c}`;
+    assert.ok(room.handleAction(cur, { type: "PLACE_PIECE", coordinates, player: cur }).ok);
+    return coordinates;
+  };
+  assert.ok(room.handleAction(cur, { type: "ROLL_DICE" }).ok);
+  assert.ok(room.handleAction(cur, { type: "STOP_ROLL" }).ok);
+  // this app: the cancel goes first, then the roll
+  let at = place();
+  assert.ok(room.handleAction(cur, { type: "PLACE_PIECE", coordinates: at, player: 0 }).ok);
+  assert.ok(room.handleAction(cur, { type: "ROLL_DICE" }).ok);
+  assert.equal(room.state.currentPosition, null);
+  assert.ok(room.handleAction(cur, { type: "STOP_ROLL" }).ok);
+  // older apps: the roll goes first, the cancel arrives while the dice roll
+  at = place();
+  assert.ok(room.handleAction(cur, { type: "ROLL_DICE" }).ok);
+  const cancel = room.handleAction(cur, { type: "PLACE_PIECE", coordinates: at, player: 0 });
+  assert.ok(cancel.ok, "a cancel while rolling must not be refused");
+  assert.equal(room.state.currentPosition, null);
+  // placing a new piece while the dice roll is still refused
+  const r = room.state.table.findIndex((row) => row.includes(0));
+  assert.equal(room.handleAction(cur, { type: "PLACE_PIECE", coordinates: `${r}${room.state.table[r].indexOf(0)}`, player: cur }).reason, "cannot_place");
+  console.log("ok: rolling again takes a tentative piece back");
+}
+
 // 4. private room: code join, own-room and bad-code errors, rejoin after a drop
 {
   const host = fakeSocket("player-ffffffff", "Lark66");
