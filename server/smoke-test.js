@@ -57,9 +57,11 @@ async function playTurn(room, seat) {
 }
 
 async function runGame(room, humanSeat) {
-  let guard = 0;
+  // A time limit, not a count of loop rounds: the bot's turns are waited for
+  // in 2ms steps, so a round count failed whenever the machine was busy.
+  const deadline = Date.now() + 60000;
   while (room.status === "playing") {
-    if (++guard > 400) throw new Error("game did not finish");
+    if (Date.now() > deadline) throw new Error("game did not finish within a minute");
     if (room.state.currentPlayer === humanSeat) await playTurn(room, humanSeat);
     else await wait(2);
   }
