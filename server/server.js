@@ -12,6 +12,7 @@ import { PORT, CONSENT_VERSION, EMOTES, ROOMS_NEED_PRO, isOriginAllowed } from "
 import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
 import { isPro } from "./entitlements.js";
+import { createStore } from "./store.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -39,7 +40,9 @@ app.get("/j/:code", (req, res) => {
   res.redirect(code ? `/?join=${code}` : "/");
 });
 
-const lobby = new Lobby(io);
+const store = await createStore();
+const lobby = new Lobby(io, store);
+let stopping = false;
 
 //----------- CONNECTIONS ---------------
 const PLAYER_ID = /^[A-Za-z0-9_-]{8,64}$/;
@@ -109,6 +112,8 @@ io.on("connection", (socket) => {
   on("room_leave", {}, () => { lobby.leaveRoom(socket); return { ok: true }; });
 
   on("action", {}, (action) => {
+    // While stopping (see shutdown) the games are being saved: no new moves.
+    if (stopping) return { ok: false, reason: "server_restarting" };
     const room = lobby.roomOfSocket(socket);
     if (!room) return { ok: false, reason: "no_room" };
     const res = room.handleAction(socket.data.seat, action);
@@ -129,5 +134,27 @@ io.on("connection", (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`server running on port ${PORT}`);
+  console.log(`server running on port ${PORT} (game store: ${store.label})`);
 });
+
+//----------- STOPPING ---------------
+// Render stops the old server after a deploy (SIGTERM, then up to 30s). Save
+// every game, then close the connections: the apps reconnect by themselves
+// to the new server, which picks their games up from the store.
+async function shutdown(signal) {
+  if (stopping) return;
+  stopping = true;
+  console.log(`${signal}: saving games and closing connections`);
+  setTimeout(() => process.exit(0), 20000).unref(); // never hang past Render's limit
+  try {
+    await lobby.saveAll();
+    io.disconnectSockets(true);
+    await store.close();
+  } catch (err) {
+    console.error("shutdown:", err);
+  }
+  server.close();
+  setTimeout(() => process.exit(0), 300).unref();
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

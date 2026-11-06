@@ -16,6 +16,7 @@ import {
   TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS,
   RECONNECT_GRACE_MS, EMOTES,
 } from "./config.js";
+import { HumanBot } from "./humanBot.js";
 
 const MIN_COLOR_DISTANCE = 120;
 const COORD = /^[0-4][0-4]$/;
@@ -46,12 +47,15 @@ function pickPieces() {
 let roomCounter = 0;
 
 export class Room {
-  constructor({ io, kind, code = null, onClose = () => {} }) {
+  constructor({ io, kind, code = null, onClose = () => {}, onChange = () => {} }) {
     this.id = "r" + (++roomCounter).toString(36) + Math.random().toString(36).slice(2, 6);
     this.io = io;
     this.kind = kind; // "random" | "private"
     this.code = code;
     this.onClose = onClose;
+    // Called after anything worth saving changed (see Lobby.persist): the
+    // store keeps a copy so the game survives a server restart.
+    this.onChange = onChange;
     this.seats = { 1: null, 2: null };
     this.status = "waiting"; // waiting -> playing -> over
     this.state = null;
@@ -81,6 +85,7 @@ export class Room {
   addHuman(seat, socket, { playerId, name }) {
     this.seats[seat] = { kind: "human", playerId, name, socketId: socket.id, connected: true };
     this.bindSocket(seat, socket);
+    this.onChange(this);
   }
 
   bindSocket(seat, socket) {
@@ -125,6 +130,7 @@ export class Room {
 
     for (const seat of [1, 2]) this.emitToSeat(seat, "game_start", this.snapshot(seat, { fresh: true }));
     this.armTurnTimer(COIN_FLIP_MS);
+    this.onChange(this);
     for (const seat of this.botSeats()) this.seats[seat].bot.onEvent("gameStart", { startDelay: COIN_FLIP_MS });
   }
 
@@ -269,6 +275,7 @@ export class Room {
   relay(seat, action) {
     const seq = ++this.seq;
     this.broadcast("action", { seq, seat, action });
+    this.onChange(this);
     return { ok: true, seq };
   }
 
@@ -327,6 +334,66 @@ export class Room {
     this.broadcast("game_over", { winner, reason });
     for (const b of this.botSeats()) this.seats[b].bot.onEvent("gameOver", { winner });
     this.onClose(this, "over");
+  }
+
+  //--------- saving and restoring (server restarts) ---------
+  // Everything needed to pick the game up again on another server. Sockets,
+  // timers and the bot's running turn are not saved: they are rebuilt.
+  toJSON() {
+    const seat = (s) => {
+      const x = this.seats[s];
+      if (!x) return null;
+      if (x.kind === "bot") return { kind: "bot", playerId: x.playerId, name: x.name, bot: x.bot.toJSON() };
+      return { kind: "human", playerId: x.playerId, name: x.name };
+    };
+    return {
+      v: 1,
+      id: this.id, kind: this.kind, code: this.code, status: this.status,
+      state: this.state, seq: this.seq, turnId: this.turnId, rolling: this.rolling,
+      starter: this.starter, winner: this.winner,
+      createdAt: this.createdAt, endedAt: this.endedAt, turnEndsAt: this.turnEndsAt,
+      seats: { 1: seat(1), 2: seat(2) },
+    };
+  }
+
+  // Rebuilds a saved game on this server. Its players are offline until they
+  // reconnect (their apps do it by themselves and call rejoin); each gets the
+  // usual reconnect grace before forfeiting. A roll that was in the air is
+  // settled, the turn clock resumes where it was (with a little extra for the
+  // time the restart took) and a bot whose turn it is starts playing again.
+  static fromJSON(data, { io, onClose, onChange }) {
+    const room = new Room({ io, kind: data.kind, code: data.code, onClose, onChange });
+    room.id = data.id;
+    Object.assign(room, {
+      status: data.status, state: data.state, seq: data.seq, turnId: data.turnId,
+      starter: data.starter, winner: data.winner,
+      createdAt: data.createdAt, endedAt: data.endedAt,
+    });
+    for (const s of [1, 2]) {
+      const x = data.seats[s];
+      if (!x) continue;
+      if (x.kind === "bot") {
+        room.seats[s] = { kind: "bot", playerId: x.playerId, name: x.name, connected: true, bot: HumanBot.fromJSON(x.bot) };
+        room.seats[s].bot.attach(room, s);
+      } else {
+        room.seats[s] = { kind: "human", playerId: x.playerId, name: x.name, socketId: null, connected: false };
+      }
+    }
+    if (room.status !== "playing") return room;
+
+    if (data.rolling) updateGame(room.state, { type: "STOP_ROLL" });
+    room.rolling = false;
+    const left = Math.max(data.turnEndsAt - Date.now(), 0) + 10000;
+    clearTimeout(room.turnTimer);
+    room.turnEndsAt = Date.now() + left;
+    room.turnTimer = setTimeout(() => room.onTurnTimeout(), left);
+    for (const s of [1, 2]) {
+      if (room.seats[s]?.kind !== "human") continue;
+      room.graceTimers[s] = setTimeout(() => room.forfeit(s, "disconnect"), RECONNECT_GRACE_MS);
+    }
+    const botTurn = room.botSeats().find((b) => room.state.currentPlayer === b);
+    if (botTurn) setTimeout(() => room.seats[botTurn]?.bot.onEvent("turn", {}), 1500);
+    return room;
   }
 
   // Releases timers and bots; the lobby drops its references.

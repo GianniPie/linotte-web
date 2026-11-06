@@ -12,6 +12,16 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-11-06
+
+### Added
+- Online games survive a game server restart (every deploy restarts it): each game is saved in a store (Render Key Value) after every move, and players who reconnect get their game back where it was, dice in the air included. Friend rooms waiting for a guest keep their code.
+- The server shuts down cleanly when Render stops it: it saves every game first.
+- A player searching for an opponent is put back in the queue by themselves if the connection drops.
+
+### Changed
+- `render.yaml` describes a new server in Frankfurt (`linotte-server`) together with its game store (`linotte-kv`), and restarts the server only when the server's own files change.
+
 ## [2.10.2] - 2026-11-06
 
 ### Added

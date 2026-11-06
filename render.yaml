@@ -9,10 +9,14 @@
 #  2. more players: change "plan" to "starter" (always on, more CPU), then
 #     "standard" -- no code change.
 #  3. more than one instance: add the Socket.IO Redis adapter first (rooms
-#     live in memory, one server only), then raise numInstances.
+#     live in memory, one server only; linotte-kv below is already there),
+#     then raise numInstances.
 services:
   - type: web
-    name: linotte-web # the existing service (https://linotte-web.onrender.com)
+    # Its address is https://<name>.onrender.com (Render adds a suffix if the
+    # name is taken); public/config.js and the GAME_SERVER_URL repository
+    # variable must point to it.
+    name: linotte-server
     runtime: node
     plan: free
     region: frankfurt
@@ -21,6 +25,15 @@ services:
     startCommand: node server/server.js
     healthCheckPath: /healthz
     autoDeploy: true
+    # Restart the server only when the server changes: a deploy restarts it,
+    # and a release that only touches the web app (on Vercel) doesn't need to.
+    # (On the hand-made service this is set in Settings > Build Filters.)
+    buildFilter:
+      paths:
+        - server/**
+        - public/shared/**
+        - package.json
+        - package-lock.json
     envVars:
       - key: NODE_ENV
         value: production
@@ -28,3 +41,17 @@ services:
       # (see isOriginAllowed in server/config.js).
       - key: ALLOWED_ORIGINS
         value: https://linotte-web.vercel.app
+      # Where games are saved so a restart (every deploy) doesn't end them.
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: linotte-kv
+          property: connectionString
+
+  # The game store (server/store.js): a copy of every game in progress.
+  - type: keyvalue
+    name: linotte-kv
+    plan: free
+    region: frankfurt
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # reachable only from services in this account

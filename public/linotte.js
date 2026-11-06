@@ -2879,6 +2879,12 @@ function throwChatEmoji(emoji, originRect) {
 
 const onlineClient = new OnlineClient({
     onConnection: (connected) => {
+        // Back after a drop while looking for an opponent (e.g. the server
+        // restarted for an update): the new server's queue is empty, so join
+        // it again. A game that had started is picked up by rejoin instead.
+        if (connected && onlineOverlay.style.display !== "none" && onlineOverlay.dataset.view === "searching" && searchingRandom) {
+            onlineClient.joinQueue();
+        }
         if (!gameInProgress || controller.mode !== "online" || isGameOver) return;
         showToast(connected ? "Back online" : "Connection lost, reconnecting...", connected ? 1800 : 5000);
     },
@@ -3019,12 +3025,16 @@ function handleOnlineError(res) {
     else closeOnlineOverlay();
 }
 
+// True while this player waits in the random queue (see onConnection).
+let searchingRandom = false;
+
 async function startRandomOnline() {
     if (!(await prepareOnline())) return;
     document.getElementById("searching-text").textContent = "This usually takes a few seconds.";
     showOnlineView("searching");
+    searchingRandom = true;
     const res = await onlineClient.joinQueue();
-    if (!res.ok) handleOnlineError(res);
+    if (!res.ok) { searchingRandom = false; handleOnlineError(res); }
 }
 
 async function createFriendRoom() {
@@ -3163,6 +3173,7 @@ byId("restart-confirm").addEventListener("click", () => {
 });
 
 document.getElementById("searching-cancel").addEventListener("click", () => {
+    searchingRandom = false;
     onlineClient.leaveQueue();
     onlineClient.leaveRoom();
     closeOnlineOverlay();
@@ -3232,6 +3243,7 @@ function withReplay(fn) {
 }
 
 async function beginOnlineGame(snap) {
+    searchingRandom = false; // matched: no more queueing on reconnect
     setOnlineSession(true);
     remoteGen++;
     remoteQueue.length = 0;

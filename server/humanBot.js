@@ -20,14 +20,24 @@ const MAX_EMOTES_PER_GAME = 4;
 const ROLL_ANIMATION_MS = 1250; // the client's own roll animation (1200ms) plus a beat
 
 export class HumanBot {
-  constructor({ avoidName = "", timeScale = BOT_TIME_SCALE } = {}) {
-    this.persona = makePersona();
-    this.name = randomName(avoidName);
+  constructor({ avoidName = "", timeScale = BOT_TIME_SCALE, persona = null, name = null, emotesSent = 0 } = {}) {
+    this.persona = persona || makePersona();
+    this.name = name || randomName(avoidName);
     this.timeScale = timeScale;
     this.stopped = false;
     this.timers = new Set();
-    this.emotesSent = 0;
+    this.emotesSent = emotesSent;
     this.playing = false;
+  }
+
+  // The same bot (character, name, emoji count) after a server restart; see
+  // Room.toJSON / fromJSON.
+  toJSON() {
+    return { persona: this.persona, name: this.name, emotesSent: this.emotesSent };
+  }
+
+  static fromJSON(data) {
+    return new HumanBot({ persona: data.persona, name: data.name, emotesSent: data.emotesSent });
   }
 
   attach(room, seat) {

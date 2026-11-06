@@ -41,6 +41,11 @@ export const BOT_TIME_SCALE = process.env.BOT_TIME_SCALE ? Number(process.env.BO
 // The only chat there is: the client's emoji wheel. Anything else is dropped.
 export const EMOTES = ["🎲", "❤️", "😮", "🤣", "🙏🏻", "😡", "🥺", "🫤", "👋"];
 
+// Where games are saved so they survive a server restart (see store.js):
+// Render Key Value's internal URL, e.g. redis://red-xxxxxxxx:6379. Empty:
+// games live in memory only (local runs).
+export const REDIS_URL = process.env.REDIS_URL || "";
+
 // RevenueCat (purchases/entitlements). Without a key nobody is Pro in
 // production; outside production a dev token unlocks it for testing.
 export const REVENUECAT_SECRET_KEY = process.env.REVENUECAT_SECRET_KEY || "";

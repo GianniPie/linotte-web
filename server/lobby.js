@@ -1,10 +1,12 @@
 //----------- LOBBY ---------------
 // Finds games for people: the random queue (free), private rooms joined with
 // a short code or link (the host needs Pro, the guest doesn't), and putting a
-// returning player back in the room they were in. Rooms live in memory.
+// returning player back in the room they were in. Rooms live in memory, with
+// a copy in the game store (store.js) so they survive a server restart.
 
 import { Room } from "./room.js";
 import { HumanBot } from "./humanBot.js";
+import { noStore } from "./store.js";
 import {
   QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS,
 } from "./config.js";
@@ -28,13 +30,57 @@ export function normalizeCode(raw) {
 }
 
 export class Lobby {
-  constructor(io) {
+  constructor(io, store = noStore) {
     this.io = io;
+    this.store = store;
     this.queue = new Map(); // playerId -> { socket, timer }
     this.rooms = new Map(); // roomId -> Room
     this.byCode = new Map(); // code -> Room
     this.byPlayer = new Map(); // playerId -> Room
+    this.restoring = new Map(); // roomId -> Promise<Room|null>, so two players coming back at once share one copy
+    this.pendingSaves = new Set();
     setInterval(() => this.sweep(), 30 * 1000).unref();
+  }
+
+  newRoom(opts) {
+    return new Room({ io: this.io, ...opts, onClose: (r, why) => this.onRoomClose(r, why), onChange: (r) => this.persist(r) });
+  }
+
+  //--------- saving (server restarts) ---------
+  // Saves a room shortly after it changes: the moves of one tap arrive
+  // together and become a single write.
+  persist(room) {
+    if (this.pendingSaves.has(room)) return;
+    this.pendingSaves.add(room);
+    setImmediate(() => {
+      this.pendingSaves.delete(room);
+      if (room.status === "over") this.store.deleteRoom(room);
+      else if (this.rooms.get(room.id) === room) this.store.saveRoom(room);
+    });
+  }
+
+  // Before this server stops: one last copy of every game.
+  async saveAll() {
+    await Promise.all([...this.rooms.values()].filter((r) => r.status !== "over").map((r) => this.store.saveRoom(r)));
+  }
+
+  // A game this server doesn't have in memory, picked up from the store.
+  async restore(roomId) {
+    if (!roomId) return null;
+    if (this.rooms.has(roomId)) return this.rooms.get(roomId);
+    if (!this.restoring.has(roomId)) {
+      this.restoring.set(roomId, (async () => {
+        const data = await this.store.loadRoom(roomId);
+        if (this.rooms.has(roomId)) return this.rooms.get(roomId);
+        if (!data || data.status === "over") return null;
+        const room = Room.fromJSON(data, { io: this.io, onClose: (r, why) => this.onRoomClose(r, why), onChange: (r) => this.persist(r) });
+        this.register(room);
+        for (const s of [1, 2]) if (room.seats[s]?.kind === "human") this.byPlayer.set(room.seats[s].playerId, room);
+        console.log(`restored ${room.kind} room ${room.id} (${room.status})`);
+        return room;
+      })().finally(() => this.restoring.delete(roomId)));
+    }
+    return this.restoring.get(roomId);
   }
 
   roomOfSocket(socket) {
@@ -72,7 +118,7 @@ export class Lobby {
     for (const [otherId, entry] of this.queue) {
       if (otherId === me.playerId || !entry.socket.connected) continue;
       this.leaveQueue(otherId);
-      const room = new Room({ io: this.io, kind: "random", onClose: (r, why) => this.onRoomClose(r, why) });
+      const room = this.newRoom({ kind: "random" });
       this.register(room);
       this.seatPlayers(room,
         { socket, playerId: me.playerId, name: me.name },
@@ -101,7 +147,7 @@ export class Lobby {
     if (!entry || !entry.socket.connected) { this.leaveQueue(playerId); return; }
     this.leaveQueue(playerId);
     const { socket } = entry;
-    const room = new Room({ io: this.io, kind: "random", onClose: (r, why) => this.onRoomClose(r, why) });
+    const room = this.newRoom({ kind: "random" });
     this.register(room);
     const humanSeat = this.seatPlayers(room, { socket, playerId, name: socket.data.name })[0];
     room.addBot(room.otherSeat(humanSeat), new HumanBot({ avoidName: socket.data.name }));
@@ -113,17 +159,18 @@ export class Lobby {
     const me = socket.data;
     if (this.activeRoom(me.playerId)) return { ok: false, error: "already_in_game" };
     this.leaveQueue(me.playerId);
-    const room = new Room({ io: this.io, kind: "private", code: makeCode(this.byCode), onClose: (r, why) => this.onRoomClose(r, why) });
+    const room = this.newRoom({ kind: "private", code: makeCode(this.byCode) });
     this.register(room);
     room.addHuman(1, socket, me);
     this.byPlayer.set(me.playerId, room);
     return { ok: true, code: room.code };
   }
 
-  joinByCode(socket, rawCode) {
+  async joinByCode(socket, rawCode) {
     const me = socket.data;
     const code = normalizeCode(rawCode);
-    const room = code && this.byCode.get(code);
+    // a room created before a server restart is still in the store
+    const room = code && (this.byCode.get(code) || await this.restore(await this.store.roomIdOfCode(code)));
     if (!room || room.status === "over") return { ok: false, error: "bad_code" };
     if (room.seatOf(me.playerId)) return { ok: false, error: "own_room" };
     if (room.status !== "waiting" || !room.freeSeat()) return { ok: false, error: "room_full" };
@@ -137,9 +184,14 @@ export class Lobby {
   }
 
   //--------- coming back ---------
-  rejoin(socket) {
+  async rejoin(socket) {
     const me = socket.data;
-    const room = this.activeRoom(me.playerId);
+    let room = this.activeRoom(me.playerId);
+    // After a server restart the game is in the store, not in memory.
+    if (!room) {
+      const restored = await this.restore(await this.store.roomIdOfPlayer(me.playerId));
+      if (restored && restored.status !== "over" && restored.seatOf(me.playerId)) room = restored;
+    }
     if (!room) return { ok: false };
     const seat = room.seatOf(me.playerId);
     room.onReconnect(seat, socket);
@@ -175,6 +227,7 @@ export class Lobby {
   //--------- housekeeping ---------
   onRoomClose(room, why) {
     if (why === "over") {
+      this.store.deleteRoom(room); // nothing left to resume
       // Keep it around for ROOM_OVER_TTL_MS (see sweep) so a refresh can still
       // show the result, but free the code right away.
       if (room.code) this.byCode.delete(room.code);
@@ -183,6 +236,7 @@ export class Lobby {
 
   closeRoom(room) {
     room.dispose();
+    this.store.deleteRoom(room);
     this.rooms.delete(room.id);
     if (room.code) this.byCode.delete(room.code);
     for (const s of [1, 2]) {

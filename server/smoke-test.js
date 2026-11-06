@@ -3,6 +3,7 @@
 // checked in seconds:   BOT_TIME_SCALE=0.002 node server/smoke-test.js
 import assert from "node:assert/strict";
 import { Lobby } from "./lobby.js";
+import { createMemoryStore } from "./store.js";
 import { QUEUE_BOT_DELAY_MS } from "./config.js";
 import {
   chooseCallToMake, chooseDiceToLock, shouldStopRolling, explainPlacement,
@@ -68,7 +69,8 @@ async function runGame(room, humanSeat) {
 }
 
 //--------- tests ---------
-const lobby = new Lobby(io);
+const store = createMemoryStore();
+const lobby = new Lobby(io, store);
 
 // 1. random queue falls back to a bot, a full game finishes, nothing is rejected
 {
@@ -167,9 +169,9 @@ const lobby = new Lobby(io);
   const guest = fakeSocket("player-gggggggg", "Tern77");
   const created = lobby.createPrivate(host);
   assert.ok(created.ok && /^[A-HJ-NP-Z2-9]{4}$/.test(created.code));
-  assert.equal(lobby.joinByCode(host, created.code).error, "own_room");
-  assert.equal(lobby.joinByCode(guest, "ZZZZ").error, "bad_code");
-  assert.ok(lobby.joinByCode(guest, created.code.toLowerCase()).ok, "codes are case-insensitive");
+  assert.equal((await lobby.joinByCode(host, created.code)).error, "own_room");
+  assert.equal((await lobby.joinByCode(guest, "ZZZZ")).error, "bad_code");
+  assert.ok((await lobby.joinByCode(guest, created.code.toLowerCase())).ok, "codes are case-insensitive");
   const room = lobby.roomOfSocket(guest);
   assert.equal(room.botSeats().length, 0, "private rooms never get a bot");
   assert.equal(room.status, "playing");
@@ -179,7 +181,7 @@ const lobby = new Lobby(io);
   lobby.handleDisconnect(host);
   assert.equal(find(guest, "opponent_status").at(-1).payload.connected, false);
   const host2 = fakeSocket("player-ffffffff", "Lark66");
-  const back = lobby.rejoin(host2);
+  const back = await lobby.rejoin(host2);
   assert.ok(back.ok && back.status === "playing" && back.snapshot.state);
   assert.equal(find(guest, "opponent_status").at(-1).payload.connected, true);
   console.log("ok: private room, code join, disconnect and rejoin");
@@ -193,6 +195,56 @@ const lobby = new Lobby(io);
   lobby.leaveRoom(a);
   assert.equal(find(b, "game_over").at(-1).payload.reason, "left");
   console.log("ok: leaving forfeits to the opponent");
+}
+
+// 6. a server restart (every deploy) doesn't end the games being played
+{
+  // two people mid-game, a player mid-game against the bot, a friend room
+  // still waiting for its guest
+  const a = fakeSocket("player-jjjjjjjj", "Finch10"), b = fakeSocket("player-kkkkkkkk", "Robin20");
+  lobby.joinQueue(a); lobby.joinQueue(b);
+  const pvp = lobby.roomOfSocket(a);
+  const cur = pvp.state.currentPlayer;
+  assert.ok(pvp.handleAction(cur, { type: "ROLL_DICE" }).ok); // the dice are in the air when the server stops
+  const solo = fakeSocket("player-llllllll", "Swift30");
+  lobby.joinQueue(solo);
+  await wait(100); // the bot takes the seat
+  const vsBot = lobby.roomOfSocket(solo);
+  assert.equal(vsBot.botSeats().length, 1);
+  const host = fakeSocket("player-mmmmmmmm", "Gull40");
+  const { code } = lobby.createPrivate(host);
+  await wait(20); // saves are written right after each change
+
+  const before = { pvp: JSON.stringify(pvp.state.table), seq: pvp.seq, turn: pvp.state.currentPlayer, bot: vsBot.seats[vsBot.botSeats()[0]].name };
+  await lobby.saveAll();
+  for (const r of [pvp, vsBot]) r.dispose(); // the old server is gone
+
+  // the new server: empty memory, same store
+  const lobby2 = new Lobby(io, store);
+  const a2 = fakeSocket("player-jjjjjjjj", "Finch10"), b2 = fakeSocket("player-kkkkkkkk", "Robin20");
+  const [ra, rb] = await Promise.all([lobby2.rejoin(a2), lobby2.rejoin(b2)]);
+  assert.ok(ra.ok && rb.ok && ra.status === "playing", "both players get their game back");
+  const pvp2 = lobby2.roomOfSocket(a2);
+  assert.equal(pvp2, lobby2.roomOfSocket(b2), "one shared copy of the game");
+  assert.equal(JSON.stringify(pvp2.state.table), before.pvp);
+  assert.equal(pvp2.seq, before.seq);
+  assert.equal(pvp2.state.currentPlayer, before.turn);
+  assert.equal(pvp2.rolling, false, "a roll in the air is settled");
+  // both seats are people: play each turn until the game ends
+  const deadline = Date.now() + 60000;
+  while (pvp2.status === "playing" && Date.now() < deadline) await playTurn(pvp2, pvp2.state.currentPlayer);
+  assert.equal(pvp2.status, "over", "the restored game is played to the end");
+
+  const solo2 = fakeSocket("player-llllllll", "Swift30");
+  assert.ok((await lobby2.rejoin(solo2)).ok);
+  const vsBot2 = lobby2.roomOfSocket(solo2);
+  assert.equal(vsBot2.seats[vsBot2.botSeats()[0]].name, before.bot, "the same bot comes back");
+  await runGame(vsBot2, solo2.data.seat);
+  assert.equal(vsBot2.status, "over", "the bot plays on after the restart");
+
+  const guest = fakeSocket("player-nnnnnnnn", "Wren50");
+  assert.ok((await lobby2.joinByCode(guest, code)).ok, "a room code from before the restart still works");
+  console.log("ok: games survive a server restart");
 }
 
 console.log("all smoke tests passed");
