@@ -1311,21 +1311,50 @@ function showWinnerPopup(winner) {
         // Uses whatever name is currently showing in that player's info
         // box (still "YOU"/"BOT" until name selection exists) rather than
         // a hardcoded "Player 1/2".
-        document.getElementById("winner-text").textContent = gameState.players[winner].name + " won!";
         document.getElementById("winner-overlay").style.display = "flex";
+        setWinnerText(gameState.players[winner].name + " won!");
         animateWinnerPoints(pointsEl, gameState.players[winner].points);
         fireWinnerConfetti(3000);
     } else {
         document.getElementsByClassName("piece-popup-container")[0].classList.remove("pulse");
         document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", "rgba(0, 0, 0, .2)");
         document.getElementById("piece-popup").style.backgroundImage = urlOf("resources/images/tie.svg");
-        document.getElementById("winner-text").textContent = "It's a tie!";
         document.getElementById("winner-overlay").style.display = "flex";
+        setWinnerText("It's a tie!");
         pointsEl.textContent = "";
         pointsEl.classList.remove("winner-points-reveal");
         fireWinnerConfetti(500);
     }
 }
+
+// The winner card's headline, shrunk to the card's width when it doesn't fit
+// (see .winner-text): down to 60% of its size on one line, and past that on
+// balanced lines at 60%. The overlay must be showing so it can be measured.
+const WINNER_TEXT_MIN_FIT = .6;
+function setWinnerText(text) {
+    const el = document.getElementById("winner-text");
+    el.textContent = text;
+    fitWinnerText();
+}
+function fitWinnerText() {
+    const el = document.getElementById("winner-text");
+    el.style.removeProperty("--fit");
+    el.classList.remove("wraps");
+    const room = el.parentElement.clientWidth;
+    const width = el.scrollWidth;
+    if (!room || width <= room) return;
+    const fit = room / width * .97;
+    if (fit >= WINNER_TEXT_MIN_FIT) {
+        el.style.setProperty("--fit", fit.toFixed(3));
+    } else {
+        el.style.setProperty("--fit", WINNER_TEXT_MIN_FIT);
+        el.classList.add("wraps");
+    }
+}
+// The card's size follows the window (rotation, split screen).
+window.addEventListener("resize", () => {
+    if (document.getElementById("winner-overlay").style.display === "flex") fitWinnerText();
+});
 
 // Reveals the winner's final score with a spring pop-in (see
 // .winner-points-reveal) while counting the number itself up from 0 to
@@ -3455,8 +3484,7 @@ function onRemoteGameOver({ winner, reason }) {
 
     showWinnerPopup(winner);
     if (winner === LOCAL_PLAYER) {
-        document.getElementById("winner-text").textContent =
-            reason === "disconnect" ? "Your opponent disconnected. You win!" : "Your opponent left. You win!";
+        setWinnerText(reason === "disconnect" ? "Your opponent disconnected. You win!" : "Your opponent left. You win!");
     }
 }
 

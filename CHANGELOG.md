@@ -12,6 +12,15 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.11.1] - 2026-11-06
+
+### Fixed
+- The winner card's headline no longer runs off the card: a long name shrinks to fit, and the longest messages ("Your opponent disconnected. You win!") go onto two balanced lines.
+
+### Changed
+- Online players and bots get animal names that can't be mistaken for a person's (Otter, Panda, Badger... instead of Robin, Jay, Raven).
+- `render.yaml` describes the server that is actually running (`linotte-web`, Virginia) and puts its game store in the same region; the move to Frankfurt is postponed.
+
 ## [2.11.0] - 2026-11-06
 
 ### Added

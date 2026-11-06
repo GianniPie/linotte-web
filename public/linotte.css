@@ -2127,12 +2127,23 @@ section {
   display: none;
 }
 
+/* --fit (set by fitWinnerText in linotte.js) shrinks a text that doesn't
+   fit the card's width -- a long random name, "Your opponent left. You
+   win!" -- and .wraps lets the longest ones go onto two lines instead of
+   getting too small. */
 .winner-text {
   margin-top: 4cqw;
-  font-size: 13.3cqw;
+  max-width: 100%;
+  font-size: calc(13.3cqw * var(--fit, 1));
   line-height: 1.1;
   white-space: nowrap;
+  text-align: center;
   color: rgba(0, 0, 0, .5);
+}
+
+.winner-text.wraps {
+  white-space: normal;
+  text-wrap: balance;
 }
 
 .winner-points {

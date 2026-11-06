@@ -1,12 +1,14 @@
 //----------- PLAYER NAMES ---------------
 // Players don't type a name (no free text to moderate): the server gives
-// everyone a short bird + number name, stable per playerId so the same
-// install is always the same "person". Kept to 8 characters so it fits the
-// player box.
+// everyone a short animal + number name, stable per playerId so the same
+// install is always the same "person". Only animals that can't be read as a
+// person's name (no Robin, Jay, Raven...). At most 6 letters, so with the
+// number it stays within 8 characters and fits the player box.
 
-const BIRDS = [
-  "Wren", "Finch", "Robin", "Lark", "Swift", "Owl", "Crane", "Heron",
-  "Raven", "Dove", "Jay", "Kite", "Tern", "Pipit", "Linnet", "Stork",
+const ANIMALS = [
+  "Otter", "Panda", "Koala", "Lynx", "Gecko", "Bison", "Moose", "Hippo",
+  "Zebra", "Lemur", "Llama", "Puffin", "Badger", "Walrus", "Toucan", "Beaver",
+  "Owl", "Heron", "Stork", "Ibis", "Newt", "Yak", "Turtle", "Tiger",
 ];
 
 function hash(str) {
@@ -20,15 +22,15 @@ function hash(str) {
 
 export function nameFromId(id) {
   const h = hash(String(id));
-  const bird = BIRDS[h % BIRDS.length];
+  const animal = ANIMALS[h % ANIMALS.length];
   const num = String((h >>> 8) % 100).padStart(2, "0");
-  return bird + num;
+  return animal + num;
 }
 
 export function randomName(exclude = "") {
   let name;
   do {
-    name = BIRDS[Math.floor(Math.random() * BIRDS.length)] + String(Math.floor(Math.random() * 100)).padStart(2, "0");
+    name = ANIMALS[Math.floor(Math.random() * ANIMALS.length)] + String(Math.floor(Math.random() * 100)).padStart(2, "0");
   } while (name === exclude);
   return name;
 }

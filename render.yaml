@@ -13,14 +13,15 @@
 #     then raise numInstances.
 services:
   - type: web
-    # Its address is https://<name>.onrender.com (Render adds a suffix if the
-    # name is taken); public/config.js and the GAME_SERVER_URL repository
-    # variable must point to it.
-    name: linotte-server
+    # The existing service, https://linotte-web.onrender.com (Virginia). Its
+    # address must match public/config.js and the GAME_SERVER_URL repository
+    # variable. Render can't move a service between regions: a Frankfurt one
+    # would be a new service with a new address.
+    name: linotte-web
     runtime: node
     plan: free
-    region: frankfurt
-    branch: main
+    region: virginia
+    branch: server-node # the branch the existing service deploys from
     buildCommand: npm install --omit=dev
     startCommand: node server/server.js
     healthCheckPath: /healthz
@@ -52,6 +53,6 @@ services:
   - type: keyvalue
     name: linotte-kv
     plan: free
-    region: frankfurt
+    region: virginia # must be the server's region
     maxmemoryPolicy: allkeys-lru
     ipAllowList: [] # reachable only from services in this account
