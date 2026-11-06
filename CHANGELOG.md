@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.10.2] - 2026-11-06
+
+### Added
+- A GitHub job pings the game server every 10 minutes, so Render's free plan doesn't put it to sleep and players don't wait a minute for it to wake.
+
 ## [2.10.1] - 2026-11-06
 
 ### Added
