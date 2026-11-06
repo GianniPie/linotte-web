@@ -3,7 +3,9 @@
 // so the same code runs locally, on a staging box and in production.
 
 export const PORT = Number(process.env.PORT) || 3000;
-export const IS_PRODUCTION = process.env.NODE_ENV === "production";
+// Render sets RENDER=true on every service, so the hosted server is in
+// production mode even if NODE_ENV was never set in its dashboard.
+export const IS_PRODUCTION = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
 
 // Bump whenever the Terms / Privacy Policy / bot notice text changes: the
 // client shows the consent screen again and the server refuses online play
@@ -56,8 +58,13 @@ export const ROOMS_NEED_PRO = process.env.ROOMS_NEED_PRO === "1";
 export const EXTRA_ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
+// The published web site, always allowed so the hosted server works without
+// any setting in its dashboard (ALLOWED_ORIGINS adds others).
+const PUBLISHED_SITE = "https://linotte-web.vercel.app";
+
 export function isOriginAllowed(origin) {
   if (!origin) return true; // same-origin / non-browser clients
+  if (origin === PUBLISHED_SITE) return true;
   if (origin === "capacitor://localhost" || origin === "ionic://localhost") return true;
   if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true;
   if (/^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) return true;

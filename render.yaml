@@ -12,7 +12,7 @@
 #     live in memory, one server only), then raise numInstances.
 services:
   - type: web
-    name: linotte-server
+    name: linotte-web # the existing service (https://linotte-web.onrender.com)
     runtime: node
     plan: free
     region: frankfurt

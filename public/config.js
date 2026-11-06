@@ -1,9 +1,9 @@
 // Where the online game server lives.
 //
 // PUBLIC_SERVER_URL is the hosted server (Render, see render.yaml), used by
-// the published web site and the store apps. Empty until it exists: then
-// Online and Friend only say "coming soon" there.
-export const PUBLIC_SERVER_URL = "";
+// the published web site and the store apps. If it's ever emptied, Online
+// and Friend only say "coming soon" there.
+export const PUBLIC_SERVER_URL = "https://linotte-web.onrender.com";
 
 // A page served by the Node server itself -- `npm start` on this machine, or
 // the same through an ngrok tunnel -- talks to that server (same origin).

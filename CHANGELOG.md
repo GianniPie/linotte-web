@@ -12,10 +12,18 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.10.1] - 2026-11-06
+
+### Added
+- Online play for everyone: the published site and the store apps talk to the game server on Render (https://linotte-web.onrender.com). Online and Friend are on, without their SOON badge.
+
+### Changed
+- The game server switches to production mode by itself on Render and always accepts the published site, with nothing to set in Render's dashboard.
+
 ## [2.10.0] - 2026-11-06
 
 ### Added
-- The online game server can run on Render (render.yaml): free to start, Frankfurt region, redeployed on every release. A GitHub job pings it every 10 minutes so the free plan doesn't put it to sleep.
+- The online game server can run on Render (render.yaml): free to start, Frankfurt region, redeployed on every release.
 - While the game server is starting up (the free plan can sleep), Online and Friend show "Waking up the game server..." and wait up to 75 seconds, instead of giving up after 6.
 - Online and Friend switch on by themselves wherever there is a game server to talk to; ?online=1 / ?online=0 still force them on or off on one device.
 
