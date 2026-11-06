@@ -1,6 +1,6 @@
 {
   "name": "linotte-web",
-  "version": "2.9.1",
+  "version": "2.10.0",
   "type": "module",
   "description": "Linotte web",
   "main": "index.js",
@@ -20,6 +20,9 @@
     "url": "https://github.com/GianniPie/linotte-web/issues"
   },
   "homepage": "https://github.com/GianniPie/linotte-web#readme",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "express": "^5.2.1",
     "socket.io": "^4.8.3"

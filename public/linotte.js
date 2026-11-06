@@ -1,6 +1,6 @@
 //Version (single source: version.js, bumped by `npm run release`)
 import { VERSION } from "./version.js";
-import { CONTACT_EMAIL } from "./config.js";
+import { CONTACT_EMAIL, ONLINE_AVAILABLE } from "./config.js";
 document.getElementById("version").textContent += VERSION;
 
 // The developer contact in the help page's credits (set in config.js).
@@ -2971,10 +2971,26 @@ async function prepareOnline() {
         showMessage("Online unavailable", "This build isn't connected to a game server.");
         return false;
     }
+    // The free hosted server sleeps when nobody has played for a while and
+    // takes up to a minute to wake: say so instead of failing after a few
+    // seconds. CANCEL on that screen closes it and stops the wait.
+    const searchingText = document.getElementById("searching-text");
+    const waiting = !onlineClient.socket?.connected;
+    if (waiting) {
+        searchingText.textContent = "Connecting to the game server...";
+        showOnlineView("searching");
+    }
+    const slow = setTimeout(() => {
+        if (onlineOverlay.dataset.view === "searching") {
+            searchingText.textContent = "Waking up the game server. After a quiet spell this can take up to a minute.";
+        }
+    }, 4000);
     const hello = await Promise.race([
         onlineClient.connect(),
-        new Promise((resolve) => setTimeout(() => resolve(null), 6000)),
+        new Promise((resolve) => setTimeout(() => resolve(null), 75000)),
     ]);
+    clearTimeout(slow);
+    if (waiting && onlineOverlay.style.display === "none") return false; // cancelled meanwhile
     if (!hello?.ok) {
         showMessage("Can't reach the server", "Check your connection and try again.");
         return false;
@@ -3057,19 +3073,22 @@ function autoJoinFromLink() {
     joinFriendByCode(code);
 }
 
-// Online play needs a game server the published site doesn't have yet, so
-// ONLINE and FRIEND only say "coming soon". A developer can switch them on
-// for one device by opening the page once with ?online=1 (and off again
-// with ?online=0) -- for local tests through `npm start` or ngrok.
+// ONLINE and FRIEND work wherever there is a game server to talk to (see
+// ONLINE_AVAILABLE in config.js); elsewhere they only say "coming soon".
+// A developer can force them on or off for one device by opening the page
+// once with ?online=1 or ?online=0 (remembered on that device).
 const DEV_ONLINE_KEY = "linotte-dev-online";
 const onlineEnabled = (() => {
     try {
         const q = new URLSearchParams(location.search);
-        if (q.has("online")) localStorage.setItem(DEV_ONLINE_KEY, q.get("online") === "0" ? "" : "1");
-        return localStorage.getItem(DEV_ONLINE_KEY) === "1";
+        if (q.has("online")) localStorage.setItem(DEV_ONLINE_KEY, q.get("online") === "0" ? "0" : "1");
+        const forced = localStorage.getItem(DEV_ONLINE_KEY);
+        if (forced === "1") return true;
+        if (forced === "0") return false;
     } catch {
-        return false;
+        // storage blocked: fall back to whether a server exists
     }
+    return ONLINE_AVAILABLE;
 })();
 document.body.classList.toggle("online-enabled", onlineEnabled);
 

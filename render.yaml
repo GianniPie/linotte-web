@@ -1,0 +1,30 @@
+# The online game server on Render (https://render.com).
+# Create it once with Render's "New > Blueprint" on this repository; Render
+# then redeploys it on every push to main.
+#
+# Scaling, in order:
+#  1. now: plan "free". It sleeps after 15 minutes without traffic (about a
+#     minute to wake); .github/workflows/keep-server-awake.yml pings it every
+#     10 minutes so it doesn't, within the free 750 hours a month.
+#  2. more players: change "plan" to "starter" (always on, more CPU), then
+#     "standard" -- no code change.
+#  3. more than one instance: add the Socket.IO Redis adapter first (rooms
+#     live in memory, one server only), then raise numInstances.
+services:
+  - type: web
+    name: linotte-server
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: npm install --omit=dev
+    startCommand: node server/server.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # The published web client. The native apps' origins are always allowed
+      # (see isOriginAllowed in server/config.js).
+      - key: ALLOWED_ORIGINS
+        value: https://linotte-web.vercel.app

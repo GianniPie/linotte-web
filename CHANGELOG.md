@@ -12,6 +12,16 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-11-06
+
+### Added
+- The online game server can run on Render (render.yaml): free to start, Frankfurt region, redeployed on every release. A GitHub job pings it every 10 minutes so the free plan doesn't put it to sleep.
+- While the game server is starting up (the free plan can sleep), Online and Friend show "Waking up the game server..." and wait up to 75 seconds, instead of giving up after 6.
+- Online and Friend switch on by themselves wherever there is a game server to talk to; ?online=1 / ?online=0 still force them on or off on one device.
+
+### Fixed
+- Invite links (/j/CODE) work on the published site too; they gave a "not found" page there.
+
 ## [2.9.1] - 2026-11-05
 
 ### Fixed
