@@ -112,6 +112,10 @@
 #online-overlay[data-view="message"] .sheet-view[data-view="message"],
 #online-overlay[data-view="bot"] .sheet-view[data-view="bot"],
 #online-overlay[data-view="login"] .sheet-view[data-view="login"],
+#online-overlay[data-view="login-email"] .sheet-view[data-view="login-email"],
+#online-overlay[data-view="login-code"] .sheet-view[data-view="login-code"],
+#online-overlay[data-view="account"] .sheet-view[data-view="account"],
+#online-overlay[data-view="account-delete"] .sheet-view[data-view="account-delete"],
 #online-overlay[data-view="pro"] .sheet-view[data-view="pro"],
 #online-overlay[data-view="leave"] .sheet-view[data-view="leave"],
 #online-overlay[data-view="restart"] .sheet-view[data-view="restart"] {
@@ -203,6 +207,63 @@
   border-radius: .3em;
   background: #fff;
   color: #3d240c;
+}
+
+/* the email field on the sign-in sheet: same frame as the code boxes */
+.text-input {
+  font-family: sans-serif;
+  font-size: 1.2em;
+  text-align: center;
+  width: 100%;
+  padding: .55em .4em;
+  border: .15625em solid rgba(0, 0, 0, .35); /* 3px at the phone's 19.2px, like .code-input */
+  border-radius: .5em;
+  background: #fff;
+  color: #3d240c;
+}
+
+.sheet-btn[hidden] {
+  display: none;
+}
+
+/* while the sign-in email only has a link (EMAIL_HAS_CODE false) */
+.email-link-only #login-code-input,
+.email-link-only #login-code-submit,
+#login-error:empty,
+#account-delete-error:empty {
+  display: none;
+}
+
+.sheet-small {
+  font-size: .85em;
+  opacity: .8;
+}
+
+.sheet-text a {
+  color: inherit;
+}
+
+/* a quiet text link under the buttons (Delete account) */
+.sheet-link {
+  align-self: center;
+  font-family: sans-serif;
+  font-size: .9em;
+  color: #b3261e;
+  background: none;
+  border: none;
+  padding: .3em .6em;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#account-email {
+  overflow-wrap: anywhere;
+}
+
+/* a sheet button waiting on the network (SEND CODE, SIGN IN) */
+.sheet-btn.is-busy {
+  opacity: .6;
+  pointer-events: none;
 }
 
 .spinner {

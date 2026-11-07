@@ -191,13 +191,52 @@
                 </div>
                 <div class="button sheet-btn cancel" data-sheet-close><div class="text-button">BACK</div></div>
             </div>
-            <!-- sign in: graphics only for now (accounts come with the native apps) -->
+            <!-- sign in (public/auth.js). With accounts switched off (see
+                 public/shared/accounts.js) the profile button only says
+                 "coming soon" and none of this opens. -->
             <div class="sheet-view" data-view="login">
                 <div class="sheet-title">Sign in</div>
                 <div class="sheet-text">Keep your progress, Pro and your collection, and get them back on a new phone. You can keep playing as a guest.</div>
-                <div class="button sheet-btn has-soon apple" data-soon="Sign-in comes with the app."><div class="text-button">SIGN IN WITH APPLE</div><span class="soon-badge">SOON</span></div>
-                <div class="button sheet-btn has-soon google" data-soon="Sign-in comes with the app."><div class="text-button">SIGN IN WITH GOOGLE</div><span class="soon-badge">SOON</span></div>
+                <div class="button sheet-btn apple" id="login-apple"><div class="text-button">SIGN IN WITH APPLE</div></div>
+                <div class="button sheet-btn google" id="login-google"><div class="text-button">SIGN IN WITH GOOGLE</div></div>
+                <div class="button sheet-btn alt" id="login-email"><div class="text-button">SIGN IN WITH EMAIL</div></div>
+                <div class="sheet-text sheet-small">You must be 16 or older. By signing in you accept the <a href="legal/terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</div>
+                <div class="sheet-text error" id="login-error"></div>
                 <div class="button sheet-btn cancel" data-sheet-close><div class="text-button">NOT NOW</div></div>
+            </div>
+            <div class="sheet-view" data-view="login-email">
+                <div class="sheet-title">Sign in with email</div>
+                <div class="sheet-text" id="login-email-text">We'll email you a code. No password needed.</div>
+                <input id="login-email-input" class="text-input" type="email" inputmode="email" autocomplete="email"
+                    autocapitalize="off" spellcheck="false" maxlength="254" placeholder="you@example.com" aria-label="Email">
+                <div class="sheet-text error" id="login-email-error"></div>
+                <div class="button sheet-btn go" id="login-email-send"><div class="text-button">SEND CODE</div></div>
+                <div class="button sheet-btn cancel" id="login-email-back"><div class="text-button">BACK</div></div>
+            </div>
+            <div class="sheet-view" data-view="login-code">
+                <div class="sheet-title">Check your email</div>
+                <div class="sheet-text" id="login-code-text">Enter the code we sent to <b id="login-code-email"></b>, or tap the link in the email on this device.</div>
+                <input id="login-code-input" class="code-input" type="text" inputmode="numeric" autocomplete="one-time-code"
+                    spellcheck="false" maxlength="10" placeholder="000000" aria-label="Code">
+                <div class="sheet-text error" id="login-code-error"></div>
+                <div class="button sheet-btn go" id="login-code-submit"><div class="text-button">SIGN IN</div></div>
+                <div class="button sheet-btn cancel" id="login-code-back"><div class="text-button">BACK</div></div>
+            </div>
+            <div class="sheet-view" data-view="account">
+                <div class="sheet-title">Your account</div>
+                <div class="sheet-text">Signed in as <b id="account-email"></b></div>
+                <div class="button sheet-btn cancel" id="account-signout"><div class="text-button">SIGN OUT</div></div>
+                <div class="button sheet-btn go" data-sheet-close><div class="text-button">OK</div></div>
+                <button class="sheet-link" id="account-delete" type="button">Delete account</button>
+            </div>
+            <div class="sheet-view" data-view="account-delete">
+                <div class="sheet-title">Delete your account?</div>
+                <div class="sheet-text">Your account and everything saved with it are deleted for good. Pro bought in the App Store or Google Play stays with that store account and can be restored.</div>
+                <div class="sheet-text error" id="account-delete-error"></div>
+                <div class="sheet-row">
+                    <div class="button sheet-btn cancel" id="account-delete-confirm"><div class="text-button">DELETE</div></div>
+                    <div class="button sheet-btn go" id="account-delete-back"><div class="text-button">KEEP</div></div>
+                </div>
             </div>
             <!-- Pro: graphics only for now (purchases come with the native apps) -->
             <div class="sheet-view" data-view="pro">

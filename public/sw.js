@@ -20,7 +20,7 @@
 // Bump when sw.js's own strategy changes, or to flush stale copies. App files (see isAppShell) no
 // longer depend on this to update -- they are fetched network-first -- but a
 // new name evicts the stale copies older installs are holding.
-const CACHE_VERSION = "linotte-v2.11.1";
+const CACHE_VERSION = "linotte-v2.12.0";
 
 const PRECACHE_URLS = [
     "/",
@@ -34,6 +34,7 @@ const PRECACHE_URLS = [
     "/linotte.js",
     "/version.js",
     "/online.js",
+    "/auth.js",
     "/demo.js",
     "/emoji.js",
     "/demo.css",
@@ -43,6 +44,7 @@ const PRECACHE_URLS = [
     "/legal/privacy.html",
     "/manifest.json",
 
+    "/shared/accounts.js",
     "/shared/assets.js",
     "/shared/botAI.js",
     "/shared/demoScripts.js",
@@ -221,6 +223,8 @@ function isAppShell(url) {
     return url.pathname === "/" || /\.(html|css|js|json)$/.test(url.pathname);
 }
 
+const STATIC_HOSTS = new Set(["fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net"]);
+
 function putInCache(request, response) {
     // Only cache real, complete responses; "opaque" cross-origin ones
     // (status 0) can't be inspected but are still usable offline later.
@@ -280,6 +284,10 @@ self.addEventListener("fetch", (event) => {
     // versioned in their URLs and never change: cache-first, filling the
     // cache with anything precaching missed (this is also what stores the
     // Google Fonts CSS + woff2, whose exact URLs Google generates).
+    // Only those hosts: anything else (the sign-in service above all) is live
+    // data, and a cached copy would freeze it -- e.g. which sign-in methods
+    // are switched on, or who is signed in.
+    if (!STATIC_HOSTS.has(url.hostname)) return;
     event.respondWith(
         caches.match(event.request).then((cached) => {
             if (cached) return cached;

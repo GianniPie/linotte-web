@@ -417,3 +417,29 @@
 .online-enabled #home-friend-btn .soon-badge {
   display: none;
 }
+
+/* With accounts switched on (public/shared/accounts.js) the profile button
+   signs in for real. */
+.accounts-enabled #home-profile .soon-badge {
+  display: none;
+}
+
+/* A signed-in player's own photo (Google/Apple), cropped like the buddy. */
+.home-avatar {
+  overflow: hidden;
+}
+
+.home-avatar > img {
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-avatar.has-photo {
+  background: rgb(228, 209, 187);
+}
+
+.home-avatar.has-photo > img {
+  display: block;
+}

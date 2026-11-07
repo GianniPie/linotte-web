@@ -4,6 +4,8 @@
 import assert from "node:assert/strict";
 import { Lobby } from "./lobby.js";
 import { createMemoryStore } from "./store.js";
+import { userIdFromToken } from "./accounts.js";
+import { generateKeyPair, exportJWK, createLocalJWKSet, SignJWT } from "jose";
 import { QUEUE_BOT_DELAY_MS } from "./config.js";
 import {
   chooseCallToMake, chooseDiceToLock, shouldStopRolling, explainPlacement,
@@ -245,6 +247,26 @@ const lobby = new Lobby(io, store);
   const guest = fakeSocket("player-nnnnnnnn", "Wren50");
   assert.ok((await lobby2.joinByCode(guest, code)).ok, "a room code from before the restart still works");
   console.log("ok: games survive a server restart");
+}
+
+//--------- 7. accounts: only Linotte's own, valid tokens count ---------
+{
+  const url = "https://example.supabase.co";
+  const { publicKey, privateKey } = await generateKeyPair("ES256");
+  const keys = createLocalJWKSet({ keys: [{ ...(await exportJWK(publicKey)), kid: "k1", alg: "ES256" }] });
+  const sign = (claims, key = privateKey) => new SignJWT(claims).setProtectedHeader({ alg: "ES256", kid: "k1" })
+    .setIssuedAt().setExpirationTime(claims.exp ?? "1h").sign(key);
+  const ok = await sign({ sub: "user-123", iss: `${url}/auth/v1`, aud: "authenticated" });
+  assert.equal(await userIdFromToken(ok, { keys, url }), "user-123", "a valid token gives the account id");
+  assert.equal(await userIdFromToken(undefined, { keys, url }), null, "no token: a guest");
+  assert.equal(await userIdFromToken(ok, { keys, url: "" }), null, "accounts switched off: a guest");
+  const otherProject = await sign({ sub: "user-123", iss: "https://other.supabase.co/auth/v1", aud: "authenticated" });
+  assert.equal(await userIdFromToken(otherProject, { keys, url }), null, "another project's token is refused");
+  const expired = await sign({ sub: "user-123", iss: `${url}/auth/v1`, aud: "authenticated", exp: Math.floor(Date.now() / 1000) - 60 });
+  assert.equal(await userIdFromToken(expired, { keys, url }), null, "an expired token is refused");
+  const forged = await sign({ sub: "user-123", iss: `${url}/auth/v1`, aud: "authenticated" }, (await generateKeyPair("ES256")).privateKey);
+  assert.equal(await userIdFromToken(forged, { keys, url }), null, "a token signed by someone else is refused");
+  console.log("ok: account tokens are checked");
 }
 
 console.log("all smoke tests passed");

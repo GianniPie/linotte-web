@@ -6,6 +6,7 @@
 
 import { io } from "./vendor/socket.io.esm.min.js";
 import { SERVER_URL } from "./config.js";
+import { accessToken } from "./auth.js";
 
 // Must equal CONSENT_VERSION in server/config.js. Bump both whenever the
 // Terms / Privacy / bot notice text changes: everyone is asked again.
@@ -92,11 +93,12 @@ export class OnlineClient {
         const s = this.socket;
 
         this.ready = new Promise((resolve) => {
-            s.on("connect", () => {
+            s.on("connect", async () => {
                 s.emit("hello", {
                     playerId: getPlayerId(),
                     consentVersion: hasConsent() ? CONSENT_VERSION : 0,
                     entitlement: entitlement(),
+                    accessToken: await accessToken(),
                 }, (res) => {
                     if (res?.ok) this.name = res.name;
                     this.h.onConnection?.(true, res);
@@ -121,6 +123,13 @@ export class OnlineClient {
             if (document.visibilityState === "visible" && this.socket && !this.socket.connected) this.socket.connect();
         });
         return this.ready;
+    }
+
+    // Signed in or out on this page: tell the server who we are now.
+    async reauth() {
+        if (!this.socket?.connected) return; // the next hello carries it
+        const res = await this.call("auth", { accessToken: await accessToken() });
+        if (res?.ok) this.name = res.name;
     }
 
     call(event, payload = {}) {

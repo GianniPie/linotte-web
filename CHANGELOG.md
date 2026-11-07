@@ -12,6 +12,22 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-11-07
+
+### Added
+- Accounts (optional, with Supabase): sign in with Apple, Google or a code by email from the profile button on the home screen; the account sheet shows who is signed in, signs out and deletes the account for good (as Apple requires). Switched on with the "Linotte" Supabase project (Frankfurt); the sign-in sheet only shows the methods enabled there, and until our own mail service is connected the email carries a sign-in link (no code).
+- The game server checks a signed-in player's token and knows their account (the base for Pro and purchases on every device); a signed-in player keeps the same animal name on every phone.
+- `supabase/delete_account.sql`: the database function the in-app account deletion uses.
+
+- Sign in with Google is switched on (Google Cloud project "Linotte", published for everyone).
+
+### Changed
+- Privacy Policy and Terms cover accounts, and saved games in progress.
+- Email sign-in that Supabase refuses (its built-in mailer only writes to the project's team) now says so plainly instead of "Something went wrong".
+
+### Fixed
+- The offline cache only keeps fonts and libraries from other sites: it no longer freezes live answers from the sign-in service (which methods are on, who is signed in).
+
 ## [2.11.1] - 2026-11-06
 
 ### Fixed

@@ -12,6 +12,7 @@ import { PORT, CONSENT_VERSION, EMOTES, ROOMS_NEED_PRO, isOriginAllowed } from "
 import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
 import { isPro } from "./entitlements.js";
+import { userIdFromToken } from "./accounts.js";
 import { createStore } from "./store.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -76,10 +77,13 @@ io.on("connection", (socket) => {
     });
   };
 
-  on("hello", { needsHello: false }, (p) => {
+  on("hello", { needsHello: false }, async (p) => {
     if (!PLAYER_ID.test(String(p.playerId || ""))) return { ok: false, error: "bad_player_id" };
     socket.data.playerId = p.playerId;
-    socket.data.name = nameFromId(p.playerId);
+    // Signed in: the account (not the device) gives the name, so it's the
+    // same on every phone. Guests: the device's own id.
+    socket.data.userId = await userIdFromToken(p.accessToken);
+    socket.data.name = nameFromId(socket.data.userId || p.playerId);
     socket.data.consentVersion = Number(p.consentVersion) || 0;
     socket.data.entitlement = p.entitlement && typeof p.entitlement === "object" ? p.entitlement : null;
     return {
@@ -88,7 +92,16 @@ io.on("connection", (socket) => {
       consentVersion: CONSENT_VERSION,
       consentOk: socket.data.consentVersion >= CONSENT_VERSION,
       emotes: EMOTES,
+      signedIn: Boolean(socket.data.userId),
     };
+  });
+
+  // Signing in or out without reloading the page (the email code): the
+  // account changes, and so does the name -- but not in the middle of a game.
+  on("auth", {}, async (p) => {
+    socket.data.userId = await userIdFromToken(p.accessToken);
+    if (!lobby.roomOfSocket(socket)) socket.data.name = nameFromId(socket.data.userId || socket.data.playerId);
+    return { ok: true, signedIn: Boolean(socket.data.userId), name: socket.data.name };
   });
 
   // Same screen can re-send consent (after accepting a newer version).

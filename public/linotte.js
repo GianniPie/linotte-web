@@ -178,6 +178,7 @@ import GameController from './shared/gameController.js';
 import { playFairyTrail } from "./shared/fairyTrail.js";
 import { initCombinationDemos } from "./demo.js";
 import { emojiMarkup, emojiLabel } from "./emoji.js";
+import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount } from "./auth.js";
 import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession } from "./online.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = "YOU";
@@ -3145,10 +3146,164 @@ const byId = (id) => document.getElementById(id);
 byId("home-vs-bot-btn").addEventListener("click", () => showOnlineView("bot"));
 byId("home-settings").addEventListener("click", () => openOptions("home", "options"));
 byId("home-help").addEventListener("click", () => openOptions("home", "help"));
-// Everything marked SOON only says so (the sign-in and Pro panels are kept
-// in index.html for when accounts and purchases arrive).
-byId("home-profile").addEventListener("click", () => showToast("Sign-in is coming soon."));
-byId("home-pro").addEventListener("click", () => showToast("Linotte Pro is coming soon."));
+//--------- sign in ---------
+// Optional accounts (public/auth.js). The profile button opens the sign-in
+// sheet for a guest and the account sheet once signed in.
+document.body.classList.toggle("accounts-enabled", ACCOUNTS_AVAILABLE);
+byId("home-profile").addEventListener("click", async () => {
+    if (!ACCOUNTS_AVAILABLE) return showToast("Sign-in is coming soon.");
+    if (currentUser()) return showOnlineView("account");
+    // Only the ways switched on in Supabase (see enabledProviders).
+    const on = await enabledProviders();
+    byId("login-apple").hidden = !on.apple;
+    byId("login-google").hidden = !on.google;
+    byId("login-email").hidden = on.email === false;
+    byId("login-error").textContent = "";
+    showOnlineView("login");
+});
+
+// Until our own mail service is connected the email has only a link.
+document.body.classList.toggle("email-link-only", !EMAIL_HAS_CODE);
+if (!EMAIL_HAS_CODE) {
+    byId("login-email-text").textContent = "We'll email you a sign-in link. No password needed.";
+    byId("login-email-send").querySelector(".text-button").textContent = "SEND LINK";
+}
+
+let loginEmail = "";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Supabase's messages are written for developers; players get these.
+function loginErrorText(err) {
+    const msg = String(err?.message || err || "").toLowerCase();
+    if (msg.includes("rate") || msg.includes("too many") || msg.includes("security purposes")) return "Too many tries. Wait a minute and try again.";
+    if (msg.includes("expired") || msg.includes("invalid") || msg.includes("token")) return "That code didn't work. Check it, or ask for a new one.";
+    if (msg.includes("provider is not enabled") || msg.includes("unsupported provider")) return "This way of signing in isn't ready yet.";
+    // Supabase's built-in mailer only writes to the project's own team.
+    if (msg.includes("not authorized")) return "Signing in by email isn't open to everyone yet. Play as a guest for now.";
+    if (msg.includes("unavailable") || msg.includes("fetch") || msg.includes("network")) return "Can't reach the sign-in service. Check your connection.";
+    return "Something went wrong. Please try again.";
+}
+
+// Runs a sign-in step with its button dimmed until the answer comes back.
+async function loginStep(btn, errEl, task) {
+    if (btn.classList.contains("is-busy")) return;
+    btn.classList.add("is-busy");
+    errEl.textContent = "";
+    try {
+        await task();
+    } catch (err) {
+        console.error("sign-in:", err);
+        errEl.textContent = loginErrorText(err);
+    } finally {
+        btn.classList.remove("is-busy");
+    }
+}
+
+byId("login-google").addEventListener("click", (e) => loginStep(e.currentTarget, byId("login-error"), () => signInWith("google")));
+byId("login-apple").addEventListener("click", (e) => loginStep(e.currentTarget, byId("login-error"), () => signInWith("apple")));
+byId("login-email").addEventListener("click", () => {
+    byId("login-email-error").textContent = "";
+    showOnlineView("login-email");
+    byId("login-email-input").focus();
+});
+byId("login-email-back").addEventListener("click", () => showOnlineView("login"));
+byId("login-code-back").addEventListener("click", () => showOnlineView("login-email"));
+
+function sendLoginCode() {
+    const email = byId("login-email-input").value.trim();
+    const errEl = byId("login-email-error");
+    if (!EMAIL_RE.test(email)) { errEl.textContent = "Enter a valid email address."; return; }
+    loginStep(byId("login-email-send"), errEl, async () => {
+        await sendEmailCode(email);
+        loginEmail = email;
+        if (EMAIL_HAS_CODE) byId("login-code-email").textContent = email;
+        else byId("login-code-text").textContent = `We sent a sign-in link to ${email}. Open it on this device to sign in.`;
+        byId("login-code-input").value = "";
+        byId("login-code-error").textContent = "";
+        showOnlineView("login-code");
+        byId("login-code-input").focus();
+    });
+}
+
+function submitLoginCode() {
+    const code = byId("login-code-input").value.replace(/\D/g, "");
+    const errEl = byId("login-code-error");
+    if (code.length < 6) { errEl.textContent = "Enter the code from the email."; return; }
+    loginStep(byId("login-code-submit"), errEl, async () => {
+        await verifyEmailCode(loginEmail, code);
+        closeOnlineOverlay();
+    });
+}
+
+byId("login-email-send").addEventListener("click", sendLoginCode);
+byId("login-email-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sendLoginCode(); });
+byId("login-code-submit").addEventListener("click", submitLoginCode);
+byId("login-code-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitLoginCode(); });
+byId("account-signout").addEventListener("click", async () => {
+    try { await signOut(); } catch (err) { console.error("sign-out:", err); }
+    closeOnlineOverlay();
+    showToast("Signed out. You're playing as a guest.");
+});
+
+byId("account-delete").addEventListener("click", () => {
+    byId("account-delete-error").textContent = "";
+    showOnlineView("account-delete");
+});
+byId("account-delete-back").addEventListener("click", () => showOnlineView("account"));
+byId("account-delete-confirm").addEventListener("click", (e) => loginStep(e.currentTarget, byId("account-delete-error"), async () => {
+    await deleteAccount();
+    closeOnlineOverlay();
+    showToast("Your account has been deleted.");
+}));
+
+// The player's Google/Apple photo over the buddy. An <img> rather than a CSS
+// background so it can go without a referrer: Google's photo server
+// (lh3.googleusercontent.com) refuses requests that name the page they come
+// from. If it still fails, the buddy stays.
+function showAvatarPhoto(avatar, src) {
+    let img = avatar.querySelector("img");
+    if (!src) {
+        img?.remove();
+        avatar.classList.remove("has-photo");
+        return;
+    }
+    if (img?.getAttribute("src") === src) return;
+    img?.remove();
+    img = document.createElement("img");
+    img.alt = "";
+    img.referrerPolicy = "no-referrer";
+    img.decoding = "async";
+    img.onload = () => avatar.classList.add("has-photo");
+    img.onerror = () => { img.remove(); avatar.classList.remove("has-photo"); };
+    img.src = src;
+    avatar.appendChild(img);
+}
+
+// The profile button follows the account; the game server is told too.
+let lastUserId;
+onUserChange((user) => {
+    const avatar = document.querySelector("#home-profile .home-avatar");
+    byId("home-pname").textContent = user ? (user.name || user.email.split("@")[0] || "Player") : "Guest";
+    byId("home-psub").textContent = user ? "Signed in" : "Tap to sign in";
+    showAvatarPhoto(avatar, user?.avatar);
+    if (user) byId("account-email").textContent = user.email || user.name;
+    // Signed in from the email link in another tab: this one stops waiting.
+    if (user && /^login/.test(onlineOverlay.dataset.view || "")) closeOnlineOverlay();
+    // Only a sign-in/out on this page: not the session found at start-up.
+    const id = user?.id ?? null;
+    if (lastUserId !== undefined && id !== lastUserId) {
+        onlineClient.reauth();
+        if (id) showToast("Signed in.");
+    }
+    if (lastUserId !== undefined) lastUserId = id;
+});
+// Start-up: a saved session (or one just back from Google/Apple) may arrive
+// after the game server already got a guest hello.
+initAuth().then(() => {
+    lastUserId = currentUser()?.id ?? null;
+    if (lastUserId) onlineClient.reauth();
+});
+
 byId("home-ad").addEventListener("click", () => showToast("Linotte Pro is coming soon."));
 byId("home-shop").addEventListener("click", () => showToast("The shop is coming soon."));
 byId("home-stats").addEventListener("click", () => showToast("Stats are coming soon."));

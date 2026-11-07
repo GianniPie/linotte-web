@@ -1,6 +1,6 @@
 {
   "name": "linotte-web",
-  "version": "2.11.1",
+  "version": "2.12.0",
   "type": "module",
   "description": "Linotte web",
   "main": "index.js",
@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "express": "^5.2.1",
+    "jose": "^6.2.12",
     "redis": "^6.3.1",
     "socket.io": "^4.8.3"
   }
