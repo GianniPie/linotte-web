@@ -11,8 +11,8 @@ import { Server } from "socket.io";
 import { PORT, CONSENT_VERSION, EMOTES, ROOMS_NEED_PRO, isOriginAllowed } from "./config.js";
 import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
-import { isPro } from "./entitlements.js";
-import { userIdFromToken } from "./accounts.js";
+import { isPro, forgetPro } from "./entitlements.js";
+import { userIdFromToken, profileOf } from "./accounts.js";
 import { createStore } from "./store.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -34,6 +34,33 @@ app.use(express.static(path.join(here, "..", "public"), {
 }));
 
 app.get("/healthz", (req, res) => res.json({ ok: true }));
+
+// Is the signed-in player Pro? The home screen asks this without opening a
+// game connection. Send the Supabase access token as "Authorization: Bearer"
+// (and, while developing, the ?devpro=1 token as "X-Linotte-Dev");
+// ?fresh=1 (right after a purchase) skips the 5-minute cache.
+app.get("/api/me", async (req, res) => {
+  const origin = req.get("Origin");
+  if (origin && isOriginAllowed(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Vary", "Origin");
+  }
+  res.set("Cache-Control", "no-store");
+  const token = (req.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  const userId = await userIdFromToken(token);
+  if (userId && req.query.fresh === "1") forgetPro(userId);
+  const devToken = req.get("X-Linotte-Dev") || ""; // ?devpro=1, see online.js
+  res.json({ signedIn: Boolean(userId), pro: await isPro({ userId, devToken }) });
+});
+app.options("/api/me", (req, res) => {
+  const origin = req.get("Origin");
+  if (origin && isOriginAllowed(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+    res.set("Access-Control-Allow-Headers", "Authorization, X-Linotte-Dev");
+    res.set("Vary", "Origin");
+  }
+  res.sendStatus(204);
+});
 
 // Invite links: https://host/j/K7QF opens the app already trying to join.
 app.get("/j/:code", (req, res) => {
@@ -59,6 +86,17 @@ function allow(socket) {
   return true;
 }
 
+// Who this connection is: a signed-in player shows the name and country of
+// their profile (the random animal name if they chose none); a guest gets the
+// animal name of their device. Same on every phone for the same account.
+async function setAccount(socket, token) {
+  const d = socket.data;
+  d.userId = await userIdFromToken(token);
+  const profile = d.userId ? await profileOf(token) : { name: "", country: "" };
+  d.name = profile.name || nameFromId(d.userId || d.playerId);
+  d.country = profile.country;
+}
+
 io.on("connection", (socket) => {
   // Every handler goes through this: rate limit, hello required, and the
   // consent version checked wherever it matters.
@@ -82,10 +120,11 @@ io.on("connection", (socket) => {
     socket.data.playerId = p.playerId;
     // Signed in: the account (not the device) gives the name, so it's the
     // same on every phone. Guests: the device's own id.
-    socket.data.userId = await userIdFromToken(p.accessToken);
-    socket.data.name = nameFromId(socket.data.userId || p.playerId);
+    await setAccount(socket, p.accessToken);
     socket.data.consentVersion = Number(p.consentVersion) || 0;
-    socket.data.entitlement = p.entitlement && typeof p.entitlement === "object" ? p.entitlement : null;
+    socket.data.devToken = typeof p.entitlement?.devToken === "string" ? p.entitlement.devToken : "";
+    socket.data.piece = Number.isInteger(p.piece) ? p.piece : -1; // favorite piece, see shared/pieces.js
+    socket.data.pro = await isPro(socket.data);
     return {
       ok: true,
       name: socket.data.name,
@@ -93,15 +132,25 @@ io.on("connection", (socket) => {
       consentOk: socket.data.consentVersion >= CONSENT_VERSION,
       emotes: EMOTES,
       signedIn: Boolean(socket.data.userId),
+      pro: socket.data.pro,
     };
   });
 
   // Signing in or out without reloading the page (the email code): the
   // account changes, and so does the name -- but not in the middle of a game.
   on("auth", {}, async (p) => {
-    socket.data.userId = await userIdFromToken(p.accessToken);
-    if (!lobby.roomOfSocket(socket)) socket.data.name = nameFromId(socket.data.userId || socket.data.playerId);
-    return { ok: true, signedIn: Boolean(socket.data.userId), name: socket.data.name };
+    // Not in the middle of a game: the opponent already has the old name.
+    const keep = lobby.roomOfSocket(socket) ? { name: socket.data.name, country: socket.data.country } : null;
+    await setAccount(socket, p.accessToken);
+    if (keep) Object.assign(socket.data, keep);
+    socket.data.pro = await isPro(socket.data);
+    return { ok: true, signedIn: Boolean(socket.data.userId), name: socket.data.name, pro: socket.data.pro };
+  });
+
+  // The favorite piece changed in the options (used from the next game).
+  on("piece", {}, (p) => {
+    socket.data.piece = Number.isInteger(p.piece) ? p.piece : -1;
+    return { ok: true };
   });
 
   // Same screen can re-send consent (after accepting a newer version).
@@ -118,7 +167,7 @@ io.on("connection", (socket) => {
   // Creating a friend room is meant to be the paid feature (joining is
   // always free); free for everyone until ROOMS_NEED_PRO is switched on.
   on("room_create", { needsConsent: true }, async () => {
-    if (ROOMS_NEED_PRO && !(await isPro(socket.data.entitlement))) return { ok: false, error: "pro_required" };
+    if (ROOMS_NEED_PRO && !(socket.data.pro = await isPro(socket.data))) return { ok: false, error: "pro_required" };
     return lobby.createPrivate(socket);
   });
   on("room_join", { needsConsent: true }, (p) => lobby.joinByCode(socket, p.code));

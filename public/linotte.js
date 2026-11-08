@@ -1,6 +1,6 @@
 //Version (single source: version.js, bumped by `npm run release`)
 import { VERSION } from "./version.js";
-import { CONTACT_EMAIL, ONLINE_AVAILABLE } from "./config.js";
+import { CONTACT_EMAIL, ONLINE_AVAILABLE, PRO_PRICE } from "./config.js";
 document.getElementById("version").textContent += VERSION;
 
 // The developer contact in the help page's credits (set in config.js).
@@ -171,15 +171,18 @@ window.addEventListener('orientationchange', onViewportChange);
 
 //----------- GAME STATE ---------------
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
-import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces } from "./shared/assets.js";
+import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces, avatarIds, avatarUrl } from "./shared/assets.js";
 import { updateGame } from "./shared/gameEngine.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget } from "./shared/botAI.js";
 import GameController from './shared/gameController.js';
 import { playFairyTrail } from "./shared/fairyTrail.js";
 import { initCombinationDemos } from "./demo.js";
 import { emojiMarkup, emojiLabel } from "./emoji.js";
-import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount } from "./auth.js";
-import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession } from "./online.js";
+import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
+import { nameProblem, cleanPlayerName, COUNTRIES, flagOf } from "./shared/playerNames.js";
+import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
+import { recordGame, moveLocalGamesToAccount, loadStats } from "./stats.js";
+import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro } from "./online.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = "YOU";
 gameState.players[2].name = "BOT";
@@ -269,18 +272,23 @@ function startBot(strategy = "points") {
 
 //------ PLAYERS ---------------
 
-// Minimum colorDistance (see below) the two random player colors must
-// clear. Picked by checking every pair in the palette: 120 cleanly
-// separates near-duplicate pairs (two identical greens, two near-identical
-// dark browns, ~0-50) from genuinely distinct shades of the same family
-// (e.g. a mid green vs an olive green, ~150+) -- exactly "two greens are
-// fine if they're far enough apart" -- while still leaving every color at
-// least ~27 of the other 36 as valid partners, so the fallback in
-// assignRandomPieces is essentially never needed in practice. Declared as
-// a const, so it has to come before assignRandomPieces(gameState) is
-// actually called below (a const isn't hoisted the way a function
-// declaration is).
-const MIN_PLAYER_COLOR_DISTANCE = 120;
+// Player 1 (the one holding the phone) plays with their favorite piece if
+// they chose one in the options; player 2 gets one that looks clearly
+// different (see public/shared/pieces.js, shared with the game server).
+function assignRandomPieces(state) {
+    const [p1, p2] = pickPieceIndexes(favoritePiece(), -1);
+    for (const [seat, i] of [[1, p1], [2, p2]]) {
+        state.players[seat].pieceImage = piecesPath + pieces[i];
+        state.players[seat].color = "#" + pieces[i].split("_")[1].slice(0, 6);
+    }
+}
+
+// The favorite piece from the options (-1: random). Read straight from the
+// cookie: this runs before the options section is set up.
+function favoritePiece() {
+    const i = Number(getCookie("piece", -1));
+    return isPlayPiece(i) ? i : -1;
+}
 
 assignRandomPieces(gameState);
 
@@ -289,46 +297,6 @@ applyPlayerVisuals();
 renderPlayerBox(gameState.currentPlayer);
 renderPieceCounts();
 renderPointCounts();
-
-// "redmean" approximate perceptual distance between two RRGGBB colors
-// (no leading '#') -- a well-known, cheap way to weigh a plain RGB
-// difference closer to how the eye actually perceives it, without pulling
-// in a full color-space conversion.
-function colorDistance(hexA, hexB) {
-    const r1 = parseInt(hexA.slice(0, 2), 16);
-    const g1 = parseInt(hexA.slice(2, 4), 16);
-    const b1 = parseInt(hexA.slice(4, 6), 16);
-    const r2 = parseInt(hexB.slice(0, 2), 16);
-    const g2 = parseInt(hexB.slice(2, 4), 16);
-    const b2 = parseInt(hexB.slice(4, 6), 16);
-    const rmean = (r1 + r2) / 2;
-    const dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
-    return Math.sqrt((2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db);
-}
-
-function assignRandomPieces(state) {
-    const p1p = rndNum(8, pieces.length - 1);
-    state.players[1].pieceImage = piecesPath + pieces[p1p];
-    state.players[1].color = "#" + state.players[1].pieceImage.split("_")[1].slice(0, 6);
-
-    const p1Hex = state.players[1].color.slice(1);
-    const otherIndices = [];
-    for (let i = 8; i < pieces.length; i++) {
-        if (i !== p1p) otherIndices.push(i);
-    }
-    const distinctEnough = otherIndices.filter(
-        (i) => colorDistance(p1Hex, pieces[i].split("_")[1].slice(0, 6)) >= MIN_PLAYER_COLOR_DISTANCE
-    );
-    // Fall back to "just a different piece" only if literally nothing in
-    // the palette clears the bar for this particular color -- shouldn't
-    // happen with the current palette, but never leaves player 2 without
-    // a pick.
-    const pool = distinctEnough.length > 0 ? distinctEnough : otherIndices;
-    const p2p = pool[rndNum(0, pool.length - 1)];
-
-    state.players[2].pieceImage = piecesPath + pieces[p2p];
-    state.players[2].color = "#" + state.players[2].pieceImage.split("_")[1].slice(0, 6);
-}
 
 function applyPlayerVisuals() {
     selectedColor[1] = gameState.players[1].color;
@@ -372,8 +340,13 @@ function renderPlayerBox(player) {
         document.getElementsByClassName("player p1")[0].classList.remove("current");
     }
 
-    textPlayerP1.textContent = gameState.players[1].name;
-    textPlayerP2.textContent = gameState.players[2].name;
+    // Online, a player who set a country shows its flag before the name.
+    const label = (p) => `${flagOf(p.country)} ${p.name}`.trim();
+    textPlayerP1.textContent = label(gameState.players[1]);
+    textPlayerP2.textContent = label(gameState.players[2]);
+    // Online, the server says who is Pro: a gold star by their name.
+    document.getElementById("playerP1").classList.toggle("is-pro", Boolean(gameState.players[1].pro));
+    document.getElementById("playerP2").classList.toggle("is-pro", Boolean(gameState.players[2].pro));
     // Online names ("Crane36") are longer than YOU/BOT/P1: a smaller size
     // keeps them whole instead of ending in "...".
     textPlayerP1.classList.toggle("long", gameState.players[1].name.length > 5);
@@ -647,6 +620,7 @@ updateSoundTitle();
 
 
 function setCookie(name, value, days = 365) {
+    prefChanged(name); // dice, background, board and piece follow the account (see "Profile")
     const d = new Date();
     d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
 
@@ -1166,6 +1140,45 @@ bgOptions.forEach(bgOption => {
 });
 
 
+//----- favorite piece (options) -----
+// "Random" first, then every piece a player can play with. Remembered like
+// the other options, follows the account, and is used from the next game
+// (online too: the server is told).
+(function buildPieceOptions() {
+    const list = document.getElementById("piece-list");
+    const add = (i, src, label) => {
+        const li = document.createElement("li");
+        li.className = "car-item";
+        const item = document.createElement("div");
+        item.className = "car-item-content piece-options";
+        item.id = "po" + i;
+        item.setAttribute("aria-label", label);
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = "";
+        item.appendChild(img);
+        li.appendChild(item);
+        list.appendChild(li);
+        item.addEventListener("click", () => selectPiece(i));
+    };
+    add(-1, "resources/images/dice/c101.svg", "Random piece");
+    for (let i = FIRST_PLAY_PIECE; i < pieces.length; i++) add(i, piecesPath + pieces[i], "Piece " + (i + 1));
+    showPieceChoice(favoritePiece());
+})();
+
+function showPieceChoice(i) {
+    document.querySelectorAll(".piece-options").forEach((el) => el.classList.toggle("selected", el.id === "po" + i));
+    document.getElementById("piece-title").textContent = isPlayPiece(i) ? "Your piece" : "Random piece";
+}
+
+function selectPiece(i) {
+    const piece = isPlayPiece(i) ? i : -1;
+    setCookie("piece", piece);
+    showPieceChoice(piece);
+    centerLists(true);
+    onlineClient?.setPiece(piece);
+}
+
 function renderTidyness(tidyness) {
     const boardTitle = document.getElementById("board-title");
     const boardTexts = document.querySelectorAll('.board-options-text');
@@ -1295,6 +1308,25 @@ function checkGameOver() {
 // winner popup) keeps naming that player instead of comparing points.
 let forcedWinner = null;
 
+// Stats: each finished game is recorded once (the winner popup can be shown
+// again with DONE). gameState is a new object for every game.
+let recordedGame = null;
+function noteGameResult(winner) {
+    if (recordedGame === gameState) return;
+    recordedGame = gameState;
+    const mode = controller.mode === "bot" ? "bot" : controller.mode === "online" ? onlineKind : null;
+    if (!mode) return; // "Same table": nobody's own game
+    const me = controller.mode === "online" ? LOCAL_PLAYER : 1;
+    const other = me === 1 ? 2 : 1;
+    recordGame({
+        mode,
+        won: winner === me,
+        points: gameState.players[me].points,
+        opponentPoints: gameState.players[other].points,
+        opponent: controller.mode === "bot" ? "Bot" : gameState.players[other].name,
+    });
+}
+
 function determineWinner() {
     if (forcedWinner !== null) return forcedWinner;
     if (gameState.players[1].points > gameState.players[2].points) return 1;
@@ -1304,6 +1336,7 @@ function determineWinner() {
 
 
 function showWinnerPopup(winner) {
+    noteGameResult(winner);
     const pointsEl = document.getElementById("winner-points");
     if (winner) { // both player 1 or 2
         document.getElementsByClassName("piece-popup-container")[0].classList.add("pulse");
@@ -2931,6 +2964,8 @@ const onlineClient = new OnlineClient({
         showToast(connected ? "Your opponent is back" : "Your opponent disconnected, waiting for them...", connected ? 2000 : 6000);
     },
     onGameOver: onRemoteGameOver,
+    onPro: (pro) => setPro(pro),
+    getPiece: () => favoritePiece(),
     onRoomExpired: () => {
         showMessage("Room expired", "Nobody joined in time. Create a new room to try again.");
     },
@@ -3050,6 +3085,7 @@ function describeOnlineError(res) {
 
 function handleOnlineError(res) {
     if (res?.error === "already_in_game") { onlineClient.rejoin(); return; }
+    if (res?.error === "pro_required") { showProSheet(); return; }
     const info = describeOnlineError(res);
     if (info) showMessage(info[0], info[1]);
     else closeOnlineOverlay();
@@ -3058,7 +3094,12 @@ function handleOnlineError(res) {
 // True while this player waits in the random queue (see onConnection).
 let searchingRandom = false;
 
+// Which kind of online game this is, for the stats (a game picked up again
+// after a reload counts as a random one).
+let onlineKind = "random";
+
 async function startRandomOnline() {
+    onlineKind = "random";
     if (!(await prepareOnline())) return;
     document.getElementById("searching-text").textContent = "This usually takes a few seconds.";
     showOnlineView("searching");
@@ -3068,6 +3109,7 @@ async function startRandomOnline() {
 }
 
 async function createFriendRoom() {
+    onlineKind = "friend";
     if (!(await prepareOnline())) return;
     const res = await onlineClient.createRoom();
     if (res.ok) showWaitingRoom(res.code);
@@ -3075,6 +3117,7 @@ async function createFriendRoom() {
 }
 
 async function joinFriendByCode(code) {
+    onlineKind = "friend";
     const errorEl = document.getElementById("code-error");
     errorEl.textContent = "";
     if (!(await prepareOnline())) return;
@@ -3279,13 +3322,142 @@ function showAvatarPhoto(avatar, src) {
     avatar.appendChild(img);
 }
 
+//----------- PROFILE ---------------
+// A signed-in player's name, picture and country (what opponents see, the
+// server checks the name again), and the options that follow them to every
+// device: dice, background, board and favorite piece. Stored in Supabase
+// (profiles.sql).
+var profile = null;       // the loaded profile, null as a guest or until loaded
+var syncReady = false;    // true once this account's options have been applied
+var prefsTimer = 0;
+
+// The home screen's profile button: the chosen name and picture first, then
+// the Google/Apple ones, then the email.
+function showHomeProfile() {
+    const user = currentUser();
+    const name = user ? (profile?.name || user.name || user.email.split("@")[0] || "Player") : "Guest";
+    byId("home-pname").textContent = `${flagOf(profile?.country)} ${name}`.trim();
+    showAvatarPhoto(document.querySelector("#home-profile .home-avatar"), avatarUrl(profile?.avatar) || user?.avatar || "");
+}
+
+// The options that follow the account, as this page's option numbers.
+function currentPrefs() {
+    return { dice: Number(getCookie("diceFaces", 3)), background: Number(getCookie("background", 4)), board: Number(getCookie("tidyness", 2)), piece: favoritePiece() };
+}
+
+function applyPrefs(prefs) {
+    const pick = (id) => { const el = document.getElementById(id); if (el && !el.classList.contains("selected")) el.click(); };
+    if (Number.isInteger(prefs.dice)) pick("do" + prefs.dice);
+    if (Number.isInteger(prefs.background)) pick("bg" + prefs.background);
+    if (Number.isInteger(prefs.board)) pick("bo" + prefs.board);
+    if (Number.isInteger(prefs.piece) && prefs.piece !== favoritePiece()) selectPiece(prefs.piece);
+}
+
+async function syncProfile(userId) {
+    syncReady = false;
+    try {
+        const loaded = await loadProfile();
+        if (currentUser()?.id !== userId) return; // signed out meanwhile
+        profile = loaded || {};
+        showHomeProfile();
+        const saved = profile.prefs || {};
+        // First sign-in on any device: this device's choices become the account's.
+        if (Object.keys(saved).length) applyPrefs(saved);
+        else await saveProfile({ prefs: currentPrefs() });
+        syncReady = true;
+        moveLocalGamesToAccount();
+    } catch (err) {
+        console.error("profile not loaded:", err.message);
+    }
+}
+
+// Called by setCookie for every option; only the ones above are saved, a
+// moment after the last change.
+function prefChanged(cookie) {
+    if (!syncReady || !(cookie in { diceFaces: 1, background: 1, tidyness: 1, piece: 1 })) return;
+    clearTimeout(prefsTimer);
+    prefsTimer = setTimeout(() => {
+        const prefs = currentPrefs();
+        saveProfile({ prefs }).then(() => { if (profile) profile.prefs = prefs; }).catch((err) => console.error("options not saved:", err.message));
+    }, 1200);
+}
+
+// Edit profile (from the account sheet).
+let chosenAvatar = "";
+
+function buildProfileSheet() {
+    const grid = byId("profile-avatars");
+    if (!grid.childElementCount) {
+        for (const id of avatarIds) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "profile-avatar";
+            b.dataset.id = id;
+            b.setAttribute("role", "radio");
+            b.setAttribute("aria-label", "Picture " + Number(id.slice(1)));
+            b.style.backgroundImage = `url("${avatarUrl(id)}")`;
+            b.addEventListener("click", () => selectAvatar(chosenAvatar === id ? "" : id));
+            grid.appendChild(b);
+        }
+        const select = byId("profile-country");
+        let names = null;
+        try { names = new Intl.DisplayNames([navigator.language, "en"], { type: "region" }); } catch { /* old browser: codes only */ }
+        const options = COUNTRIES.map((c) => [c, `${flagOf(c)} ${names?.of(c) || c}`])
+            .sort((a, b) => a[1].slice(5).localeCompare(b[1].slice(5)));
+        select.add(new Option("No flag", ""));
+        for (const [code, label] of options) select.add(new Option(label, code));
+    }
+}
+
+function selectAvatar(id) {
+    chosenAvatar = id;
+    byId("profile-avatars").querySelectorAll(".profile-avatar")
+        .forEach((b) => b.setAttribute("aria-checked", String(b.dataset.id === id)));
+}
+
+function nameHint() {
+    const raw = byId("profile-name").value;
+    byId("profile-name-hint").textContent = raw.trim()
+        ? (nameProblem(raw) || "This is the name your opponents see.")
+        : `Leave it empty to play as a random animal name${!profile?.name && onlineClient.name ? ` (now ${onlineClient.name})` : ""}.`;
+}
+
+byId("account-edit").addEventListener("click", () => {
+    buildProfileSheet();
+    byId("profile-name").value = profile?.name || "";
+    byId("profile-country").value = profile?.country || "";
+    selectAvatar(profile?.avatar || "");
+    byId("profile-error").textContent = "";
+    showOnlineView("profile");
+    byId("profile-avatars").querySelector('[aria-checked="true"]')?.scrollIntoView({ block: "nearest" });
+    nameHint();
+});
+byId("profile-name").addEventListener("input", nameHint);
+byId("profile-cancel").addEventListener("click", () => showOnlineView("account"));
+
+byId("profile-save").addEventListener("click", (e) => {
+    const raw = byId("profile-name").value;
+    if (raw.trim() && nameProblem(raw)) { nameHint(); return; }
+    const fields = { name: cleanPlayerName(raw) || null, avatar: chosenAvatar || null, country: byId("profile-country").value || null };
+    loginStep(e.currentTarget, byId("profile-error"), async () => {
+        await saveProfile(fields);
+        profile = { ...(profile || {}), ...fields };
+        showHomeProfile();
+        onlineClient.reauth(); // the game server picks up the new name and flag
+        showOnlineView("account");
+        showToast("Profile saved.");
+    });
+});
+
 // The profile button follows the account; the game server is told too.
 let lastUserId;
 onUserChange((user) => {
     const avatar = document.querySelector("#home-profile .home-avatar");
-    byId("home-pname").textContent = user ? (user.name || user.email.split("@")[0] || "Player") : "Guest";
     byId("home-psub").textContent = user ? "Signed in" : "Tap to sign in";
-    showAvatarPhoto(avatar, user?.avatar);
+    profile = null;
+    showHomeProfile();
+    if (user) syncProfile(user.id);
+    else syncReady = false;
     if (user) byId("account-email").textContent = user.email || user.name;
     // Signed in from the email link in another tab: this one stops waiting.
     if (user && /^login/.test(onlineOverlay.dataset.view || "")) closeOnlineOverlay();
@@ -3293,6 +3465,7 @@ onUserChange((user) => {
     const id = user?.id ?? null;
     if (lastUserId !== undefined && id !== lastUserId) {
         onlineClient.reauth();
+        refreshPro();
         if (id) showToast("Signed in.");
     }
     if (lastUserId !== undefined) lastUserId = id;
@@ -3302,11 +3475,128 @@ onUserChange((user) => {
 initAuth().then(() => {
     lastUserId = currentUser()?.id ?? null;
     if (lastUserId) onlineClient.reauth();
+    refreshPro();
 });
 
-byId("home-ad").addEventListener("click", () => showToast("Linotte Pro is coming soon."));
+byId("home-ad").addEventListener("click", () => showProSheet());
+//----------- PRO ---------------
+// Linotte Pro: one purchase, for life, tied to the account. It's bought in
+// the store apps: their native layer (Capacitor + RevenueCat, logged in with
+// the Supabase account id) puts window.LinotteNative.buyPro() and
+// .restorePurchases() here, each resolving once the store is done. The game
+// server is what decides who is Pro (/api/me, and the online games).
+const store = () => window.LinotteNative?.buyPro ? window.LinotteNative : null;
+
+function setPro(pro) {
+    document.body.classList.toggle("is-pro", pro);
+    if (onlineOverlay.dataset.view === "pro") fillProSheet();
+}
+
+async function refreshPro(options) {
+    setPro(await fetchPro(options));
+}
+
+function fillProSheet() {
+    const pro = document.body.classList.contains("is-pro");
+    const signedIn = Boolean(currentUser());
+    const inApp = Boolean(store());
+    byId("pro-price").textContent = `One purchase, for life: ${window.LinotteNative?.proPrice || PRO_PRICE}`;
+    byId("pro-price").hidden = pro;
+    byId("pro-thanks").hidden = !pro;
+    byId("pro-buy").hidden = pro;
+    byId("pro-restore").hidden = pro || !inApp;
+    byId("pro-close-text").textContent = pro ? "OK" : "NOT NOW";
+    byId("pro-buy-text").textContent = inApp ? "GET PRO" : "GET IT IN THE APP";
+    byId("pro-note").textContent = pro ? ""
+        : !inApp ? "Linotte Pro is sold in the Linotte app for iPhone and Android, coming soon. Bought it there? Sign in here with the same account."
+        : !signedIn ? "Sign in first: Pro stays with your account, on every device."
+        : "";
+}
+
+function showProSheet() {
+    fillProSheet();
+    showOnlineView("pro");
+}
+
+byId("home-pro").addEventListener("click", showProSheet);
+
+byId("pro-buy").addEventListener("click", (e) => {
+    if (!store()) return showToast("Linotte Pro is coming with the app.");
+    // Pro belongs to an account, so the store needs one to give it to.
+    if (!currentUser()) return byId("home-profile").click();
+    loginStep(e.currentTarget, byId("pro-note"), async () => {
+        if (await store().buyPro()) {
+            await refreshPro({ fresh: true });
+            if (document.body.classList.contains("is-pro")) showToast("Welcome to Linotte Pro!");
+        }
+    });
+});
+
+byId("pro-restore").addEventListener("click", (e) => {
+    if (!store()) return;
+    if (!currentUser()) return byId("home-profile").click();
+    loginStep(e.currentTarget, byId("pro-note"), async () => {
+        await store().restorePurchases();
+        await refreshPro({ fresh: true });
+        showToast(document.body.classList.contains("is-pro") ? "Linotte Pro restored." : "No purchase found for this account.");
+    });
+});
+
+// The last answer at once (no flicker on start-up); the server confirms
+// once sign-in has started (see initAuth below).
+setPro(lastKnownPro());
+
 byId("home-shop").addEventListener("click", () => showToast("The shop is coming soon."));
-byId("home-stats").addEventListener("click", () => showToast("Stats are coming soon."));
+//----------- STATS SCREEN ---------------
+async function showStats() {
+    let st;
+    try {
+        st = await loadStats();
+    } catch (err) {
+        console.error("stats not loaded:", err.message);
+        return showMessage("Stats", "Can't load your stats right now. Please try again.");
+    }
+    const set = (id, v) => { byId(id).textContent = v; };
+    set("stats-note", st.signedIn ? "Saved with your account." : "Saved on this device. Sign in to keep them on every device.");
+    byId("stats-empty").hidden = st.all.played > 0;
+    byId("stats-body").hidden = st.all.played === 0;
+    set("st-played", st.all.played);
+    set("st-won", st.all.won);
+    set("st-rate", st.all.rate + "%");
+    set("st-streak", st.streak);
+    set("st-best-streak", st.bestStreak);
+    set("st-best", st.all.best);
+
+    const modes = byId("stats-modes");
+    modes.replaceChildren();
+    for (const [key, label] of [["random", "Online"], ["friend", "Friends"], ["bot", "Vs bot"]]) {
+        const m = st[key];
+        const tr = modes.insertRow();
+        for (const v of [label, m.played, m.played ? `${m.won} (${m.rate}%)` : "–", m.played ? m.average : "–"]) tr.insertCell().textContent = v;
+    }
+
+    const recent = byId("stats-recent");
+    recent.replaceChildren();
+    const day = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
+    for (const g of st.recent) {
+        const li = document.createElement("li");
+        const cells = [
+            ["res " + (g.won ? "won" : "lost"), g.won ? "Won" : "Lost"],
+            ["who", `${g.points}–${g.opponent_points} vs ${g.opponent || "?"}`],
+            ["when", day.format(new Date(g.played_at))],
+        ];
+        for (const [cls, text] of cells) {
+            const span = document.createElement("span");
+            span.className = cls;
+            span.textContent = text;
+            li.appendChild(span);
+        }
+        recent.appendChild(li);
+    }
+    showOnlineView("stats");
+}
+
+byId("home-stats").addEventListener("click", showStats);
 document.querySelectorAll("[data-sheet-close]").forEach((el) => el.addEventListener("click", closeOnlineOverlay));
 // Sign-in and purchases come with the native apps; their buttons say so.
 document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("click", () => showToast(el.dataset.soon)));

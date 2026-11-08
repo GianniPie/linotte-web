@@ -4,7 +4,11 @@
 import assert from "node:assert/strict";
 import { Lobby } from "./lobby.js";
 import { createMemoryStore } from "./store.js";
-import { userIdFromToken } from "./accounts.js";
+import { userIdFromToken, profileOf } from "./accounts.js";
+import { isPro, forgetPro } from "./entitlements.js";
+import { pickPieceIndexes, colorDistance } from "../public/shared/pieces.js";
+import { recordResults } from "./results.js";
+import { pieces } from "../public/shared/assets.js";
 import { generateKeyPair, exportJWK, createLocalJWKSet, SignJWT } from "jose";
 import { QUEUE_BOT_DELAY_MS } from "./config.js";
 import {
@@ -267,6 +271,85 @@ const lobby = new Lobby(io, store);
   const forged = await sign({ sub: "user-123", iss: `${url}/auth/v1`, aud: "authenticated" }, (await generateKeyPair("ES256")).privateKey);
   assert.equal(await userIdFromToken(forged, { keys, url }), null, "a token signed by someone else is refused");
   console.log("ok: account tokens are checked");
+}
+
+//--------- 8. Pro: the verified account, asked to RevenueCat ---------
+{
+  const asked = [];
+  const answer = (entitlements, status = 200) => async (url) => {
+    asked.push(url);
+    return { ok: status === 200, status, json: async () => ({ subscriber: { entitlements } }) };
+  };
+  const lifetime = answer({ pro: { expires_date: null } });
+  const opts = { key: "sk_test", fetch: lifetime };
+  assert.equal(await isPro({ userId: null }, opts), false, "a guest is never Pro");
+  assert.equal(await isPro({ userId: "user-1" }, { ...opts, key: "" }), false, "no RevenueCat key: nobody is Pro");
+  assert.equal(await isPro({ userId: "user-1" }, opts), true, "a lifetime purchase is Pro");
+  assert.ok(asked.at(-1).endsWith("/subscribers/user-1"), "RevenueCat is asked about the account id");
+  const n = asked.length;
+  assert.equal(await isPro({ userId: "user-1" }, opts), true);
+  assert.equal(asked.length, n, "the answer is cached");
+  assert.equal(await isPro({ userId: "user-2" }, { key: "sk_test", fetch: answer({}) }), false, "no entitlement: not Pro");
+  assert.equal(await isPro({ userId: "user-3" }, { key: "sk_test", fetch: answer({ pro: { expires_date: "2001-01-01T00:00:00Z" } }) }), false, "an expired one: not Pro");
+  forgetPro("user-1");
+  assert.equal(await isPro({ userId: "user-1" }, { key: "sk_test", fetch: answer({}, 500) }), false, "an outage with nothing cached: not Pro");
+  assert.equal(await isPro({ devToken: "dev-pro" }, { key: "" }), true, "the developer token works outside production");
+  console.log("ok: Pro comes from the account");
+}
+
+//--------- 9. profiles: only clean names, real pictures and countries ---------
+{
+  const url = "https://example.supabase.co";
+  const reply = (rows, ok = true) => ({ url, fetch: async () => ({ ok, json: async () => rows }) });
+  assert.deepEqual(await profileOf("t", reply([{ name: "Gianni", avatar: "p020", country: "IT" }])),
+    { name: "Gianni", avatar: "p020", country: "IT" }, "a good profile is kept");
+  assert.deepEqual(await profileOf("t", reply([{ name: "F.u.c.k", avatar: "p999", country: "XX" }])),
+    { name: "", avatar: "", country: "" }, "a bad name, picture or country is dropped");
+  assert.deepEqual(await profileOf("t", reply([])), { name: "", avatar: "", country: "" }, "no profile yet");
+  assert.deepEqual(await profileOf("t", reply(null, false)), { name: "", avatar: "", country: "" }, "an error: nothing");
+  assert.deepEqual(await profileOf("", reply([{ name: "Gianni" }])), { name: "", avatar: "", country: "" }, "a guest has none");
+  console.log("ok: profiles are checked");
+}
+
+//--------- 10. favorite pieces ---------
+{
+  const hex = (i) => pieces[i].split("_")[1].slice(0, 6);
+  for (let n = 0; n < 200; n++) {
+    const [a, b] = pickPieceIndexes();
+    assert.ok(a >= 8 && b >= 8 && a !== b, "two different playing pieces");
+    assert.ok(colorDistance(hex(a), hex(b)) >= 120, "that look clearly different");
+  }
+  assert.equal(pickPieceIndexes(20, -1)[0], 20, "player 1's favorite");
+  assert.equal(pickPieceIndexes(-1, 20)[1], 20, "player 2's favorite");
+  const [a, b] = pickPieceIndexes(20, 20);
+  assert.ok(a === 20 && b !== 20, "the same favorite: player 1 keeps it, player 2 gets another");
+  assert.ok(pickPieceIndexes(3, -1)[0] >= 8, "a plain colour (pictures only) isn't a playing piece");
+  console.log("ok: favorite pieces");
+}
+
+//--------- 11. stats: a finished online game is recorded for signed-in players ---------
+{
+  const recorded = [];
+  const lobby3 = new Lobby(io, createMemoryStore(), { record: async (rows) => recorded.push(...rows) });
+  const host = fakeSocket("player-statsaaa1", "Heron1");
+  const guest = fakeSocket("player-statsbbb2", "Ibis2");
+  host.data.userId = "user-host";
+  assert.ok(lobby3.createPrivate(host).ok);
+  const code = lobby3.roomOfSocket(host).code;
+  assert.ok((await lobby3.joinByCode(guest, code)).ok);
+  const room = lobby3.roomOfSocket(host);
+  room.forfeit(guest.data.seat, "left");
+  await wait(10);
+  assert.equal(recorded.length, 1, "only the signed-in player gets a row");
+  assert.deepEqual(
+    { user: recorded[0].user_id, mode: recorded[0].mode, won: recorded[0].won, opponent: recorded[0].opponent, source: recorded[0].source },
+    { user: "user-host", mode: "friend", won: true, opponent: "Ibis2", source: "server" });
+
+  const sent = [];
+  const ok = await recordResults(recorded, { key: "sb_secret_x", url: "https://example.supabase.co", fetch: async (u, o) => { sent.push([u, o]); return { ok: true }; } });
+  assert.ok(ok && sent[0][0].endsWith("/rest/v1/game_results") && sent[0][1].headers.apikey === "sb_secret_x", "sent with the secret key");
+  assert.equal(await recordResults(recorded, { key: "" }), false, "no key: nothing sent");
+  console.log("ok: online results are recorded");
 }
 
 console.log("all smoke tests passed");

@@ -47,12 +47,12 @@
             <button class="home-profile has-soon" id="home-profile" type="button">
                 <span class="home-avatar" aria-hidden="true"></span>
                 <span class="home-pinfo">
-                    <span class="home-pname" id="home-pname">Guest</span>
+                    <span class="home-pname"><span id="home-pname">Guest</span><span class="pro-star" aria-label="Pro">★</span></span>
                     <span class="home-psub" id="home-psub">Tap to sign in</span>
                 </span>
                 <span class="soon-badge">SOON</span>
             </button>
-            <button class="home-pro has-soon" id="home-pro" type="button">PRO<span class="soon-badge">SOON</span></button>
+            <button class="home-pro" id="home-pro" type="button">PRO</button>
             <button class="home-settings" id="home-settings" type="button" aria-label="Settings"></button>
         </div>
 
@@ -101,17 +101,16 @@
                     <span class="home-extra-icon" style="background-image:url(resources/images/p105-coin.svg)"></span>Shop<span class="soon-badge">SOON</span>
                 </button>
                 <button class="home-extra" id="home-stats" type="button">
-                    <span class="home-extra-icon" style="background-image:url(resources/images/stats.svg)"></span>Stats<span class="soon-badge">SOON</span>
+                    <span class="home-extra-icon" style="background-image:url(resources/images/stats.svg)"></span>Stats
                 </button>
             </div>
         </div>
 
         <!-- The banner's place: kept free (and clear of the buttons) for the
              AdMob banner of the native apps. Until then it promotes Pro. -->
-        <button class="home-ad has-soon" id="home-ad" type="button">
-            <span class="home-ad-text"><b>Linotte Pro</b> No ads · exclusive pieces and boards</span>
+        <button class="home-ad" id="home-ad" type="button">
+            <span class="home-ad-text"><b>Linotte Pro</b> No ads · private rooms · for life</span>
             <span class="home-ad-cta">PRO</span>
-            <span class="soon-badge">SOON</span>
         </button>
     </div>
 
@@ -225,9 +224,26 @@
             <div class="sheet-view" data-view="account">
                 <div class="sheet-title">Your account</div>
                 <div class="sheet-text">Signed in as <b id="account-email"></b></div>
+                <div class="button sheet-btn bot" id="account-edit"><div class="text-button">EDIT PROFILE</div></div>
                 <div class="button sheet-btn cancel" id="account-signout"><div class="text-button">SIGN OUT</div></div>
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button">OK</div></div>
                 <button class="sheet-link" id="account-delete" type="button">Delete account</button>
+            </div>
+            <!-- what opponents see: name, picture, country (see "Profile" in linotte.js) -->
+            <div class="sheet-view" data-view="profile">
+                <div class="sheet-title">Your profile</div>
+                <label class="profile-label" for="profile-name">Name</label>
+                <input class="text-input" id="profile-name" type="text" maxlength="12" autocomplete="nickname" autocapitalize="words" spellcheck="false">
+                <div class="sheet-text sheet-small" id="profile-name-hint"></div>
+                <div class="profile-label">Picture</div>
+                <div class="profile-avatars" id="profile-avatars" role="radiogroup" aria-label="Picture"></div>
+                <label class="profile-label" for="profile-country">Country</label>
+                <select class="text-input profile-country" id="profile-country"></select>
+                <div class="sheet-text error" id="profile-error"></div>
+                <div class="sheet-row">
+                    <div class="button sheet-btn cancel" id="profile-cancel"><div class="text-button">CANCEL</div></div>
+                    <div class="button sheet-btn go" id="profile-save"><div class="text-button">SAVE</div></div>
+                </div>
             </div>
             <div class="sheet-view" data-view="account-delete">
                 <div class="sheet-title">Delete your account?</div>
@@ -238,16 +254,44 @@
                     <div class="button sheet-btn go" id="account-delete-back"><div class="text-button">KEEP</div></div>
                 </div>
             </div>
-            <!-- Pro: graphics only for now (purchases come with the native apps) -->
+            <!-- Linotte Pro: one purchase for life, sold in the store apps and tied
+                 to the account (see the "Pro" section of linotte.js) -->
             <div class="sheet-view" data-view="pro">
                 <div class="sheet-title">Linotte Pro</div>
-                <div class="sheet-text">No ads, and exclusive pieces and boards.</div>
-                <div class="sheet-row">
-                    <div class="button sheet-btn has-soon bot" data-soon="Purchases come with the app."><div class="text-button">MONTHLY</div><span class="soon-badge">SOON</span></div>
-                    <div class="button sheet-btn has-soon go" data-soon="Purchases come with the app."><div class="text-button">FOR LIFE</div><span class="soon-badge">SOON</span></div>
+                <ul class="sheet-list">
+                    <li>Create private rooms to play with friends</li>
+                    <li>No ads, when they arrive</li>
+                    <li>Exclusive new pieces and boards</li>
+                </ul>
+                <div class="sheet-text pro-price" id="pro-price">One purchase, for life</div>
+                <div class="sheet-text sheet-small" id="pro-note"></div>
+                <div class="button sheet-btn go" id="pro-buy"><div class="text-button" id="pro-buy-text">GET PRO</div></div>
+                <div class="button sheet-btn cancel" id="pro-restore"><div class="text-button">RESTORE PURCHASE</div></div>
+                <div class="sheet-text" id="pro-thanks">You're Pro. Thank you for supporting Linotte!</div>
+                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button" id="pro-close-text">NOT NOW</div></div>
+            </div>
+            <!-- Stats (see "Stats screen" in linotte.js, public/stats.js) -->
+            <div class="sheet-view" data-view="stats">
+                <div class="sheet-title">Your stats</div>
+                <div class="sheet-text sheet-small" id="stats-note"></div>
+                <div class="sheet-text" id="stats-empty">No games yet. Play one and come back!</div>
+                <div class="stats-body" id="stats-body">
+                    <div class="stats-grid">
+                        <div class="stat"><b id="st-played">0</b><span>Played</span></div>
+                        <div class="stat"><b id="st-won">0</b><span>Won</span></div>
+                        <div class="stat"><b id="st-rate">0%</b><span>Win rate</span></div>
+                        <div class="stat"><b id="st-streak">0</b><span>Win streak</span></div>
+                        <div class="stat"><b id="st-best-streak">0</b><span>Best streak</span></div>
+                        <div class="stat"><b id="st-best">0</b><span>Best score</span></div>
+                    </div>
+                    <table class="stats-modes">
+                        <thead><tr><th></th><th>Played</th><th>Won</th><th>Avg</th></tr></thead>
+                        <tbody id="stats-modes"></tbody>
+                    </table>
+                    <div class="profile-label">Last games</div>
+                    <ul class="stats-recent" id="stats-recent"></ul>
                 </div>
-                <div class="button sheet-btn has-soon cancel" data-soon="Purchases come with the app."><div class="text-button">RESTORE PURCHASES</div><span class="soon-badge">SOON</span></div>
-                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button">NOT NOW</div></div>
+                <div class="button sheet-btn go" data-sheet-close><div class="text-button">OK</div></div>
             </div>
             <!-- leaving an online game for the home -->
             <div class="sheet-view" data-view="leave">
@@ -577,6 +621,18 @@
                             <div class="car-item board-options" id="bo1"><img src="resources/images/board_t.svg"></div>
                             <div class="car-item board-options" id="bo2"><img src="resources/images/board_n.svg"></div>
                         </div>
+                    </div>
+                </section>
+
+                <!-- your piece: filled in by linotte.js ("Favorite piece") -->
+                <section>
+                    <div class="title" id="piece-title">Random piece</div>
+                    <div class="car-list-wrapper">
+                        <ul class="car-list" id="piece-list"></ul>
+                        <button class="car-button previous" data-carousel="piece" data-direction="previous"
+                            type="button"></button>
+                        <button class="car-button next" data-carousel="piece" data-direction="next"
+                            type="button"></button>
                     </div>
                 </section>
 

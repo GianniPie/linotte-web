@@ -12,36 +12,21 @@
 import { updateGame } from "../public/shared/gameEngine.js";
 import { createInitialGameState, rndNum } from "../public/shared/utils.js";
 import { piecesPath, pieces } from "../public/shared/assets.js";
+import { pickPieceIndexes, isPlayPiece } from "../public/shared/pieces.js";
 import {
   TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS,
   RECONNECT_GRACE_MS, EMOTES,
 } from "./config.js";
 import { HumanBot } from "./humanBot.js";
 
-const MIN_COLOR_DISTANCE = 120;
 const COORD = /^[0-4][0-4]$/;
 const EMPTY_CALLED = () => [null, null, null, false, false, false, false, false];
 
-// Same "redmean" distance and 120 threshold as assignRandomPieces() on the
-// client, so two online players never get near-identical colors.
-function colorDistance(hexA, hexB) {
-  const [r1, g1, b1] = [0, 2, 4].map((i) => parseInt(hexA.slice(i, i + 2), 16));
-  const [r2, g2, b2] = [0, 2, 4].map((i) => parseInt(hexB.slice(i, i + 2), 16));
-  const rmean = (r1 + r2) / 2;
-  const dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
-  return Math.sqrt((2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db);
-}
-
-function pickPieces() {
-  const hexOf = (i) => pieces[i].split("_")[1].slice(0, 6);
-  const p1 = rndNum(8, pieces.length - 1);
-  const others = [];
-  for (let i = 8; i < pieces.length; i++) if (i !== p1) others.push(i);
-  const far = others.filter((i) => colorDistance(hexOf(p1), hexOf(i)) >= MIN_COLOR_DISTANCE);
-  const pool = far.length ? far : others;
-  const p2 = pool[rndNum(0, pool.length - 1)];
-  const make = (i) => ({ pieceImage: piecesPath + pieces[i], color: "#" + hexOf(i) });
-  return [make(p1), make(p2)];
+// Each player's favorite piece if they chose one, else a random one; the two
+// always look clearly different (see public/shared/pieces.js).
+function pickPieces(want1, want2) {
+  const make = (i) => ({ pieceImage: piecesPath + pieces[i], color: "#" + pieces[i].split("_")[1].slice(0, 6) });
+  return pickPieceIndexes(want1, want2).map(make);
 }
 
 let roomCounter = 0;
@@ -82,8 +67,11 @@ export class Room {
 
   freeSeat() { return !this.seats[1] ? 1 : !this.seats[2] ? 2 : 0; }
 
-  addHuman(seat, socket, { playerId, name }) {
-    this.seats[seat] = { kind: "human", playerId, name, socketId: socket.id, connected: true };
+  addHuman(seat, socket, { playerId, name, userId = null, pro = false, country = "", piece = -1 }) {
+    this.seats[seat] = {
+      kind: "human", playerId, name, userId: userId || null, pro: Boolean(pro), country: country || "",
+      piece: isPlayPiece(piece) ? piece : -1, socketId: socket.id, connected: true,
+    };
     this.bindSocket(seat, socket);
     this.onChange(this);
   }
@@ -114,10 +102,15 @@ export class Room {
 
   //--------- lifecycle ---------
   start() {
-    const [a, b] = pickPieces();
+    const [a, b] = pickPieces(this.seats[1].piece, this.seats[2].piece);
     const state = createInitialGameState();
     state.players[1].name = this.seats[1].name;
     state.players[2].name = this.seats[2].name;
+    // Both players see who is Pro (a star by the name) and their flags.
+    for (const s of [1, 2]) {
+      state.players[s].pro = Boolean(this.seats[s].pro);
+      state.players[s].country = this.seats[s].country || "";
+    }
     Object.assign(state.players[1], a);
     Object.assign(state.players[2], b);
     state.currentPlayer = Math.random() < 0.5 ? 1 : 2;
@@ -344,7 +337,7 @@ export class Room {
       const x = this.seats[s];
       if (!x) return null;
       if (x.kind === "bot") return { kind: "bot", playerId: x.playerId, name: x.name, bot: x.bot.toJSON() };
-      return { kind: "human", playerId: x.playerId, name: x.name };
+      return { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "" };
     };
     return {
       v: 1,
@@ -376,7 +369,7 @@ export class Room {
         room.seats[s] = { kind: "bot", playerId: x.playerId, name: x.name, connected: true, bot: HumanBot.fromJSON(x.bot) };
         room.seats[s].bot.attach(room, s);
       } else {
-        room.seats[s] = { kind: "human", playerId: x.playerId, name: x.name, socketId: null, connected: false };
+        room.seats[s] = { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "", socketId: null, connected: false };
       }
     }
     if (room.status !== "playing") return room;

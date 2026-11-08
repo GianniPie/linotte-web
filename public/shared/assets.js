@@ -93,3 +93,9 @@ export const pieces =  [
     "p044_b87cc7ff.svg",
     "p045_f1e9d6ff.svg",
 ];
+// Profile pictures: for now the pieces themselves, named by their number
+// ("p012" is pieces[11]). See public/shared/playerNames.js for the rest of
+// the profile.
+export const avatarIds = pieces.map((f) => f.slice(0, 4));
+export const isAvatar = (id) => typeof id === "string" && avatarIds.includes(id);
+export const avatarUrl = (id) => (isAvatar(id) ? piecesPath + pieces[avatarIds.indexOf(id)] : "");

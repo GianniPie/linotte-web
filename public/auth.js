@@ -162,3 +162,49 @@ export async function accessToken() {
     const { data } = await client.auth.getSession();
     return data.session?.access_token ?? null;
 }
+
+// The signed-in player's profile (supabase/profiles.sql): name, picture,
+// country and the options that follow them. null as a guest; {} for an
+// account that never saved one.
+export async function loadProfile() {
+    if (!current) return null;
+    const c = await ready();
+    const { data, error } = await c.from("profiles").select("name, avatar, country, prefs, stats").maybeSingle();
+    if (error) throw error;
+    return data || {};
+}
+
+// Saves some of the profile's fields (creating the row the first time).
+export async function saveProfile(fields) {
+    if (!current) throw new Error("not signed in");
+    const c = await ready();
+    const row = { ...fields, updated_at: new Date().toISOString() };
+    // Update, else create: an "upsert" would also need the right to rewrite
+    // the id, which players deliberately don't have.
+    const { data, error } = await c.from("profiles").update(row).eq("id", current.id).select("id");
+    if (error) throw error;
+    if (data.length) return;
+    const { error: insertError } = await c.from("profiles").insert({ id: current.id, ...row });
+    if (insertError) throw insertError;
+}
+
+// Finished games for the Stats screen (supabase/game_results.sql). The app
+// adds its own (against the bot, and a guest's games after signing in).
+export async function addGameResults(entries) {
+    if (!current) throw new Error("not signed in");
+    const c = await ready();
+    const rows = entries.map((e) => ({ ...e, user_id: current.id, source: "app" }));
+    const { error } = await c.from("game_results").insert(rows);
+    if (error) throw error;
+}
+
+// The signed-in player's games, newest first.
+export async function loadGameResults() {
+    const c = await ready();
+    const { data, error } = await c.from("game_results")
+        .select("mode, won, points, opponent_points, opponent, played_at")
+        .order("played_at", { ascending: false })
+        .limit(5000);
+    if (error) throw error;
+    return data;
+}

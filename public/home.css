@@ -443,3 +443,13 @@
 .home-avatar.has-photo > img {
   display: block;
 }
+
+/* A Pro player's star by their name (body.is-pro, see linotte.js). */
+.home-pname .pro-star {
+  display: none;
+  margin-left: .25em;
+}
+
+.is-pro .home-pname .pro-star {
+  display: inline;
+}

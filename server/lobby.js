@@ -7,6 +7,7 @@
 import { Room } from "./room.js";
 import { HumanBot } from "./humanBot.js";
 import { noStore } from "./store.js";
+import { resultRows, recordResults } from "./results.js";
 import {
   QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS,
 } from "./config.js";
@@ -30,9 +31,12 @@ export function normalizeCode(raw) {
 }
 
 export class Lobby {
-  constructor(io, store = noStore) {
+  // `record` saves finished games for the Stats screen (see results.js); the
+  // smoke test passes its own.
+  constructor(io, store = noStore, { record = recordResults } = {}) {
     this.io = io;
     this.store = store;
+    this.record = record;
     this.queue = new Map(); // playerId -> { socket, timer }
     this.rooms = new Map(); // roomId -> Room
     this.byCode = new Map(); // code -> Room
@@ -100,7 +104,7 @@ export class Lobby {
   }
 
   seatPlayers(room, ...entries) {
-    // entries: [{ socket, playerId, name }] -- seats assigned in random order
+    // entries: [{ socket, playerId, name, userId, pro, country, piece }] -- seats assigned in random order
     const order = Math.random() < 0.5 ? [1, 2] : [2, 1];
     entries.forEach((e, i) => {
       room.addHuman(order[i], e.socket, e);
@@ -121,8 +125,8 @@ export class Lobby {
       const room = this.newRoom({ kind: "random" });
       this.register(room);
       this.seatPlayers(room,
-        { socket, playerId: me.playerId, name: me.name },
-        { socket: entry.socket, playerId: otherId, name: entry.socket.data.name });
+        { ...me, socket },
+        { ...entry.socket.data, socket: entry.socket, playerId: otherId });
       room.start();
       return { ok: true, matched: true };
     }
@@ -149,7 +153,7 @@ export class Lobby {
     const { socket } = entry;
     const room = this.newRoom({ kind: "random" });
     this.register(room);
-    const humanSeat = this.seatPlayers(room, { socket, playerId, name: socket.data.name })[0];
+    const humanSeat = this.seatPlayers(room, { ...socket.data, socket, playerId })[0];
     room.addBot(room.otherSeat(humanSeat), new HumanBot({ avoidName: socket.data.name }));
     room.start();
   }
@@ -228,6 +232,7 @@ export class Lobby {
   onRoomClose(room, why) {
     if (why === "over") {
       this.store.deleteRoom(room); // nothing left to resume
+      this.record(resultRows(room));
       // Keep it around for ROOM_OVER_TTL_MS (see sweep) so a refresh can still
       // show the result, but free the code right away.
       if (room.code) this.byCode.delete(room.code);

@@ -12,6 +12,24 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-11-08
+
+### Added
+- Linotte Pro, one purchase for life (€3.30), tied to the account: the PRO button on the home screen opens it. It's sold in the store apps (coming soon); on the web the sheet says so, and a player who bought it there signs in to have it here too.
+- A gold star by a Pro player's name, on the home screen and in online games (both players see it).
+- The game server knows who is Pro from the verified account (RevenueCat, entitlement `pro`), with `/api/me` for the home screen.
+- Edit profile (account sheet > EDIT PROFILE): a name of your own (3–12 characters, checked against insults in English and Italian, by the app and again by the server), a picture from the game's pieces, and a country flag. Opponents see the name and flag in online games; without a name you keep the random animal one.
+- Favorite piece: a new "Your piece" choice in the options (or random, as before). You play with it offline and online; the opponent always gets a piece that looks clearly different, and when both chose the same one, the first player keeps it.
+- Dice, background, board and favorite piece follow the account to every device (saved in the profile; the first sign-in keeps this device's choices).
+- Stats (the Stats button on the home screen): games played and won, win rate, win streak and best streak, best and average score, by kind of game (online, friends, vs bot), and the last 10 games. Online games are recorded by the game server (with `SUPABASE_SECRET_KEY`), games against the bot by the app; a guest's stats stay on the device and move to the account at the first sign-in. "Same table" games don't count.
+- `supabase/game_results.sql`: one row per finished game of a signed-in player.
+- `supabase/profiles.sql`: the profiles table (each player reads and edits only their own; stats are written by the server only).
+
+### Changed
+- Creating a private room without Pro (once that rule is switched on) opens the Pro sheet.
+- The server no longer trusts a purchase id sent by the app: only the signed-in account counts.
+- Privacy Policy: RevenueCat receives the account ID.
+
 ## [2.12.0] - 2026-11-07
 
 ### Added

@@ -24,3 +24,9 @@ export const CONTACT_EMAIL = "";
 // Public pages the consent screen links to.
 export const TERMS_URL = "legal/terms.html";
 export const PRIVACY_URL = "legal/privacy.html";
+
+// Linotte Pro: one purchase, for life, bought in the store apps (Apple/Google
+// through RevenueCat) and tied to the player's account. The web shows the
+// price and points to the app. In the apps the store's own localized price
+// replaces this one.
+export const PRO_PRICE = "€3.30";

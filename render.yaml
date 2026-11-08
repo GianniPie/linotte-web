@@ -42,6 +42,13 @@ services:
       # (see isOriginAllowed in server/config.js).
       - key: ALLOWED_ORIGINS
         value: https://linotte-web.vercel.app
+      # Secrets, set by hand in the dashboard (Environment), never in this file:
+      # SUPABASE_SECRET_KEY records online games for the Stats screen
+      # (server/results.js); REVENUECAT_SECRET_KEY decides who is Pro.
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: REVENUECAT_SECRET_KEY
+        sync: false
       # Where games are saved so a restart (every deploy) doesn't end them.
       - key: REDIS_URL
         fromService:

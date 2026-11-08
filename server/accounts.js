@@ -10,6 +10,8 @@
 
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../public/shared/accounts.js";
+import { cleanPlayerName, isCountry } from "../public/shared/playerNames.js";
+import { isAvatar } from "../public/shared/assets.js";
 
 let remoteKeys = null;
 
@@ -37,5 +39,30 @@ async function askSupabase(token) {
   } catch (err) {
     console.error("account check failed:", err.message);
     return null;
+  }
+}
+
+// The player's own profile (supabase/profiles.sql), read with their own token
+// so the database's row-level security applies. Only what passes the same
+// checks as the app is kept: a bad name, picture or country is dropped (and
+// the random animal name is used instead).
+export async function profileOf(token, { url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
+  const none = { name: "", avatar: "", country: "" };
+  if (!url || !token) return none;
+  try {
+    const res = await fetchImpl(`${url}/rest/v1/profiles?select=name,avatar,country&limit=1`, {
+      headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return none; // e.g. the table isn't there yet
+    const [row] = await res.json();
+    if (!row) return none;
+    return {
+      name: cleanPlayerName(row.name),
+      avatar: isAvatar(row.avatar) ? row.avatar : "",
+      country: isCountry(row.country) ? row.country : "",
+    };
+  } catch (err) {
+    console.error("profile read failed:", err.message);
+    return none;
   }
 }

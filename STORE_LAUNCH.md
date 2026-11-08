@@ -58,14 +58,24 @@ account, a key or a legal decision that can't come from the code.
 
 ## 3. Money
 
-- **Pro + cosmetics, RevenueCat** (+ App Store Connect / Play Console products):
-  put the RevenueCat app-user id on `window.LinotteNative.appUserId`
-  (`public/online.js` already sends it); set `REVENUECAT_SECRET_KEY` on the server.
-  Server side is done (`server/entitlements.js`, creating a room needs `pro`).
-  Still to build: purchase screen, restore-purchases button, and the cosmetics
-  catalog (ids, prices, asset paths; the pieces/dice/backgrounds arrays in
-  `public/shared/assets.js` are the seed). Equipped item ids should be sent in
-  `hello` and validated against entitlements so the opponent sees them.
+- **Linotte Pro, RevenueCat:** one non-consumable purchase "for life" (shown as
+  €3.30, `PRO_PRICE` in `public/config.js`; the store price point must match, e.g.
+  €3.29 if €3.30 isn't one), entitlement id `pro`. Sold only in the store apps, tied
+  to the account:
+  - **[you]** RevenueCat project + App Store Connect / Play Console product; set
+    `REVENUECAT_SECRET_KEY` on the Render service. Until then nobody is Pro online.
+  - The native layer (Capacitor + RevenueCat SDK) calls `Purchases.logIn(<Supabase
+    user id>)` after sign-in and puts `window.LinotteNative = { buyPro(), restorePurchases(),
+    proPrice }` on the page (both functions resolve when the store is done; `proPrice`
+    is the store's localized price). The Pro sheet in `public/linotte.js` uses them.
+  - The server already decides who is Pro from the verified account
+    (`server/entitlements.js`, `/api/me`, the `pro` flag in games).
+  - Then set `ROOMS_NEED_PRO=1` on Render: creating a friend room becomes Pro
+    (joining stays free).
+  - Testing without a purchase: grant `pro` to an account in the RevenueCat dashboard
+    (promotional entitlement); locally, `?devpro=1`.
+  - Cosmetics shop: still to build (catalog of ids, prices, asset paths; the arrays in
+    `public/shared/assets.js` are the seed). Pro-exclusive designs will be new ones.
 - **Ads, AdMob:** interstitial between games only (never mid-game), rewarded
   ad for a temporary skin, banner on the home screen only. Pro removes them.
   Needs Google's consent form (UMP) for the EU and Apple's App Tracking

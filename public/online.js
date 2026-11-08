@@ -57,15 +57,39 @@ export function saveConsent() {
     write(CONSENT_KEY, String(CONSENT_VERSION));
 }
 
-// ?devpro=1 once on a non-production server unlocks private rooms for testing;
-// the store builds put the RevenueCat app-user id on window.LinotteNative.
-function entitlement() {
+// ?devpro=1 once on a non-production server makes this device Pro for
+// testing. Real Pro comes from the account (the server checks it itself).
+function devProToken() {
     if (new URLSearchParams(location.search).has("devpro")) write(DEV_PRO_KEY, "dev-pro");
-    const e = {};
-    if (window.LinotteNative?.appUserId) e.appUserId = window.LinotteNative.appUserId;
-    const dev = read(DEV_PRO_KEY);
-    if (dev) e.devToken = dev;
-    return e;
+    return read(DEV_PRO_KEY) || "";
+}
+function entitlement() {
+    const dev = devProToken();
+    return dev ? { devToken: dev } : {};
+}
+
+// Is the signed-in player Pro? Asked over plain HTTP (no game connection),
+// at start-up and after signing in; `fresh` right after a purchase. The last
+// answer is kept so the badge shows at once next time, even offline.
+const PRO_KEY = "linotte-pro";
+export function lastKnownPro() {
+    return read(PRO_KEY) === "1";
+}
+export async function fetchPro({ fresh = false } = {}) {
+    const token = await accessToken();
+    const dev = devProToken();
+    if (!token && !dev) { write(PRO_KEY, ""); return false; }
+    const headers = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (dev) headers["X-Linotte-Dev"] = dev;
+    try {
+        const res = await fetch(`${SERVER_URL}/api/me${fresh ? "?fresh=1" : ""}`, { headers, cache: "no-store" });
+        const pro = Boolean((await res.json()).pro);
+        write(PRO_KEY, pro ? "1" : "");
+        return pro;
+    } catch {
+        return lastKnownPro(); // offline / server asleep: keep the last answer
+    }
 }
 
 export class OnlineClient {
@@ -98,9 +122,10 @@ export class OnlineClient {
                     playerId: getPlayerId(),
                     consentVersion: hasConsent() ? CONSENT_VERSION : 0,
                     entitlement: entitlement(),
+                    piece: this.h.getPiece?.() ?? -1,
                     accessToken: await accessToken(),
                 }, (res) => {
-                    if (res?.ok) this.name = res.name;
+                    if (res?.ok) { this.name = res.name; this.h.onPro?.(Boolean(res.pro)); }
                     this.h.onConnection?.(true, res);
                     resolve(res);
                     // Back after a drop (or a backgrounded app): ask for our room.
@@ -129,7 +154,12 @@ export class OnlineClient {
     async reauth() {
         if (!this.socket?.connected) return; // the next hello carries it
         const res = await this.call("auth", { accessToken: await accessToken() });
-        if (res?.ok) this.name = res.name;
+        if (res?.ok) { this.name = res.name; this.h.onPro?.(Boolean(res.pro)); }
+    }
+
+    // The favorite piece changed in the options: used from the next game.
+    setPiece(piece) {
+        if (this.socket?.connected) this.call("piece", { piece });
     }
 
     call(event, payload = {}) {
