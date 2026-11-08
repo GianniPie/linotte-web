@@ -17,4 +17,9 @@ export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Gc2mIY3xBT2z-LJ3kmV9vw_M
 // connected and the "Magic link or OTP" template has {{ .Token }} in it.
 export const EMAIL_HAS_CODE = false;
 
+// Creating a friend room is a Pro feature; joining one (link or code) is
+// always free, so anyone can be invited. The app (the "PRO" tag on FRIEND and
+// CREATE ROOM) and the server (room_create) both follow this one switch.
+export const ROOMS_NEED_PRO = true;
+
 export const ACCOUNTS_AVAILABLE = SUPABASE_URL !== "" && SUPABASE_PUBLISHABLE_KEY !== "";

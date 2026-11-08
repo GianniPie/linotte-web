@@ -72,20 +72,29 @@ function entitlement() {
 // at start-up and after signing in; `fresh` right after a purchase. The last
 // answer is kept so the badge shows at once next time, even offline.
 const PRO_KEY = "linotte-pro";
+const XP_KEY = "linotte-xp";
 export function lastKnownPro() {
     return read(PRO_KEY) === "1";
+}
+// The account's experience points (its level is the number on its badge,
+// see shared/level.js); null as a guest.
+export function lastKnownXp() {
+    const v = read(XP_KEY);
+    return v === null || v === "" ? null : Number(v) || 0;
 }
 export async function fetchPro({ fresh = false } = {}) {
     const token = await accessToken();
     const dev = devProToken();
-    if (!token && !dev) { write(PRO_KEY, ""); return false; }
+    if (!token && !dev) { write(PRO_KEY, ""); write(XP_KEY, ""); return false; }
     const headers = {};
     if (token) headers.Authorization = `Bearer ${token}`;
     if (dev) headers["X-Linotte-Dev"] = dev;
     try {
         const res = await fetch(`${SERVER_URL}/api/me${fresh ? "?fresh=1" : ""}`, { headers, cache: "no-store" });
-        const pro = Boolean((await res.json()).pro);
+        const me = await res.json();
+        const pro = Boolean(me.pro);
         write(PRO_KEY, pro ? "1" : "");
+        write(XP_KEY, me.signedIn ? String(Number(me.xp) || 0) : "");
         return pro;
     } catch {
         return lastKnownPro(); // offline / server asleep: keep the last answer

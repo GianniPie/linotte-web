@@ -46,3 +46,27 @@
   src: url("atkinson-hyperlegible-latin-ext-700-normal.woff2") format("woff2");
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
+
+/* Chinese in the heading face: Noto Sans SC Black (SIL OFL, see
+   OFL-NotoSansSC.txt), the nearest in weight and feel to Changa One. It
+   joins the "Changa One" family for Chinese characters only, so Latin
+   letters and digits keep Changa One. Cut down to the characters of the
+   interface (public/lang/zh.js): remake it when that file changes, see
+   STORE_LAUNCH.md. Anything else (e.g. a Chinese player name) uses the
+   phone's own font. */
+@font-face {
+  font-family: "Changa One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("noto-sans-sc-900-linotte.woff2") format("woff2");
+  unicode-range: U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+FF00-FFEF;
+  /* Line metrics close to Changa One's (ascent 882, descent 180 per 1000):
+     Noto's own, much taller ones pushed Chinese text down in the fixed-height
+     titles and buttons. The ascent is a little larger than Changa One's
+     because Chinese characters are taller than its capitals: this way their
+     middle lands where the capitals' middle does. */
+  ascent-override: 100%;
+  descent-override: 18%;
+  line-gap-override: 0%;
+}

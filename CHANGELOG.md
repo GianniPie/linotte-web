@@ -12,6 +12,35 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-11-08
+
+### Changed
+- Choosing your piece is now part of Linotte Pro (also listed in the Pro sheet). In the options every piece sits on a tile like the board's, 20% smaller than the tile; "random" is a flat-coloured 3D die. Without Pro the pieces keep their colours and carry a gold "🔒 PRO" tag on their bottom edge, and say "Pro version only" when tapped, and "random" is played (a choice made earlier is kept for if the player becomes Pro again). The server only honours a favourite piece for Pro players.
+- The Pro star became a badge with the account's level. Experience points: 1 per online win (random or friend; only games recorded by the server) and 1 for every 5 wins against the bot; draws and losses don't count. Each level takes one point more than the one before (level 2 at 1 point, 5 at 10, 10 at 45; `public/shared/level.js`). Pro players show it gold, with a star, by their name on the home screen and hung on their box in online games, where the opponent sees it. Signed-in players without Pro see their own level on the home screen only; guests have none. It updates after each win, and a toast celebrates every new level. The stats show the level with a bar to the next one and how points are earned. The Pro sheet lists it: "Your level on your badge, seen by every opponent".
+- Stats: a guest gets a SIGN IN button under "Saved on this device".
+- "Continue your game" has a ✕ in its corner: after asking, it ends the paused game (also one saved by an earlier launch), which doesn't count in the stats. PLAY moved to the card's left, away from the ✕.
+- The options icon is on the left on the home screen too, as in games: always in the same place.
+- The player's flag is no longer a character in front of the name: on the home screen it comes before "Signed in"; in games it's a little tilted sticker laid over the box just after the name, so the name stays centred (online for both players, against the bot for this phone's player).
+- The online bots show a country flag too, about 3 in 10 (from the game's likely countries), and keep it after a server restart or a rematch.
+- The "🔒 PRO" tag on the locked pieces is no longer cut in half: the tile itself was clipping it.
+- Creating a friend room now needs Pro, as the Pro sheet already said: FRIEND and CREATE ROOM carry the gold "🔒 PRO" tag, and CREATE ROOM opens the Pro sheet. Joining a friend's room (link or code) stays free for everyone. One switch, `ROOMS_NEED_PRO` in `public/shared/accounts.js`, drives both the app and the server (it was an environment variable, off).
+- The pill at the top right of the home says GET PRO without Pro (gold); with Pro it's a dark brown card with a gold star and PRO.
+- The account sheet says whether the account has Linotte Pro or the free version, with its level; the free version gets a GET PRO button.
+- How to play ends with a Legal section linking the Terms of Service and the Privacy Policy.
+- The options menu's back arrow lined up with the home's options icon only when opened from code: a real tap shrinks the icon while it's measured. Now aligned by centres, exact either way.
+- ONLINE's subtitle is just "Random opponent" (no more "free").
+- Sign in says, before the buttons, that no new password is needed.
+- Pro sheet: "No ads" (no longer "when they arrive").
+- Home top bar: the PRO button is now the same height, with the same border, as the profile and the options icon (it was a little taller).
+- Changing the language no longer goes through the home screen: the page reloads hidden and comes back on the options, scrolled where it was, already translated. Opening the app in a language other than English no longer shows the English text for a moment.
+- Opened from the home screen, the options menu's back arrow sits exactly where the options icon was, same size, and the icon's gear turns into the arrow (and back into the gear on closing). The menu's tabs are centred over the content.
+- Chinese: full-width punctuation no longer pushes centred text off centre ("你赢了！" on the winner card, titles, buttons); the rules' paragraphs keep normal spacing.
+- The winner card's score ("12 points") is translated.
+
+### Added
+- Pro grants: an account listed in Supabase's `pro_grants` table (`supabase/pro_grants.sql`) is Pro without a purchase (the developer's own account, testers, prizes). The server reads it with the secret key; the app can't read or change it.
+- Six languages: English, Italian, French, Spanish, Portuguese (Brazil) and Chinese (Simplified). The whole interface (home, sheets, game, options, how to play and its animations, messages) follows the phone's language, and the options have a Language choice. The combination names (Brelan, Full, Carré...) stay the French game's own. The Terms and Privacy Policy stay in English. Translations live in `public/lang/` (one file per language, keyed by the English sentence, only the player's own is loaded), so anything not yet translated shows in English. In Chinese, headings and buttons use Noto Sans SC Black (bundled, cut down to the interface's characters, 60 KB), the nearest in weight to Changa One; Latin letters and digits keep Changa One. The Language choice lists the languages in alphabetical order, in an even grid of three columns. Chinese headings sit centred in their bars and buttons (the Chinese font takes line measurements close to Changa One's) and the font loads at once instead of after a flash of the phone's own.
+
 ## [2.14.0] - 2026-11-08
 
 ### Fixed

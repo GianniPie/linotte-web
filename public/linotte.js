@@ -1,7 +1,9 @@
 //Version (single source: version.js, bumped by `npm run release`)
+// i18n first: it translates the page before anything else reads it.
+import { t, LANG, LANGUAGES, setLanguage } from "./i18n.js";
 import { VERSION } from "./version.js";
 import { CONTACT_EMAIL, ONLINE_AVAILABLE, PRO_PRICE } from "./config.js";
-document.getElementById("version").textContent += VERSION;
+document.getElementById("version").textContent = `${t("version")} ${VERSION}`;
 
 // The developer contact in the help page's credits (set in config.js).
 if (CONTACT_EMAIL) {
@@ -9,7 +11,7 @@ if (CONTACT_EMAIL) {
     const link = document.createElement("a");
     link.href = "mailto:" + CONTACT_EMAIL;
     link.textContent = CONTACT_EMAIL;
-    contact.append(" at ", link);
+    contact.append(t(" at "), link);
 }
 
 // open
@@ -154,7 +156,7 @@ setRealVh();
 let resizingTimer;
 function onViewportChange() {
     setRealVh();
-    if (!optionsOverlay.classList.contains("hidden")) moveIndicator(currentOptionsTab);
+    if (!optionsOverlay.classList.contains("hidden")) { alignWithHome(); moveIndicator(currentOptionsTab); }
     document.documentElement.classList.add('is-resizing');
     clearTimeout(resizingTimer);
     resizingTimer = setTimeout(() => {
@@ -163,7 +165,7 @@ function onViewportChange() {
         // height read then is still the old one: measure again once the
         // rotation has settled.
         setRealVh();
-        if (!optionsOverlay.classList.contains("hidden")) moveIndicator(currentOptionsTab);
+        if (!optionsOverlay.classList.contains("hidden")) { alignWithHome(); moveIndicator(currentOptionsTab); }
     }, 250);
 }
 window.addEventListener('resize', onViewportChange);
@@ -185,9 +187,11 @@ import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserC
 import { nameProblem, cleanPlayerName, COUNTRIES, flagOf } from "./shared/playerNames.js";
 import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
 import { recordGame, moveLocalGamesToAccount, loadStats } from "./stats.js";
-import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro } from "./online.js";
+import { ROOMS_NEED_PRO } from "./shared/accounts.js";
+import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp } from "./online.js";
+import { levelOf, pointsForLevel } from "./shared/level.js";
 let gameState = createInitialGameState();
-gameState.players[1].name = "YOU";
+gameState.players[1].name = t("YOU");
 gameState.players[2].name = "BOT";
 
 
@@ -291,8 +295,8 @@ function refreshContinueCard() {
     const p = state.players;
     const turn = p[state.currentPlayer].name;
     document.getElementById("home-continue-desc").textContent = mode === "bot"
-        ? `Vs bot · You ${p[1].points} – Bot ${p[2].points}`
-        : `Same table · ${p[1].name} ${p[1].points} – ${p[2].name} ${p[2].points} · ${turn}'s turn`;
+        ? t("Vs bot · You {me} – Bot {bot}", { me: p[1].points, bot: p[2].points })
+        : t("Same table · {p1} {a} – {p2} {b} · {turn}'s turn", { p1: p[1].name, a: p[1].points, p2: p[2].name, b: p[2].points, turn });
     card.hidden = false;
 }
 
@@ -345,8 +349,10 @@ function assignRandomPieces(state) {
 }
 
 // The favorite piece from the options (-1: random). Read straight from the
-// cookie: this runs before the options section is set up.
+// cookie: this runs before the options section is set up. Only Pro players
+// play with it; the choice is kept for if they become Pro again.
 function favoritePiece() {
+    if (!lastKnownPro()) return -1;
     const i = Number(getCookie("piece", -1));
     return isPlayPiece(i) ? i : -1;
 }
@@ -401,17 +407,45 @@ function renderPlayerBox(player) {
         document.getElementsByClassName("player p1")[0].classList.remove("current");
     }
 
-    // Online, a player who set a country shows its flag before the name.
-    const label = (p) => `${flagOf(p.country)} ${p.name}`.trim();
-    textPlayerP1.textContent = label(gameState.players[1]);
-    textPlayerP2.textContent = label(gameState.players[2]);
+    textPlayerP1.textContent = gameState.players[1].name;
+    textPlayerP2.textContent = gameState.players[2].name;
     // Online, the server says who is Pro: a gold star by their name.
-    document.getElementById("playerP1").classList.toggle("is-pro", Boolean(gameState.players[1].pro));
-    document.getElementById("playerP2").classList.toggle("is-pro", Boolean(gameState.players[2].pro));
+    // ...and Pro players carry their badge: a star and their level.
+    for (const seat of [1, 2]) {
+        const p = gameState.players[seat];
+        const box = document.getElementById(seat === 1 ? "playerP1" : "playerP2");
+        box.classList.toggle("is-pro", Boolean(p.pro));
+        box.dataset.badge = p.pro ? `★ ${p.level || 1}` : "";
+        // A player who set a country wears its flag as a little sticker at
+        // the end of their name, laid over it so the name stays centred:
+        // online the server says whose, against the bot it's this phone's
+        // player (from their profile).
+        const ownOffline = controller?.mode === "bot" && seat === 1;
+        box.dataset.flag = flagOf(ownOffline ? profile?.country : p.country);
+        placeFlag(box, seat === 1 ? textPlayerP1 : textPlayerP2);
+    }
     // Online names ("Crane36") are longer than YOU/BOT/P1: a smaller size
     // keeps them whole instead of ending in "...".
     textPlayerP1.classList.toggle("long", gameState.players[1].name.length > 5);
     textPlayerP2.classList.toggle("long", gameState.players[2].name.length > 5);
+}
+
+// Where a player's flag sticker goes: just past the end of their name (the
+// text itself, not its full-width box), as CSS variables on the player box.
+function placeFlag(box, nameEl) {
+    if (!box.dataset.flag) return;
+    const place = () => {
+        const range = document.createRange();
+        range.selectNodeContents(nameEl);
+        const text = range.getBoundingClientRect();
+        const name = nameEl.getBoundingClientRect();
+        const b = box.getBoundingClientRect();
+        if (!b.width) return; // hidden: placed again on the next draw
+        box.style.setProperty("--flag-x", `${Math.min(text.right, name.right) - b.left}px`);
+        box.style.setProperty("--flag-y", `${text.top - b.top}px`);
+    };
+    place();
+    document.fonts?.ready.then(place); // the name's width changes once its font is in
 }
 
 // Restarts a CSS animation on `el` even if it's already mid-play (e.g. two
@@ -650,7 +684,7 @@ renderTidyness(tidyness);
 
 let dieCookie = getCookie("diceFaces", 3);
 document.getElementById("do" + dieCookie).classList.add("selected"); //option section
-document.getElementById("dice-title").textContent = diceNames[dieCookie];
+document.getElementById("dice-title").textContent = t(diceNames[dieCookie]);
 let faces = diceFaces[dieCookie];  //faces of the selected die
 
 let selectedDie = dicePath + faces;
@@ -675,7 +709,7 @@ if (isVolumeOn == true) {
 }
 // The section title says which one is on.
 function updateSoundTitle() {
-    document.getElementById("sound-title").textContent = isVolumeOn ? "Sound" : "No sound";
+    document.getElementById("sound-title").textContent = isVolumeOn ? t("Sound") : t("No sound");
 }
 updateSoundTitle();
 
@@ -876,8 +910,25 @@ function openOptions(context, page) {
     optionsOverlay.dataset.context = context;
     if (context === "game") updateGameTab();
     optionsOverlay.classList.remove("hidden");
+    alignWithHome();
     handleTab(page);
     centerLists();
+}
+
+// Opened from the home, the header (in the home's units, see linotte.css)
+// is nudged by the last fraction of a pixel so the back arrow covers the
+// options icon exactly: the top bar's height also depends on the PRO button.
+function alignWithHome() {
+    const header = optionsOverlay.querySelector(".opt-header");
+    header.style.removeProperty("translate");
+    const settings = document.getElementById("home-settings");
+    if (optionsOverlay.dataset.context !== "home" || !settings.offsetWidth) return;
+    // Centres: the icon is still shrunk by its press (.is-pressed) when the
+    // menu opens, which moves its edges but not its centre.
+    const centre = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+    const [fx, fy] = centre(settings);
+    const [tx, ty] = centre(document.getElementById("icon-back"));
+    header.style.translate = `${fx - tx}px ${fy - ty}px`;
 }
 
 openBtn.onclick = () => openOptions("game", "game");
@@ -899,6 +950,13 @@ function updateGameTab() {
 // handed over) turns the game now, once the menu is out of the way.
 function closeOptions() {
     optionsOverlay.classList.add("hidden");
+    // Back on the home, the arrow turns into the options icon again.
+    if (optionsOverlay.dataset.context === "home") {
+        const settings = document.getElementById("home-settings");
+        settings.classList.remove("from-back");
+        void settings.offsetWidth;
+        settings.classList.add("from-back");
+    }
     if (flipPending) {
         flipPending = false;
         applyFlip();
@@ -944,12 +1002,11 @@ function moveIndicator(page) {
     const rect2 = document.getElementById("icon-tab2").getBoundingClientRect();
     const rect3 = document.getElementById("icon-tab3").getBoundingClientRect();
 
-    const map = {
-        game: rect1.left - headerLeft - 10,
-        options: rect2.left - headerLeft - 10,
-        help: rect3.left - headerLeft - 10
-    };
-    document.getElementById("tabIndicator").style.left = map[page] + "px";
+    // Centred under its icon, whatever the two sizes (larger from the home).
+    const indicator = document.getElementById("tabIndicator");
+    const under = (r) => r.left - headerLeft + (r.width - indicator.offsetWidth) / 2;
+    const map = { game: under(rect1), options: under(rect2), help: under(rect3) };
+    indicator.style.left = map[page] + "px";
 }
 
 
@@ -1012,7 +1069,8 @@ function flipCoin(nameP1, nameP2, forcedWinner = 0) {
         );
 
         animation.onfinish = () => {
-            resultText.textContent = `${winner === 1 ? nameP1 : nameP2} starts!`;
+            const starter = winner === 1 ? nameP1 : nameP2;
+            resultText.textContent = starter === t("YOU") ? t("You start!") : t("{name} starts!", { name: starter });
             setTimeout(() => {
                 overlay.classList.add("hidden");
                 resolve(winner);
@@ -1076,7 +1134,7 @@ botStrategyButtons.forEach(btn => {
         btn.classList.add("selected");
 
         closeOnlineOverlay();
-        flipCoin("YOU", "BOT").then((startingPlayer) => {
+        flipCoin(t("YOU"), "BOT").then((startingPlayer) => {
             newGameVsBot(btn.dataset.strategy, startingPlayer);
             hideHomeScreen();
             handleTab("back");
@@ -1092,7 +1150,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
     setPaused(false);
     gameState = createInitialGameState();
     gameState.currentPlayer = startingPlayer;
-    gameState.players[1].name = "YOU";
+    gameState.players[1].name = t("YOU");
     gameState.players[2].name = "BOT";
     assignRandomPieces(gameState);
 
@@ -1175,7 +1233,7 @@ dieOptions.forEach(dieOption => {
         dieOption.classList.add("selected");
 
         var dieId = Number(dieOption.id[2]);
-        document.getElementById("dice-title").textContent = diceNames[dieId];
+        document.getElementById("dice-title").textContent = t(diceNames[dieId]);
         faces = diceFaces[dieId];
         selectedDie = dicePath + faces;
         const diceSpriteImg = new Image();
@@ -1206,16 +1264,18 @@ bgOptions.forEach(bgOption => {
 
 
 //----- favorite piece (options) -----
-// "Random" first, then every piece a player can play with. Remembered like
-// the other options, follows the account, and is used from the next game
-// (online too: the server is told).
+// "Random" first (a die), then every piece a player can play with, each on a
+// tile like the board's. Choosing a piece is part of Linotte Pro: without it
+// the pieces show a padlock and say so when tapped. Remembered like the
+// other options, follows the account, and used from the next game (online
+// too: the server is told, and checks Pro itself).
 (function buildPieceOptions() {
     const list = document.getElementById("piece-list");
     const add = (i, src, label) => {
         const li = document.createElement("li");
         li.className = "car-item";
         const item = document.createElement("div");
-        item.className = "car-item-content piece-options";
+        item.className = "car-item-content piece-options" + (i === -1 ? " is-random" : " is-pro-only");
         item.id = "po" + i;
         item.setAttribute("aria-label", label);
         const img = document.createElement("img");
@@ -1224,34 +1284,58 @@ bgOptions.forEach(bgOption => {
         item.appendChild(img);
         li.appendChild(item);
         list.appendChild(li);
-        item.addEventListener("click", () => selectPiece(i));
+        item.addEventListener("click", () => {
+            if (i !== -1 && !lastKnownPro()) return showToast(t("Pro version only"));
+            selectPiece(i);
+        });
     };
-    add(-1, "resources/images/dice/c101.svg", "Random piece");
+    add(-1, "resources/images/random-die.svg", t("Random piece"));
     for (let i = FIRST_PLAY_PIECE; i < pieces.length; i++) add(i, piecesPath + pieces[i], "Piece " + (i + 1));
     showPieceChoice(favoritePiece());
 })();
 
 function showPieceChoice(i) {
     document.querySelectorAll(".piece-options").forEach((el) => el.classList.toggle("selected", el.id === "po" + i));
-    document.getElementById("piece-title").textContent = isPlayPiece(i) ? "Your piece" : "Random piece";
+    document.getElementById("piece-title").textContent = isPlayPiece(i) ? t("Your piece") : t("Random piece");
 }
 
 function selectPiece(i) {
     const piece = isPlayPiece(i) ? i : -1;
     setCookie("piece", piece);
-    showPieceChoice(piece);
+    // Without Pro the choice is kept but "random" is what's played and shown.
+    showPieceChoice(favoritePiece());
     centerLists(true);
-    onlineClient?.setPiece(piece);
+    onlineClient?.setPiece(favoritePiece());
 }
+
+//----- language (options) -----
+// English, Italiano, Français; picking one reloads the page in it (see i18n.js).
+(function buildLanguageOptions() {
+    const list = document.getElementById("language-list");
+    for (const { code, name } of LANGUAGES) {
+        const slot = document.createElement("div");
+        slot.className = "car-btn";
+        const btn = document.createElement("div");
+        btn.className = "opt-btn lang-btn" + (code === LANG ? " selected" : "");
+        btn.textContent = name;
+        btn.lang = code;
+        btn.setAttribute("role", "button");
+        btn.addEventListener("click", () => setLanguage(code, {
+            reopen: { page: "options", scroll: document.getElementById("page-options").scrollTop },
+        }));
+        slot.appendChild(btn);
+        list.appendChild(slot);
+    }
+})();
 
 function renderTidyness(tidyness) {
     const boardTitle = document.getElementById("board-title");
     const boardTexts = document.querySelectorAll('.board-options-text');
     boardTexts.forEach(t => t.classList.remove('selected'));
 
-    if (tidyness == 0) { boardTitle.textContent = "Perfect"; }
-    if (tidyness == 1) { boardTitle.textContent = "Tidy"; }
-    if (tidyness == 2) { boardTitle.textContent = "Natural"; }
+    if (tidyness == 0) { boardTitle.textContent = t("Perfect"); }
+    if (tidyness == 1) { boardTitle.textContent = t("Tidy"); }
+    if (tidyness == 2) { boardTitle.textContent = t("Natural"); }
 
     document.querySelectorAll(".piece").forEach(el => {
         applyTidyness(el);
@@ -1341,9 +1425,9 @@ function showRematchState(state) {
     btn.hidden = state === "left";
     btn.classList.toggle("is-waiting", state === "waiting");
     btn.classList.toggle("is-offered", state === "offered");
-    text.textContent = { waiting: "WAITING...", offered: "REMATCH?", declined: "NO REMATCH" }[state] || "REMATCH";
-    if (state === "offered") showToast("Your opponent wants a rematch.");
-    if (state === "declined") { btn.classList.add("is-waiting"); showToast("Your opponent doesn't want a rematch."); }
+    text.textContent = t({ waiting: "WAITING...", offered: "REMATCH?", declined: "NO REMATCH" }[state] || "REMATCH");
+    if (state === "offered") showToast(t("Your opponent wants a rematch."));
+    if (state === "declined") { btn.classList.add("is-waiting"); showToast(t("Your opponent doesn't want a rematch.")); }
 }
 
 document.getElementById("winner-rematch").addEventListener("click", async (e) => {
@@ -1412,13 +1496,18 @@ function noteGameResult(winner) {
     if (!mode) return; // "Same table": nobody's own game
     const me = controller.mode === "online" ? LOCAL_PLAYER : 1;
     const other = me === 1 ? 2 : 1;
-    recordGame({
+    // A win may raise the level: asked again once the game is recorded (by
+    // the server for an online game, by recordGame for one against the bot).
+    const recorded = recordGame({
         mode,
         won: winner === me,
         points: gameState.players[me].points,
         opponentPoints: gameState.players[other].points,
         opponent: controller.mode === "bot" ? "Bot" : gameState.players[other].name,
     });
+    if (winner === me && currentUser()) {
+        recorded.then(() => setTimeout(() => refreshPro({ fresh: true }), mode === "bot" ? 0 : 1500));
+    }
 }
 
 function determineWinner() {
@@ -1440,7 +1529,8 @@ function showWinnerPopup(winner) {
         // box (still "YOU"/"BOT" until name selection exists) rather than
         // a hardcoded "Player 1/2".
         document.getElementById("winner-overlay").style.display = "flex";
-        setWinnerText(gameState.players[winner].name + " won!");
+        const winnerName = gameState.players[winner].name;
+        setWinnerText(winnerName === t("YOU") ? t("You won!") : t("{name} won!", { name: winnerName }));
         animateWinnerPoints(pointsEl, gameState.players[winner].points);
         fireWinnerConfetti(3000);
     } else {
@@ -1448,7 +1538,7 @@ function showWinnerPopup(winner) {
         document.getElementsByClassName("piece-popup-container")[0].style.setProperty("--glow", "rgba(0, 0, 0, .2)");
         document.getElementById("piece-popup").style.backgroundImage = urlOf("resources/images/tie.svg");
         document.getElementById("winner-overlay").style.display = "flex";
-        setWinnerText("It's a tie!");
+        setWinnerText(t("It's a tie!"));
         pointsEl.textContent = "";
         pointsEl.classList.remove("winner-points-reveal");
         fireWinnerConfetti(500);
@@ -1506,7 +1596,7 @@ function animateWinnerPoints(el, total) {
         const t = Math.min(1, (now - start) / duration);
         const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic: fast start, settles gently into the final number
         const value = Math.round(eased * total);
-        shineSpan.textContent = value + (value === 1 ? " point" : " points");
+        shineSpan.textContent = t(value === 1 ? "{n} point" : "{n} points", { n: value });
         if (t < 1) requestAnimationFrame(step);
     })(start);
 }
@@ -1944,7 +2034,7 @@ doneBtn.addEventListener("click", () => {
 // before the turn's first roll. Online, `n` is the count the player is about
 // to have (the server's dice are still on their way).
 function setRollsLeftUI(n) {
-    rollBtnText.innerText = "ROLL " + n;
+    rollBtnText.innerText = t("ROLL {n}", { n });
     rollBtn.classList.toggle("is-inactive", n < 1);
     doneBtn.classList.toggle("is-inactive", n >= 3);
 }
@@ -2674,7 +2764,7 @@ function divsOpacity(currentPlayer) {
         rollBtn.style.display = "none";
         doneBtn.style.display = "none";
         turnLabelEl.style.display = "flex";
-        turnLabelTextEl.textContent = gameState.players[currentPlayer].name + " turn";
+        turnLabelTextEl.textContent = t("{name} turn", { name: gameState.players[currentPlayer].name });
     }
 }
 
@@ -3045,7 +3135,7 @@ const onlineClient = new OnlineClient({
             onlineClient.joinQueue();
         }
         if (!gameInProgress || controller.mode !== "online" || isGameOver) return;
-        showToast(connected ? "Back online" : "Connection lost, reconnecting...", connected ? 1800 : 5000);
+        showToast(connected ? t("Back online") : t("Connection lost, reconnecting..."), connected ? 1800 : 5000);
     },
     onGameStart: (snap) => beginOnlineGame(snap),
     onSnapshot: (snap) => beginOnlineGame({ ...snap, fresh: false }),
@@ -3057,7 +3147,7 @@ const onlineClient = new OnlineClient({
     },
     onOpponentStatus: ({ connected }) => {
         if (controller.mode !== "online" || isGameOver) return;
-        showToast(connected ? "Your opponent is back" : "Your opponent disconnected, waiting for them...", connected ? 2000 : 6000);
+        showToast(connected ? t("Your opponent is back") : t("Your opponent disconnected, waiting for them..."), connected ? 2000 : 6000);
     },
     onGameOver: onRemoteGameOver,
     onPro: (pro) => setPro(pro),
@@ -3065,11 +3155,11 @@ const onlineClient = new OnlineClient({
     onRematchDeclined: ({ left }) => {
         if (controller.mode !== "online" || !isGameOver) return;
         showRematchState(left ? "left" : "declined");
-        if (left) showToast("Your opponent has left.");
+        if (left) showToast(t("Your opponent has left."));
     },
     getPiece: () => favoritePiece(),
     onRoomExpired: () => {
-        showMessage("Room expired", "Nobody joined in time. Create a new room to try again.");
+        showMessage(t("Room expired"), t("Nobody joined in time. Create a new room to try again."));
     },
 });
 
@@ -3149,7 +3239,7 @@ if (!hasConsent()) showConsent();
 async function prepareOnline() {
     if (!hasConsent()) { showConsent(); return false; }
     if (!onlineClient.available()) {
-        showMessage("Online unavailable", "This build isn't connected to a game server.");
+        showMessage(t("Online unavailable"), t("This build isn't connected to a game server."));
         return false;
     }
     // The free hosted server sleeps when nobody has played for a while and
@@ -3158,12 +3248,12 @@ async function prepareOnline() {
     const searchingText = document.getElementById("searching-text");
     const waiting = !onlineClient.socket?.connected;
     if (waiting) {
-        searchingText.textContent = "Connecting to the game server...";
+        searchingText.textContent = t("Connecting to the game server...");
         showOnlineView("searching");
     }
     const slow = setTimeout(() => {
         if (onlineOverlay.dataset.view === "searching") {
-            searchingText.textContent = "Waking up the game server. After a quiet spell this can take up to a minute.";
+            searchingText.textContent = t("Waking up the game server. After a quiet spell this can take up to a minute.");
         }
     }, 4000);
     const hello = await Promise.race([
@@ -3173,7 +3263,7 @@ async function prepareOnline() {
     clearTimeout(slow);
     if (waiting && onlineOverlay.style.display === "none") return false; // cancelled meanwhile
     if (!hello?.ok) {
-        showMessage("Can't reach the server", "Check your connection and try again.");
+        showMessage(t("Can't reach the server"), t("Check your connection and try again."));
         return false;
     }
     await onlineClient.ensureConsentSent();
@@ -3184,12 +3274,12 @@ function describeOnlineError(res) {
     switch (res?.error) {
         case "consent_required": showConsent(); return null;
         case "pro_required":
-            return ["Linotte Pro", "Creating a private room is part of Linotte Pro. Your friend can always join a room for free."];
-        case "bad_code": return ["Room not found", "Check the code and try again. Rooms close after 15 minutes."];
-        case "room_full": return ["Room is full", "That game already has two players."];
-        case "own_room": return ["That's your room", "Send the link or code to your friend instead."];
+            return ["Linotte Pro", t("Creating a private room is part of Linotte Pro. Your friend can always join a room for free.")];
+        case "bad_code": return [t("Room not found"), t("Check the code and try again. Rooms close after 15 minutes.")];
+        case "room_full": return [t("Room is full"), t("That game already has two players.")];
+        case "own_room": return [t("That's your room"), t("Send the link or code to your friend instead.")];
         case "already_in_game": return null; // handled by rejoin()
-        default: return ["Something went wrong", "Please try again in a moment."];
+        default: return [t("Something went wrong"), t("Please try again in a moment.")];
     }
 }
 
@@ -3211,7 +3301,7 @@ let onlineKind = "random";
 async function startRandomOnline() {
     onlineKind = "random";
     if (!(await prepareOnline())) return;
-    document.getElementById("searching-text").textContent = "This usually takes a few seconds.";
+    document.getElementById("searching-text").textContent = t("This usually takes a few seconds.");
     showOnlineView("searching");
     searchingRandom = true;
     const res = await onlineClient.joinQueue();
@@ -3219,6 +3309,9 @@ async function startRandomOnline() {
 }
 
 async function createFriendRoom() {
+    // Without Pro: what it is and how to get it, instead of a refusal from
+    // the server (which checks too).
+    if (ROOMS_NEED_PRO && !lastKnownPro()) { showProSheet(); return; }
     onlineKind = "friend";
     if (!(await prepareOnline())) return;
     const res = await onlineClient.createRoom();
@@ -3231,14 +3324,14 @@ async function joinFriendByCode(code, { fromLink = false } = {}) {
     const errorEl = document.getElementById("code-error");
     errorEl.textContent = "";
     if (!(await prepareOnline())) return;
-    document.getElementById("searching-text").textContent = "Joining the game...";
+    document.getElementById("searching-text").textContent = t("Joining the game...");
     showOnlineView("searching");
     const res = await onlineClient.joinRoom(code);
     if (res.ok) return; // game_start follows right away
     if (res.error === "already_in_game") { onlineClient.rejoin(); return; }
     const info = describeOnlineError(res);
     // An old invite link: the game it was for is over.
-    if (fromLink && res.error === "bad_code") return showMessage("Invite expired", "That game is over or the room has closed. Ask your friend for a new link, or play from the home screen.");
+    if (fromLink && res.error === "bad_code") return showMessage(t("Invite expired"), t("That game is over or the room has closed. Ask your friend for a new link, or play from the home screen."));
     if (info && res.error !== "pro_required") {
         showOnlineView("joincode");
         errorEl.textContent = info[1];
@@ -3288,11 +3381,11 @@ document.body.classList.toggle("online-enabled", onlineEnabled);
 
 document.getElementById("home-online-btn").addEventListener("click", () => {
     if (onlineEnabled) startRandomOnline();
-    else showToast("Online play is coming soon.");
+    else showToast(t("Online play is coming soon."));
 });
 document.getElementById("home-friend-btn").addEventListener("click", () => {
     if (onlineEnabled) showOnlineView("friend");
-    else showToast("Playing with a friend is coming soon.");
+    else showToast(t("Playing with a friend is coming soon."));
 });
 
 //--------- home screen: the rest ---------
@@ -3304,9 +3397,10 @@ byId("home-help").addEventListener("click", () => openOptions("home", "help"));
 // Optional accounts (public/auth.js). The profile button opens the sign-in
 // sheet for a guest and the account sheet once signed in.
 document.body.classList.toggle("accounts-enabled", ACCOUNTS_AVAILABLE);
+document.body.classList.toggle("rooms-need-pro", ROOMS_NEED_PRO);
 byId("home-profile").addEventListener("click", async () => {
-    if (!ACCOUNTS_AVAILABLE) return showToast("Sign-in is coming soon.");
-    if (currentUser()) return showOnlineView("account");
+    if (!ACCOUNTS_AVAILABLE) return showToast(t("Sign-in is coming soon."));
+    if (currentUser()) { fillAccountSheet(); return showOnlineView("account"); }
     // Only the ways switched on in Supabase (see enabledProviders).
     const on = await enabledProviders();
     byId("login-apple").hidden = !on.apple;
@@ -3319,8 +3413,8 @@ byId("home-profile").addEventListener("click", async () => {
 // Until our own mail service is connected the email has only a link.
 document.body.classList.toggle("email-link-only", !EMAIL_HAS_CODE);
 if (!EMAIL_HAS_CODE) {
-    byId("login-email-text").textContent = "We'll email you a sign-in link. No password needed.";
-    byId("login-email-send").querySelector(".text-button").textContent = "SEND LINK";
+    byId("login-email-text").textContent = t("We'll email you a sign-in link. No password needed.");
+    byId("login-email-send").querySelector(".text-button").textContent = t("SEND LINK");
 }
 
 let loginEmail = "";
@@ -3329,13 +3423,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Supabase's messages are written for developers; players get these.
 function loginErrorText(err) {
     const msg = String(err?.message || err || "").toLowerCase();
-    if (msg.includes("rate") || msg.includes("too many") || msg.includes("security purposes")) return "Too many tries. Wait a minute and try again.";
-    if (msg.includes("expired") || msg.includes("invalid") || msg.includes("token")) return "That code didn't work. Check it, or ask for a new one.";
-    if (msg.includes("provider is not enabled") || msg.includes("unsupported provider")) return "This way of signing in isn't ready yet.";
+    if (msg.includes("rate") || msg.includes("too many") || msg.includes("security purposes")) return t("Too many tries. Wait a minute and try again.");
+    if (msg.includes("expired") || msg.includes("invalid") || msg.includes("token")) return t("That code didn't work. Check it, or ask for a new one.");
+    if (msg.includes("provider is not enabled") || msg.includes("unsupported provider")) return t("This way of signing in isn't ready yet.");
     // Supabase's built-in mailer only writes to the project's own team.
-    if (msg.includes("not authorized")) return "Signing in by email isn't open to everyone yet. Play as a guest for now.";
-    if (msg.includes("unavailable") || msg.includes("fetch") || msg.includes("network")) return "Can't reach the sign-in service. Check your connection.";
-    return "Something went wrong. Please try again.";
+    if (msg.includes("not authorized")) return t("Signing in by email isn't open to everyone yet. Play as a guest for now.");
+    if (msg.includes("unavailable") || msg.includes("fetch") || msg.includes("network")) return t("Can't reach the sign-in service. Check your connection.");
+    return t("Something went wrong. Please try again.");
 }
 
 // Runs a sign-in step with its button dimmed until the answer comes back.
@@ -3366,12 +3460,12 @@ byId("login-code-back").addEventListener("click", () => showOnlineView("login-em
 function sendLoginCode() {
     const email = byId("login-email-input").value.trim();
     const errEl = byId("login-email-error");
-    if (!EMAIL_RE.test(email)) { errEl.textContent = "Enter a valid email address."; return; }
+    if (!EMAIL_RE.test(email)) { errEl.textContent = t("Enter a valid email address."); return; }
     loginStep(byId("login-email-send"), errEl, async () => {
         await sendEmailCode(email);
         loginEmail = email;
         if (EMAIL_HAS_CODE) byId("login-code-email").textContent = email;
-        else byId("login-code-text").textContent = `We sent a sign-in link to ${email}. Open it on this device to sign in.`;
+        else byId("login-code-text").textContent = t("We sent a sign-in link to {email}. Open it on this device to sign in.", { email });
         byId("login-code-input").value = "";
         byId("login-code-error").textContent = "";
         showOnlineView("login-code");
@@ -3382,7 +3476,7 @@ function sendLoginCode() {
 function submitLoginCode() {
     const code = byId("login-code-input").value.replace(/\D/g, "");
     const errEl = byId("login-code-error");
-    if (code.length < 6) { errEl.textContent = "Enter the code from the email."; return; }
+    if (code.length < 6) { errEl.textContent = t("Enter the code from the email."); return; }
     loginStep(byId("login-code-submit"), errEl, async () => {
         await verifyEmailCode(loginEmail, code);
         closeOnlineOverlay();
@@ -3396,7 +3490,7 @@ byId("login-code-input").addEventListener("keydown", (e) => { if (e.key === "Ent
 byId("account-signout").addEventListener("click", async () => {
     try { await signOut(); } catch (err) { console.error("sign-out:", err); }
     closeOnlineOverlay();
-    showToast("Signed out. You're playing as a guest.");
+    showToast(t("Signed out. You're playing as a guest."));
 });
 
 byId("account-delete").addEventListener("click", () => {
@@ -3404,10 +3498,23 @@ byId("account-delete").addEventListener("click", () => {
     showOnlineView("account-delete");
 });
 byId("account-delete-back").addEventListener("click", () => showOnlineView("account"));
+
+// The account says what it has: Linotte Pro, or the free version with a way
+// to get Pro; and its level.
+function fillAccountSheet() {
+    const pro = document.body.classList.contains("is-pro");
+    const plan = byId("account-plan");
+    plan.textContent = pro ? `★ ${t("Linotte Pro")}` : t("Free version");
+    plan.classList.toggle("is-pro", pro);
+    byId("account-getpro").hidden = pro;
+    const xp = lastKnownXp();
+    byId("account-level").textContent = xp === null ? "" : t("Level {n}", { n: levelOf(xp) });
+}
+byId("account-getpro").addEventListener("click", () => showProSheet());
 byId("account-delete-confirm").addEventListener("click", (e) => loginStep(e.currentTarget, byId("account-delete-error"), async () => {
     await deleteAccount();
     closeOnlineOverlay();
-    showToast("Your account has been deleted.");
+    showToast(t("Your account has been deleted."));
 }));
 
 // The player's Google/Apple photo over the buddy. An <img> rather than a CSS
@@ -3446,8 +3553,12 @@ var prefsTimer = 0;
 // the Google/Apple ones, then the email.
 function showHomeProfile() {
     const user = currentUser();
-    const name = user ? (profile?.name || user.name || user.email.split("@")[0] || "Player") : "Guest";
-    byId("home-pname").textContent = `${flagOf(profile?.country)} ${name}`.trim();
+    const name = user ? (profile?.name || user.name || user.email.split("@")[0] || t("Player")) : t("Guest");
+    byId("home-pname").textContent = name;
+    // The country's flag before "Signed in", not in the name.
+    const flag = flagOf(profile?.country);
+    byId("home-flag").textContent = flag;
+    byId("home-flag").hidden = !flag;
     showAvatarPhoto(document.querySelector("#home-profile .home-avatar"), avatarUrl(profile?.avatar) || user?.avatar || "");
 }
 
@@ -3529,8 +3640,10 @@ function selectAvatar(id) {
 function nameHint() {
     const raw = byId("profile-name").value;
     byId("profile-name-hint").textContent = raw.trim()
-        ? (nameProblem(raw) || "This is the name your opponents see.")
-        : `Leave it empty to play as a random animal name${!profile?.name && onlineClient.name ? ` (now ${onlineClient.name})` : ""}.`;
+        ? t(nameProblem(raw) || "This is the name your opponents see.")
+        : !profile?.name && onlineClient.name
+            ? t("Leave it empty to play as a random animal name (now {name}).", { name: onlineClient.name })
+            : t("Leave it empty to play as a random animal name.");
 }
 
 byId("account-edit").addEventListener("click", () => {
@@ -3556,7 +3669,7 @@ byId("profile-save").addEventListener("click", (e) => {
         showHomeProfile();
         onlineClient.reauth(); // the game server picks up the new name and flag
         showOnlineView("account");
-        showToast("Profile saved.");
+        showToast(t("Profile saved."));
     });
 });
 
@@ -3564,7 +3677,7 @@ byId("profile-save").addEventListener("click", (e) => {
 let lastUserId;
 onUserChange((user) => {
     const avatar = document.querySelector("#home-profile .home-avatar");
-    byId("home-psub").textContent = user ? "Signed in" : "Tap to sign in";
+    byId("home-psub").textContent = user ? t("Signed in") : t("Tap to sign in");
     profile = null;
     showHomeProfile();
     if (user) syncProfile(user.id);
@@ -3577,7 +3690,7 @@ onUserChange((user) => {
     if (lastUserId !== undefined && id !== lastUserId) {
         onlineClient.reauth();
         refreshPro();
-        if (id) showToast("Signed in.");
+        if (id) showToast(t("Signed in."));
     }
     if (lastUserId !== undefined) lastUserId = id;
 });
@@ -3600,27 +3713,35 @@ const store = () => window.LinotteNative?.buyPro ? window.LinotteNative : null;
 
 function setPro(pro) {
     document.body.classList.toggle("is-pro", pro);
+    showHomeBadge();
+    showPieceChoice(favoritePiece()); // the favorite piece is Pro only
     if (onlineOverlay.dataset.view === "pro") fillProSheet();
 }
 
+// Also brings the level up to date, and celebrates when it went up.
 async function refreshPro(options) {
+    const before = lastKnownXp();
     setPro(await fetchPro(options));
+    const after = lastKnownXp();
+    if (before !== null && after !== null && levelOf(after) > levelOf(before)) {
+        showToast(t("Level {n}!", { n: levelOf(after) }));
+    }
 }
 
 function fillProSheet() {
     const pro = document.body.classList.contains("is-pro");
     const signedIn = Boolean(currentUser());
     const inApp = Boolean(store());
-    byId("pro-price").textContent = `One purchase, for life: ${window.LinotteNative?.proPrice || PRO_PRICE}`;
+    byId("pro-price").textContent = t("One purchase, for life: {price}", { price: window.LinotteNative?.proPrice || PRO_PRICE });
     byId("pro-price").hidden = pro;
     byId("pro-thanks").hidden = !pro;
     byId("pro-buy").hidden = pro;
     byId("pro-restore").hidden = pro || !inApp;
-    byId("pro-close-text").textContent = pro ? "OK" : "NOT NOW";
-    byId("pro-buy-text").textContent = inApp ? "GET PRO" : "GET IT IN THE APP";
+    byId("pro-close-text").textContent = pro ? "OK" : t("NOT NOW");
+    byId("pro-buy-text").textContent = inApp ? t("GET PRO") : t("GET IT IN THE APP");
     byId("pro-note").textContent = pro ? ""
-        : !inApp ? "Linotte Pro is sold in the Linotte app for iPhone and Android, coming soon. Bought it there? Sign in here with the same account."
-        : !signedIn ? "Sign in first: Pro stays with your account, on every device."
+        : !inApp ? t("Linotte Pro is sold in the Linotte app for iPhone and Android, coming soon. Bought it there? Sign in here with the same account.")
+        : !signedIn ? t("Sign in first: Pro stays with your account, on every device.")
         : "";
 }
 
@@ -3632,13 +3753,13 @@ function showProSheet() {
 byId("home-pro").addEventListener("click", showProSheet);
 
 byId("pro-buy").addEventListener("click", (e) => {
-    if (!store()) return showToast("Linotte Pro is coming with the app.");
+    if (!store()) return showToast(t("Linotte Pro is coming with the app."));
     // Pro belongs to an account, so the store needs one to give it to.
     if (!currentUser()) return byId("home-profile").click();
     loginStep(e.currentTarget, byId("pro-note"), async () => {
         if (await store().buyPro()) {
             await refreshPro({ fresh: true });
-            if (document.body.classList.contains("is-pro")) showToast("Welcome to Linotte Pro!");
+            if (document.body.classList.contains("is-pro")) showToast(t("Welcome to Linotte Pro!"));
         }
     });
 });
@@ -3649,15 +3770,31 @@ byId("pro-restore").addEventListener("click", (e) => {
     loginStep(e.currentTarget, byId("pro-note"), async () => {
         await store().restorePurchases();
         await refreshPro({ fresh: true });
-        showToast(document.body.classList.contains("is-pro") ? "Linotte Pro restored." : "No purchase found for this account.");
+        showToast(document.body.classList.contains("is-pro") ? t("Linotte Pro restored.") : t("No purchase found for this account."));
     });
 });
+
+// The badge by the name on the home screen: the account's level (see
+// shared/level.js). Gold with a star for Pro players, who show it to their
+// opponents too; plain, and seen only by the player, without Pro. Nothing
+// for a guest.
+function showHomeBadge() {
+    const badge = byId("home-badge");
+    const xp = currentUser() ? lastKnownXp() : null;
+    badge.hidden = xp === null;
+    if (xp === null) return;
+    const level = levelOf(xp);
+    const pro = document.body.classList.contains("is-pro");
+    badge.classList.toggle("is-pro", pro);
+    badge.textContent = pro ? `★ ${level}` : String(level);
+    badge.title = t("Level {n}", { n: level });
+}
 
 // The last answer at once (no flicker on start-up); the server confirms
 // once sign-in has started (see initAuth below).
 setPro(lastKnownPro());
 
-byId("home-shop").addEventListener("click", () => showToast("The shop is coming soon."));
+byId("home-shop").addEventListener("click", () => showToast(t("The shop is coming soon.")));
 //----------- STATS SCREEN ---------------
 async function showStats() {
     let st;
@@ -3665,10 +3802,11 @@ async function showStats() {
         st = await loadStats();
     } catch (err) {
         console.error("stats not loaded:", err.message);
-        return showMessage("Stats", "Can't load your stats right now. Please try again.");
+        return showMessage(t("Stats"), t("Can't load your stats right now. Please try again."));
     }
     const set = (id, v) => { byId(id).textContent = v; };
-    set("stats-note", st.signedIn ? "Saved with your account." : "Saved on this device. Sign in to keep them on every device.");
+    set("stats-note", st.signedIn ? t("Saved with your account.") : t("Saved on this device. Sign in to keep them on every device."));
+    byId("stats-signin").hidden = st.signedIn || !ACCOUNTS_AVAILABLE;
     byId("stats-empty").hidden = st.all.played > 0;
     byId("stats-body").hidden = st.all.played === 0;
     set("st-played", st.all.played);
@@ -3678,9 +3816,21 @@ async function showStats() {
     set("st-best-streak", st.bestStreak);
     set("st-best", st.all.best);
 
+    // Signed in: the level and the way to the next one (the points come
+    // from the server, see refreshPro).
+    const xp = st.signedIn ? lastKnownXp() : null;
+    byId("stats-level").hidden = xp === null;
+    if (xp !== null) {
+        const level = levelOf(xp);
+        const from = pointsForLevel(level), to = pointsForLevel(level + 1);
+        set("st-level", t("Level {n}", { n: level }));
+        set("st-level-points", `${xp - from} / ${to - from}`);
+        byId("st-level-fill").style.width = `${((xp - from) / (to - from)) * 100}%`;
+    }
+
     const modes = byId("stats-modes");
     modes.replaceChildren();
-    for (const [key, label] of [["random", "Online"], ["friend", "Friends"], ["bot", "Vs bot"]]) {
+    for (const [key, label] of [["random", t("Online")], ["friend", t("Friends")], ["bot", t("Vs bot")]]) {
         const m = st[key];
         const tr = modes.insertRow();
         for (const v of [label, m.played, m.played ? `${m.won} (${m.rate}%)` : "–", m.played ? m.average : "–"]) tr.insertCell().textContent = v;
@@ -3688,12 +3838,12 @@ async function showStats() {
 
     const recent = byId("stats-recent");
     recent.replaceChildren();
-    const day = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
+    const day = new Intl.DateTimeFormat(LANG, { day: "numeric", month: "short" });
     for (const g of st.recent) {
         const li = document.createElement("li");
         const cells = [
-            ["res " + (g.won ? "won" : "lost"), g.won ? "Won" : "Lost"],
-            ["who", `${g.points}–${g.opponent_points} vs ${g.opponent || "?"}`],
+            ["res " + (g.won ? "won" : "lost"), g.won ? t("Won") : t("Lost")],
+            ["who", t("{score} vs {name}", { score: `${g.points}–${g.opponent_points}`, name: g.opponent || "?" })],
             ["when", day.format(new Date(g.played_at))],
         ];
         for (const [cls, text] of cells) {
@@ -3708,9 +3858,25 @@ async function showStats() {
 }
 
 byId("home-stats").addEventListener("click", showStats);
+// A guest's stats only live on this phone: one tap to keep them.
+byId("stats-signin").addEventListener("click", () => byId("home-profile").click());
 document.querySelectorAll("[data-sheet-close]").forEach((el) => el.addEventListener("click", closeOnlineOverlay));
 // Sign-in and purchases come with the native apps; their buttons say so.
 document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("click", () => showToast(el.dataset.soon)));
+
+// ✕ on "Continue your game": after asking, the paused game (in memory or
+// saved by an earlier launch) is dropped. It doesn't count in the stats.
+byId("home-continue-end").addEventListener("click", () => showOnlineView("endgame"));
+byId("endgame-confirm").addEventListener("click", () => {
+    clearSavedGame();
+    if (gameInProgress && controller.mode !== "online") {
+        gameInProgress = false;
+        turnHandoverPending = false;
+        stopTimer();
+    }
+    closeOnlineOverlay();
+    refreshContinueCard();
+});
 
 byId("home-continue-btn").addEventListener("click", () => {
     hideHomeScreen();
@@ -3752,7 +3918,7 @@ byId("restart-confirm").addEventListener("click", () => {
         });
     } else if (controller.mode === "bot") {
         const strategy = botStrategy;
-        flipCoin("YOU", "BOT").then((startingPlayer) => {
+        flipCoin(t("YOU"), "BOT").then((startingPlayer) => {
             newGameVsBot(strategy, startingPlayer);
             handleTab("back");
         });
@@ -3776,7 +3942,7 @@ document.getElementById("code-back").addEventListener("click", () => showOnlineV
 document.getElementById("code-submit").addEventListener("click", () => {
     const code = document.getElementById("code-input").value.toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (code.length !== 4) {
-        document.getElementById("code-error").textContent = "The code has 4 characters.";
+        document.getElementById("code-error").textContent = t("The code has 4 characters.");
         return;
     }
     joinFriendByCode(code);
@@ -3790,7 +3956,7 @@ document.getElementById("room-share").addEventListener("click", async () => {
     if (!currentRoomCode) return;
     const url = inviteLink(currentRoomCode);
     if (navigator.share) {
-        try { await navigator.share({ title: "Linotte", text: `Play Linotte with me! Code: ${currentRoomCode}`, url }); return; }
+        try { await navigator.share({ title: "Linotte", text: t("Play Linotte with me! Code: {code}", { code: currentRoomCode }), url }); return; }
         catch { /* dismissed the share sheet -- nothing to do */ }
     }
     copyInviteLink();
@@ -3808,7 +3974,7 @@ async function copyInviteLink() {
     const url = inviteLink(currentRoomCode);
     try {
         await navigator.clipboard.writeText(url);
-        showToast("Link copied");
+        showToast(t("Link copied"));
     } catch {
         window.prompt("Copy this link", url);
     }
@@ -3854,7 +4020,7 @@ async function beginOnlineGame(snap) {
 
     gameState = snap.state;
     LOCAL_PLAYER = snap.seat;
-    gameState.players[snap.seat].name = "YOU";
+    gameState.players[snap.seat].name = t("YOU");
     startOnline();
     expectedSeq = snap.seq + 1;
     renderOnlineBoard();
@@ -4043,7 +4209,7 @@ function onRemoteGameOver({ winner, reason }) {
 
     showWinnerPopup(winner);
     if (winner === LOCAL_PLAYER) {
-        setWinnerText(reason === "disconnect" ? "Your opponent disconnected. You win!" : "Your opponent left. You win!");
+        setWinnerText(reason === "disconnect" ? t("Your opponent disconnected. You win!") : t("Your opponent left. You win!"));
     }
 }
 
@@ -4057,6 +4223,21 @@ if (hasConsent() && wasInOnlineSession() && onlineClient.available()) onlineClie
 
 // A game saved by an earlier launch shows on the home at once.
 refreshContinueCard();
+
+// Back from a language change: the options page again, scrolled where it
+// was, before anything is shown (the page is still hidden, see index.html).
+(function reopenAfterReload() {
+    let reopen = null;
+    try {
+        reopen = JSON.parse(sessionStorage.getItem("linotte-reopen") || "null");
+        sessionStorage.removeItem("linotte-reopen");
+    } catch { /* nothing to reopen */ }
+    if (reopen?.page === "options") {
+        openOptions("home", "options");
+        document.getElementById("page-options").scrollTop = reopen.scroll || 0;
+    }
+    document.documentElement.classList.remove("i18n-pending");
+})();
 
 
 //----------- COMBINATION DEMOS (help page) ---------------

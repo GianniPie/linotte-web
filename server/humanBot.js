@@ -17,12 +17,22 @@ import { makePersona, think, slips, replyTo, rand } from "./humanize.js";
 import { randomName } from "./names.js";
 
 const MAX_EMOTES_PER_GAME = 4;
+
+// Like people, some bots show a country flag (most don't): picked from the
+// game's likely players (the app's languages' countries come up most).
+const BOT_COUNTRIES = [
+  "IT", "IT", "FR", "FR", "ES", "ES", "BR", "BR", "PT", "CN", "CN", "TW", "US", "US", "GB",
+  "DE", "BE", "CH", "CA", "MX", "AR", "NL", "PL", "SE", "JP", "KR", "AU", "IE", "AT", "CL",
+];
+const BOT_FLAG_SHARE = 0.3;
+const randomCountry = () => (Math.random() < BOT_FLAG_SHARE ? BOT_COUNTRIES[Math.floor(Math.random() * BOT_COUNTRIES.length)] : "");
 const ROLL_ANIMATION_MS = 1250; // the client's own roll animation (1200ms) plus a beat
 
 export class HumanBot {
-  constructor({ avoidName = "", timeScale = BOT_TIME_SCALE, persona = null, name = null, emotesSent = 0 } = {}) {
+  constructor({ avoidName = "", timeScale = BOT_TIME_SCALE, persona = null, name = null, country = null, emotesSent = 0 } = {}) {
     this.persona = persona || makePersona();
     this.name = name || randomName(avoidName);
+    this.country = country ?? randomCountry();
     this.timeScale = timeScale;
     this.stopped = false;
     this.timers = new Set();
@@ -33,11 +43,11 @@ export class HumanBot {
   // The same bot (character, name, emoji count) after a server restart; see
   // Room.toJSON / fromJSON.
   toJSON() {
-    return { persona: this.persona, name: this.name, emotesSent: this.emotesSent };
+    return { persona: this.persona, name: this.name, country: this.country, emotesSent: this.emotesSent };
   }
 
   static fromJSON(data) {
-    return new HumanBot({ persona: data.persona, name: data.name, emotesSent: data.emotesSent });
+    return new HumanBot({ persona: data.persona, name: data.name, country: data.country ?? "", emotesSent: data.emotesSent });
   }
 
   attach(room, seat) {

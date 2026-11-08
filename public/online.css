@@ -120,6 +120,7 @@
 #online-overlay[data-view="account-delete"] .sheet-view[data-view="account-delete"],
 #online-overlay[data-view="pro"] .sheet-view[data-view="pro"],
 #online-overlay[data-view="leave"] .sheet-view[data-view="leave"],
+#online-overlay[data-view="endgame"] .sheet-view[data-view="endgame"],
 #online-overlay[data-view="restart"] .sheet-view[data-view="restart"] {
   display: flex;
 }
@@ -333,11 +334,7 @@
   display: none !important;
 }
 
-/* The gold star of Linotte Pro (by the name on the home screen, in games). */
-.pro-star {
-  color: rgb(232, 185, 35);
-  text-shadow: 0 0 .08em rgba(0, 0, 0, .5);
-}
+
 
 /* Edit profile: name, a grid of pictures, country. */
 .profile-label {
@@ -386,6 +383,57 @@
   flex-direction: column;
   gap: .9em;
   font-family: sans-serif;
+}
+
+/* The account's level, and how far it is to the next one. */
+.stats-level {
+  display: flex;
+  flex-direction: column;
+  gap: .3em;
+  padding: .55em .7em;
+  border: .125em solid rgba(0, 0, 0, .2);
+  border-radius: .6em;
+  background: rgba(255, 255, 255, .7);
+}
+
+.stats-level[hidden] {
+  display: none;
+}
+
+.stats-level-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.stats-level-row b {
+  font-family: "Changa One", sans-serif;
+  font-size: 1.3em;
+}
+
+.stats-level-row span {
+  font-size: .8em;
+  opacity: .75;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-level-bar {
+  height: .55em;
+  border-radius: .3em;
+  background: rgba(0, 0, 0, .12);
+  overflow: hidden;
+}
+
+.stats-level-bar > div {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: rgb(232, 185, 35);
+}
+
+.stats-level-hint {
+  font-size: .72em;
+  opacity: .7;
 }
 
 .stats-grid {
@@ -466,4 +514,55 @@
 
 .stats-recent .when {
   opacity: .6;
+}
+
+/* Sign in: no new password to create, said where it's seen first. */
+.login-nopass {
+  font-weight: bold;
+}
+
+/* Account: Pro or free, and the level. Pro has the home pill's membership
+   colours (dark brown, gold); free is a plain outline. */
+.account-plan {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: .6em;
+  flex-wrap: wrap;
+}
+
+.plan-pill {
+  padding: .2em .8em;
+  border-radius: 1em;
+  border: .125em solid rgba(0, 0, 0, .35);
+  font-family: "Changa One", sans-serif;
+  font-size: 1.05em;
+  color: #3d240c;
+  background: rgba(255, 255, 255, .7);
+}
+
+.plan-pill.is-pro {
+  background: #3d240c;
+  color: rgb(242, 200, 60);
+}
+
+.plan-level {
+  font-family: "Changa One", sans-serif;
+  opacity: .75;
+}
+
+.plan-level:empty {
+  display: none;
+}
+
+.sheet-btn.pro {
+  background-color: rgb(232, 185, 35);
+}
+
+.sheet-btn.pro .text-button {
+  color: #5f4604;
+}
+
+.sheet-btn.pro[hidden] {
+  display: none;
 }

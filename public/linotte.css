@@ -1418,9 +1418,7 @@ html.is-resizing *::after {
   display: none;
 }
 
-.options-overlay[data-context="home"] .opt-header {
-  grid-template-columns: repeat(3, 1fr);
-}
+
 
 /* HOME in the Game tab. */
 .game-home {
@@ -1477,8 +1475,84 @@ html.is-resizing *::after {
   margin: 1em;
 }
 
+/* The arrow is drawn by ::after. Opened from the home, the menu's header
+   takes the home's scale and its top bar's box, so the arrow sits exactly
+   where the home's options icon was, and that icon's gear (::before) turns
+   into the arrow. */
 #icon-back {
-  background-image: url("resources/images/t001.svg");
+  position: relative;
+}
+
+#icon-back::after,
+.options-overlay[data-context="home"] #icon-back::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("resources/images/t001.svg") center / contain no-repeat;
+}
+
+.options-overlay[data-context="home"] #icon-back::before {
+  background-image: url("resources/images/g10455.svg");
+  animation: iconMorphOut var(--morph) var(--ease-out) forwards;
+}
+
+.options-overlay[data-context="home"] #icon-back::after {
+  animation: iconMorphIn var(--morph) var(--ease-out) both;
+}
+
+/* The two rings are the same circle, so turning them shows only the
+   symbol inside changing. */
+:root {
+  --morph: 320ms;
+}
+
+@keyframes iconMorphOut {
+  to { opacity: 0; transform: rotate(-120deg); }
+}
+
+@keyframes iconMorphIn {
+  from { opacity: 0; transform: rotate(120deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes iconMorphOut { to { opacity: 0; } }
+  @keyframes iconMorphIn { from { opacity: 0; } }
+}
+
+/* The header in the home's units and in its top bar's box (.home-top: the
+   same width, top padding and height), the back arrow first in it like the
+   options icon, the two tabs centred. */
+.options-overlay[data-context="home"] .opt-header {
+  font-size: var(--home-scale);
+  width: min(100% - 2em, 26.875em);
+  max-width: none;
+  height: 2.75em;
+  margin: .75em 0 1em;
+  grid-template-columns: 1fr auto auto 1fr;
+  column-gap: 5em;
+}
+
+.options-overlay[data-context="home"] .icon {
+  height: 2.75em;
+  margin: 0;
+}
+
+.options-overlay[data-context="home"] #icon-back {
+  justify-self: start;
+}
+
+.options-overlay[data-context="home"] .tab-indicator {
+  margin-top: 0;
+  top: calc(100% + .625em);
+  width: 4.125em;
+  height: .5em;
+  border-radius: .25em;
+}
+
+@media (orientation: landscape) {
+  .options-overlay[data-context="home"] .opt-header {
+    width: calc(100% - 2em);
+  }
 }
 
 #icon-tab1 {
@@ -2576,26 +2650,31 @@ label {
   100% { translate: 0 0; rotate: 0deg; }
 }
 
-/* The same star by a Pro player's name during a game (the server tells both
-   players who is Pro). */
-.player.is-pro .textPlayer.t1::before {
-  content: "\2605\00a0";
-  color: rgb(232, 185, 35);
-  text-shadow: 0 0 .08em rgba(0, 0, 0, .5);
+/* A Pro player's badge during a game: a star and their online wins, hung
+   on the top edge of their box so it never takes room from the name (the
+   server tells both players). */
+.player {
+  position: relative;
 }
 
-/* Favorite piece in the options: the pieces themselves, round like on the
-   board; the first item is "random" (a die). */
-.piece-options {
-  border-radius: 50%;
-  background: rgb(228, 209, 187);
+.player.is-pro[data-badge]:not([data-badge=""])::after {
+  content: attr(data-badge);
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  z-index: 2;
+  padding: .05em .45em;
+  border-radius: .7em;
+  font-size: .75em;
+  line-height: 1.2;
+  white-space: nowrap;
+  background: rgb(232, 185, 35);
+  color: #5f4604;
+  border: .1em solid rgba(0, 0, 0, .35);
+  font-variant-numeric: tabular-nums;
 }
 
-.piece-options img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
 
 /* Winner screen: REMATCH next to NEW GAME (see "Rematch" in linotte.js). */
 .winner-buttons {
@@ -2637,4 +2716,143 @@ label {
 
 @media (prefers-reduced-motion: reduce) {
   .winner-button.rematch.is-offered { animation: none; }
+}
+
+/* Language names are longer than the other option words: each button fills
+   its grid cell. */
+.opt-btn.lang-btn {
+  width: 100%;
+  padding: 0 .3em;
+  font-size: 1em;
+  white-space: nowrap;
+}
+
+/* Six languages: a grid of three equal columns, two rows, with room between
+   the buttons (one row doesn't fit a phone). */
+#language-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 90%;
+  min-width: 0;
+  max-width: 360px;
+  margin: 0 auto;
+  overflow: visible;
+  scroll-snap-type: none;
+}
+
+#language-list .car-btn {
+  height: auto;
+}
+
+/* The carousel's edge spacers would take grid cells here. */
+#language-list::before,
+#language-list::after {
+  content: none;
+}
+
+/* Favorite piece in the options: each piece on a tile like the board's
+   (same colour and frame), the piece 20% smaller than the tile. The first
+   item, "random", is a die. Without Pro they carry a "PRO" tag. */
+/* Two classes: beats .car-item-content's overflow: hidden, which cut the
+   "PRO" tag hanging below the tile in half (the piece, at 80%, never
+   reaches the edges anyway). */
+.car-item-content.piece-options {
+  overflow: visible;
+}
+
+.piece-options {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: .35em;
+  background: rgb(228, 209, 187);
+  border: .125em solid #603813;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.piece-options img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+.piece-options.is-random img {
+  width: 72%;
+  height: 72%;
+}
+
+/* Without Pro: a gold "PRO" tag with a padlock on each piece's bottom
+   edge. The piece keeps its colours: it's there to be wanted. */
+body:not(.is-pro) .piece-options.is-pro-only::after,
+body.rooms-need-pro:not(.is-pro) #home-friend-btn::after,
+body.rooms-need-pro:not(.is-pro) #friend-create::after {
+  content: "PRO";
+  position: absolute;
+  bottom: -.55em;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 .4em 0 1.35em;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: .7em;
+  white-space: nowrap;
+  background: rgb(232, 185, 35) .35em center / .85em no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f4604' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2' fill='%235f4604'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
+  color: #5f4604;
+  border: 1.5px solid rgba(0, 0, 0, .35);
+}
+
+/* A player's country: a little tilted flag stuck at the end of their name,
+   slightly over its last letter. Laid on top (placed by placeFlag in
+   linotte.js), so it never moves the name off centre. */
+.player[data-flag]:not([data-flag=""])::before {
+  content: attr(data-flag);
+  position: absolute;
+  left: var(--flag-x, 80%);
+  top: var(--flag-y, 10%);
+  transform: translate(-35%, -30%) rotate(12deg);
+  z-index: 2;
+  font-size: .9em;
+  line-height: 1;
+  filter: drop-shadow(0 .05em .08em rgba(0, 0, 0, .45));
+  pointer-events: none;
+}
+
+/* Room under the pieces for their "PRO" tag (the list scrolls sideways, so
+   it would cut anything hanging below it). */
+#piece-list {
+  padding-bottom: calc(2vh + 12px);
+}
+
+/* Chinese: full-width punctuation ("！", "。", "，") carries half an em of
+   empty space, which pushes centred titles and buttons off centre ("你赢了！"
+   sat to the left). The font's half-width forms ("halt") keep them centred;
+   the rules' paragraphs keep the normal, more readable spacing. */
+html:lang(zh) body {
+  font-feature-settings: "halt";
+}
+
+html:lang(zh) p {
+  font-feature-settings: normal;
+}
+
+/* FRIEND (home) and CREATE ROOM (its sheet) without Pro: the same tag, hung
+   on the button's top-right corner like the SOON badge. Joining a friend's
+   room stays free, so FRIEND still opens its sheet. */
+body.rooms-need-pro:not(.is-pro) #home-friend-btn::after,
+body.rooms-need-pro:not(.is-pro) #friend-create::after {
+  bottom: auto;
+  left: auto;
+  top: -.6em;
+  right: -.4em;
+  transform: none;
+  font-family: "Changa One", sans-serif;
+  font-size: .75em;
+  z-index: 1;
+  pointer-events: none;
+}
+
+#friend-create {
+  position: relative;
 }

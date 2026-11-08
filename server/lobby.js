@@ -266,7 +266,7 @@ export class Lobby {
     for (const s of [1, 2]) {
       const x = old.seats[s];
       if (x.kind === "bot") {
-        room.addBot(s, new HumanBot({ name: x.name, persona: x.bot.persona }));
+        room.addBot(s, new HumanBot({ name: x.name, persona: x.bot.persona, country: x.bot.country ?? "" }));
       } else {
         players[s].leave(old.channel);
         room.addHuman(s, players[s], { ...players[s].data, playerId: x.playerId });

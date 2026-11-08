@@ -9,6 +9,19 @@
    hideHomeScreen) with an inline display, so no .hidden cascade issues.
    ============================================ */
 
+/* The home's scale, also used by the options menu's header when it opens
+   from the home (see linotte.css), so its back arrow lands exactly where the
+   options icon was. */
+:root {
+  --home-scale: round(down, min(100vw / 23.4375, 100dvh / 50.75, 22px), 1px);
+}
+
+@media (orientation: landscape) {
+  :root {
+    --home-scale: round(down, min(100dvh / 27, 100vw / 52.75, 22px), 1px);
+  }
+}
+
 .home-overlay {
   position: fixed;
   inset: 0;
@@ -17,7 +30,7 @@
      never shows through on a first visit. */
   background-color: whitesmoke;
   /* The phone's 16px, scaled by whichever side runs out first. */
-  font-size: round(down, min(100vw / 23.4375, 100dvh / 50.75, 22px), 1px);
+  font-size: var(--home-scale);
   font-family: "Changa One", sans-serif;
   color: #3d240c;
   display: flex;
@@ -113,29 +126,70 @@
   opacity: .75;
 }
 
+/* Its text is a little larger (1.0625em), but its box is the top bar's:
+   the same height and border as the profile and the options icon, so the
+   sizes below are divided back to the bar's em. */
 .home-pro {
   flex: none;
-  height: 2.75em;
+  height: calc(2.75em / 1.0625);
   padding: 0 1em !important;
-  border-radius: 1.375em;
+  border-radius: calc(1.375em / 1.0625);
   background: rgb(232, 185, 35);
   border: var(--btn-border);
+  border-width: calc(.1875em / 1.0625);
   box-sizing: border-box;
   font-size: 1.0625em !important;
   color: #5f4604 !important;
 }
 
-.home-pro::before {
+/* Without Pro it invites: GET PRO, in gold. With Pro it's a membership
+   card: a gold star and PRO on the dark brown of the game's text. */
+.home-pro {
+  white-space: nowrap;
+}
+
+body.is-pro .home-pro {
+  background: #3d240c;
+  color: rgb(242, 200, 60) !important;
+}
+
+body.is-pro .home-pro::before {
   content: "\2605\00a0"; /* star */
   font-family: system-ui, sans-serif;
 }
 
+body.is-pro .home-pro-get,
+body:not(.is-pro) .home-pro-owned {
+  display: none;
+}
+
+/* The gear is drawn by ::after so that, back from the options menu, the
+   menu's arrow (::before) can turn into it: the reverse of the menu's own
+   gear-to-arrow change (see #icon-back in linotte.css). */
 .home-settings {
   flex: none;
+  position: relative;
   width: 2.75em;
   height: 2.75em;
   border: 0;
+  background: none;
+}
+
+.home-settings::after,
+.home-settings.from-back::before {
+  content: "";
+  position: absolute;
+  inset: 0;
   background: url("resources/images/g10455.svg") center / contain no-repeat;
+}
+
+.home-settings.from-back::before {
+  background-image: url("resources/images/t001.svg");
+  animation: iconMorphOut var(--morph) var(--ease-out) forwards;
+}
+
+.home-settings.from-back::after {
+  animation: iconMorphIn var(--morph) var(--ease-out) both;
 }
 
 /* ---------- logo ---------- */
@@ -335,7 +389,7 @@
    banner below both. The scale comes from the height. */
 @media (orientation: landscape) {
   .home-overlay {
-    font-size: round(down, min(100dvh / 27, 100vw / 52.75, 22px), 1px);
+    font-size: var(--home-scale);
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 30em);
     grid-template-rows: auto minmax(0, 1fr) auto;
@@ -444,12 +498,97 @@
   display: block;
 }
 
-/* A Pro player's star by their name (body.is-pro, see linotte.js). */
-.home-pname .pro-star {
-  display: none;
-  margin-left: .25em;
+/* The badge by the name: the account's online wins. Gold with a star for
+   Pro players (their opponents see it too), plain for the others (only the
+   player sees it). See showHomeBadge in linotte.js. */
+.win-badge {
+  display: inline-block;
+  margin-left: .35em;
+  padding: .1em .4em;
+  border-radius: .7em;
+  font-size: .72em;
+  line-height: 1.1;
+  vertical-align: .12em;
+  background: rgba(255, 255, 255, .6);
+  border: .1em solid rgba(0, 0, 0, .35);
+  color: #3d240c;
+  font-variant-numeric: tabular-nums;
 }
 
-.is-pro .home-pname .pro-star {
-  display: inline;
+.win-badge.is-pro {
+  background: rgb(232, 185, 35);
+  color: #5f4604;
+}
+
+.win-badge[hidden] {
+  display: none;
+}
+
+/* Name and badge on one line: a long name is the one that gets "…", the
+   badge always shows. */
+.home-pname {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+#home-pname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-pname .win-badge {
+  flex: none;
+  vertical-align: baseline;
+}
+
+/* The ✕ on "Continue your game": ends the paused game (after asking). Sits
+   on the card's top-right corner, half outside it. */
+.home-continue {
+  position: relative;
+}
+
+.home-continue-end {
+  position: absolute;
+  top: -.55em;
+  right: -.55em;
+  width: 1.6em;
+  height: 1.6em;
+  padding: 0;
+  border-radius: 50%;
+  border: var(--btn-border);
+  background: rgb(240, 232, 222) center / 55% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' stroke='%233d240c' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M2 2l6 6M8 2L2 8'/%3E%3C/svg%3E");
+  cursor: pointer;
+}
+
+/* A bigger area to tap than the drawn circle. */
+.home-continue-end::before {
+  content: "";
+  position: absolute;
+  inset: -.5em;
+}
+
+/* "Continue your game": PLAY on the left, away from the ✕ on the right. */
+.home-continue {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.home-continue .home-continue-btn {
+  order: -1;
+}
+
+/* The player's country: its flag before "Signed in". */
+.home-flag {
+  margin-right: .3em;
+}
+
+.home-flag[hidden] {
+  display: none;
+}
+
+/* The options icon is on the left, as in games: first in the top row. */
+.home-top .home-settings {
+  order: -1;
 }

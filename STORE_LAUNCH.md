@@ -89,3 +89,17 @@ account, a key or a legal decision that can't come from the code.
 - Spectators (the stream supports it; no UI).
 - Accounts / Sign in with Apple and Google to carry purchases across devices.
 - Redis adapter or another room store if one server instance stops being enough.
+
+## Chinese heading font
+
+`public/fonts/noto-sans-sc-900-linotte.woff2` is Noto Sans SC at weight 900, cut
+down to the characters in `public/lang/zh.js`. After changing the Chinese
+translations, remake it (fonttools: `pip install fonttools brotli`):
+
+    fonttools varLib.instancer NotoSansSC[wght].ttf wght=900 -o NotoSansSC-Black.ttf
+    pyftsubset NotoSansSC-Black.ttf --text-file=chars.txt --flavor=woff2 \
+      --layout-features='*' --output-file=public/fonts/noto-sans-sc-900-linotte.woff2
+
+where chars.txt holds every character of zh.js from U+2E80 up, and the font comes
+from github.com/google/fonts (ofl/notosanssc). Characters missing from it fall back
+to the phone's own font.

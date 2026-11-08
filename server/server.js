@@ -12,6 +12,8 @@ import { PORT, CONSENT_VERSION, EMOTES, ROOMS_NEED_PRO, isOriginAllowed } from "
 import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
 import { isPro, forgetPro } from "./entitlements.js";
+import { experience } from "./results.js";
+import { levelOf } from "../public/shared/level.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
 import { createStore } from "./store.js";
 
@@ -50,7 +52,8 @@ app.get("/api/me", async (req, res) => {
   const userId = await userIdFromToken(token);
   if (userId && req.query.fresh === "1") forgetPro(userId);
   const devToken = req.get("X-Linotte-Dev") || ""; // ?devpro=1, see online.js
-  res.json({ signedIn: Boolean(userId), pro: await isPro({ userId, devToken }) });
+  const [pro, xp] = await Promise.all([isPro({ userId, devToken }), experience(userId)]);
+  res.json({ signedIn: Boolean(userId), pro, xp, level: levelOf(xp) });
 });
 app.options("/api/me", (req, res) => {
   const origin = req.get("Origin");
@@ -95,6 +98,7 @@ async function setAccount(socket, token) {
   const profile = d.userId ? await profileOf(token) : { name: "", country: "" };
   d.name = profile.name || nameFromId(d.userId || d.playerId);
   d.country = profile.country;
+  d.level = levelOf(await experience(d.userId)); // the number on the badge
 }
 
 io.on("connection", (socket) => {
@@ -133,6 +137,7 @@ io.on("connection", (socket) => {
       emotes: EMOTES,
       signedIn: Boolean(socket.data.userId),
       pro: socket.data.pro,
+      level: socket.data.level,
     };
   });
 
@@ -140,11 +145,11 @@ io.on("connection", (socket) => {
   // account changes, and so does the name -- but not in the middle of a game.
   on("auth", {}, async (p) => {
     // Not in the middle of a game: the opponent already has the old name.
-    const keep = lobby.roomOfSocket(socket) ? { name: socket.data.name, country: socket.data.country } : null;
+    const keep = lobby.roomOfSocket(socket) ? { name: socket.data.name, country: socket.data.country, level: socket.data.level } : null;
     await setAccount(socket, p.accessToken);
     if (keep) Object.assign(socket.data, keep);
     socket.data.pro = await isPro(socket.data);
-    return { ok: true, signedIn: Boolean(socket.data.userId), name: socket.data.name, pro: socket.data.pro };
+    return { ok: true, signedIn: Boolean(socket.data.userId), name: socket.data.name, pro: socket.data.pro, level: socket.data.level };
   });
 
   // The favorite piece changed in the options (used from the next game).

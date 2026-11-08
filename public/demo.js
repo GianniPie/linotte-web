@@ -10,6 +10,7 @@ import { updateGame } from "./shared/gameEngine.js";
 import { createInitialGameState } from "./shared/utils.js";
 import { dicePos } from "./shared/assets.js";
 import { DEMOS } from "./shared/demoScripts.js";
+import { t } from "./i18n.js";
 
 const CORNERS = { "00": "tlc", "04": "trc", "40": "blc", "44": "brc" };
 const STOP = Symbol("demo stopped");
@@ -117,7 +118,7 @@ function build() {
     els.roll = el("div", "button roll", buttons);
     els.rollText = el("div", "text-button", els.roll);
     els.done = el("div", "button done", buttons);
-    el("div", "text-button", els.done).textContent = "DONE";
+    el("div", "text-button", els.done).textContent = t("DONE");
 
     // Karaoke-style captions: each step adds a line at the bottom and the
     // earlier ones scroll up, faded but still readable.
@@ -212,7 +213,7 @@ function reset() {
         d.classList.remove("selected");
         d.style.backgroundPosition = dicePos[0];
     });
-    els.rollText.textContent = "ROLL 3";
+    els.rollText.textContent = t("ROLL {n}", { n: 3 });
     els.lines.textContent = "";
     finger.classList.remove("is-visible", "is-tapping");
 }
@@ -226,7 +227,7 @@ async function play(key) {
         setTimeout(() => (id === runId ? resolve() : reject(STOP)), reducedMotion() ? Math.min(ms, 300) : ms));
     try {
         // Time to read a line before anything else happens: longer lines stay longer.
-        const read = (line) => wait(Math.max(1100, line.length * 50));
+        const read = (line) => wait(Math.max(1100, t(line).length * 50));
         await wait(500);
         for (const step of demo.steps) {
             // What the player is about to do, read before the finger moves...
@@ -265,7 +266,7 @@ function addCaption(text) {
     const before = stack.getBoundingClientRect().top;
     stack.querySelectorAll(".is-current").forEach((line) => line.classList.remove("is-current"));
     const line = el("p", "demo-line is-current", stack);
-    line.textContent = text;
+    line.textContent = t(text);
     if (!atBottom) return;
     box.scrollTop = box.scrollHeight;
     const delta = before - stack.getBoundingClientRect().top;
@@ -313,7 +314,7 @@ async function doRoll(values, wait) {
     await tap(els.roll, wait);
     press(els.roll);
     updateGame(state, { type: "ROLL_DICE", values });
-    els.rollText.textContent = "ROLL " + state.dice.rollsLeft;
+    els.rollText.textContent = t("ROLL {n}", { n: state.dice.rollsLeft });
     els.results.forEach((r) => r.classList.remove("highlighted"));
     for (const rc in els.tiles) els.tiles[rc].classList.remove("tile_highlighted");
     finger.classList.remove("is-visible");
@@ -372,5 +373,5 @@ async function doDone(wait) {
         d.classList.remove("selected");
         d.style.backgroundPosition = dicePos[0];
     });
-    els.rollText.textContent = "ROLL 3";
+    els.rollText.textContent = t("ROLL {n}", { n: 3 });
 }

@@ -5,6 +5,33 @@
     <meta charset="utf-8" />
     <title>linotte-web</title>
 
+    <!-- In a language other than English the page stays invisible until
+         i18n.js has translated it (no flash of English), and after a
+         language change until the options are open again; shown anyway after
+         3 seconds if something goes wrong. Same language choice as i18n.js. -->
+    <style>.i18n-pending body { visibility: hidden; }</style>
+    <script>
+        (function () {
+            var supported = ["en", "it", "fr", "es", "pt", "zh"], lang = "en";
+            try { lang = localStorage.getItem("linotte-lang") || ""; } catch (e) { lang = ""; }
+            if (supported.indexOf(lang) < 0) {
+                lang = "en";
+                var tags = navigator.languages || [navigator.language || "en"];
+                for (var i = 0; i < tags.length; i++) {
+                    var b = String(tags[i]).slice(0, 2).toLowerCase();
+                    if (supported.indexOf(b) >= 0) { lang = b; break; }
+                }
+            }
+            // Also hidden when coming back from a language change, until the
+            // options menu has been opened again (see reopenAfterReload).
+            var reopen = false;
+            try { reopen = !!sessionStorage.getItem("linotte-reopen"); } catch (e) { }
+            if (lang === "en" && !reopen) return;
+            document.documentElement.classList.add("i18n-pending");
+            setTimeout(function () { document.documentElement.classList.remove("i18n-pending"); }, 3000);
+        })();
+    </script>
+
     <!-- Force light theme and prevent color scheme adjustments -->
     <!-- "only light": the opt-out from browsers that darken pages by
          themselves (Samsung Internet, Chrome's auto dark mode); plain
@@ -51,12 +78,12 @@
             <button class="home-profile has-soon" id="home-profile" type="button">
                 <span class="home-avatar" aria-hidden="true"></span>
                 <span class="home-pinfo">
-                    <span class="home-pname"><span id="home-pname">Guest</span><span class="pro-star" aria-label="Pro">★</span></span>
-                    <span class="home-psub" id="home-psub">Tap to sign in</span>
+                    <span class="home-pname"><span id="home-pname">Guest</span><span class="win-badge" id="home-badge" hidden></span></span>
+                    <span class="home-psub"><span class="home-flag" id="home-flag" hidden></span><span id="home-psub" data-i18n>Tap to sign in</span></span>
                 </span>
-                <span class="soon-badge">SOON</span>
+                <span class="soon-badge" data-i18n>SOON</span>
             </button>
-            <button class="home-pro" id="home-pro" type="button">PRO</button>
+            <button class="home-pro" id="home-pro" type="button"><span class="home-pro-get" data-i18n>GET PRO</span><span class="home-pro-owned">PRO</span></button>
             <button class="home-settings" id="home-settings" type="button" aria-label="Settings"></button>
         </div>
 
@@ -67,45 +94,46 @@
 
         <div class="home-main">
             <div class="home-continue" id="home-continue" hidden>
+                <button class="home-continue-end" id="home-continue-end" type="button" aria-label="End this game"></button>
                 <div class="home-continue-text">
-                    <b>Continue your game</b>
+                    <b data-i18n>Continue your game</b>
                     <span id="home-continue-desc"></span>
                 </div>
                 <div class="button home-continue-btn" id="home-continue-btn">
-                    <div class="text-button">PLAY</div>
+                    <div class="text-button" data-i18n>PLAY</div>
                 </div>
             </div>
 
             <div class="home-buttons">
                 <div class="button home-mode-btn home-mode-online has-soon" id="home-online-btn">
-                    <div class="text-button">ONLINE</div>
-                    <div class="home-mode-sub">Random opponent · free</div>
-                    <span class="soon-badge">SOON</span>
+                    <div class="text-button" data-i18n>ONLINE</div>
+                    <div class="home-mode-sub" data-i18n>Random opponent</div>
+                    <span class="soon-badge" data-i18n>SOON</span>
                 </div>
                 <div class="button home-mode-btn home-mode-friend has-soon" id="home-friend-btn">
-                    <div class="text-button">FRIEND</div>
-                    <div class="home-mode-sub">Private room</div>
-                    <span class="soon-badge">SOON</span>
+                    <div class="text-button" data-i18n>FRIEND</div>
+                    <div class="home-mode-sub" data-i18n>Private room</div>
+                    <span class="soon-badge" data-i18n>SOON</span>
                 </div>
                 <div class="button home-mode-btn home-mode-bot" id="home-vs-bot-btn">
-                    <div class="text-button">VS BOT</div>
-                    <div class="home-mode-sub">Offline</div>
+                    <div class="text-button" data-i18n>VS BOT</div>
+                    <div class="home-mode-sub" data-i18n>Offline</div>
                 </div>
                 <div class="button home-mode-btn home-mode-table" id="home-play-btn">
-                    <div class="text-button">SAME TABLE</div>
-                    <div class="home-mode-sub">2 players, 1 phone</div>
+                    <div class="text-button" data-i18n>SAME TABLE</div>
+                    <div class="home-mode-sub" data-i18n>2 players, 1 phone</div>
                 </div>
             </div>
 
             <div class="home-extras">
                 <button class="home-extra" id="home-help" type="button">
-                    <span class="home-extra-icon" style="background-image:url(resources/images/t004.svg)"></span>How to play
+                    <span class="home-extra-icon" style="background-image:url(resources/images/t004.svg)"></span><span data-i18n>How to play</span>
                 </button>
                 <button class="home-extra" id="home-shop" type="button">
-                    <span class="home-extra-icon" style="background-image:url(resources/images/p105-coin.svg)"></span>Shop<span class="soon-badge">SOON</span>
+                    <span class="home-extra-icon" style="background-image:url(resources/images/p105-coin.svg)"></span><span data-i18n>Shop</span><span class="soon-badge" data-i18n>SOON</span>
                 </button>
                 <button class="home-extra" id="home-stats" type="button">
-                    <span class="home-extra-icon" style="background-image:url(resources/images/stats.svg)"></span>Stats
+                    <span class="home-extra-icon" style="background-image:url(resources/images/stats.svg)"></span><span data-i18n>Stats</span>
                 </button>
             </div>
         </div>
@@ -113,7 +141,7 @@
         <!-- The banner's place: kept free (and clear of the buttons) for the
              AdMob banner of the native apps. Until then it promotes Pro. -->
         <button class="home-ad" id="home-ad" type="button">
-            <span class="home-ad-text"><b>Linotte Pro</b> No ads · private rooms · for life</span>
+            <span class="home-ad-text" data-i18n-html><b>Linotte Pro</b> No ads · private rooms · for life</span>
             <span class="home-ad-cta">PRO</span>
         </button>
     </div>
@@ -124,20 +152,20 @@
     <div id="consent-overlay" class="sheet-overlay" style="display:none">
         <div class="opt-bg"></div>
         <div class="sheet" role="dialog" aria-labelledby="consent-title">
-            <div class="sheet-title" id="consent-title">Before you play</div>
+            <div class="sheet-title" id="consent-title" data-i18n>Before you play</div>
             <ul class="sheet-list">
-                <li>You must be 16 or older. The game is fine for any age, but it shows ads and has online play, and under EU privacy law (GDPR) younger players may need a parent's consent for that.</li>
-                <li>Linotte is free to play. You can change how its ads are personalised at any time.</li>
-                <li>Random online games may be played against a computer-controlled opponent when few players are online, and its emoji reactions may be automated too.</li>
-                <li>A private game against a friend is always against a real person.</li>
-                <li>No account is needed. A random ID stays on your device so a dropped game can be resumed.</li>
+                <li data-i18n>You must be 16 or older. The game is fine for any age, but it shows ads and has online play, and under EU privacy law (GDPR) younger players may need a parent's consent for that.</li>
+                <li data-i18n>Linotte is free to play. You can change how its ads are personalised at any time.</li>
+                <li data-i18n>Random online games may be played against a computer-controlled opponent when few players are online, and its emoji reactions may be automated too.</li>
+                <li data-i18n>A private game against a friend is always against a real person.</li>
+                <li data-i18n>No account is needed. A random ID stays on your device so a dropped game can be resumed.</li>
             </ul>
             <label class="sheet-check">
                 <input type="checkbox" id="consent-check">
-                <span>I am 16 or older and I accept the <a href="legal/terms.html" target="_blank" rel="noopener">Terms of Service</a> and the <a href="legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+                <span data-i18n-html>I am 16 or older and I accept the <a href="legal/terms.html" target="_blank" rel="noopener">Terms of Service</a> and the <a href="legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</span>
             </label>
             <div class="button sheet-btn go" id="consent-continue" aria-disabled="true">
-                <div class="text-button">CONTINUE</div>
+                <div class="text-button" data-i18n>CONTINUE</div>
             </div>
         </div>
     </div>
@@ -147,172 +175,196 @@
         <div class="opt-bg"></div>
         <div class="sheet">
             <div class="sheet-view" data-view="searching">
-                <div class="sheet-title">Looking for an opponent</div>
+                <div class="sheet-title" data-i18n>Looking for an opponent</div>
                 <div class="spinner" aria-hidden="true"></div>
-                <div class="sheet-text" id="searching-text">This usually takes a few seconds.</div>
-                <div class="button sheet-btn cancel" id="searching-cancel"><div class="text-button">CANCEL</div></div>
+                <div class="sheet-text" id="searching-text" data-i18n>This usually takes a few seconds.</div>
+                <div class="button sheet-btn cancel" id="searching-cancel"><div class="text-button" data-i18n>CANCEL</div></div>
             </div>
 
             <div class="sheet-view" data-view="friend">
-                <div class="sheet-title">Play a friend</div>
-                <div class="sheet-text">Create a private room and send your friend the link, or join one with a code.</div>
-                <div class="button sheet-btn go" id="friend-create"><div class="text-button">CREATE ROOM</div></div>
-                <div class="button sheet-btn alt" id="friend-join"><div class="text-button">I HAVE A CODE</div></div>
-                <div class="button sheet-btn cancel" id="friend-back"><div class="text-button">BACK</div></div>
+                <div class="sheet-title" data-i18n>Play a friend</div>
+                <div class="sheet-text" data-i18n>Create a private room and send your friend the link, or join one with a code.</div>
+                <div class="button sheet-btn go" id="friend-create"><div class="text-button" data-i18n>CREATE ROOM</div></div>
+                <div class="button sheet-btn alt" id="friend-join"><div class="text-button" data-i18n>I HAVE A CODE</div></div>
+                <div class="button sheet-btn cancel" id="friend-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
 
             <div class="sheet-view" data-view="waiting">
-                <div class="sheet-title">Waiting for your friend</div>
+                <div class="sheet-title" data-i18n>Waiting for your friend</div>
                 <div class="room-code" id="room-code" aria-live="polite">----</div>
-                <div class="sheet-text">Send the link, or tell them the code. The game starts as soon as they join.</div>
-                <div class="button sheet-btn go" id="room-share"><div class="text-button">SHARE LINK</div></div>
-                <div class="button sheet-btn alt" id="room-copy"><div class="text-button">COPY LINK</div></div>
-                <div class="button sheet-btn cancel" id="room-cancel"><div class="text-button">CANCEL</div></div>
+                <div class="sheet-text" data-i18n>Send the link, or tell them the code. The game starts as soon as they join.</div>
+                <div class="button sheet-btn go" id="room-share"><div class="text-button" data-i18n>SHARE LINK</div></div>
+                <div class="button sheet-btn alt" id="room-copy"><div class="text-button" data-i18n>COPY LINK</div></div>
+                <div class="button sheet-btn cancel" id="room-cancel"><div class="text-button" data-i18n>CANCEL</div></div>
             </div>
 
             <div class="sheet-view" data-view="joincode">
-                <div class="sheet-title">Enter the code</div>
+                <div class="sheet-title" data-i18n>Enter the code</div>
                 <input id="code-input" class="code-input" type="text" inputmode="text" autocomplete="off"
                     autocapitalize="characters" spellcheck="false" maxlength="4" placeholder="ABCD" aria-label="Room code">
                 <div class="sheet-text error" id="code-error"></div>
-                <div class="button sheet-btn go" id="code-submit"><div class="text-button">JOIN</div></div>
-                <div class="button sheet-btn cancel" id="code-back"><div class="text-button">BACK</div></div>
+                <div class="button sheet-btn go" id="code-submit"><div class="text-button" data-i18n>JOIN</div></div>
+                <div class="button sheet-btn cancel" id="code-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
 
             <div class="sheet-view" data-view="message">
                 <div class="sheet-title" id="message-title"></div>
                 <div class="sheet-text" id="message-text"></div>
-                <div class="button sheet-btn go" id="message-ok"><div class="text-button">OK</div></div>
+                <div class="button sheet-btn go" id="message-ok"><div class="text-button" data-i18n>OK</div></div>
             </div>
             <!-- vs bot: how the bot plays -->
             <div class="sheet-view" data-view="bot">
-                <div class="sheet-title">Vs Bot</div>
-                <div class="sheet-text">Choose how the bot plays.</div>
+                <div class="sheet-title" data-i18n>Vs Bot</div>
+                <div class="sheet-text" data-i18n>Choose how the bot plays.</div>
                 <div class="sheet-row">
-                    <div class="button sheet-btn bot bot-strategy" data-strategy="points"><div class="text-button">POINTS</div></div>
-                    <div class="button sheet-btn bot bot-strategy" data-strategy="speed"><div class="text-button">SPEED</div></div>
+                    <div class="button sheet-btn bot bot-strategy" data-strategy="points"><div class="text-button" data-i18n>POINTS</div></div>
+                    <div class="button sheet-btn bot bot-strategy" data-strategy="speed"><div class="text-button" data-i18n>SPEED</div></div>
                 </div>
-                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button">BACK</div></div>
+                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button" data-i18n>BACK</div></div>
             </div>
             <!-- sign in (public/auth.js). With accounts switched off (see
                  public/shared/accounts.js) the profile button only says
                  "coming soon" and none of this opens. -->
             <div class="sheet-view" data-view="login">
-                <div class="sheet-title">Sign in</div>
-                <div class="sheet-text">Keep your progress, Pro and your collection, and get them back on a new phone. You can keep playing as a guest.</div>
-                <div class="button sheet-btn apple" id="login-apple"><div class="text-button">SIGN IN WITH APPLE</div></div>
-                <div class="button sheet-btn google" id="login-google"><div class="text-button">SIGN IN WITH GOOGLE</div></div>
-                <div class="button sheet-btn alt" id="login-email"><div class="text-button">SIGN IN WITH EMAIL</div></div>
-                <div class="sheet-text sheet-small">You must be 16 or older. By signing in you accept the <a href="legal/terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</div>
+                <div class="sheet-title" data-i18n>Sign in</div>
+                <div class="sheet-text" data-i18n>Keep your progress, Pro and your collection, and get them back on a new phone. You can keep playing as a guest.</div>
+                <div class="sheet-text login-nopass" data-i18n>No new password needed: use an account you already have, or a code we email you.</div>
+                <div class="button sheet-btn apple" id="login-apple"><div class="text-button" data-i18n>SIGN IN WITH APPLE</div></div>
+                <div class="button sheet-btn google" id="login-google"><div class="text-button" data-i18n>SIGN IN WITH GOOGLE</div></div>
+                <div class="button sheet-btn alt" id="login-email"><div class="text-button" data-i18n>SIGN IN WITH EMAIL</div></div>
+                <div class="sheet-text sheet-small" data-i18n-html>You must be 16 or older. By signing in you accept the <a href="legal/terms.html" target="_blank" rel="noopener">Terms</a> and the <a href="legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</div>
                 <div class="sheet-text error" id="login-error"></div>
-                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button">NOT NOW</div></div>
+                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button" data-i18n>NOT NOW</div></div>
             </div>
             <div class="sheet-view" data-view="login-email">
-                <div class="sheet-title">Sign in with email</div>
-                <div class="sheet-text" id="login-email-text">We'll email you a code. No password needed.</div>
+                <div class="sheet-title" data-i18n>Sign in with email</div>
+                <div class="sheet-text" id="login-email-text" data-i18n>We'll email you a code. No password needed.</div>
                 <input id="login-email-input" class="text-input" type="email" inputmode="email" autocomplete="email"
                     autocapitalize="off" spellcheck="false" maxlength="254" placeholder="you@example.com" aria-label="Email">
                 <div class="sheet-text error" id="login-email-error"></div>
-                <div class="button sheet-btn go" id="login-email-send"><div class="text-button">SEND CODE</div></div>
-                <div class="button sheet-btn cancel" id="login-email-back"><div class="text-button">BACK</div></div>
+                <div class="button sheet-btn go" id="login-email-send"><div class="text-button" data-i18n>SEND CODE</div></div>
+                <div class="button sheet-btn cancel" id="login-email-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
             <div class="sheet-view" data-view="login-code">
-                <div class="sheet-title">Check your email</div>
-                <div class="sheet-text" id="login-code-text">Enter the code we sent to <b id="login-code-email"></b>, or tap the link in the email on this device.</div>
+                <div class="sheet-title" data-i18n>Check your email</div>
+                <div class="sheet-text" id="login-code-text" data-i18n-html>Enter the code we sent to <b id="login-code-email"></b>, or tap the link in the email on this device.</div>
                 <input id="login-code-input" class="code-input" type="text" inputmode="numeric" autocomplete="one-time-code"
                     spellcheck="false" maxlength="10" placeholder="000000" aria-label="Code">
                 <div class="sheet-text error" id="login-code-error"></div>
-                <div class="button sheet-btn go" id="login-code-submit"><div class="text-button">SIGN IN</div></div>
-                <div class="button sheet-btn cancel" id="login-code-back"><div class="text-button">BACK</div></div>
+                <div class="button sheet-btn go" id="login-code-submit"><div class="text-button" data-i18n>SIGN IN</div></div>
+                <div class="button sheet-btn cancel" id="login-code-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
             <div class="sheet-view" data-view="account">
-                <div class="sheet-title">Your account</div>
-                <div class="sheet-text">Signed in as <b id="account-email"></b></div>
-                <div class="button sheet-btn bot" id="account-edit"><div class="text-button">EDIT PROFILE</div></div>
-                <div class="button sheet-btn cancel" id="account-signout"><div class="text-button">SIGN OUT</div></div>
-                <div class="button sheet-btn go" data-sheet-close><div class="text-button">OK</div></div>
-                <button class="sheet-link" id="account-delete" type="button">Delete account</button>
+                <div class="sheet-title" data-i18n>Your account</div>
+                <div class="sheet-text" data-i18n-html>Signed in as <b id="account-email"></b></div>
+                <!-- Pro or free (and the level), see fillAccountSheet in linotte.js -->
+                <div class="account-plan">
+                    <span class="plan-pill" id="account-plan"></span>
+                    <span class="plan-level" id="account-level"></span>
+                </div>
+                <div class="button sheet-btn pro" id="account-getpro"><div class="text-button" data-i18n>GET PRO</div></div>
+                <div class="button sheet-btn bot" id="account-edit"><div class="text-button" data-i18n>EDIT PROFILE</div></div>
+                <div class="button sheet-btn cancel" id="account-signout"><div class="text-button" data-i18n>SIGN OUT</div></div>
+                <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
+                <button class="sheet-link" id="account-delete" type="button" data-i18n>Delete account</button>
             </div>
             <!-- what opponents see: name, picture, country (see "Profile" in linotte.js) -->
             <div class="sheet-view" data-view="profile">
-                <div class="sheet-title">Your profile</div>
-                <label class="profile-label" for="profile-name">Name</label>
+                <div class="sheet-title" data-i18n>Your profile</div>
+                <label class="profile-label" for="profile-name" data-i18n>Name</label>
                 <input class="text-input" id="profile-name" type="text" maxlength="12" autocomplete="nickname" autocapitalize="words" spellcheck="false">
                 <div class="sheet-text sheet-small" id="profile-name-hint"></div>
-                <div class="profile-label">Picture</div>
+                <div class="profile-label" data-i18n>Picture</div>
                 <div class="profile-avatars" id="profile-avatars" role="radiogroup" aria-label="Picture"></div>
-                <label class="profile-label" for="profile-country">Country</label>
+                <label class="profile-label" for="profile-country" data-i18n>Country</label>
                 <select class="text-input profile-country" id="profile-country"></select>
                 <div class="sheet-text error" id="profile-error"></div>
                 <div class="sheet-row">
-                    <div class="button sheet-btn cancel" id="profile-cancel"><div class="text-button">CANCEL</div></div>
-                    <div class="button sheet-btn go" id="profile-save"><div class="text-button">SAVE</div></div>
+                    <div class="button sheet-btn cancel" id="profile-cancel"><div class="text-button" data-i18n>CANCEL</div></div>
+                    <div class="button sheet-btn go" id="profile-save"><div class="text-button" data-i18n>SAVE</div></div>
                 </div>
             </div>
             <div class="sheet-view" data-view="account-delete">
-                <div class="sheet-title">Delete your account?</div>
-                <div class="sheet-text">Your account and everything saved with it are deleted for good. Pro bought in the App Store or Google Play stays with that store account and can be restored.</div>
+                <div class="sheet-title" data-i18n>Delete your account?</div>
+                <div class="sheet-text" data-i18n>Your account and everything saved with it are deleted for good. Pro bought in the App Store or Google Play stays with that store account and can be restored.</div>
                 <div class="sheet-text error" id="account-delete-error"></div>
                 <div class="sheet-row">
-                    <div class="button sheet-btn cancel" id="account-delete-confirm"><div class="text-button">DELETE</div></div>
-                    <div class="button sheet-btn go" id="account-delete-back"><div class="text-button">KEEP</div></div>
+                    <div class="button sheet-btn cancel" id="account-delete-confirm"><div class="text-button" data-i18n>DELETE</div></div>
+                    <div class="button sheet-btn go" id="account-delete-back"><div class="text-button" data-i18n>KEEP</div></div>
                 </div>
             </div>
             <!-- Linotte Pro: one purchase for life, sold in the store apps and tied
                  to the account (see the "Pro" section of linotte.js) -->
             <div class="sheet-view" data-view="pro">
-                <div class="sheet-title">Linotte Pro</div>
+                <div class="sheet-title" data-i18n>Linotte Pro</div>
                 <ul class="sheet-list">
-                    <li>Create private rooms to play with friends</li>
-                    <li>No ads, when they arrive</li>
-                    <li>Exclusive new pieces and boards</li>
+                    <li data-i18n>Create private rooms to play with friends</li>
+                    <li data-i18n>Choose the piece you play with</li>
+                    <li data-i18n>Your level on your badge, seen by every opponent</li>
+                    <li data-i18n>No ads</li>
+                    <li data-i18n>Exclusive new pieces and boards</li>
                 </ul>
-                <div class="sheet-text pro-price" id="pro-price">One purchase, for life</div>
+                <div class="sheet-text pro-price" id="pro-price" data-i18n>One purchase, for life</div>
                 <div class="sheet-text sheet-small" id="pro-note"></div>
-                <div class="button sheet-btn go" id="pro-buy"><div class="text-button" id="pro-buy-text">GET PRO</div></div>
-                <div class="button sheet-btn cancel" id="pro-restore"><div class="text-button">RESTORE PURCHASE</div></div>
-                <div class="sheet-text" id="pro-thanks">You're Pro. Thank you for supporting Linotte!</div>
-                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button" id="pro-close-text">NOT NOW</div></div>
+                <div class="button sheet-btn go" id="pro-buy"><div class="text-button" id="pro-buy-text" data-i18n>GET PRO</div></div>
+                <div class="button sheet-btn cancel" id="pro-restore"><div class="text-button" data-i18n>RESTORE PURCHASE</div></div>
+                <div class="sheet-text" id="pro-thanks" data-i18n>You're Pro. Thank you for supporting Linotte!</div>
+                <div class="button sheet-btn cancel" data-sheet-close><div class="text-button" id="pro-close-text" data-i18n>NOT NOW</div></div>
             </div>
             <!-- Stats (see "Stats screen" in linotte.js, public/stats.js) -->
             <div class="sheet-view" data-view="stats">
-                <div class="sheet-title">Your stats</div>
+                <div class="sheet-title" data-i18n>Your stats</div>
                 <div class="sheet-text sheet-small" id="stats-note"></div>
-                <div class="sheet-text" id="stats-empty">No games yet. Play one and come back!</div>
+                <div class="button sheet-btn alt" id="stats-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
+                <div class="sheet-text" id="stats-empty" data-i18n>No games yet. Play one and come back!</div>
                 <div class="stats-body" id="stats-body">
+                    <div class="stats-level" id="stats-level" hidden>
+                        <div class="stats-level-row"><b id="st-level">Level 1</b><span id="st-level-points">0 / 1</span></div>
+                        <div class="stats-level-bar"><div id="st-level-fill"></div></div>
+                        <div class="stats-level-hint" data-i18n>Each online win is worth 1 point; against the bot, every 5 wins.</div>
+                    </div>
                     <div class="stats-grid">
-                        <div class="stat"><b id="st-played">0</b><span>Played</span></div>
-                        <div class="stat"><b id="st-won">0</b><span>Won</span></div>
-                        <div class="stat"><b id="st-rate">0%</b><span>Win rate</span></div>
-                        <div class="stat"><b id="st-streak">0</b><span>Win streak</span></div>
-                        <div class="stat"><b id="st-best-streak">0</b><span>Best streak</span></div>
-                        <div class="stat"><b id="st-best">0</b><span>Best score</span></div>
+                        <div class="stat"><b id="st-played">0</b><span data-i18n>Played</span></div>
+                        <div class="stat"><b id="st-won">0</b><span data-i18n>Won</span></div>
+                        <div class="stat"><b id="st-rate">0%</b><span data-i18n>Win rate</span></div>
+                        <div class="stat"><b id="st-streak">0</b><span data-i18n>Win streak</span></div>
+                        <div class="stat"><b id="st-best-streak">0</b><span data-i18n>Best streak</span></div>
+                        <div class="stat"><b id="st-best">0</b><span data-i18n>Best score</span></div>
                     </div>
                     <table class="stats-modes">
-                        <thead><tr><th></th><th>Played</th><th>Won</th><th>Avg</th></tr></thead>
+                        <thead><tr><th></th><th data-i18n>Played</th><th data-i18n>Won</th><th data-i18n>Avg</th></tr></thead>
                         <tbody id="stats-modes"></tbody>
                     </table>
-                    <div class="profile-label">Last games</div>
+                    <div class="profile-label" data-i18n>Last games</div>
                     <ul class="stats-recent" id="stats-recent"></ul>
                 </div>
-                <div class="button sheet-btn go" data-sheet-close><div class="text-button">OK</div></div>
+                <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
             </div>
             <!-- leaving an online game for the home -->
             <div class="sheet-view" data-view="leave">
-                <div class="sheet-title">Leave the game?</div>
-                <div class="sheet-text">Your opponent wins if you leave an online game.</div>
+                <div class="sheet-title" data-i18n>Leave the game?</div>
+                <div class="sheet-text" data-i18n>Your opponent wins if you leave an online game.</div>
                 <div class="sheet-row">
-                    <div class="button sheet-btn cancel" id="leave-confirm"><div class="text-button">LEAVE</div></div>
-                    <div class="button sheet-btn go" data-sheet-close><div class="text-button">STAY</div></div>
+                    <div class="button sheet-btn cancel" id="leave-confirm"><div class="text-button" data-i18n>LEAVE</div></div>
+                    <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>STAY</div></div>
                 </div>
             </div>
             <!-- RESTART in the Game tab -->
-            <div class="sheet-view" data-view="restart">
-                <div class="sheet-title">Restart?</div>
-                <div class="sheet-text">The game in progress ends and a new one starts.</div>
+            <!-- ✕ on "Continue your game" -->
+            <div class="sheet-view" data-view="endgame">
+                <div class="sheet-title" data-i18n>End this game?</div>
+                <div class="sheet-text" data-i18n>The paused game is closed for good and won't count in your stats.</div>
                 <div class="sheet-row">
-                    <div class="button sheet-btn cancel" id="restart-confirm"><div class="text-button">RESTART</div></div>
-                    <div class="button sheet-btn go" data-sheet-close><div class="text-button">CANCEL</div></div>
+                    <div class="button sheet-btn cancel" id="endgame-confirm"><div class="text-button" data-i18n>END</div></div>
+                    <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>KEEP</div></div>
+                </div>
+            </div>
+            <div class="sheet-view" data-view="restart">
+                <div class="sheet-title" data-i18n>Restart?</div>
+                <div class="sheet-text" data-i18n>The game in progress ends and a new one starts.</div>
+                <div class="sheet-row">
+                    <div class="button sheet-btn cancel" id="restart-confirm"><div class="text-button" data-i18n>RESTART</div></div>
+                    <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>CANCEL</div></div>
                 </div>
             </div>
         </div>
@@ -546,16 +598,16 @@
             </div>
             <div class="div-buttons" id="div-buttons">
                 <div id="rollBtn" class="button roll">
-                    <div class="text-button">ROLL 3</div>
+                    <div class="text-button" data-i18n>ROLL 3</div>
                 </div>
                 <div id="doneBtn" class="button done">
-                    <div class="text-button">DONE</div>
+                    <div class="text-button" data-i18n>DONE</div>
                 </div>
                 <div id="turn-label" class="turn-label" style="display:none">
                     <span class="turn-label-text"></span>
                 </div>
                 <div id="endGameDoneBtn" class="button end-game-done" style="display:none">
-                    <div class="text-button">DONE</div>
+                    <div class="text-button" data-i18n>DONE</div>
                 </div>
             </div>
         </div>
@@ -586,25 +638,25 @@
                      on the home screen. -->
                 <section>
                     <div class="separator"></div>
-                    <div class="title">Game</div>
+                    <div class="title" data-i18n>Game</div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
                             <div class="car-btn" id="pause-slot"><div class="opt-btn" id="pause-btn"><span class="pause-icon"></span></div></div>
                             <div class="car-btn" id="flip-slot"><div class="opt-btn flipped" id="flip-table-btn">FLIP</div></div>
-                            <div class="car-btn" id="restart-slot"><div class="opt-btn" id="restart-btn">RESTART</div></div>
+                            <div class="car-btn" id="restart-slot"><div class="opt-btn" id="restart-btn" data-i18n>RESTART</div></div>
                         </div>
                     </div>
                 </section>
 
                 <section class="game-home">
-                    <div class="button game-home-btn" id="game-home-btn"><div class="text-button">HOME</div></div>
+                    <div class="button game-home-btn" id="game-home-btn"><div class="text-button" data-i18n>HOME</div></div>
                 </section>
             </div>
 
             <!-- OPTIONS -->
             <div class="opt-page hidden" id="page-options">
                 <section>
-                    <div class="title" id="sound-title">Sound</div>
+                    <div class="title" id="sound-title" data-i18n>Sound</div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
                             <div class="car-btn">
@@ -617,8 +669,16 @@
                     </div>
                 </section>
 
+                <!-- language: filled in by linotte.js ("Language") -->
                 <section>
-                    <div class="title" id="board-title">Table style</div>
+                    <div class="title" data-i18n>Language</div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered" id="language-list"></div>
+                    </div>
+                </section>
+
+                <section>
+                    <div class="title" id="board-title" data-i18n>Table style</div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
                             <div class="car-item board-options" id="bo0"><img src="resources/images/board_p.svg"></div>
@@ -630,7 +690,7 @@
 
                 <!-- your piece: filled in by linotte.js ("Favorite piece") -->
                 <section>
-                    <div class="title" id="piece-title">Random piece</div>
+                    <div class="title" id="piece-title" data-i18n>Random piece</div>
                     <div class="car-list-wrapper">
                         <ul class="car-list" id="piece-list"></ul>
                         <button class="car-button previous" data-carousel="piece" data-direction="previous"
@@ -641,7 +701,7 @@
                 </section>
 
                 <section>
-                    <div class="title" id="dice-title">Dice style</div>
+                    <div class="title" id="dice-title" data-i18n>Dice style</div>
                     <div class="car-list-wrapper">
                         <ul class="car-list">
                             <li class="car-item">
@@ -678,7 +738,7 @@
                 </section>
 
                 <section>
-                    <div class="title" id="bg-title">Background</div>
+                    <div class="title" id="bg-title" data-i18n>Background</div>
                     <div class="car-list-wrapper">
                         <ul class="car-list">
                             <li class="car-item">
@@ -737,90 +797,90 @@
                     <div class="separator"></div>
 
                     <section class="rules-section" aria-labelledby="rules-goal">
-                        <h2 class="title rules-h" id="rules-goal">How to play</h2>
+                        <h2 class="title rules-h" id="rules-goal" data-i18n>How to play</h2>
                         <div class="rules-block">
-                            <p>Line up your pieces on the board: across, down or diagonally. Longer lines score more
+                            <p data-i18n>Line up your pieces on the board: across, down or diagonally. Longer lines score more
                                 points.</p>
                         </div>
                     </section>
 
                     <section class="rules-section" aria-labelledby="rules-turn">
-                        <h2 class="title rules-h" id="rules-turn">Your turn</h2>
+                        <h2 class="title rules-h" id="rules-turn" data-i18n>Your turn</h2>
                         <div class="rules-block">
                             <ol class="rules-steps">
-                                <li>Roll the five dice. You get up to three rolls.</li>
-                                <li>Between rolls, tap the dice you want to keep. The others are rolled again.</li>
-                                <li>When the dice make a combination, the free tiles for it light up. Tap one to put a
+                                <li data-i18n>Roll the five dice. You get up to three rolls.</li>
+                                <li data-i18n>Between rolls, tap the dice you want to keep. The others are rolled again.</li>
+                                <li data-i18n>When the dice make a combination, the free tiles for it light up. Tap one to put a
                                     piece there.</li>
-                                <li>Tap DONE to end your turn.</li>
+                                <li data-i18n>Tap DONE to end your turn.</li>
                             </ol>
-                            <p class="rules-note">Placing a piece is never required. If three rolls make nothing, your
+                            <p class="rules-note" data-i18n>Placing a piece is never required. If three rolls make nothing, your
                                 turn simply ends. Each turn lasts 60 seconds.</p>
                         </div>
                     </section>
 
                     <section class="rules-section" aria-labelledby="rules-combos">
-                        <h2 class="title rules-h" id="rules-combos">Combinations</h2>
+                        <h2 class="title rules-h" id="rules-combos" data-i18n>Combinations</h2>
                         <ul class="rules-combos">
                             <li>
                                 <span class="rules-icon"><img src="resources/images/g1.svg" alt=""></span>
                                 <div class="rules-block"><span class="rules-name">Brelan</span>
-                                    <span class="rules-desc">Three of a kind. It goes on a tile showing that
+                                    <span class="rules-desc" data-i18n>Three of a kind. It goes on a tile showing that
                                         number.</span></div>
                                 <button class="rules-play" type="button" data-demo="brelan" aria-label="Watch how to make a Brelan"></button>
                             </li>
                             <li>
                                 <span class="rules-icon"><img src="resources/images/g4.svg" alt=""></span>
                                 <div class="rules-block"><span class="rules-name">Full</span>
-                                    <span class="rules-desc">Three of a kind and a pair.</span></div>
+                                    <span class="rules-desc" data-i18n>Three of a kind and a pair.</span></div>
                                 <button class="rules-play" type="button" data-demo="full" aria-label="Watch how to make a Full"></button>
                             </li>
                             <li>
                                 <span class="rules-icon"><img src="resources/images/g5.svg" alt=""></span>
                                 <div class="rules-block"><span class="rules-name">Carré</span>
-                                    <span class="rules-desc">Four of a kind.</span></div>
+                                    <span class="rules-desc" data-i18n>Four of a kind.</span></div>
                                 <button class="rules-play" type="button" data-demo="carre" aria-label="Watch how to make a Carré"></button>
                             </li>
                             <li>
                                 <span class="rules-icon"><img src="resources/images/g6.svg" alt=""></span>
                                 <div class="rules-block"><span class="rules-name">Petite</span>
-                                    <span class="rules-desc">The five dice add up to 8 or less.</span></div>
+                                    <span class="rules-desc" data-i18n>The five dice add up to 8 or less.</span></div>
                                 <button class="rules-play" type="button" data-demo="petite" aria-label="Watch how to make a Petite"></button>
                             </li>
                             <li>
                                 <span class="rules-icon"><img src="resources/images/g7.svg" alt=""></span>
                                 <div class="rules-block"><span class="rules-name">Suite</span>
-                                    <span class="rules-desc">1-2-3-4-5 or 2-3-4-5-6.</span></div>
+                                    <span class="rules-desc" data-i18n>1-2-3-4-5 or 2-3-4-5-6.</span></div>
                                 <button class="rules-play" type="button" data-demo="suite" aria-label="Watch how to make a Suite"></button>
                             </li>
                             <li>
                                 <span class="rules-icon"><img src="resources/images/g8.svg" alt=""></span>
                                 <div class="rules-block"><span class="rules-name">Yam</span>
-                                    <span class="rules-desc">Five of a kind.</span></div>
+                                    <span class="rules-desc" data-i18n>Five of a kind.</span></div>
                                 <button class="rules-play" type="button" data-demo="yam" aria-label="Watch how to make a Yam"></button>
                             </li>
                         </ul>
                     </section>
 
                     <section class="rules-section" aria-labelledby="rules-bonus">
-                        <h2 class="title rules-h" id="rules-bonus">Bonus tiles</h2>
+                        <h2 class="title rules-h" id="rules-bonus" data-i18n>Bonus tiles</h2>
                         <ul class="rules-combos">
                             <li>
                                 <span class="rules-icon"><img src="resources/images/g2.svg" alt=""></span>
                                 <div class="rules-block"><span class="rules-name">Sec</span>
-                                    <span class="rules-desc">A full, carré, petite, suite or yam made in one throw of
+                                    <span class="rules-desc" data-i18n>A full, carré, petite, suite or yam made in one throw of
                                         all five dice, without keeping any.</span></div>
                                 <button class="rules-play" type="button" data-demo="sec" aria-label="Watch how to make a Sec"></button>
                             </li>
                             <li>
                                 <span class="rules-icon"><img src="resources/images/g3.svg" alt=""></span>
                                 <div class="rules-block"><span class="rules-name">Appel</span>
-                                    <span class="rules-desc">After a roll, tap a combination in the strip to call it.
+                                    <span class="rules-desc" data-i18n>After a roll, tap a combination in the strip to call it.
                                         If a later roll makes it, you may also use an Appel tile.</span>
                                     <ul class="rules-sub">
-                                        <li>A brelan can't be called.</li>
-                                        <li>At least one die must be rolled again.</li>
-                                        <li>A carré already on the dice can't be called.</li>
+                                        <li data-i18n>A brelan can't be called.</li>
+                                        <li data-i18n>At least one die must be rolled again.</li>
+                                        <li data-i18n>A carré already on the dice can't be called.</li>
                                     </ul>
                                 </div>
                                 <button class="rules-play" type="button" data-demo="appel" aria-label="Watch how to use an Appel"></button>
@@ -829,43 +889,48 @@
                     </section>
 
                     <section class="rules-section" aria-labelledby="rules-score">
-                        <h2 class="title rules-h" id="rules-score">Scoring</h2>
+                        <h2 class="title rules-h" id="rules-score" data-i18n>Scoring</h2>
                         <table class="rules-block rules-score">
                             <tbody>
-                                <tr><td>Line of 3</td><td>1 point</td></tr>
-                                <tr><td>Line of 4</td><td>2 points</td></tr>
-                                <tr><td>Line of 5</td><td>3 points</td></tr>
+                                <tr><td data-i18n>Line of 3</td><td data-i18n>1 point</td></tr>
+                                <tr><td data-i18n>Line of 4</td><td data-i18n>2 points</td></tr>
+                                <tr><td data-i18n>Line of 5</td><td data-i18n>3 points</td></tr>
                             </tbody>
                         </table>
                     </section>
 
                     <section class="rules-section" aria-labelledby="rules-end">
-                        <h2 class="title rules-h" id="rules-end">End of the game</h2>
+                        <h2 class="title rules-h" id="rules-end" data-i18n>End of the game</h2>
                         <div class="rules-block">
-                            <p>The game ends as soon as a player has placed all 12 pieces or makes a line of five. The
+                            <p data-i18n>The game ends as soon as a player has placed all 12 pieces or makes a line of five. The
                                 highest score wins.</p>
                         </div>
                     </section>
 
                     <footer class="rules-foot">
                         <p class="rules-foot-name">Linotte, <span id="version">version </span></p>
-                        <p>Made by GianniPie, inspired by the traditional French dice game.</p>
+                        <p data-i18n>Made by GianniPie, inspired by the traditional French dice game.</p>
 
-                        <h2 class="rules-foot-h">Credits</h2>
+                        <h2 class="rules-foot-h" data-i18n>Credits</h2>
                         <ul class="rules-credits">
-                            <li>Confetti: <a href="https://github.com/catdad/canvas-confetti" target="_blank" rel="noopener">canvas-confetti</a>
+                            <li data-i18n-html>Confetti: <a href="https://github.com/catdad/canvas-confetti" target="_blank" rel="noopener">canvas-confetti</a>
                                 by Kiril Vatev, ISC License.</li>
-                            <li>Backgrounds: Confetti Doodles, Diamond Sunset, Liquid Cheese, Tortoise Shell, Sun Tornado,
+                            <li data-i18n-html>Backgrounds: Confetti Doodles, Diamond Sunset, Liquid Cheese, Tortoise Shell, Sun Tornado,
                                 Pattern Randomized, Subtle Prism, Parabolic Ellipse and Repeating Triangles by
                                 <a href="https://www.svgbackgrounds.com" target="_blank" rel="noopener">SVGBackgrounds.com</a>.</li>
-                            <li>Fonts: Changa One by Eduardo Tunni and Atkinson Hyperlegible by the Braille Institute,
-                                SIL Open Font License.</li>
+                            <li data-i18n>Fonts: Changa One by Eduardo Tunni, Atkinson Hyperlegible by the Braille Institute and Noto Sans SC by Google and Adobe, SIL Open Font License.</li>
                         </ul>
 
-                        <h2 class="rules-foot-h">Piece designs</h2>
-                        <p>Some piece designs may be covered by copyright. If you hold the rights to one, contact the
+                        <h2 class="rules-foot-h" data-i18n>Piece designs</h2>
+                        <p data-i18n-html>Some piece designs may be covered by copyright. If you hold the rights to one, contact the
                             developer<span id="contact-email"></span> to have it removed right away, or to discuss a commercial
                             agreement.</p>
+
+                        <h2 class="rules-foot-h" data-i18n>Legal</h2>
+                        <ul class="rules-credits rules-legal">
+                            <li><a href="legal/terms.html" target="_blank" rel="noopener" data-i18n>Terms of Service</a></li>
+                            <li><a href="legal/privacy.html" target="_blank" rel="noopener" data-i18n>Privacy Policy</a></li>
+                        </ul>
                     </footer>
                 </div>
             </div>
@@ -910,8 +975,8 @@
                     <div class="winner-text" id="winner-text"></div>
                     <div class="winner-points" id="winner-points"></div>
                     <div class="winner-buttons">
-                        <div class="winner-button rematch" id="winner-rematch"><span id="winner-rematch-text">REMATCH</span></div>
-                        <div class="winner-button" id="winner-button">NEW GAME</div>
+                        <div class="winner-button rematch" id="winner-rematch"><span id="winner-rematch-text" data-i18n>REMATCH</span></div>
+                        <div class="winner-button" id="winner-button" data-i18n>NEW GAME</div>
                     </div>
                 </div>
             </div>

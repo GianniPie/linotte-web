@@ -7,7 +7,8 @@ import { createMemoryStore } from "./store.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
 import { isPro, forgetPro } from "./entitlements.js";
 import { pickPieceIndexes, colorDistance } from "../public/shared/pieces.js";
-import { recordResults } from "./results.js";
+import { recordResults, experience } from "./results.js";
+import { levelOf, pointsForLevel } from "../public/shared/level.js";
 import { pieces } from "../public/shared/assets.js";
 import { generateKeyPair, exportJWK, createLocalJWKSet, SignJWT } from "jose";
 import { QUEUE_BOT_DELAY_MS } from "./config.js";
@@ -295,6 +296,10 @@ const lobby = new Lobby(io, store);
   forgetPro("user-1");
   assert.equal(await isPro({ userId: "user-1" }, { key: "sk_test", fetch: answer({}, 500) }), false, "an outage with nothing cached: not Pro");
   assert.equal(await isPro({ devToken: "dev-pro" }, { key: "" }), true, "the developer token works outside production");
+  // A grant (pro_grants) makes an account Pro without any purchase.
+  const grants = (rows) => async (u) => ({ ok: true, json: async () => (u.includes("/rest/v1/pro_grants") ? rows : {}) });
+  assert.equal(await isPro({ userId: "user-granted" }, { key: "", grantKey: "sb_secret_x", url: "https://example.supabase.co", fetch: grants([{ user_id: "user-granted" }]) }), true, "a granted account is Pro");
+  assert.equal(await isPro({ userId: "user-plain" }, { key: "", grantKey: "sb_secret_x", url: "https://example.supabase.co", fetch: grants([]) }), false, "no grant, no purchase: not Pro");
   console.log("ok: Pro comes from the account");
 }
 
@@ -350,6 +355,17 @@ const lobby = new Lobby(io, store);
   const ok = await recordResults(recorded, { key: "sb_secret_x", url: "https://example.supabase.co", fetch: async (u, o) => { sent.push([u, o]); return { ok: true }; } });
   assert.ok(ok && sent[0][0].endsWith("/rest/v1/game_results") && sent[0][1].headers.apikey === "sb_secret_x", "sent with the secret key");
   assert.equal(await recordResults(recorded, { key: "" }), false, "no key: nothing sent");
+  const range = (v) => async (u, o) => { sent.push([u, o]); return { headers: { get: () => v } }; };
+  // Online wins count 1, bot wins 1 for every 5 (here 42 + 13 / 5 = 44).
+  const counts = async (u, o) => { sent.push([u, o]); return { headers: { get: () => (u.includes("mode=eq.bot") ? "0-0/13" : "0-0/42") } }; };
+  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 44, "experience is counted");
+  assert.ok(sent.at(-2)[0].includes("won=is.true") && sent.at(-2)[0].includes("source=eq.server"), "online wins from the server");
+  assert.ok(sent.at(-1)[0].includes("source=eq.app") && sent.at(-1)[0].includes("mode=eq.bot"), "bot wins from the app");
+  const none = async () => ({ headers: { get: () => "*/0" } });
+  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");
+  assert.equal(await experience(null, { key: "k" }), 0, "a guest has none");
+  assert.deepEqual([0, 1, 2, 3, 5, 6, 10, 44, 45].map(levelOf), [1, 2, 2, 3, 3, 4, 5, 9, 10], "levels");
+  assert.equal(pointsForLevel(10), 45);
   console.log("ok: online results are recorded");
 }
 
