@@ -12,6 +12,22 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-11-08
+
+### Fixed
+- Opening an old invite link (the game over, the room closed) left the player stuck on an empty board after BACK. It now says the invite has expired, the home stays behind, and closing any sheet with no game running goes back to the home (also after cancelling a waiting room).
+- Browsers that darken pages by themselves (Samsung Internet's dark mode for websites, Chrome's auto dark mode) no longer repaint the game: the page declares `color-scheme: only light`.
+
+### Added
+- REMATCH on the winner screen, next to NEW GAME: against the bot or at the same table a new game starts at once; online the opponent is asked (the button pulses with "REMATCH?" on their side) and the game starts when both say yes, in the same kind of room. The server's bot usually accepts after a moment. If the opponent went home or left the game, the button disappears.
+- An off-line game (vs bot or same table) survives closing the app: it's saved at every turn and "Continue your game" offers it on the next launch, from the start of the turn that was being played.
+
+### Changed
+- Fonts (Changa One, Atkinson Hyperlegible) and the confetti library are part of the app instead of loading from Google Fonts and jsDelivr: they work offline and in the store apps, and no outside site sees the player's address. Licences in `public/fonts` and `public/vendor`.
+- The offline cache no longer stores anything from other sites.
+- Inside the store apps (Capacitor) the offline service worker is not registered: the app's files are already on the phone.
+- `node_modules` is no longer kept in the repository (it was listed in .gitignore but tracked); Render installs the libraries itself.
+
 ## [2.13.0] - 2026-11-08
 
 ### Added

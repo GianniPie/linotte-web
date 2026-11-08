@@ -141,6 +141,8 @@ export class OnlineClient {
         s.on("opponent_status", (msg) => this.h.onOpponentStatus?.(msg));
         s.on("game_over", (msg) => this.h.onGameOver?.(msg));
         s.on("room_expired", () => this.h.onRoomExpired?.());
+        s.on("rematch_offer", () => this.h.onRematchOffer?.());
+        s.on("rematch_declined", (msg) => this.h.onRematchDeclined?.(msg || {}));
 
         // A phone coming back from the background often has a dead socket the
         // browser hasn't noticed yet.
@@ -155,6 +157,12 @@ export class OnlineClient {
         if (!this.socket?.connected) return; // the next hello carries it
         const res = await this.call("auth", { accessToken: await accessToken() });
         if (res?.ok) { this.name = res.name; this.h.onPro?.(Boolean(res.pro)); }
+    }
+
+    // Another game against the same opponent: { ok, waiting } -- waiting
+    // until they say yes (a "game_start" follows), or { ok: false, error }.
+    rematch() {
+        return this.call("rematch");
     }
 
     // The favorite piece changed in the options: used from the next game.

@@ -15,8 +15,11 @@ if (CONTACT_EMAIL) {
 // open
 // http://127.0.0.1:5500/public/index.html
 
-//To install web app
-if ("serviceWorker" in navigator) {
+//To install web app. Not inside the store apps (Capacitor): their files are
+// already on the phone, and a service worker there would only serve stale
+// copies after an app update.
+const IN_NATIVE_APP = Boolean(window.Capacitor?.isNativePlatform?.());
+if ("serviceWorker" in navigator && !IN_NATIVE_APP) {
     navigator.serviceWorker.register("/sw.js")
         .then(() => console.log("SW registered"))
         .catch(err => console.error(err));
@@ -222,7 +225,75 @@ function isHomeShown() {
 // continue it. Online games can't wait (the server's clock runs on), so
 // leaving one ends it; a finished game has nothing to continue.
 function canContinueGame() {
-    return gameInProgress && !isGameOver && controller.mode !== "online";
+    return (gameInProgress && !isGameOver && controller.mode !== "online") || Boolean(savedGame());
+}
+
+// An off-line game (vs bot or same table) also survives closing the app: it
+// is saved at the start of every turn, and the home offers it back on the
+// next launch. Saved between turns only, so it resumes with a fresh roll
+// for whoever's turn it was. Cleared when the game ends or another starts.
+const SAVED_GAME_KEY = "linotte-saved-game";
+
+function saveOfflineGame() {
+    if (!gameInProgress || isGameOver || !controller || controller.mode === "online") return;
+    try {
+        localStorage.setItem(SAVED_GAME_KEY, JSON.stringify({
+            v: 1, mode: controller.mode, strategy: botStrategy, state: gameState, savedAt: Date.now(),
+        }));
+    } catch { /* storage off: the game only lives while the app is open */ }
+}
+
+function clearSavedGame() {
+    try { localStorage.removeItem(SAVED_GAME_KEY); } catch { /* nothing saved */ }
+}
+
+// The saved game, if there is one and nothing is running in its place.
+function savedGame() {
+    if (gameInProgress) return null;
+    try {
+        const g = JSON.parse(localStorage.getItem(SAVED_GAME_KEY) || "null");
+        return g?.v === 1 && (g.mode === "bot" || g.mode === "offline") && g.state?.players ? g : null;
+    } catch {
+        return null;
+    }
+}
+
+// Picks a saved game up again: the board, scores and pieces as they were,
+// at the start of the turn that was about to be played.
+function resumeSavedGame() {
+    const g = savedGame();
+    if (!g) return false;
+    gameState = g.state;
+    if (g.mode === "bot") startBot(g.strategy || "points");
+    else startOffline();
+    gameInProgress = true;
+    turnHandoverPending = false;
+    isGameOver = false;
+    endGameSequenceStarted = false;
+    rollBtnEnabled = true;
+    doneBtnEnabled = true;
+    clearForNextTurn();
+    renderOnlineBoard(); // draws any game from gameState, not only online ones
+    applyFlip(gameState.currentPlayer);
+    startTurnTimer();
+    if (controller.mode === "bot" && gameState.currentPlayer === 2) playBotTurn();
+    return true;
+}
+
+// "Continue your game" on the home: the paused game in memory, or one saved
+// by an earlier launch.
+function refreshContinueCard() {
+    const card = document.getElementById("home-continue");
+    if (!canContinueGame()) { card.hidden = true; return; }
+    const saved = savedGame();
+    const state = saved ? saved.state : gameState;
+    const mode = saved ? saved.mode : controller.mode;
+    const p = state.players;
+    const turn = p[state.currentPlayer].name;
+    document.getElementById("home-continue-desc").textContent = mode === "bot"
+        ? `Vs bot · You ${p[1].points} – Bot ${p[2].points}`
+        : `Same table · ${p[1].name} ${p[1].points} – ${p[2].name} ${p[2].points} · ${turn}'s turn`;
+    card.hidden = false;
 }
 
 function showHomeScreen() {
@@ -230,18 +301,8 @@ function showHomeScreen() {
     flipPending = false;
     document.body.classList.remove("table-flipped"); // the home is never upside down
     document.getElementById("winner-overlay").style.display = "none";
-    const card = document.getElementById("home-continue");
-    if (canContinueGame()) {
-        setPaused(true);
-        const p = gameState.players;
-        const turn = p[gameState.currentPlayer].name;
-        document.getElementById("home-continue-desc").textContent = controller.mode === "bot"
-            ? `Vs bot · You ${p[1].points} – Bot ${p[2].points}`
-            : `Same table · ${p[1].name} ${p[1].points} – ${p[2].name} ${p[2].points} · ${turn}'s turn`;
-        card.hidden = false;
-    } else {
-        card.hidden = true;
-    }
+    if (canContinueGame()) setPaused(true);
+    refreshContinueCard();
     homeOverlay.style.display = "";
 }
 
@@ -1025,6 +1086,7 @@ botStrategyButtons.forEach(btn => {
 
 function newGameVsBot(strategy, startingPlayer = 1) {
     leaveOnlineGameIfAny();
+    clearSavedGame(); // a new game replaces any saved one
     gameInProgress = true;
     turnHandoverPending = false;
     setPaused(false);
@@ -1048,6 +1110,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
     renderPieceCounts();
     renderPointCounts();
     divsOpacity(gameState.currentPlayer);
+    saveOfflineGame();
 
     if (gameState.currentPlayer === 2) {
         startTurnTimer(); // the bot's turn is timed too, same as when it follows the player's
@@ -1062,6 +1125,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
 // either side's controls since there's only one local player either way.
 function newGameOffline(startingPlayer = 1) {
     leaveOnlineGameIfAny();
+    clearSavedGame(); // a new game replaces any saved one
     gameInProgress = true;
     turnHandoverPending = false;
     setPaused(false);
@@ -1085,6 +1149,7 @@ function newGameOffline(startingPlayer = 1) {
     renderPieceCounts();
     renderPointCounts();
     divsOpacity(gameState.currentPlayer);
+    saveOfflineGame();
     applyFlip(gameState.currentPlayer);
     startTurnTimer();
 }
@@ -1264,6 +1329,33 @@ document.getElementById("piece-popup").addEventListener("click", (e) => {
 
 // NEW GAME: back to the home screen, to pick the next mode (it used to
 // reload the whole page).
+//----------- REMATCH ---------------
+// Another game against the same opponent, from the winner screen. Against
+// the bot or at the same table it starts at once; online the other player
+// has to say yes (the server's bot answers like a person would).
+let lastOverReason = "normal";
+
+function showRematchState(state) {
+    const btn = document.getElementById("winner-rematch");
+    const text = document.getElementById("winner-rematch-text");
+    btn.hidden = state === "left";
+    btn.classList.toggle("is-waiting", state === "waiting");
+    btn.classList.toggle("is-offered", state === "offered");
+    text.textContent = { waiting: "WAITING...", offered: "REMATCH?", declined: "NO REMATCH" }[state] || "REMATCH";
+    if (state === "offered") showToast("Your opponent wants a rematch.");
+    if (state === "declined") { btn.classList.add("is-waiting"); showToast("Your opponent doesn't want a rematch."); }
+}
+
+document.getElementById("winner-rematch").addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (controller.mode === "bot") return newGameVsBot(botStrategy);
+    if (controller.mode === "offline") return newGameOffline();
+    showRematchState("waiting");
+    const res = await onlineClient.rematch();
+    if (!res.ok) showRematchState(res.error === "opponent_left" || res.error === "no_game" ? "left" : "ready");
+    // ok: either waiting for the other player, or a "game_start" is on its way
+});
+
 document.getElementById("winner-button").addEventListener("click", (e) => {
     e.stopPropagation();
     leaveToHome();
@@ -1314,6 +1406,8 @@ let recordedGame = null;
 function noteGameResult(winner) {
     if (recordedGame === gameState) return;
     recordedGame = gameState;
+    showRematchState(lastOverReason === "normal" || controller.mode !== "online" ? "ready" : "left");
+    lastOverReason = "normal";
     const mode = controller.mode === "bot" ? "bot" : controller.mode === "online" ? onlineKind : null;
     if (!mode) return; // "Same table": nobody's own game
     const me = controller.mode === "online" ? LOCAL_PLAYER : 1;
@@ -1938,10 +2032,12 @@ function performEndTurn() {
     renderPieceCounts(before);
 
     if (checkGameOver()) {
+        clearSavedGame();
         stopTimer();
         playEndGameSequence(lastMoveLines, before);
         return;
     }
+    saveOfflineGame();
 
     // Several lines from one placement (e.g. a corner completing both a
     // row and a column) play one after another, never at the same time --
@@ -2965,6 +3061,12 @@ const onlineClient = new OnlineClient({
     },
     onGameOver: onRemoteGameOver,
     onPro: (pro) => setPro(pro),
+    onRematchOffer: () => { if (controller.mode === "online" && isGameOver) showRematchState("offered"); },
+    onRematchDeclined: ({ left }) => {
+        if (controller.mode !== "online" || !isGameOver) return;
+        showRematchState(left ? "left" : "declined");
+        if (left) showToast("Your opponent has left.");
+    },
     getPiece: () => favoritePiece(),
     onRoomExpired: () => {
         showMessage("Room expired", "Nobody joined in time. Create a new room to try again.");
@@ -2981,9 +3083,17 @@ function showOnlineView(view) {
     onlineOverlay.style.display = "flex";
 }
 
-function closeOnlineOverlay() {
+function hideOnlineOverlay() {
     onlineOverlay.style.display = "none";
     onlineOverlay.dataset.view = "";
+}
+
+// Closing a sheet (BACK, CANCEL, OK) with no game running goes back to the
+// home: otherwise a failed join from an invite link, or a cancelled room,
+// left the player on an empty board with nothing to tap.
+function closeOnlineOverlay() {
+    hideOnlineOverlay();
+    if (!gameInProgress && !isHomeShown()) showHomeScreen();
 }
 
 function showMessage(title, text) {
@@ -3116,7 +3226,7 @@ async function createFriendRoom() {
     else handleOnlineError(res);
 }
 
-async function joinFriendByCode(code) {
+async function joinFriendByCode(code, { fromLink = false } = {}) {
     onlineKind = "friend";
     const errorEl = document.getElementById("code-error");
     errorEl.textContent = "";
@@ -3127,6 +3237,8 @@ async function joinFriendByCode(code) {
     if (res.ok) return; // game_start follows right away
     if (res.error === "already_in_game") { onlineClient.rejoin(); return; }
     const info = describeOnlineError(res);
+    // An old invite link: the game it was for is over.
+    if (fromLink && res.error === "bad_code") return showMessage("Invite expired", "That game is over or the room has closed. Ask your friend for a new link, or play from the home screen.");
     if (info && res.error !== "pro_required") {
         showOnlineView("joincode");
         errorEl.textContent = info[1];
@@ -3152,8 +3264,7 @@ function autoJoinFromLink() {
     if (!code || autoJoinDone || !hasConsent()) return;
     autoJoinDone = true;
     history.replaceState(null, "", location.pathname);
-    hideHomeScreen();
-    joinFriendByCode(code);
+    joinFriendByCode(code, { fromLink: true }); // the home stays behind until the game starts
 }
 
 // ONLINE and FRIEND work wherever there is a game server to talk to (see
@@ -3603,8 +3714,10 @@ document.querySelectorAll("[data-soon]").forEach((el) => el.addEventListener("cl
 
 byId("home-continue-btn").addEventListener("click", () => {
     hideHomeScreen();
-    applyFlip(); // back to whoever's turn it is, as the game was left
     setPaused(false);
+    // A game from an earlier launch: rebuilt from what was saved.
+    if (!gameInProgress && resumeSavedGame()) return;
+    applyFlip(); // back to whoever's turn it is, as the game was left
 });
 
 // HOME in the Game tab. An online game ends when you leave it, so that one
@@ -3722,7 +3835,7 @@ async function beginOnlineGame(snap) {
     remoteGen++;
     remoteQueue.length = 0;
     onlineReady = false;
-    closeOnlineOverlay();
+    hideOnlineOverlay();
     hideHomeScreen();
     optionsOverlay.classList.add("hidden");
     document.getElementById("coin-flip-overlay").classList.add("hidden");
@@ -3907,6 +4020,7 @@ function onRemoteGameOver({ winner, reason }) {
     setOnlineSession(false); // over: a relaunch has nothing to rejoin
     if (controller.mode !== "online" || isGameOver) return;
     if (reason === "normal") return; // both screens play their own ending
+    lastOverReason = reason; // the opponent left or dropped: no rematch
     remoteGen++;
     remoteQueue.length = 0;
     clearInterval(rollAnimationID);
@@ -3940,6 +4054,9 @@ if (document.readyState !== "loading") autoJoinFromLink();
 // waiting): reconnect now -- the client asks the server for its room as soon
 // as it's connected -- instead of waiting for a tap on ONLINE.
 if (hasConsent() && wasInOnlineSession() && onlineClient.available()) onlineClient.connect();
+
+// A game saved by an earlier launch shows on the home at once.
+refreshContinueCard();
 
 
 //----------- COMBINATION DEMOS (help page) ---------------

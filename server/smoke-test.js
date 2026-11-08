@@ -31,6 +31,7 @@ const io = {
     };
   },
   in(channel) { return { socketsLeave() { channels.delete(channel); } }; },
+  sockets: { sockets },
 };
 let n = 0;
 function fakeSocket(playerId, name) {
@@ -350,6 +351,35 @@ const lobby = new Lobby(io, store);
   assert.ok(ok && sent[0][0].endsWith("/rest/v1/game_results") && sent[0][1].headers.apikey === "sb_secret_x", "sent with the secret key");
   assert.equal(await recordResults(recorded, { key: "" }), false, "no key: nothing sent");
   console.log("ok: online results are recorded");
+}
+
+//--------- 12. rematch ---------
+{
+  const lobby4 = new Lobby(io, createMemoryStore(), { record: async () => {} });
+  const a = fakeSocket("player-rematchaa1", "Owl1");
+  const b = fakeSocket("player-rematchbb2", "Yak2");
+  assert.ok(lobby4.createPrivate(a).ok);
+  assert.ok((await lobby4.joinByCode(b, lobby4.roomOfSocket(a).code)).ok);
+  const first = lobby4.roomOfSocket(a);
+  first.forfeit(b.data.seat, "left");
+  assert.equal(first.status, "over");
+
+  const askA = lobby4.requestRematch(a);
+  assert.ok(askA.ok && askA.waiting, "the first player waits for the other");
+  assert.ok(find(b, "rematch_offer").length, "the other is asked");
+  const askB = lobby4.requestRematch(b);
+  assert.ok(askB.ok && !askB.waiting, "both said yes: a new game starts");
+  const second = lobby4.roomOfSocket(a);
+  assert.ok(second && second !== first && second.status === "playing", "a new game, already playing");
+  assert.equal(lobby4.roomOfSocket(b), second, "with the same two players");
+  assert.equal(second.kind, "private");
+
+  // after this one, one player goes home: no rematch any more
+  second.forfeit(a.data.seat, "left");
+  lobby4.leaveRoom(b);
+  assert.ok(find(a, "rematch_declined").length, "the one left behind is told");
+  assert.equal(lobby4.requestRematch(a).error, "opponent_left");
+  console.log("ok: rematch");
 }
 
 console.log("all smoke tests passed");

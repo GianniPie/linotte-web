@@ -31,6 +31,8 @@ export const RECONNECT_GRACE_MS = 60 * 1000;
 export const ROOM_WAIT_TTL_MS = 15 * 60 * 1000;
 // Finished rooms are kept briefly so a refresh can still show the result.
 export const ROOM_OVER_TTL_MS = 5 * 60 * 1000;
+// How often the server's bot turns a rematch down (a person sometimes would).
+export const BOT_REMATCH_DECLINE = 0.15;
 
 // When no human is found, a bot seat joins after a random wait in this range.
 export const QUEUE_BOT_DELAY_MS = [7000, 15000];

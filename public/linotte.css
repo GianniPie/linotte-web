@@ -3,7 +3,9 @@
    ============================================ */
 
 :root {
-  color-scheme: light !important;
+  /* "only light" opts out of the browsers that darken pages by themselves
+     (Samsung Internet's dark mode for websites, Chrome's auto dark mode). */
+  color-scheme: only light !important;
 
   /* Motion tokens. Anything that answers a tap (dice, buttons, calls,
      pieces) uses --tap with --ease-out; something appearing on the board is
@@ -21,7 +23,7 @@
 }
 
 html {
-  color-scheme: light !important;
+  color-scheme: only light !important;
 }
 
 body {
@@ -2593,4 +2595,46 @@ label {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* Winner screen: REMATCH next to NEW GAME (see "Rematch" in linotte.js). */
+.winner-buttons {
+  display: flex;
+  gap: 3cqw;
+  width: 100%;
+  margin: auto 0 4cqw;
+}
+
+.winner-buttons .winner-button {
+  flex: 1;
+  margin: 0;
+  font-size: 7.2cqw;
+  white-space: nowrap;
+}
+
+.winner-button.rematch {
+  background-color: rgb(46, 160, 90);
+}
+
+.winner-button.rematch[hidden] {
+  display: none;
+}
+
+/* Waiting for the other player's answer. */
+.winner-button.rematch.is-waiting {
+  filter: saturate(.4);
+  pointer-events: none;
+}
+
+/* The opponent asks: the button says so and draws the eye. */
+.winner-button.rematch.is-offered {
+  animation: rematchPulse 1s ease-in-out infinite;
+}
+
+@keyframes rematchPulse {
+  50% { transform: scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .winner-button.rematch.is-offered { animation: none; }
 }

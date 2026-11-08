@@ -6,7 +6,10 @@
     <title>linotte-web</title>
 
     <!-- Force light theme and prevent color scheme adjustments -->
-    <meta name="color-scheme" content="light">
+    <!-- "only light": the opt-out from browsers that darken pages by
+         themselves (Samsung Internet, Chrome's auto dark mode); plain
+         "light" doesn't stop them. -->
+    <meta name="color-scheme" content="only light">
     <meta name="theme-color" content="#000000">
 
     <!-- Prevent Android Chrome from adjusting colors -->
@@ -24,7 +27,8 @@
     <link href="home.css" rel="stylesheet" type="text/css" />
     <link href="demo.css" rel="stylesheet" type="text/css" />
 
-    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Changa+One&display=swap" rel="stylesheet">
+    <link href="fonts/fonts.css" rel="stylesheet">
+    <link rel="preload" href="fonts/changa-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#000000">
@@ -36,7 +40,7 @@
     <meta name="apple-mobile-web-app-title" content="Linotte" />
 </head>
 
-<body id="body" class="body" style="color-scheme: light; filter: none !important;">
+<body id="body" class="body" style="color-scheme: only light; filter: none !important;">
 
     <!-- home screen: shown on load and whenever a player leaves a game
          (HOME in the Game tab, NEW GAME on the winner screen) -->
@@ -905,7 +909,10 @@
                     </div>
                     <div class="winner-text" id="winner-text"></div>
                     <div class="winner-points" id="winner-points"></div>
-                    <div class="winner-button" id="winner-button">NEW GAME</div>
+                    <div class="winner-buttons">
+                        <div class="winner-button rematch" id="winner-rematch"><span id="winner-rematch-text">REMATCH</span></div>
+                        <div class="winner-button" id="winner-button">NEW GAME</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -935,7 +942,7 @@
     <div class="chat-toss-stage" id="chat-toss-stage"></div>
 
     <!-- <script src="/socket.io/socket.io.js"></script> -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
+    <script src="vendor/confetti.browser.js" defer></script>
     <script type="module" src="linotte.js"></script>
 
 </body>

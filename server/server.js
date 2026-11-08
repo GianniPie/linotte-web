@@ -172,6 +172,7 @@ io.on("connection", (socket) => {
   });
   on("room_join", { needsConsent: true }, (p) => lobby.joinByCode(socket, p.code));
   on("room_leave", {}, () => { lobby.leaveRoom(socket); return { ok: true }; });
+  on("rematch", { needsConsent: true }, () => lobby.requestRematch(socket));
 
   on("action", {}, (action) => {
     // While stopping (see shutdown) the games are being saved: no new moves.

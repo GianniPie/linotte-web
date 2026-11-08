@@ -12,15 +12,14 @@
 //    a given visit).
 // 2. The fetch handler below also opportunistically caches anything else
 //    requested as it's requested (cache-first, falling back to network and
-//    saving the result) -- this is what covers the Google Fonts CSS +
-//    woff2 files (the "text" -- the app's one custom font, Changa One, is
-//    loaded from fonts.googleapis.com/fonts.gstatic.com, not bundled), and
-//    anything precaching missed.
+//    saving the result) -- anything of our own that precaching missed. The
+//    fonts and the confetti library are bundled (public/fonts, public/vendor),
+//    so the app loads nothing from other sites.
 
 // Bump when sw.js's own strategy changes, or to flush stale copies. App files (see isAppShell) no
 // longer depend on this to update -- they are fetched network-first -- but a
 // new name evicts the stale copies older installs are holding.
-const CACHE_VERSION = "linotte-v2.13.0";
+const CACHE_VERSION = "linotte-v2.14.0";
 
 const PRECACHE_URLS = [
     "/",
@@ -41,6 +40,11 @@ const PRECACHE_URLS = [
     "/demo.css",
     "/config.js",
     "/vendor/socket.io.esm.min.js",
+    "/vendor/confetti.browser.js",
+    "/fonts/fonts.css",
+    "/fonts/changa-one-latin-400-normal.woff2",
+    "/fonts/atkinson-hyperlegible-latin-400-normal.woff2",
+    "/fonts/atkinson-hyperlegible-latin-700-normal.woff2",
     "/legal/terms.html",
     "/legal/privacy.html",
     "/manifest.json",
@@ -226,8 +230,6 @@ function isAppShell(url) {
     return url.pathname === "/" || /\.(html|css|js|json)$/.test(url.pathname);
 }
 
-const STATIC_HOSTS = new Set(["fonts.googleapis.com", "fonts.gstatic.com", "cdn.jsdelivr.net"]);
-
 function putInCache(request, response) {
     // Only cache real, complete responses; "opaque" cross-origin ones
     // (status 0) can't be inspected but are still usable offline later.
@@ -283,23 +285,6 @@ self.addEventListener("fetch", (event) => {
         return;
     }
 
-    // Third-party files (Google Fonts, jsDelivr libraries and emoji) are
-    // versioned in their URLs and never change: cache-first, filling the
-    // cache with anything precaching missed (this is also what stores the
-    // Google Fonts CSS + woff2, whose exact URLs Google generates).
-    // Only those hosts: anything else (the sign-in service above all) is live
-    // data, and a cached copy would freeze it -- e.g. which sign-in methods
-    // are switched on, or who is signed in.
-    if (!STATIC_HOSTS.has(url.hostname)) return;
-    event.respondWith(
-        caches.match(event.request).then((cached) => {
-            if (cached) return cached;
-            return fetch(event.request)
-                .then((response) => {
-                    putInCache(event.request, response);
-                    return response;
-                })
-                .catch(() => undefined);
-        })
-    );
+    // Other sites (the sign-in service, the game server's API): live data,
+    // never cached -- a copy would freeze it.
 });

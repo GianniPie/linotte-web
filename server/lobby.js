@@ -9,7 +9,7 @@ import { HumanBot } from "./humanBot.js";
 import { noStore } from "./store.js";
 import { resultRows, recordResults } from "./results.js";
 import {
-  QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS,
+  QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS, BOT_REMATCH_DECLINE,
 } from "./config.js";
 
 // No 0/O/1/I: a code read out loud or typed from a screenshot can't be misread.
@@ -214,7 +214,68 @@ export class Lobby {
       this.closeRoom(room);
     } else if (room.status === "playing") {
       room.forfeit(seat, "left");
+    } else if (room.status === "over" && room.seats[seat]) {
+      // Gone back to the home: no rematch with them any more.
+      room.seats[seat].left = true;
+      room.emitToSeat(room.otherSeat(seat), "rematch_declined", { left: true });
     }
+  }
+
+  //--------- rematch ---------
+  // After a game either player may ask for another one against the same
+  // opponent, in the same kind of room. A person has to accept; the
+  // server's bot answers like one would (usually yes, after a moment).
+  requestRematch(socket) {
+    const room = this.roomOfSocket(socket);
+    if (!room || room.status !== "over") return { ok: false, error: "no_game" };
+    if (this.activeRoom(socket.data.playerId)) return { ok: false, error: "already_in_game" };
+    const seat = socket.data.seat;
+    const other = room.otherSeat(seat);
+    const them = room.seats[other];
+    if (!them || them.left || (them.kind === "human" && !them.connected)) return { ok: false, error: "opponent_left" };
+    room.rematch = { ...room.rematch, [seat]: true };
+    if (them.kind === "bot") {
+      const wait = 1200 + Math.random() * 2500;
+      if (Math.random() < BOT_REMATCH_DECLINE) setTimeout(() => room.emitToSeat(seat, "rematch_declined", {}), wait);
+      else setTimeout(() => this.startRematch(room), wait);
+      return { ok: true, waiting: true };
+    }
+    if (room.rematch[other]) return this.startRematch(room) ? { ok: true } : { ok: false, error: "opponent_left" };
+    room.emitToSeat(other, "rematch_offer", {});
+    return { ok: true, waiting: true };
+  }
+
+  // Both said yes: a new game with the same two players (and the same bot).
+  startRematch(old) {
+    if (old.rematchStarted || old.status !== "over") return false;
+    const players = {};
+    for (const s of [1, 2]) {
+      const x = old.seats[s];
+      if (x.kind === "bot") continue;
+      const socket = this.io.sockets.sockets.get(x.socketId);
+      // Still connected, and still looking at this game (not off in another).
+      if (!socket?.connected || x.left || socket.data.roomId !== old.id || this.activeRoom(x.playerId)) {
+        old.emitToSeat(old.otherSeat(s), "rematch_declined", { left: true });
+        return false;
+      }
+      players[s] = socket;
+    }
+    old.rematchStarted = true;
+    const room = this.newRoom({ kind: old.kind });
+    this.register(room);
+    for (const s of [1, 2]) {
+      const x = old.seats[s];
+      if (x.kind === "bot") {
+        room.addBot(s, new HumanBot({ name: x.name, persona: x.bot.persona }));
+      } else {
+        players[s].leave(old.channel);
+        room.addHuman(s, players[s], { ...players[s].data, playerId: x.playerId });
+        this.byPlayer.set(x.playerId, room);
+      }
+    }
+    room.start();
+    this.closeRoom(old);
+    return true;
   }
 
   handleDisconnect(socket) {
