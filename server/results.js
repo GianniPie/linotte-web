@@ -6,7 +6,7 @@
 // API Keys > Secret keys). Without it nothing is recorded (a local run).
 
 import { SUPABASE_URL } from "../public/shared/accounts.js";
-import { BOT_WINS_PER_POINT } from "../public/shared/level.js";
+import { BOT_WINS_PER_POINT, ABANDON_PENALTY } from "../public/shared/level.js";
 
 const SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 
@@ -25,6 +25,8 @@ export function resultRows(room) {
       points: clampPoints(room.state.players[seat]?.points),
       opponent_points: clampPoints(room.state.players[seat === 1 ? 2 : 1]?.points),
       opponent: String(other?.name || "").slice(0, 24) || null,
+      // Left or gone for good before the end: costs level points.
+      abandoned: room.forfeitedBy === seat,
       source: "server",
     });
   }
@@ -58,24 +60,30 @@ export async function recordResults(rows, { key = SECRET_KEY, url = SUPABASE_URL
 }
 
 // The account's experience points (see public/shared/level.js): its online
-// wins (draws don't count; only games recorded by the server, so they can't
-// be raised by tampering with the app) plus one for every 5 wins against the
-// bot. 0 without the secret key or on any error.
+// wins (only games recorded by the server, so they can't be raised by
+// tampering with the app), one for every 5 wins against the bot played
+// while signed in (not the guest games moved in at sign-in), minus 2 for
+// every online game it abandoned. 0 without the secret key or on any error.
 export async function experience(userId, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
   if (!userId || !key || !url) return 0;
   const count = async (filter) => {
-    const query = `user_id=eq.${encodeURIComponent(userId)}&won=is.true&${filter}&select=id`;
+    const query = `user_id=eq.${encodeURIComponent(userId)}&${filter}&select=id`;
     const res = await fetchImpl(`${url}/rest/v1/game_results?${query}`, {
       method: "HEAD",
       headers: { apikey: key, Prefer: "count=exact", Range: "0-0" },
     });
+    if (res.ok === false) throw new Error(`Supabase answered ${res.status}`);
     // "0-0/42", or "*/0" when there are none
     const total = Number((res.headers.get("content-range") || "").split("/")[1]);
     return Number.isFinite(total) ? total : 0;
   };
   try {
-    const [online, bot] = await Promise.all([count("source=eq.server"), count("source=eq.app&mode=eq.bot")]);
-    return online + Math.floor(bot / BOT_WINS_PER_POINT);
+    const [online, bot, abandoned] = await Promise.all([
+      count("source=eq.server&won=is.true"),
+      count("source=eq.app&mode=eq.bot&won=is.true&from_guest=is.false"),
+      count("source=eq.server&abandoned=is.true"),
+    ]);
+    return online + Math.floor(bot / BOT_WINS_PER_POINT) - ABANDON_PENALTY * abandoned;
   } catch (err) {
     console.error("experience not counted:", err.message);
     return 0;

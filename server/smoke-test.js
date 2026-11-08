@@ -7,8 +7,8 @@ import { createMemoryStore } from "./store.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
 import { isPro, forgetPro } from "./entitlements.js";
 import { pickPieceIndexes, colorDistance } from "../public/shared/pieces.js";
-import { recordResults, experience } from "./results.js";
-import { levelOf, pointsForLevel } from "../public/shared/level.js";
+import { recordResults, experience, resultRows } from "./results.js";
+import { levelOf, levelStart } from "../public/shared/level.js";
 import { pieces } from "../public/shared/assets.js";
 import { generateKeyPair, exportJWK, createLocalJWKSet, SignJWT } from "jose";
 import { QUEUE_BOT_DELAY_MS } from "./config.js";
@@ -356,16 +356,29 @@ const lobby = new Lobby(io, store);
   assert.ok(ok && sent[0][0].endsWith("/rest/v1/game_results") && sent[0][1].headers.apikey === "sb_secret_x", "sent with the secret key");
   assert.equal(await recordResults(recorded, { key: "" }), false, "no key: nothing sent");
   const range = (v) => async (u, o) => { sent.push([u, o]); return { headers: { get: () => v } }; };
-  // Online wins count 1, bot wins 1 for every 5 (here 42 + 13 / 5 = 44).
-  const counts = async (u, o) => { sent.push([u, o]); return { headers: { get: () => (u.includes("mode=eq.bot") ? "0-0/13" : "0-0/42") } }; };
-  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 44, "experience is counted");
-  assert.ok(sent.at(-2)[0].includes("won=is.true") && sent.at(-2)[0].includes("source=eq.server"), "online wins from the server");
-  assert.ok(sent.at(-1)[0].includes("source=eq.app") && sent.at(-1)[0].includes("mode=eq.bot"), "bot wins from the app");
-  const none = async () => ({ headers: { get: () => "*/0" } });
+  const quit = resultRows({ kind: "random", winner: 1, forfeitedBy: 2,
+    seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: { kind: "human", userId: "b", name: "B" } },
+    state: { players: { 1: { points: 3 }, 2: { points: 5 } } } });
+  assert.deepEqual(quit.map((r) => [r.user_id, r.won, r.abandoned]), [["a", true, false], ["b", false, true]], "the one who left abandoned");
+  // The host stayed: no penalty; the guest left (no account, so no row).
+  assert.equal(recorded[0].abandoned, false, "the one who stayed didn't abandon");
+  // Online wins +1, bot wins +1 for every 5, abandoned games -2
+  // (here 42 + 13 / 5 - 2 * 3 = 38).
+  const counts = async (u, o) => {
+    sent.push([u, o]);
+    const n = u.includes("abandoned=is.true") ? 3 : u.includes("mode=eq.bot") ? 13 : 42;
+    return { ok: true, headers: { get: () => `0-0/${n}` } };
+  };
+  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 38, "experience is counted");
+  const asked = sent.slice(-3).map(([u]) => u);
+  assert.ok(asked.some((u) => u.includes("source=eq.server&won=is.true")), "online wins from the server");
+  assert.ok(asked.some((u) => u.includes("mode=eq.bot") && u.includes("from_guest=is.false")), "bot wins, not the guest's");
+  assert.ok(asked.some((u) => u.includes("abandoned=is.true")), "abandoned games");
+  const none = async () => ({ ok: true, headers: { get: () => "*/0" } });
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");
   assert.equal(await experience(null, { key: "k" }), 0, "a guest has none");
-  assert.deepEqual([0, 1, 2, 3, 5, 6, 10, 44, 45].map(levelOf), [1, 2, 2, 3, 3, 4, 5, 9, 10], "levels");
-  assert.equal(pointsForLevel(10), 45);
+  assert.deepEqual([-6, -3, -2, -1, 0, 1, 2, 3, 6, 10, 55].map(levelOf), [-3, -2, -1, -1, 0, 1, 1, 2, 3, 4, 10], "levels");
+  assert.deepEqual([-2, -1, 0, 1, 3].map(levelStart), [-5, -2, 0, 1, 6], "where levels start");
   console.log("ok: online results are recorded");
 }
 

@@ -12,6 +12,21 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-11-08
+
+### Changed
+- In games, a tap on a player's box opens their card: name, country with its flag, Linotte Pro or the free version, and the level (an opponent's only if they're Pro; your own always). The flag is no longer stuck on the name: the box keeps only the Pro level badge.
+- Levels start at 0 (level 1 at 1 point, 2 at 3, 3 at 6, 10 at 55) and can go below zero.
+- Leaving an online game before its end (or being gone for good after a disconnection) costs 2 level points. The server marks the game as abandoned in `game_results`.
+- A guest has its own level, kept on the phone only: it's never moved to an account (nobody can check it). Signing in starts the account's own level at 0; signing out goes back to the guest's. The guest games moved into the account at sign-in still count in its stats, not in its level. The stats show the level to guests too, with a note.
+- The stats explain that leaving an online game costs 2 points.
+
+### Fixed
+- `supabase/pro_grants.sql` grants the server (service_role) the right to read the table: without it, a grant was never seen.
+
+### Database
+- `game_results` gets two columns, `abandoned` and `from_guest` (see `supabase/game_results.sql`). Run the `alter table` lines in Supabase before publishing.
+
 ## [2.15.0] - 2026-11-08
 
 ### Changed

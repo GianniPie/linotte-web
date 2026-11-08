@@ -9,6 +9,7 @@
 // no telling which of the two players is the owner of the phone.
 
 import { currentUser, addGameResults, loadGameResults } from "./auth.js";
+import { BOT_WINS_PER_POINT, ABANDON_PENALTY } from "./shared/level.js";
 
 const LOCAL_KEY = "linotte-results";
 const LOCAL_MAX = 500;
@@ -26,7 +27,11 @@ export async function recordGame({ mode, won, points, opponentPoints, opponent }
         mode, won: Boolean(won), points: points | 0, opponent_points: opponentPoints | 0,
         opponent: String(opponent || "").slice(0, 24) || null, played_at: new Date().toISOString(),
     };
-    if (!currentUser()) { writeLocal([entry, ...readLocal()]); return; }
+    if (!currentUser()) {
+        writeLocal([entry, ...readLocal()]);
+        if (won) noteGuest(mode === "bot" ? "bot" : "online");
+        return;
+    }
     if (mode !== "bot") return; // the game server records online games
     try {
         await addGameResults([entry]);
@@ -41,11 +46,35 @@ export async function moveLocalGamesToAccount() {
     const local = readLocal();
     if (!local.length || !currentUser()) return;
     try {
-        await addGameResults(local);
+        // Into the account's stats, but not its level: the guest's games were
+        // never checked by anyone (see guestXp).
+        await addGameResults(local.map((g) => ({ ...g, from_guest: true })));
         writeLocal([]);
     } catch (err) {
         console.error("guest games not moved:", err.message);
     }
+}
+
+//--------- a guest's level ---------
+// A guest has a level too (see shared/level.js), kept on this phone only:
+// nobody can check it, so it never moves to an account. Signing in starts the
+// account's own level; signing out goes back to the guest's, where it was.
+const GUEST_KEY = "linotte-guest-level";
+function readGuest() {
+    try { return JSON.parse(localStorage.getItem(GUEST_KEY) || "{}") || {}; } catch { return {}; }
+}
+function noteGuest(what) {
+    const g = readGuest();
+    g[what] = (Number(g[what]) || 0) + 1;
+    try { localStorage.setItem(GUEST_KEY, JSON.stringify(g)); } catch { /* storage off: not kept */ }
+}
+export function guestXp() {
+    const g = readGuest();
+    return (Number(g.online) || 0) + Math.floor((Number(g.bot) || 0) / BOT_WINS_PER_POINT) - ABANDON_PENALTY * (Number(g.abandoned) || 0);
+}
+// A guest left an online game before its end (signed in, the server counts it).
+export function noteGuestAbandon() {
+    if (!currentUser()) noteGuest("abandoned");
 }
 
 // Everything the Stats screen shows.

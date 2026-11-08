@@ -2803,20 +2803,9 @@ body.rooms-need-pro:not(.is-pro) #friend-create::after {
   border: 1.5px solid rgba(0, 0, 0, .35);
 }
 
-/* A player's country: a little tilted flag stuck at the end of their name,
-   slightly over its last letter. Laid on top (placed by placeFlag in
-   linotte.js), so it never moves the name off centre. */
-.player[data-flag]:not([data-flag=""])::before {
-  content: attr(data-flag);
-  position: absolute;
-  left: var(--flag-x, 80%);
-  top: var(--flag-y, 10%);
-  transform: translate(-35%, -30%) rotate(12deg);
-  z-index: 2;
-  font-size: .9em;
-  line-height: 1;
-  filter: drop-shadow(0 .05em .08em rgba(0, 0, 0, .45));
-  pointer-events: none;
+/* A tap on a player's box opens their card (showPlayerCard in linotte.js). */
+.player {
+  cursor: pointer;
 }
 
 /* Room under the pieces for their "PRO" tag (the list scrolls sideways, so
@@ -2855,4 +2844,15 @@ body.rooms-need-pro:not(.is-pro) #friend-create::after {
 
 #friend-create {
   position: relative;
+}
+
+/* The player card: their country under the name. */
+.player-card-country {
+  text-align: center;
+  font-size: 1.05em;
+}
+
+.player-card-country[hidden],
+.plan-pill[hidden] {
+  display: none;
 }

@@ -340,7 +340,8 @@ export default {
     "Pro version only": "Solo para la versión Pro",
     "Level {n}!": "¡Nivel {n}!",
     "Level {n}": "Nivel {n}",
-    "Each online win is worth 1 point; against the bot, every 5 wins.": "Cada victoria online vale 1 punto; contra el bot, cada 5 victorias.",
+    "Each online win is worth 1 point; against the bot, every 5 wins. Leaving an online game before the end costs 2 points.": "Cada victoria online vale 1 punto; contra el bot, cada 5 victorias. Abandonar una partida online antes del final cuesta 2 puntos.",
+    "As a guest, your level stays on this phone: an account starts its own.": "Como invitado, tu nivel se queda en este teléfono: una cuenta empieza el suyo.",
     "Your level on your badge, seen by every opponent": "Tu nivel en tu insignia, a la vista de cada rival",
     "Choose the piece you play with": "Elige la ficha con la que juegas",
 

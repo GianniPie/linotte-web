@@ -319,7 +319,8 @@ export default {
     "Pro version only": "Réservé à la version Pro",
     "Level {n}!": "Niveau {n} !",
     "Level {n}": "Niveau {n}",
-    "Each online win is worth 1 point; against the bot, every 5 wins.": "Chaque victoire en ligne vaut 1 point ; contre le bot, toutes les 5 victoires.",
+    "Each online win is worth 1 point; against the bot, every 5 wins. Leaving an online game before the end costs 2 points.": "Chaque victoire en ligne vaut 1 point ; contre le bot, toutes les 5 victoires. Quitter une partie en ligne avant la fin coûte 2 points.",
+    "As a guest, your level stays on this phone: an account starts its own.": "En invité, votre niveau reste sur ce téléphone : un compte commence le sien.",
     "Your level on your badge, seen by every opponent": "Votre niveau sur votre badge, visible par chaque adversaire",
     "Choose the piece you play with": "Choisissez le pion avec lequel vous jouez",
 

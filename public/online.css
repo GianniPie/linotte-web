@@ -115,6 +115,7 @@
 #online-overlay[data-view="login-email"] .sheet-view[data-view="login-email"],
 #online-overlay[data-view="login-code"] .sheet-view[data-view="login-code"],
 #online-overlay[data-view="account"] .sheet-view[data-view="account"],
+#online-overlay[data-view="player"] .sheet-view[data-view="player"],
 #online-overlay[data-view="profile"] .sheet-view[data-view="profile"],
 #online-overlay[data-view="stats"] .sheet-view[data-view="stats"],
 #online-overlay[data-view="account-delete"] .sheet-view[data-view="account-delete"],

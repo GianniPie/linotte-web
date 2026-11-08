@@ -268,6 +268,16 @@
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
                 <button class="sheet-link" id="account-delete" type="button" data-i18n>Delete account</button>
             </div>
+            <!-- a player in the game, tapped: see showPlayerCard in linotte.js -->
+            <div class="sheet-view" data-view="player">
+                <div class="sheet-title" id="pc-name"></div>
+                <div class="player-card-country" id="pc-country"></div>
+                <div class="account-plan">
+                    <span class="plan-pill" id="pc-plan"></span>
+                    <span class="plan-level" id="pc-level"></span>
+                </div>
+                <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
+            </div>
             <!-- what opponents see: name, picture, country (see "Profile" in linotte.js) -->
             <div class="sheet-view" data-view="profile">
                 <div class="sheet-title" data-i18n>Your profile</div>
@@ -318,10 +328,11 @@
                 <div class="button sheet-btn alt" id="stats-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
                 <div class="sheet-text" id="stats-empty" data-i18n>No games yet. Play one and come back!</div>
                 <div class="stats-body" id="stats-body">
-                    <div class="stats-level" id="stats-level" hidden>
+                    <div class="stats-level" id="stats-level">
                         <div class="stats-level-row"><b id="st-level">Level 1</b><span id="st-level-points">0 / 1</span></div>
                         <div class="stats-level-bar"><div id="st-level-fill"></div></div>
-                        <div class="stats-level-hint" data-i18n>Each online win is worth 1 point; against the bot, every 5 wins.</div>
+                        <div class="stats-level-hint" data-i18n>Each online win is worth 1 point; against the bot, every 5 wins. Leaving an online game before the end costs 2 points.</div>
+                        <div class="stats-level-hint" id="st-level-guest" data-i18n hidden>As a guest, your level stays on this phone: an account starts its own.</div>
                     </div>
                     <div class="stats-grid">
                         <div class="stat"><b id="st-played">0</b><span data-i18n>Played</span></div>

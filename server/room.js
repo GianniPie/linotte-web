@@ -67,10 +67,10 @@ export class Room {
 
   freeSeat() { return !this.seats[1] ? 1 : !this.seats[2] ? 2 : 0; }
 
-  addHuman(seat, socket, { playerId, name, userId = null, pro = false, country = "", piece = -1, level = 1 }) {
+  addHuman(seat, socket, { playerId, name, userId = null, pro = false, country = "", piece = -1, level = 0 }) {
     this.seats[seat] = {
       kind: "human", playerId, name, userId: userId || null, pro: Boolean(pro), country: country || "",
-      level: Number(level) || 1,
+      level: Number(level) || 0,
       // Choosing one's piece is part of Pro; the server checks it itself.
       piece: pro && isPlayPiece(piece) ? piece : -1, socketId: socket.id, connected: true,
     };
@@ -113,7 +113,7 @@ export class Room {
       state.players[s].pro = Boolean(this.seats[s].pro);
       state.players[s].country = this.seats[s].country || "";
       // The PRO badge shows the level; without Pro nobody else sees it.
-      state.players[s].level = this.seats[s].pro ? this.seats[s].level || 1 : 0;
+      state.players[s].level = this.seats[s].pro ? this.seats[s].level || 0 : null;
     }
     Object.assign(state.players[1], a);
     Object.assign(state.players[2], b);
@@ -317,6 +317,7 @@ export class Room {
 
   forfeit(seat, reason) {
     if (this.status !== "playing") return;
+    this.forfeitedBy = seat; // abandoned: costs level points (see results.js)
     this.finish(this.otherSeat(seat), reason);
   }
 
@@ -341,13 +342,13 @@ export class Room {
       const x = this.seats[s];
       if (!x) return null;
       if (x.kind === "bot") return { kind: "bot", playerId: x.playerId, name: x.name, bot: x.bot.toJSON() };
-      return { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "" };
+      return { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "", level: x.level || 0 };
     };
     return {
       v: 1,
       id: this.id, kind: this.kind, code: this.code, status: this.status,
       state: this.state, seq: this.seq, turnId: this.turnId, rolling: this.rolling,
-      starter: this.starter, winner: this.winner,
+      starter: this.starter, winner: this.winner, forfeitedBy: this.forfeitedBy || 0,
       createdAt: this.createdAt, endedAt: this.endedAt, turnEndsAt: this.turnEndsAt,
       seats: { 1: seat(1), 2: seat(2) },
     };
@@ -363,7 +364,7 @@ export class Room {
     room.id = data.id;
     Object.assign(room, {
       status: data.status, state: data.state, seq: data.seq, turnId: data.turnId,
-      starter: data.starter, winner: data.winner,
+      starter: data.starter, winner: data.winner, forfeitedBy: data.forfeitedBy || 0,
       createdAt: data.createdAt, endedAt: data.endedAt,
     });
     for (const s of [1, 2]) {
@@ -373,7 +374,7 @@ export class Room {
         room.seats[s] = { kind: "bot", playerId: x.playerId, name: x.name, country: x.bot?.country || "", connected: true, bot: HumanBot.fromJSON(x.bot) };
         room.seats[s].bot.attach(room, s);
       } else {
-        room.seats[s] = { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "", socketId: null, connected: false };
+        room.seats[s] = { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "", level: x.level || 0, socketId: null, connected: false };
       }
     }
     if (room.status !== "playing") return room;

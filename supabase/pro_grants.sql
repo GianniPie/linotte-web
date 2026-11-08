@@ -18,3 +18,6 @@ create table if not exists public.pro_grants (
 alter table public.pro_grants enable row level security;
 
 revoke all on public.pro_grants from anon, authenticated;
+-- The server reads it with the secret key (service_role); this project gives
+-- that role no rights on new tables by itself.
+grant select on public.pro_grants to service_role;

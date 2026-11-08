@@ -186,10 +186,10 @@ import { emojiMarkup, emojiLabel } from "./emoji.js";
 import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
 import { nameProblem, cleanPlayerName, COUNTRIES, flagOf } from "./shared/playerNames.js";
 import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
-import { recordGame, moveLocalGamesToAccount, loadStats } from "./stats.js";
+import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAbandon } from "./stats.js";
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp } from "./online.js";
-import { levelOf, pointsForLevel } from "./shared/level.js";
+import { levelOf, levelStart } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
 gameState.players[2].name = "BOT";
@@ -409,20 +409,14 @@ function renderPlayerBox(player) {
 
     textPlayerP1.textContent = gameState.players[1].name;
     textPlayerP2.textContent = gameState.players[2].name;
-    // Online, the server says who is Pro: a gold star by their name.
-    // ...and Pro players carry their badge: a star and their level.
+    // Online, the server says who is Pro: they carry their badge, a star and
+    // their level. Everything else (country, Pro, level) is on the card a
+    // tap on the box opens (showPlayerCard).
     for (const seat of [1, 2]) {
         const p = gameState.players[seat];
         const box = document.getElementById(seat === 1 ? "playerP1" : "playerP2");
         box.classList.toggle("is-pro", Boolean(p.pro));
-        box.dataset.badge = p.pro ? `★ ${p.level || 1}` : "";
-        // A player who set a country wears its flag as a little sticker at
-        // the end of their name, laid over it so the name stays centred:
-        // online the server says whose, against the bot it's this phone's
-        // player (from their profile).
-        const ownOffline = controller?.mode === "bot" && seat === 1;
-        box.dataset.flag = flagOf(ownOffline ? profile?.country : p.country);
-        placeFlag(box, seat === 1 ? textPlayerP1 : textPlayerP2);
+        box.dataset.badge = p.pro ? `★ ${p.level ?? 0}` : "";
     }
     // Online names ("Crane36") are longer than YOU/BOT/P1: a smaller size
     // keeps them whole instead of ending in "...".
@@ -430,22 +424,39 @@ function renderPlayerBox(player) {
     textPlayerP2.classList.toggle("long", gameState.players[2].name.length > 5);
 }
 
-// Where a player's flag sticker goes: just past the end of their name (the
-// text itself, not its full-width box), as CSS variables on the player box.
-function placeFlag(box, nameEl) {
-    if (!box.dataset.flag) return;
-    const place = () => {
-        const range = document.createRange();
-        range.selectNodeContents(nameEl);
-        const text = range.getBoundingClientRect();
-        const name = nameEl.getBoundingClientRect();
-        const b = box.getBoundingClientRect();
-        if (!b.width) return; // hidden: placed again on the next draw
-        box.style.setProperty("--flag-x", `${Math.min(text.right, name.right) - b.left}px`);
-        box.style.setProperty("--flag-y", `${text.top - b.top}px`);
-    };
-    place();
-    document.fonts?.ready.then(place); // the name's width changes once its font is in
+// A tap on a player's box: who they are. Their name, country and, online,
+// whether they're Pro and their level (only Pro players show it to others).
+// This phone's player sees their own, Pro or not.
+function showPlayerCard(seat) {
+    const p = gameState.players[seat];
+    if (!p || !gameInProgress) return;
+    const mine = controller.mode !== "offline" && seat === (controller.mode === "online" ? LOCAL_PLAYER : 1);
+    const isBot = controller.mode === "bot" && seat === 2;
+    byId("pc-name").textContent = mine ? (profile?.name || p.name) : p.name;
+
+    const country = mine ? (controller.mode === "online" ? p.country : profile?.country) : p.country;
+    let countryName = country;
+    try { countryName = new Intl.DisplayNames([LANG, "en"], { type: "region" }).of(country); } catch { /* the code */ }
+    byId("pc-country").textContent = country ? `${flagOf(country)}\u2002${countryName}` : "";
+    byId("pc-country").hidden = !country;
+
+    const pro = mine ? document.body.classList.contains("is-pro") : Boolean(p.pro);
+    const plan = byId("pc-plan");
+    plan.hidden = isBot || controller.mode === "offline";
+    plan.textContent = pro ? `★ ${t("Linotte Pro")}` : t("Free version");
+    plan.classList.toggle("is-pro", pro);
+
+    const level = mine ? levelOf(myXp()) : p.pro && p.level != null ? p.level : null;
+    byId("pc-level").textContent = level === null ? "" : t("Level {n}", { n: level });
+    showOnlineView("player");
+}
+boxPlayer1.addEventListener("click", () => showPlayerCard(1));
+boxPlayer2.addEventListener("click", () => showPlayerCard(2));
+
+// This phone's player's points: the account's (from the server), or the
+// guest's (kept on the phone, see stats.js).
+function myXp() {
+    return currentUser() ? lastKnownXp() ?? 0 : guestXp();
 }
 
 // Restarts a CSS animation on `el` even if it's already mid-play (e.g. two
@@ -1498,6 +1509,7 @@ function noteGameResult(winner) {
     const other = me === 1 ? 2 : 1;
     // A win may raise the level: asked again once the game is recorded (by
     // the server for an online game, by recordGame for one against the bot).
+    const xpBefore = myXp();
     const recorded = recordGame({
         mode,
         won: winner === me,
@@ -1507,6 +1519,11 @@ function noteGameResult(winner) {
     });
     if (winner === me && currentUser()) {
         recorded.then(() => setTimeout(() => refreshPro({ fresh: true }), mode === "bot" ? 0 : 1500));
+    } else if (!currentUser()) {
+        recorded.then(() => {
+            if (levelOf(guestXp()) > levelOf(xpBefore)) showToast(t("Level {n}!", { n: levelOf(guestXp()) }));
+            showHomeBadge();
+        });
     }
 }
 
@@ -3507,8 +3524,7 @@ function fillAccountSheet() {
     plan.textContent = pro ? `★ ${t("Linotte Pro")}` : t("Free version");
     plan.classList.toggle("is-pro", pro);
     byId("account-getpro").hidden = pro;
-    const xp = lastKnownXp();
-    byId("account-level").textContent = xp === null ? "" : t("Level {n}", { n: levelOf(xp) });
+    byId("account-level").textContent = t("Level {n}", { n: levelOf(myXp()) });
 }
 byId("account-getpro").addEventListener("click", () => showProSheet());
 byId("account-delete-confirm").addEventListener("click", (e) => loginStep(e.currentTarget, byId("account-delete-error"), async () => {
@@ -3774,16 +3790,14 @@ byId("pro-restore").addEventListener("click", (e) => {
     });
 });
 
-// The badge by the name on the home screen: the account's level (see
-// shared/level.js). Gold with a star for Pro players, who show it to their
-// opponents too; plain, and seen only by the player, without Pro. Nothing
-// for a guest.
+// The badge by the name on the home screen: the level (see shared/level.js),
+// the account's or, as a guest, the phone's. Gold with a star for Pro
+// players, who show it to their opponents too; plain, and seen only by the
+// player, without Pro.
 function showHomeBadge() {
     const badge = byId("home-badge");
-    const xp = currentUser() ? lastKnownXp() : null;
-    badge.hidden = xp === null;
-    if (xp === null) return;
-    const level = levelOf(xp);
+    const level = levelOf(myXp());
+    badge.hidden = false;
     const pro = document.body.classList.contains("is-pro");
     badge.classList.toggle("is-pro", pro);
     badge.textContent = pro ? `★ ${level}` : String(level);
@@ -3816,17 +3830,15 @@ async function showStats() {
     set("st-best-streak", st.bestStreak);
     set("st-best", st.all.best);
 
-    // Signed in: the level and the way to the next one (the points come
-    // from the server, see refreshPro).
-    const xp = st.signedIn ? lastKnownXp() : null;
-    byId("stats-level").hidden = xp === null;
-    if (xp !== null) {
-        const level = levelOf(xp);
-        const from = pointsForLevel(level), to = pointsForLevel(level + 1);
-        set("st-level", t("Level {n}", { n: level }));
-        set("st-level-points", `${xp - from} / ${to - from}`);
-        byId("st-level-fill").style.width = `${((xp - from) / (to - from)) * 100}%`;
-    }
+    // The level and the way to the next one: the account's (from the
+    // server, see refreshPro) or the guest's.
+    const xp = myXp();
+    const level = levelOf(xp);
+    const from = levelStart(level), to = levelStart(level + 1);
+    set("st-level", t("Level {n}", { n: level }));
+    byId("st-level-guest").hidden = st.signedIn;
+    set("st-level-points", `${xp - from} / ${to - from}`);
+    byId("st-level-fill").style.width = `${((xp - from) / (to - from)) * 100}%`;
 
     const modes = byId("stats-modes");
     modes.replaceChildren();
@@ -4094,6 +4106,12 @@ function renderOnlineBoard() {
 
 function leaveOnlineGameIfAny() {
     if (controller.mode !== "online") return;
+    // Leaving before the end abandons the game: it costs level points (the
+    // server counts an account's; a guest's are kept here).
+    if (gameInProgress && !isGameOver) {
+        noteGuestAbandon();
+        if (currentUser()) setTimeout(() => refreshPro({ fresh: true }), 1500);
+    }
     setOnlineSession(false);
     onlineClient.leaveRoom();
     remoteGen++;

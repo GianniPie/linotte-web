@@ -341,7 +341,8 @@ export default {
     "Pro version only": "仅限 Pro 版",
     "Level {n}!": "升到 {n} 级！",
     "Level {n}": "等级 {n}",
-    "Each online win is worth 1 point; against the bot, every 5 wins.": "每赢一局在线对局得 1 分；对战机器人每赢 5 局得 1 分。",
+    "Each online win is worth 1 point; against the bot, every 5 wins. Leaving an online game before the end costs 2 points.": "每赢一局在线对局得 1 分；对战机器人每赢 5 局得 1 分。在线对局中途退出扣 2 分。",
+    "As a guest, your level stays on this phone: an account starts its own.": "游客的等级只保存在这台手机上：账号会从头开始自己的等级。",
     "Your level on your badge, seen by every opponent": "你的等级显示在徽章上，所有对手都能看到",
     "Choose the piece you play with": "选择你使用的棋子",
 
