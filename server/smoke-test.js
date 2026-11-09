@@ -394,9 +394,10 @@ const lobby = new Lobby(io, store);
   const none = async () => ({ ok: true, headers: { get: () => "*/0" } });
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");
   assert.equal(await experience(null, { key: "k" }), 0, "a guest has none");
-  assert.deepEqual([-6, -3, -2, -1, 0, 1, 2, 3, 6, 10, 54, 55, 64, 65, 155, 255].map(levelOf),
-    [-3, -2, -1, -1, 0, 1, 1, 2, 3, 4, 9, 10, 10, 11, 20, 30], "levels: one point more each, then 10 each from level 10");
-  assert.deepEqual([-2, -1, 0, 1, 3, 10, 11, 20].map(levelStart), [-5, -2, 0, 1, 6, 55, 65, 155], "where levels start");
+  assert.deepEqual([-15, -14, -5, -4, 0, 4, 5, 14, 15, 30, 274, 275, 324, 325, 775, 1275].map(levelOf),
+    [-2, -1, -1, 0, 0, 0, 1, 1, 2, 3, 9, 10, 10, 11, 20, 30], "levels: 5 points more each, then 50 each from level 10");
+  assert.deepEqual([-2, -1, 0, 1, 3, 10, 11, 20].map(levelStart), [-29, -14, -4, 5, 30, 275, 325, 775], "where levels start");
+  assert.ok(!Object.is(levelOf(-1), -0), "never -0");
   console.log("ok: online results are recorded");
 }
 
@@ -527,6 +528,54 @@ const lobby = new Lobby(io, store);
   assert.ok(list[0].name.length > 0, "a friend without a profile name gets their animal name");
   assert.equal(list[0].weekPoints, 7);
   console.log("ok: friends");
+}
+
+//--------- 16. the table's background, matching by level ---------
+{
+  const { tableSeat, canMeet, ownsBackground } = await import("../public/shared/level.js");
+  const p = (xp, background = 4, bought = false) => ({ xp, background, bought });
+  assert.equal(tableSeat(p(300), p(120)), 1, "more points: their table");
+  assert.equal(tableSeat(p(120), p(300)), 2);
+  assert.equal(tableSeat(p(310), p(320)), 2, "the same level: the exact points decide");
+  assert.equal(tableSeat(p(50), p(50)), 0, "equal points: each their own");
+  assert.equal(tableSeat(p(5, 4, true), p(900)), 1, "a bought background wins over any level");
+  assert.equal(tableSeat(p(5, 4, true), p(900, 6, true)), 0, "two bought: each their own");
+  assert.ok(ownsBackground(4, 0) && !ownsBackground(8, 0) && ownsBackground(8, 775), "a background is shown only once unlocked");
+
+  assert.ok(canMeet(-1, -3), "below zero meets below zero");
+  assert.ok(!canMeet(-1, 0) && !canMeet(0, -1), "...and nobody else");
+  assert.ok(canMeet(0, 10) && !canMeet(0, 11), "the others within 10 levels");
+
+  // In the queue: a player below zero is passed over.
+  const lobby8 = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async () => false, befriend: async () => {} });
+  const quitter = fakeSocket("player-matchqq1", "Gnu1");
+  const fresh = fakeSocket("player-matchff2", "Ant2");
+  const vet = fakeSocket("player-matchvv3", "Elk3");
+  quitter.data.level = -1; fresh.data.level = 0; vet.data.level = 30;
+  assert.equal(lobby8.joinQueue(quitter).matched, false);
+  assert.equal(lobby8.joinQueue(fresh).matched, false, "a level 0 player doesn't meet one below zero");
+  assert.equal(lobby8.joinQueue(vet).matched, false, "nor one 30 levels away");
+  const fresh2 = fakeSocket("player-matchff4", "Bee4");
+  fresh2.data.level = 3;
+  assert.equal(lobby8.joinQueue(fresh2).matched, true, "but one 3 levels away");
+  assert.equal(lobby8.roomOfSocket(fresh2), lobby8.roomOfSocket(fresh));
+
+  // The room picks the table.
+  const rich = fakeSocket("player-matchrr5", "Owl5");
+  const poor = fakeSocket("player-matchpp6", "Fox6");
+  Object.assign(rich.data, { userId: "u-rich", level: 10, xp: 300, background: 3 });
+  Object.assign(poor.data, { userId: "u-poor", level: 1, xp: 8, background: 0 });
+  assert.ok(lobby8.createPrivate(rich).ok);
+  assert.ok((await lobby8.joinByCode(poor, lobby8.roomOfSocket(rich).code)).ok);
+  const room = lobby8.roomOfSocket(rich);
+  assert.deepEqual(room.state.tableLook, { seat: rich.data.seat, background: 3 }, "both play at the table of the one with more points");
+  const cheat = fakeSocket("player-matchcc7", "Rat7");
+  Object.assign(cheat.data, { userId: "u-cheat", level: 0, xp: 0, background: 8 });
+  const room2 = lobby8.newRoom({ kind: "random" });
+  lobby8.register(room2);
+  room2.addHuman(1, cheat, cheat.data);
+  assert.equal(room2.seats[1].background, 4, "a background not unlocked yet falls back to the free one");
+  console.log("ok: table and matching");
 }
 
 //--------- 12. rematch ---------

@@ -13,6 +13,7 @@ import { updateGame } from "../public/shared/gameEngine.js";
 import { createInitialGameState, rndNum } from "../public/shared/utils.js";
 import { piecesPath, pieces } from "../public/shared/assets.js";
 import { assignPieces, isPlayPiece } from "../public/shared/pieces.js";
+import { tableSeat, ownsBackground, FREE_LOOKS } from "../public/shared/level.js";
 import {
   TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS, IDLE_TURNS_LIMIT,
   RECONNECT_GRACE_MS, EMOTES,
@@ -63,10 +64,13 @@ export class Room {
 
   freeSeat() { return !this.seats[1] ? 1 : !this.seats[2] ? 2 : 0; }
 
-  addHuman(seat, socket, { playerId, name, userId = null, pro = false, country = "", piece = -1, level = 0 }) {
+  addHuman(seat, socket, { playerId, name, userId = null, pro = false, country = "", piece = -1, level = 0, xp = 0, background = FREE_LOOKS.background }) {
     this.seats[seat] = {
       kind: "human", playerId, name, userId: userId || null, pro: Boolean(pro), country: country || "",
-      level: Number(level) || 0,
+      level: Number(level) || 0, xp: Number(xp) || 0,
+      // The background they'd show (the table, see tableSeat): only one
+      // their level has unlocked (nothing can be bought yet).
+      background: ownsBackground(background, xp) ? background : FREE_LOOKS.background, bought: false,
       // Choosing one's piece is part of Pro; the server checks it itself.
       piece: pro && isPlayPiece(piece) ? piece : -1, socketId: socket.id, connected: true,
     };
@@ -120,6 +124,10 @@ export class Room {
     Object.assign(state.players[2], b);
     // The player who didn't get their favorite hears why (see startOnline).
     if (denied) state.players[denied].pieceDenied = true;
+    // One background for both (the table), or each their own (null).
+    const look = (x) => ({ xp: x.kind === "human" ? x.xp || 0 : 0, background: x.background ?? FREE_LOOKS.background, bought: Boolean(x.bought) });
+    const table = tableSeat(look(this.seats[1]), look(this.seats[2]));
+    state.tableLook = table ? { seat: table, background: look(this.seats[table]).background } : null;
     state.currentPlayer = Math.random() < 0.5 ? 1 : 2;
     this.state = state;
     this.starter = state.currentPlayer;

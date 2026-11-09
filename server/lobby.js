@@ -10,7 +10,7 @@ import { noStore } from "./store.js";
 import { resultRows, recordResults } from "./results.js";
 import { grantDailyBonus } from "./bonuses.js";
 import { noteFriends } from "./friends.js";
-import { DAILY_BONUS_POINTS } from "../public/shared/level.js";
+import { DAILY_BONUS_POINTS, canMeet } from "../public/shared/level.js";
 import {
   QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS, BOT_REMATCH_DECLINE,
 } from "./config.js";
@@ -127,6 +127,9 @@ export class Lobby {
 
     for (const [otherId, entry] of this.queue) {
       if (otherId === me.playerId || !entry.socket.connected) continue;
+      // Below zero meets below zero; the rest within a wide range of levels
+      // (canMeet in shared/level.js). No one suitable: the bot comes.
+      if (!canMeet(me.level || 0, entry.socket.data.level || 0)) continue;
       this.leaveQueue(otherId);
       const room = this.newRoom({ kind: "random" });
       this.register(room);

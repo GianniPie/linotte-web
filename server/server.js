@@ -15,7 +15,7 @@ import { isPro, forgetPro } from "./entitlements.js";
 import { experience } from "./results.js";
 import { todayStatus, grantAdReward, weeklyLeaderboard } from "./bonuses.js";
 import { markOnline, markOffline, socketsOf, isOnline, friendsOf, areFriends } from "./friends.js";
-import { levelOf } from "../public/shared/level.js";
+import { levelOf, FREE_LOOKS } from "../public/shared/level.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
 import { createStore } from "./store.js";
 
@@ -147,7 +147,8 @@ async function setAccount(socket, token) {
   const profile = d.userId ? await profileOf(token) : { name: "", country: "" };
   d.name = profile.name || nameFromId(d.userId || d.playerId);
   d.country = profile.country;
-  d.level = levelOf(await experience(d.userId)); // the number on the badge
+  d.xp = await experience(d.userId); // a guest has none the server can trust
+  d.level = levelOf(d.xp); // the number on the badge
   // Online for friends (friends.js): whichever account this app is now.
   markOffline(socket);
   markOnline(socket);
@@ -180,6 +181,7 @@ io.on("connection", (socket) => {
     socket.data.consentVersion = Number(p.consentVersion) || 0;
     socket.data.devToken = typeof p.entitlement?.devToken === "string" ? p.entitlement.devToken : "";
     socket.data.piece = Number.isInteger(p.piece) ? p.piece : -1; // favorite piece, see shared/pieces.js
+    socket.data.background = Number.isInteger(p.background) ? p.background : FREE_LOOKS.background; // see tableSeat
     socket.data.pro = await isPro(socket.data);
     return {
       ok: true,
@@ -207,6 +209,11 @@ io.on("connection", (socket) => {
   // The favorite piece changed in the options (used from the next game).
   on("piece", {}, (p) => {
     socket.data.piece = Number.isInteger(p.piece) ? p.piece : -1;
+    return { ok: true };
+  });
+  // ...and the background (the table, see tableSeat in shared/level.js).
+  on("look", {}, (p) => {
+    if (Number.isInteger(p.background)) socket.data.background = p.background;
     return { ok: true };
   });
 

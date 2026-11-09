@@ -302,6 +302,7 @@ function refreshContinueCard() {
 }
 
 function showHomeScreen() {
+    showBackground(ownBackground()); // an online game's table was someone else's
     optionsOverlay.classList.add("hidden");
     flipPending = false;
     document.body.classList.remove("table-flipped"); // the home is never upside down
@@ -708,6 +709,33 @@ let faces = diceFaces[dieCookie];  //faces of the selected die
 
 let selectedDie = dicePath + faces;
 preload(selectedDie);
+
+// The background drawn on the screen: this player's own, or, in an online
+// game, the table the server chose (showTableLook).
+function showBackground(bgId) {
+    body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+    optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]));
+    modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+}
+// This player's own: the one selected in the options (a saved one still
+// locked at this level isn't, see lookOrFree).
+const ownBackground = () => {
+    const id = document.querySelector(".bg-options.selected")?.id;
+    return id ? Number(id.slice(2)) : FREE_LOOKS.background;
+};
+
+// Online, one table for both (see tableSeat in shared/level.js): the
+// background of whoever has more points (or bought theirs), or each their
+// own. Said once, at the start: a nudge to climb, or a little pride.
+function showTableLook(look, fresh) {
+    if (!look || look.background === ownBackground()) { showBackground(ownBackground()); return; }
+    showBackground(look.background);
+    if (!fresh) return;
+    const other = gameState.players[look.seat === 1 ? 1 : 2];
+    setTimeout(() => showToast(look.seat === LOCAL_PLAYER
+        ? t("You have more points: you both play at your table.")
+        : t("{name} has more points: you play at their table.", { name: other?.name || t("Your opponent") }), 4000), 5200);
+}
 
 let selectedBg = lookOrFree("background", Number(getCookie("background", FREE_LOOKS.background)));
 document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
@@ -1162,6 +1190,7 @@ botStrategyButtons.forEach(btn => {
 });
 
 function newGameVsBot(strategy, startingPlayer = 1) {
+    showBackground(ownBackground()); // after an online game at someone else's table
     leaveOnlineGameIfAny();
     clearSavedGame(); // a new game replaces any saved one
     gameInProgress = true;
@@ -1201,6 +1230,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
 // P1/P2 -- see isMyTurn()'s "offline" branch, which never dims/disables
 // either side's controls since there's only one local player either way.
 function newGameOffline(startingPlayer = 1) {
+    showBackground(ownBackground()); // after an online game at someone else's table
     leaveOnlineGameIfAny();
     clearSavedGame(); // a new game replaces any saved one
     gameInProgress = true;
@@ -1275,10 +1305,9 @@ bgOptions.forEach(bgOption => {
         var bgId = Number(bgOption.id[2]);
         document.getElementById("bg-title").textContent = humanizeBgName(backgrounds[bgId]);
 
-        body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
-        optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]));
-        modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+        showBackground(bgId);
         setCookie("background", bgId);
+        onlineClient?.setLook(bgId);
         centerLists(true);
     });
 });
@@ -3226,6 +3255,7 @@ const onlineClient = new OnlineClient({
         if (left) showToast(t("Your opponent has left."));
     },
     getPiece: () => favoritePiece(),
+    getBackground: () => ownBackground(),
     onRoomExpired: () => {
         showMessage(t("Room expired"), t("Nobody joined in time. Create a new room to try again."));
     },
@@ -3368,6 +3398,8 @@ let onlineKind = "random";
 
 async function startRandomOnline() {
     onlineKind = "random";
+    // Below zero: matched with others below zero (see canMeet), and told so.
+    byId("searching-quitter").hidden = levelOf(myXp()) >= 0;
     if (!(await prepareOnline())) return;
     document.getElementById("searching-text").textContent = t("This usually takes a few seconds.");
     showOnlineView("searching");
@@ -3582,6 +3614,13 @@ byId("account-getpro").addEventListener("click", () => showProSheet());
 // The (?) by the level in the stats: how levels work, then back to the stats
 // (still filled in).
 byId("st-level-help").addEventListener("click", () => showOnlineView("level-help"));
+// In the rules, what each thing is worth stands out: every "+2" / "−2" in bold
+// (the texts are already translated by now).
+document.querySelectorAll(".level-rules li").forEach((li) => {
+    const parts = li.textContent.split(/([+−-]\d+)/);
+    if (parts.length < 2) return;
+    li.replaceChildren(...parts.map((part, i) => (i % 2 ? Object.assign(document.createElement("b"), { textContent: part }) : part)));
+});
 byId("level-help-back").addEventListener("click", () => showOnlineView("stats"));
 byId("account-delete-confirm").addEventListener("click", (e) => loginStep(e.currentTarget, byId("account-delete-error"), async () => {
     await deleteAccount();
@@ -3959,7 +3998,8 @@ setPro(lastKnownPro());
 function fillStatsLevel() {
     const xp = myXp();
     const level = levelOf(xp);
-    const from = levelStart(level), to = levelStart(level + 1);
+    // Level 0 runs from -4 to 4: at or above zero, the bar starts at 0.
+    const from = level === 0 && xp >= 0 ? 0 : levelStart(level), to = levelStart(level + 1);
     byId("st-level").textContent = t("Level {n}", { n: level });
     byId("stats-level").dataset.tier = badgeTier(level);
     byId("st-level-points").textContent = `${xp - from} / ${to - from}`;
@@ -4227,6 +4267,12 @@ byId("home-continue-btn").addEventListener("click", () => {
 // asks first.
 byId("game-home-btn").addEventListener("click", async () => {
     if (controller.mode === "online" && gameInProgress && !isGameOver) {
+        // Leaving costs level points, unless the opponent had already given
+        // up (gone, or letting their turns run out): say which.
+        const free = opponentGone || (idleTurns[LOCAL_PLAYER === 1 ? 2 : 1] || 0) > 0;
+        byId("leave-text").textContent = free
+            ? t("Your opponent has stopped playing: you can leave without losing points.")
+            : t("Your opponent wins, and you lose 2 level points.");
         showOnlineView("leave");
         return;
     }
@@ -4359,6 +4405,7 @@ async function beginOnlineGame(snap) {
 
     gameState = snap.state;
     LOCAL_PLAYER = snap.seat;
+    showTableLook(snap.state?.tableLook, snap.fresh);
     idleTurns = {};
     opponentGone = snap.opponentConnected === false;
     gameState.players[snap.seat].name = t("YOU");

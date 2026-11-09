@@ -59,8 +59,11 @@ export function saveConsent() {
 
 // ?devpro=1 once on a non-production server makes this device Pro for
 // testing. Real Pro comes from the account (the server checks it itself).
+// ?devpro=0 turns it off again (to see the free version, ads included).
 function devProToken() {
-    if (new URLSearchParams(location.search).has("devpro")) write(DEV_PRO_KEY, "dev-pro");
+    const param = new URLSearchParams(location.search).get("devpro");
+    if (param === "0") write(DEV_PRO_KEY, "");
+    else if (param !== null) write(DEV_PRO_KEY, "dev-pro");
     return read(DEV_PRO_KEY) || "";
 }
 function entitlement() {
@@ -182,6 +185,7 @@ export class OnlineClient {
                     consentVersion: hasConsent() ? CONSENT_VERSION : 0,
                     entitlement: entitlement(),
                     piece: this.h.getPiece?.() ?? -1,
+                    background: this.h.getBackground?.(),
                     accessToken: await accessToken(),
                 }, (res) => {
                     if (res?.ok) { this.name = res.name; this.h.onPro?.(Boolean(res.pro)); }
@@ -231,6 +235,10 @@ export class OnlineClient {
     // The favorite piece changed in the options: used from the next game.
     setPiece(piece) {
         if (this.socket?.connected) this.call("piece", { piece });
+    }
+    // ...and the background (the table the opponent may see).
+    setLook(background) {
+        if (this.socket?.connected) this.call("look", { background });
     }
 
     call(event, payload = {}) {

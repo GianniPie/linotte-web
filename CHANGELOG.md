@@ -12,6 +12,19 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-11-09
+
+### Changed
+- Testing: `?devpro=0` switches the test Pro off again on that device (`?devpro=1` switched it on for good, until the site's data was cleared).
+- The in-game banner shows in landscape too (phones turned sideways, tablets, computers): the board and the rail shrink a little to leave it its place at the bottom, clear of the game.
+- "How levels work": every +n and −n is in bold, and the badge colours have their own line (they're a reward too, but not a look you choose).
+- Online, one table: each player always rolls their own dice (a style they know how to read), and the background is that of the player with more points -- the exact points, so whoever is nearer the next level wins a tie of levels; with equal points each sees their own. A bought background (none for sale yet) wins over any level; two bought, each their own. Only a background the account has unlocked counts (guests have no points the server can trust: 0). Said once at the start ("… has more points: you play at their table"); back to your own after the game. `tableSeat` in `public/shared/level.js`, the "look" event.
+- Matching: a player below zero (who leaves games) only meets others below zero, or the humanized bot, and is told why in the search sheet; everyone else meets players within 10 levels, so looks are seen by many. `canMeet` in `public/shared/level.js`. "How levels work" says both.
+- The level scale is 5 times steeper, now that points come faster (wins +2, games played to the end, daily bonus, ads): each level takes 5 points more than the one before up to level 10 (level 1 at 5, 2 at 15, 3 at 30, 10 at 275), then 50 points a level (20 at 775, 30 at 1275). Below zero the same steps: -1 at -5, three abandoned games. A regular player (about 10 points a day) reaches level 1 in the first session or two, level 10 in about a month. "How levels work" says so.
+- The "+2" on ONLINE is explained where a game starts: ONLINE's and FRIEND's sheets say "Today's first online win: +2 bonus points." (with the same gift) while the bonus is still to win today.
+- Ending a game against the bot or at the same table (END on the paused game, RESTART) says, in green, that no level points are lost.
+- Leaving an online game says what it costs: "Your opponent wins, and you lose 2 level points.", or, when the opponent has stopped playing or disconnected, that you can leave without losing points.
+
 ## [2.17.0] - 2026-11-09
 
 ### Added

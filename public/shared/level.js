@@ -64,28 +64,64 @@ export function nextReward(level) {
     return null;
 }
 
-// Each level takes one point more than the one before up to level 10, then
-// 10 points each: quick level-ups at first, then a steady pace instead of
-// an ever steeper one. Level 0 at 0 points, 1 at 1, 2 at 3, 3 at 6, 10 at
-// 55, 11 at 65, 20 at 155, 30 at 255. Below zero, the same steps downwards:
-// -1 at -1, -2 at -3, -3 at -6.
+// Each level takes 5 points more than the one before up to level 10, then
+// 50 points each: a level-up after the first session or two, then a steady
+// pace (a regular player earns about 10 points a day: wins, games played to
+// the end, the daily bonus, an ad). Level 0 at 0 points, 1 at 5, 2 at 15,
+// 3 at 30, 5 at 75, 10 at 275, 11 at 325, 20 at 775, 30 at 1275. Below zero,
+// the same steps downwards: -1 at -5 (three abandoned games), -2 at -15.
 export const LEVEL_STEP_CAP = 10;
-const CAP_START = (LEVEL_STEP_CAP * (LEVEL_STEP_CAP + 1)) / 2; // 55
+const STEP = 5;
+const CAP_POINTS = STEP * LEVEL_STEP_CAP; // 50 a level from level 10 on
+const CAP_START = (STEP * LEVEL_STEP_CAP * (LEVEL_STEP_CAP + 1)) / 2; // 275
 
 // The points where a level starts, counting upwards from zero.
 function startOf(l) {
-    return l <= LEVEL_STEP_CAP ? (l * (l + 1)) / 2 : CAP_START + LEVEL_STEP_CAP * (l - LEVEL_STEP_CAP);
+    return l <= LEVEL_STEP_CAP ? (STEP * l * (l + 1)) / 2 : CAP_START + CAP_POINTS * (l - LEVEL_STEP_CAP);
 }
 
 export function levelOf(xp) {
     const n = Math.trunc(Number(xp) || 0);
-    if (n < 0) return -levelOf(-n);
-    if (n >= CAP_START) return LEVEL_STEP_CAP + Math.floor((n - CAP_START) / LEVEL_STEP_CAP);
-    return Math.floor((Math.sqrt(1 + 8 * n) - 1) / 2);
+    if (n < 0) return -levelOf(-n) || 0; // never -0
+    if (n >= CAP_START) return LEVEL_STEP_CAP + Math.floor((n - CAP_START) / CAP_POINTS);
+    // the largest l with STEP * l * (l + 1) / 2 <= n
+    let l = Math.floor((Math.sqrt(1 + (8 * n) / STEP) - 1) / 2);
+    while (startOf(l + 1) <= n) l++;
+    while (l > 0 && startOf(l) > n) l--;
+    return l;
 }
 
-// The lowest points of a level: where it starts, counting upwards.
+// The lowest points of a level: where it starts, counting upwards. Level 0
+// runs from -4 to 4 (the steps go both ways from zero).
 export function levelStart(level) {
     const l = Math.trunc(level);
-    return l >= 0 ? startOf(l) : -(startOf(-l + 1) - 1);
+    return l > 0 ? startOf(l) : -(startOf(-l + 1) - 1);
+}
+
+//--------- online: whose table ---------
+// Each player always rolls their own dice. The background ("the table") is
+// one for both: a bought background wins over any level (two bought: each
+// sees their own); otherwise the player with more points shows theirs -- the
+// exact points, so the one nearer the next level wins a tie of levels -- and
+// with equal points each sees their own. Returns the seat whose background
+// both see, or 0 for "each their own". `p1`/`p2`: { xp, background, bought }.
+export function tableSeat(p1, p2) {
+    if (p1.bought && p2.bought) return 0;
+    if (p1.bought) return 1;
+    if (p2.bought) return 2;
+    if ((p1.xp || 0) === (p2.xp || 0)) return 0;
+    return (p1.xp || 0) > (p2.xp || 0) ? 1 : 2;
+}
+
+// A background this account may show: unlocked at its level (or bought).
+export const ownsBackground = (index, xp) => Number.isInteger(index) && levelOf(xp) >= unlockLevel("background", index);
+
+//--------- matching ---------
+// Random opponents: a player below zero (who leaves games) only meets others
+// below zero, or the server's bot; the others meet within a wide range of
+// levels, so everyone's looks are seen by many.
+export const MATCH_LEVEL_RANGE = 10;
+export function canMeet(levelA, levelB) {
+    if (levelA < 0 || levelB < 0) return levelA < 0 && levelB < 0;
+    return Math.abs(levelA - levelB) <= MATCH_LEVEL_RANGE;
 }

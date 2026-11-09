@@ -70,15 +70,14 @@
 }
 
 /* ---------- in-game banner ---------- */
-/* A 50px banner under the game, portrait only (in landscape the board and
-   the rail take the whole height), not for Pro. The game leaves it its place
+/* A 50px banner under the game, in portrait and landscape, not for Pro. The game leaves it its place
    (--ad-h in linotte.css), so it never covers ROLL/DONE, and stays at least 10px clear
    of them. Under every overlay (menus, winner screen, home). */
 .game-ad-slot {
   display: none;
 }
 
-@media (orientation: portrait) {
+@media all {
   body.game-ad .game-ad-slot {
     position: fixed;
     left: 50%;
