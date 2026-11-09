@@ -53,6 +53,7 @@
     <link href="online.css" rel="stylesheet" type="text/css" />
     <link href="home.css" rel="stylesheet" type="text/css" />
     <link href="demo.css" rel="stylesheet" type="text/css" />
+    <link href="ads.css" rel="stylesheet" type="text/css" />
 
     <link href="fonts/fonts.css" rel="stylesheet">
     <link rel="preload" href="fonts/changa-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -129,8 +130,10 @@
                 <button class="home-extra" id="home-help" type="button">
                     <span class="home-extra-icon" style="background-image:url(resources/images/t004.svg)"></span><span data-i18n>How to play</span>
                 </button>
-                <button class="home-extra" id="home-shop" type="button">
-                    <span class="home-extra-icon" style="background-image:url(resources/images/p105-coin.svg)"></span><span data-i18n>Shop</span><span class="soon-badge" data-i18n>SOON</span>
+                <!-- The Shop's place until it opens (Pro looks and single looks for
+                     sale): the rankings, this week, all time and friends. -->
+                <button class="home-extra" id="home-ranking" type="button">
+                    <span class="home-extra-icon" style="background-image:url(resources/images/ranking.svg)"></span><span data-i18n>Ranking</span>
                 </button>
                 <button class="home-extra" id="home-stats" type="button">
                     <span class="home-extra-icon" style="background-image:url(resources/images/stats.svg)"></span><span data-i18n>Stats</span>
@@ -138,12 +141,10 @@
             </div>
         </div>
 
-        <!-- The banner's place: kept free (and clear of the buttons) for the
-             AdMob banner of the native apps. Until then it promotes Pro. -->
-        <button class="home-ad" id="home-ad" type="button">
-            <span class="home-ad-text" data-i18n-html><b>Linotte Pro</b> No ads · private rooms · for life</span>
-            <span class="home-ad-cta">PRO</span>
-        </button>
+        <!-- The banner's place (clear of the buttons): a sample ad drawn by
+             public/ads.js until the AdMob banner of the native apps and a web
+             network take it. Its ✕ opens Pro (no ads). Empty for Pro. -->
+        <div class="home-ad ad-banner" id="home-ad" role="button" tabindex="0" aria-label="Ad"></div>
     </div>
 
     <!-- first-run consent: terms, privacy, age, and the notice that a random
@@ -268,6 +269,52 @@
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
                 <button class="sheet-link" id="account-delete" type="button" data-i18n>Delete account</button>
             </div>
+            <!-- this week's ranking (server/bonuses.js), from the stats -->
+            <div class="sheet-view" data-view="leaderboard">
+                <div class="sheet-title" data-i18n>Ranking</div>
+                <div class="lb-tabs" role="tablist">
+                    <button class="lb-tab" data-tab="week" type="button" role="tab" data-i18n>This week</button>
+                    <button class="lb-tab" data-tab="all" type="button" role="tab" data-i18n>All time</button>
+                    <button class="lb-tab" data-tab="friends" type="button" role="tab" data-i18n>Friends</button>
+                </div>
+                <div class="sheet-text sheet-small" id="lb-note"></div>
+                <div class="lb-pro" id="lb-pro" hidden>
+                    <span data-i18n>With Pro, see which friends are online and invite them with a tap, no link to send.</span>
+                    <button class="lb-pro-btn" id="lb-pro-btn" type="button" data-i18n>GET PRO</button>
+                </div>
+                <div class="sheet-text" id="lb-empty" hidden></div>
+                <ol class="lb-list" id="lb-list"></ol>
+                <div class="lb-me" id="lb-me" hidden></div>
+                <div class="button sheet-btn alt" id="lb-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
+                <div class="button sheet-btn go" id="lb-back"><div class="text-button" data-i18n>BACK</div></div>
+            </div>
+            <!-- a Pro friend's invite (see friends.js on the server) -->
+            <div class="sheet-view" data-view="invite">
+                <div class="sheet-title" id="invite-title"></div>
+                <div class="sheet-text" data-i18n>They're waiting in a private room.</div>
+                <div class="button sheet-btn go" id="invite-accept"><div class="text-button" data-i18n>PLAY</div></div>
+                <div class="button sheet-btn cancel" id="invite-decline"><div class="text-button" data-i18n>NOT NOW</div></div>
+            </div>
+            <!-- the (?) by the level in the stats: the rules, see shared/level.js -->
+            <div class="sheet-view" data-view="level-help">
+                <div class="sheet-title" data-i18n>How levels work</div>
+                <div class="sheet-text sheet-small" data-i18n>With Pro, every opponent sees your level.</div>
+                <ul class="sheet-list level-rules">
+                    <li data-i18n>Each online game you win, against a random opponent or a friend: +2 points.</li>
+                    <li data-i18n>Each online game you lose or draw, played to the end: +1 point.</li>
+                    <li data-i18n>Every 5 wins against the bot: +1 point.</li>
+                    <li data-i18n>The first online win of the day: +2 bonus points.</li>
+                    <li data-i18n>Watching an ad to the end: +1 point, up to 5 a day.</li>
+                    <li data-i18n>Leaving an online game before the end, or not coming back within a minute after losing the connection: −2 points.</li>
+                    <li data-i18n>Letting 3 turns in a row run out without rolling counts as leaving: −2 points.</li>
+                    <li data-i18n>If your opponent stops playing or disconnects, you can leave at no cost.</li>
+                    <li data-i18n>Up to level 10, each level takes one point more than the one before (level 1 at 1 point, 2 at 3, 3 at 6, 10 at 55); after that, every level takes 10 points.</li>
+                    <li data-i18n>Rewards: only the FLAT dice and the green background are free. A new background at levels 1, 3, 5, 7, 9, 12, 16 and 20, new dice at 2, 4, 6, 10 and 15; the badge turns bronze at 5, silver at 10, gold at 20, ruby at 30 and diamond at 50.</li>
+                    <li data-i18n>Points, and the level with them, can go below zero.</li>
+                    <li data-i18n>As a guest, your level stays on this phone: an account starts its own.</li>
+                </ul>
+                <div class="button sheet-btn go" id="level-help-back"><div class="text-button" data-i18n>BACK</div></div>
+            </div>
             <!-- a player in the game, tapped: see showPlayerCard in linotte.js -->
             <div class="sheet-view" data-view="player">
                 <div class="sheet-title" id="pc-name"></div>
@@ -309,10 +356,11 @@
                 <div class="sheet-title" data-i18n>Linotte Pro</div>
                 <ul class="sheet-list">
                     <li data-i18n>Create private rooms to play with friends</li>
+                    <li data-i18n>See which friends are online and invite them with a tap</li>
                     <li data-i18n>Choose the piece you play with</li>
                     <li data-i18n>Your level on your badge, seen by every opponent</li>
                     <li data-i18n>No ads</li>
-                    <li data-i18n>Exclusive new pieces and boards</li>
+                    <li data-i18n>Exclusive pieces, dice and backgrounds</li>
                 </ul>
                 <div class="sheet-text pro-price" id="pro-price" data-i18n>One purchase, for life</div>
                 <div class="sheet-text sheet-small" id="pro-note"></div>
@@ -326,14 +374,19 @@
                 <div class="sheet-title" data-i18n>Your stats</div>
                 <div class="sheet-text sheet-small" id="stats-note"></div>
                 <div class="button sheet-btn alt" id="stats-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
+                <div class="stats-level" id="stats-level">
+                    <div class="stats-level-row">
+                        <b id="st-level">Level 1</b>
+                        <button class="help-dot" id="st-level-help" type="button" aria-label="How levels work"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7.7 7.7a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="10" cy="14.4" r=".9" fill="currentColor"/></svg></button>
+                        <span id="st-level-points">0 / 1</span>
+                    </div>
+                    <div class="stats-level-bar"><div id="st-level-fill"></div></div>
+                    <div class="stats-level-next" id="st-level-next"></div>
+                    <button class="level-ad" id="st-level-ad" type="button"><span class="level-ad-play" aria-hidden="true">▶</span><span id="st-level-ad-text"></span></button>
+                </div>
+                <div class="button sheet-btn alt lb-open" id="stats-ranking"><div class="text-button" data-i18n>RANKING</div></div>
                 <div class="sheet-text" id="stats-empty" data-i18n>No games yet. Play one and come back!</div>
                 <div class="stats-body" id="stats-body">
-                    <div class="stats-level" id="stats-level">
-                        <div class="stats-level-row"><b id="st-level">Level 1</b><span id="st-level-points">0 / 1</span></div>
-                        <div class="stats-level-bar"><div id="st-level-fill"></div></div>
-                        <div class="stats-level-hint" data-i18n>Each online win is worth 1 point; against the bot, every 5 wins. Leaving an online game before the end costs 2 points.</div>
-                        <div class="stats-level-hint" id="st-level-guest" data-i18n hidden>As a guest, your level stays on this phone: an account starts its own.</div>
-                    </div>
                     <div class="stats-grid">
                         <div class="stat"><b id="st-played">0</b><span data-i18n>Played</span></div>
                         <div class="stat"><b id="st-won">0</b><span data-i18n>Won</span></div>
@@ -383,6 +436,8 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+    <!-- the in-game banner (ads.js / ads.css): portrait, not for Pro -->
+    <div class="game-ad-slot ad-banner" id="game-ad" role="button" tabindex="0" aria-label="Ad"></div>
     <div class="flex-block">
         <div class="div-table">
             <div class="grid">
@@ -667,28 +722,6 @@
             <!-- OPTIONS -->
             <div class="opt-page hidden" id="page-options">
                 <section>
-                    <div class="title" id="sound-title" data-i18n>Sound</div>
-                    <div class="car-list-wrapper">
-                        <div class="car-list list-centered">
-                            <div class="car-btn">
-                                <div class="sound-btn" id="sound-on"></div>
-                            </div>
-                            <div class="car-btn">
-                                <div class="sound-btn" id="sound-off"></div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- language: filled in by linotte.js ("Language") -->
-                <section>
-                    <div class="title" data-i18n>Language</div>
-                    <div class="car-list-wrapper">
-                        <div class="car-list list-centered" id="language-list"></div>
-                    </div>
-                </section>
-
-                <section>
                     <div class="title" id="board-title" data-i18n>Table style</div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
@@ -794,6 +827,28 @@
                         <button class="car-button next" data-carousel="bg" data-direction="next" type="button"></button>
                     </div>
                 </section>
+
+                <section>
+                    <div class="title" id="sound-title" data-i18n>Sound</div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered">
+                            <div class="car-btn">
+                                <div class="sound-btn" id="sound-on"></div>
+                            </div>
+                            <div class="car-btn">
+                                <div class="sound-btn" id="sound-off"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- language: filled in by linotte.js ("Language") -->
+                <section>
+                    <div class="title" data-i18n>Language</div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered" id="language-list"></div>
+                    </div>
+                </section>
             </div>
 
             <!-- HELP -->
@@ -826,7 +881,7 @@
                                 <li data-i18n>Tap DONE to end your turn.</li>
                             </ol>
                             <p class="rules-note" data-i18n>Placing a piece is never required. If three rolls make nothing, your
-                                turn simply ends. Each turn lasts 60 seconds.</p>
+                                turn simply ends. Each turn lasts 30 seconds.</p>
                         </div>
                     </section>
 

@@ -1,0 +1,330 @@
+/* ============================================
+   ADS (see public/ads.js)
+   The sample ads that hold the places of the real ones: the home banner and
+   the full-screen videos. Pro players see none.
+   ============================================ */
+
+/* ---------- home banner ---------- */
+/* Filled by renderBanner: the advertiser's icon, name and line, OPEN, the
+   "Ad" label and a little ✕ that opens Pro (remove ads). */
+.home-ad.ad-banner {
+  position: relative;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--ad-from) 35%, white), white 60%);
+  cursor: pointer;
+}
+
+.ad-banner-icon {
+  display: grid;
+  place-items: center;
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: .5em;
+  background: linear-gradient(135deg, var(--ad-from), var(--ad-to));
+  font-size: 1.3em;
+}
+
+.ad-banner-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #222;
+}
+
+.ad-banner-cta {
+  padding: .3em .8em;
+  border-radius: 1em;
+  background: var(--ad-to);
+  color: white;
+  font-weight: 700;
+  font-size: .9em;
+}
+
+.ad-label {
+  font: 700 .7em/1.4 system-ui, sans-serif;
+  letter-spacing: .04em;
+  padding: 0 .4em;
+  border-radius: .3em;
+  background: rgba(0, 0, 0, .55);
+  color: white;
+}
+
+.home-ad .ad-label {
+  position: absolute;
+  left: .4em;
+  top: -.55em;
+}
+
+.ad-remove {
+  position: absolute !important;
+  right: -.5em;
+  top: -.6em;
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  border: .0625em solid rgba(0, 0, 0, .25) !important;
+  background: white !important;
+  color: #555 !important;
+  font: .75em/1 system-ui, sans-serif !important;
+}
+
+/* ---------- in-game banner ---------- */
+/* A 50px banner under the game, portrait only (in landscape the board and
+   the rail take the whole height), not for Pro. The game leaves it its place
+   (--ad-h in linotte.css), so it never covers ROLL/DONE, and stays at least 10px clear
+   of them. Under every overlay (menus, winner screen, home). */
+.game-ad-slot {
+  display: none;
+}
+
+@media (orientation: portrait) {
+  body.game-ad .game-ad-slot {
+    position: fixed;
+    left: 50%;
+    bottom: env(safe-area-inset-bottom, 0px);
+    z-index: 3;
+    transform: translateX(-50%);
+    width: min(calc(100vw - 16px), 468px);
+    height: 50px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid rgba(0, 0, 0, .2);
+    border-bottom: 0;
+    background: linear-gradient(100deg, color-mix(in srgb, var(--ad-from) 35%, white), white 60%);
+    font: 13px/1.2 system-ui, sans-serif;
+    cursor: pointer;
+  }
+
+  .game-ad-slot .ad-banner-icon {
+    font-size: 18px;
+  }
+
+  .game-ad-slot .ad-label {
+    position: absolute;
+    left: 6px;
+    top: -9px;
+  }
+
+  /* No ✕ here: it would sit under the chat button, a tap away from a
+     mistake (the home banner has it). */
+  .game-ad-slot .ad-remove {
+    display: none;
+  }
+}
+
+/* Pro: no ads. The banner's place stays, empty, so the home doesn't jump. */
+body.is-pro .home-ad {
+  visibility: hidden;
+}
+
+/* ---------- full-screen video ---------- */
+.ad-video {
+  position: fixed;
+  inset: 0;
+  z-index: 10000; /* above everything, the game's overlays included */
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: var(--ad-ink);
+  font-family: system-ui, sans-serif;
+  animation: adIn .25s ease-out;
+}
+
+.ad-video.is-leaving {
+  opacity: 0;
+  transition: opacity .25s;
+}
+
+@keyframes adIn {
+  from { opacity: 0; }
+}
+
+/* The "video": the advertiser's colours drifting, its icon bouncing, name
+   and line coming in. Paused with the clock while the player is asked. */
+.ad-video-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .4em;
+  padding: 2em;
+  text-align: center;
+  background: linear-gradient(160deg, var(--ad-from), var(--ad-to), var(--ad-from));
+  background-size: 100% 300%;
+  animation: adDrift 6s ease-in-out infinite alternate;
+}
+
+.ad-video-icon {
+  font-size: 6em;
+  animation: adBounce 1.2s cubic-bezier(.3, 1.6, .5, 1) infinite alternate;
+}
+
+.ad-video-name {
+  font: 2.6em "Changa One", sans-serif;
+  animation: adRise .8s .3s both;
+}
+
+.ad-video-line {
+  font-size: 1.2em;
+  opacity: .9;
+  animation: adRise .8s .7s both;
+}
+
+.ad-video-cta {
+  margin-top: 1.4em;
+  padding: .7em 1.8em;
+  border: 0;
+  border-radius: 2em;
+  background: white;
+  color: #111;
+  font: 700 1em system-ui, sans-serif;
+  animation: adRise .8s 1.2s both;
+  cursor: pointer;
+}
+
+.ad-video.is-paused * {
+  animation-play-state: paused !important;
+}
+
+@keyframes adDrift {
+  to { background-position: 0 100%; }
+}
+
+@keyframes adBounce {
+  from { transform: translateY(0) rotate(-6deg); }
+  to { transform: translateY(-.25em) rotate(6deg); }
+}
+
+@keyframes adRise {
+  from { opacity: 0; transform: translateY(1em); }
+}
+
+.ad-video-top {
+  position: absolute;
+  inset: calc(.8em + env(safe-area-inset-top, 0px)) calc(.8em + env(safe-area-inset-right, 0px)) auto calc(.8em + env(safe-area-inset-left, 0px));
+  display: flex;
+  align-items: center;
+  gap: .6em;
+}
+
+.ad-video-time {
+  padding: .2em .6em;
+  border-radius: 1em;
+  background: rgba(0, 0, 0, .45);
+  color: white;
+  font-size: .85em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-video-close {
+  margin-left: auto;
+  min-width: 2.2em;
+  height: 2.2em;
+  padding: 0 .8em;
+  border: 0;
+  border-radius: 1.1em;
+  background: rgba(0, 0, 0, .45);
+  color: rgba(255, 255, 255, .7);
+  font: 700 .9em system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.ad-video-close.is-ready {
+  color: white;
+  background: rgba(0, 0, 0, .7);
+}
+
+/* How much of the video has played. */
+.ad-video-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: .3em;
+  background: rgba(255, 255, 255, .3);
+}
+
+.ad-video-bar > div {
+  height: 100%;
+  background: white;
+  transform-origin: left;
+  animation: adProgress var(--ad-seconds) linear forwards;
+}
+
+@keyframes adProgress {
+  from { transform: scaleX(0); }
+}
+
+/* Leaving a rewarded video early: are you sure? */
+.ad-video-confirm {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, .55);
+}
+
+.ad-video-confirm[hidden] {
+  display: none;
+}
+
+.ad-video-confirm-box {
+  width: min(80%, 20em);
+  padding: 1.2em;
+  border-radius: 1em;
+  background: white;
+  color: #222;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: .6em;
+}
+
+.ad-video-confirm-box p {
+  margin: 0 0 .4em;
+}
+
+.ad-video-confirm-box button {
+  padding: .7em;
+  border: 0;
+  border-radius: .7em;
+  font: 1em "Changa One", sans-serif;
+  cursor: pointer;
+}
+
+.ad-keep {
+  background: rgb(46, 160, 90);
+  color: white;
+}
+
+.ad-quit {
+  background: rgba(0, 0, 0, .1);
+  color: #333;
+}
+
+.ad-video-note {
+  position: absolute;
+  left: 50%;
+  bottom: 3em;
+  transform: translateX(-50%);
+  padding: .5em 1em;
+  border-radius: 1em;
+  background: rgba(0, 0, 0, .7);
+  color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-video-stage,
+  .ad-video-icon,
+  .ad-video-name,
+  .ad-video-line,
+  .ad-video-cta {
+    animation: none;
+  }
+}

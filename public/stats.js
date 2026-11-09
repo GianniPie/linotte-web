@@ -9,7 +9,7 @@
 // no telling which of the two players is the owner of the phone.
 
 import { currentUser, addGameResults, loadGameResults } from "./auth.js";
-import { BOT_WINS_PER_POINT, ABANDON_PENALTY } from "./shared/level.js";
+import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WINS_PER_POINT, ABANDON_PENALTY, DAILY_BONUS_POINTS, AD_REWARD_POINTS, AD_REWARDS_PER_DAY } from "./shared/level.js";
 
 const LOCAL_KEY = "linotte-results";
 const LOCAL_MAX = 500;
@@ -22,15 +22,23 @@ function writeLocal(list) {
 }
 
 // A game just ended on this screen.
-export async function recordGame({ mode, won, points, opponentPoints, opponent }) {
+export async function recordGame({ mode, won, points, opponentPoints, opponent, abandoned = false }) {
     const entry = {
         mode, won: Boolean(won), points: points | 0, opponent_points: opponentPoints | 0,
         opponent: String(opponent || "").slice(0, 24) || null, played_at: new Date().toISOString(),
     };
     if (!currentUser()) {
         writeLocal([entry, ...readLocal()]);
-        if (won) noteGuest(mode === "bot" ? "bot" : "online");
-        return;
+        // The guest's level: a bot win, or an online game played to the end
+        // (the first online win of the day brings its bonus: told back).
+        if (mode === "bot") { if (won) noteGuest("bot"); }
+        else if (!abandoned) noteGuest(won ? "online" : "finished");
+        if (mode !== "bot" && won && !guestToday().dailyDone) {
+            const g = readGuest();
+            writeGuest({ ...g, daily: (Number(g.daily) || 0) + 1, dailyDay: utcDay() });
+            return { daily: true };
+        }
+        return {};
     }
     if (mode !== "bot") return; // the game server records online games
     try {
@@ -63,14 +71,36 @@ const GUEST_KEY = "linotte-guest-level";
 function readGuest() {
     try { return JSON.parse(localStorage.getItem(GUEST_KEY) || "{}") || {}; } catch { return {}; }
 }
+function writeGuest(g) {
+    try { localStorage.setItem(GUEST_KEY, JSON.stringify(g)); } catch { /* storage off: not kept */ }
+}
 function noteGuest(what) {
     const g = readGuest();
     g[what] = (Number(g[what]) || 0) + 1;
-    try { localStorage.setItem(GUEST_KEY, JSON.stringify(g)); } catch { /* storage off: not kept */ }
+    writeGuest(g);
+}
+const utcDay = () => new Date().toISOString().slice(0, 10);
+// Today's bonuses for the guest: first online win of the day, ads left.
+export function guestToday() {
+    const g = readGuest();
+    const adsToday = g.adDay === utcDay() ? Number(g.adToday) || 0 : 0;
+    return { dailyDone: g.dailyDay === utcDay(), adsLeft: Math.max(0, AD_REWARDS_PER_DAY - adsToday) };
+}
+// A rewarded ad watched to the end, as a guest: +1 while today's ads last.
+export function guestAdReward() {
+    const { adsLeft } = guestToday();
+    if (adsLeft <= 0) return { ok: false, adsLeft: 0 };
+    const g = readGuest();
+    const adsToday = g.adDay === utcDay() ? Number(g.adToday) || 0 : 0;
+    writeGuest({ ...g, ad: (Number(g.ad) || 0) + 1, adDay: utcDay(), adToday: adsToday + 1 });
+    return { ok: true, adsLeft: adsLeft - 1 };
 }
 export function guestXp() {
     const g = readGuest();
-    return (Number(g.online) || 0) + Math.floor((Number(g.bot) || 0) / BOT_WINS_PER_POINT) - ABANDON_PENALTY * (Number(g.abandoned) || 0);
+    const n = (k) => Number(g[k]) || 0;
+    return ONLINE_WIN_POINTS * n("online") + ONLINE_FINISHED_POINTS * n("finished")
+        + Math.floor(n("bot") / BOT_WINS_PER_POINT) - ABANDON_PENALTY * n("abandoned")
+        + DAILY_BONUS_POINTS * n("daily") + AD_REWARD_POINTS * n("ad");
 }
 // A guest left an online game before its end (signed in, the server counts it).
 export function noteGuestAbandon() {

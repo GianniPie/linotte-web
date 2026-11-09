@@ -6,7 +6,8 @@
 // API Keys > Secret keys). Without it nothing is recorded (a local run).
 
 import { SUPABASE_URL } from "../public/shared/accounts.js";
-import { BOT_WINS_PER_POINT, ABANDON_PENALTY } from "../public/shared/level.js";
+import { bonusPoints } from "./bonuses.js";
+import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WINS_PER_POINT, ABANDON_PENALTY } from "../public/shared/level.js";
 
 const SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 
@@ -60,10 +61,11 @@ export async function recordResults(rows, { key = SECRET_KEY, url = SUPABASE_URL
 }
 
 // The account's experience points (see public/shared/level.js): its online
-// wins (only games recorded by the server, so they can't be raised by
-// tampering with the app), one for every 5 wins against the bot played
-// while signed in (not the guest games moved in at sign-in), minus 2 for
-// every online game it abandoned. 0 without the secret key or on any error.
+// games (only those recorded by the server, so they can't be raised by
+// tampering with the app) -- 2 per win, 1 per loss or draw played to the end,
+// minus 2 per game abandoned -- one for every 5 wins against the bot played
+// while signed in (not the guest games moved in at sign-in), and its bonuses
+// (bonuses.js). 0 without the secret key or on any error.
 export async function experience(userId, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
   if (!userId || !key || !url) return 0;
   const count = async (filter) => {
@@ -78,12 +80,15 @@ export async function experience(userId, { key = SECRET_KEY, url = SUPABASE_URL,
     return Number.isFinite(total) ? total : 0;
   };
   try {
-    const [online, bot, abandoned] = await Promise.all([
+    const [wins, finished, bot, abandoned, bonus] = await Promise.all([
       count("source=eq.server&won=is.true"),
+      count("source=eq.server&won=is.false&abandoned=is.false"),
       count("source=eq.app&mode=eq.bot&won=is.true&from_guest=is.false"),
       count("source=eq.server&abandoned=is.true"),
+      bonusPoints(userId, { key, url, fetch: fetchImpl }),
     ]);
-    return online + Math.floor(bot / BOT_WINS_PER_POINT) - ABANDON_PENALTY * abandoned;
+    return ONLINE_WIN_POINTS * wins + ONLINE_FINISHED_POINTS * finished
+      + Math.floor(bot / BOT_WINS_PER_POINT) - ABANDON_PENALTY * abandoned + bonus;
   } catch (err) {
     console.error("experience not counted:", err.message);
     return 0;

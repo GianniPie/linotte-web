@@ -8,6 +8,9 @@ import { Room } from "./room.js";
 import { HumanBot } from "./humanBot.js";
 import { noStore } from "./store.js";
 import { resultRows, recordResults } from "./results.js";
+import { grantDailyBonus } from "./bonuses.js";
+import { noteFriends } from "./friends.js";
+import { DAILY_BONUS_POINTS } from "../public/shared/level.js";
 import {
   QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS, BOT_REMATCH_DECLINE,
 } from "./config.js";
@@ -31,12 +34,15 @@ export function normalizeCode(raw) {
 }
 
 export class Lobby {
-  // `record` saves finished games for the Stats screen (see results.js); the
-  // smoke test passes its own.
-  constructor(io, store = noStore, { record = recordResults } = {}) {
+  // `record` saves finished games for the Stats screen (see results.js) and
+  // `grantDaily` the first win of the day (bonuses.js); the smoke test passes
+  // its own.
+  constructor(io, store = noStore, { record = recordResults, grantDaily = grantDailyBonus, befriend = noteFriends } = {}) {
     this.io = io;
     this.store = store;
     this.record = record;
+    this.grantDaily = grantDaily;
+    this.befriend = befriend;
     this.queue = new Map(); // playerId -> { socket, timer }
     this.rooms = new Map(); // roomId -> Room
     this.byCode = new Map(); // code -> Room
@@ -293,11 +299,26 @@ export class Lobby {
   onRoomClose(room, why) {
     if (why === "over") {
       this.store.deleteRoom(room); // nothing left to resume
-      this.record(resultRows(room));
+      const recorded = this.record(resultRows(room));
+      this.giveDailyBonus(room, recorded);
+      // Two accounts that played a private room are friends (friends.js).
+      const [a, b] = [room.seats[1], room.seats[2]];
+      if (room.kind === "private" && a?.userId && b?.userId) this.befriend(a.userId, b.userId);
       // Keep it around for ROOM_OVER_TTL_MS (see sweep) so a refresh can still
       // show the result, but free the code right away.
       if (room.code) this.byCode.delete(room.code);
     }
+  }
+
+  // The winner's first online win of the day (UTC) is worth a bonus, once
+  // the game is recorded; their app hears it ("bonus") and says so.
+  async giveDailyBonus(room, recorded) {
+    const seat = room.winner;
+    const winner = room.seats[seat];
+    if (!seat || winner?.kind !== "human" || !winner.userId) return;
+    await recorded;
+    if (!(await this.grantDaily(winner.userId))) return;
+    this.io.sockets.sockets.get(winner.socketId)?.emit("bonus", { kind: "daily", points: DAILY_BONUS_POINTS });
   }
 
   closeRoom(room) {

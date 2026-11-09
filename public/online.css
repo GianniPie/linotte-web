@@ -116,6 +116,9 @@
 #online-overlay[data-view="login-code"] .sheet-view[data-view="login-code"],
 #online-overlay[data-view="account"] .sheet-view[data-view="account"],
 #online-overlay[data-view="player"] .sheet-view[data-view="player"],
+#online-overlay[data-view="level-help"] .sheet-view[data-view="level-help"],
+#online-overlay[data-view="leaderboard"] .sheet-view[data-view="leaderboard"],
+#online-overlay[data-view="invite"] .sheet-view[data-view="invite"],
 #online-overlay[data-view="profile"] .sheet-view[data-view="profile"],
 #online-overlay[data-view="stats"] .sheet-view[data-view="stats"],
 #online-overlay[data-view="account-delete"] .sheet-view[data-view="account-delete"],
@@ -301,7 +304,7 @@
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 7dvh);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 7dvh + var(--ad-h, 0px));
   transform: translate(-50%, 20px);
   max-width: min(86vw, 420px);
   padding: .7em 1.1em;
@@ -403,8 +406,38 @@
 
 .stats-level-row {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: .4em;
+}
+
+.stats-level-row > span {
+  margin-left: auto;
+}
+
+/* The (?) by the level: a thin, quiet outline that opens how levels work
+   (its tap area is larger than the drawing). */
+.help-dot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.6em;
+  height: 1.6em;
+  margin: -.3em -.2em;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgba(61, 36, 12, .5);
+  cursor: pointer;
+}
+
+.help-dot svg {
+  width: 1em;
+  height: 1em;
+}
+
+/* The level rules: a long list, a little smaller than the Pro sheet's. */
+.level-rules {
+  font-size: .9em;
 }
 
 .stats-level-row b {
@@ -430,11 +463,6 @@
   width: 0;
   border-radius: inherit;
   background: rgb(232, 185, 35);
-}
-
-.stats-level-hint {
-  font-size: .72em;
-  opacity: .7;
 }
 
 .stats-grid {
@@ -498,12 +526,14 @@
 }
 
 .stats-recent .res {
+  flex: none;
   font-weight: bold;
-  width: 2.6em;
+  min-width: 2.6em; /* "Égalité", "Vitória" are longer */
 }
 
 .stats-recent .won { color: #2e7d32; }
 .stats-recent .lost { color: #b3261e; }
+.stats-recent .draw { color: rgba(61, 36, 12, .65); }
 
 .stats-recent .who {
   flex: 1;
@@ -566,4 +596,223 @@
 
 .sheet-btn.pro[hidden] {
   display: none;
+}
+
+/* The level box: next reward, and a point for a whole ad. */
+.stats-level-next {
+  font-size: .78em;
+  opacity: .8;
+}
+
+.stats-level-next:empty {
+  display: none;
+}
+
+.level-ad {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5em;
+  margin-top: .25em;
+  padding: .5em .8em;
+  border: .125em solid rgba(0, 0, 0, .25);
+  border-radius: .7em;
+  background: rgb(232, 185, 35);
+  color: #5f4604;
+  font: 1em "Changa One", sans-serif;
+  cursor: pointer;
+}
+
+.level-ad:disabled {
+  background: rgba(0, 0, 0, .08);
+  color: rgba(61, 36, 12, .6);
+  cursor: default;
+}
+
+.level-ad:disabled .level-ad-play {
+  display: none;
+}
+
+.level-ad-play {
+  display: grid;
+  place-items: center;
+  width: 1.4em;
+  height: 1.4em;
+  border-radius: 50%;
+  background: #5f4604;
+  color: rgb(232, 185, 35);
+  font-size: .75em;
+  padding-left: .1em;
+}
+
+/* The level box takes the badge's colour on its level number. */
+.stats-level[data-tier]:not([data-tier="plain"]) #st-level {
+  padding: 0 .35em;
+  border-radius: .35em;
+  background: var(--badge-bg);
+  color: var(--badge-ink);
+}
+
+/* The weekly ranking. */
+.lb-list,
+.lb-me {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lb-list {
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+.lb-list li,
+.lb-me li {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) auto;
+  gap: .5em;
+  align-items: center;
+  padding: .35em .3em;
+  border-bottom: 1px solid rgba(0, 0, 0, .1);
+}
+
+.lb-list li:nth-child(-n+3) .lb-rank {
+  font-family: "Changa One", sans-serif;
+  color: #b07b00;
+}
+
+.lb-rank {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: .8;
+}
+
+.lb-name {
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lb-points {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-list li.is-me,
+.lb-me li {
+  border-radius: .5em;
+  background: rgba(232, 185, 35, .3);
+}
+
+.lb-me {
+  text-align: center;
+  font-size: .9em;
+}
+
+.lb-me[hidden],
+#lb-empty[hidden] {
+  display: none;
+}
+
+.lb-open .text-button {
+  font-size: .9em;
+}
+
+/* Ranking tabs: this week, all time, friends. */
+.lb-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .3em;
+  width: 100%;
+  padding: .25em;
+  border-radius: .8em;
+  background: rgba(0, 0, 0, .08);
+  box-sizing: border-box;
+}
+
+.lb-tab {
+  padding: .45em .2em;
+  border: 0;
+  border-radius: .6em;
+  background: none;
+  color: rgba(61, 36, 12, .7);
+  font: .9em "Changa One", sans-serif;
+  cursor: pointer;
+}
+
+.lb-tab.is-on {
+  background: white;
+  color: #3d240c;
+  box-shadow: 0 .1em .3em rgba(0, 0, 0, .15);
+}
+
+/* Friends: games together, an online dot (Pro and Pro), PLAY. */
+.lb-list li.lb-friend {
+  grid-template-columns: .8em minmax(0, 1fr) auto auto;
+}
+
+.lb-dot {
+  width: .6em;
+  height: .6em;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .2);
+}
+
+.lb-dot.is-online {
+  background: #2fbf4f;
+  box-shadow: 0 0 0 .15em rgba(47, 191, 79, .25);
+}
+
+.lb-dot.is-none {
+  visibility: hidden;
+}
+
+.lb-sub {
+  display: block;
+  font-size: .75em;
+  opacity: .65;
+  font-weight: normal;
+}
+
+.lb-play {
+  padding: .3em .7em;
+  border: .1em solid rgba(0, 0, 0, .3);
+  border-radius: .8em;
+  background: rgb(46, 160, 90);
+  color: white;
+  font: .85em "Changa One", sans-serif;
+  cursor: pointer;
+}
+
+.lb-play[hidden] {
+  display: none;
+}
+
+/* Without Pro: what Pro adds to friends. */
+.lb-pro {
+  display: flex;
+  align-items: center;
+  gap: .6em;
+  padding: .5em .7em;
+  border-radius: .7em;
+  background: rgba(232, 185, 35, .25);
+  font-size: .85em;
+  text-align: left;
+}
+
+.lb-pro[hidden] {
+  display: none;
+}
+
+.lb-pro-btn {
+  flex: none;
+  padding: .35em .7em;
+  border: .1em solid rgba(0, 0, 0, .3);
+  border-radius: .8em;
+  background: rgb(232, 185, 35);
+  color: #5f4604;
+  font: .9em "Changa One", sans-serif;
+  cursor: pointer;
 }

@@ -12,12 +12,17 @@ export const IS_PRODUCTION = process.env.NODE_ENV === "production" || process.en
 // from anyone who hasn't accepted this version (see lobby/server.js).
 export const CONSENT_VERSION = 1;
 
-// Same 60s the client's turn clock shows (MAX_TIMER in linotte.js), plus slack
+// Same 30s the client's turn clock shows (MAX_TIMER in linotte.js), plus slack
 // for the animations the clients play between turns (the clock only restarts
 // once the previous turn's celebration is done) and for network latency. A
 // client auto-submits at its own 0; this is only the backstop for a player
 // who is gone.
-export const TURN_SECONDS = 60;
+export const TURN_SECONDS = 30;
+// A player who lets this many turns in a row end without rolling once is
+// gone in all but name: they lose the game as if they had left (it costs
+// level points, see results.js). Their opponent is warned one turn before,
+// and may leave meanwhile at no cost.
+export const IDLE_TURNS_LIMIT = 3;
 export const TURN_SLACK_MS = 5000;
 export const TURN_GRACE_MS = 4000;
 // The coin flip overlay the clients play before the first turn.

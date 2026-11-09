@@ -13,6 +13,8 @@ import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
 import { isPro, forgetPro } from "./entitlements.js";
 import { experience } from "./results.js";
+import { todayStatus, grantAdReward, weeklyLeaderboard } from "./bonuses.js";
+import { markOnline, markOffline, socketsOf, isOnline, friendsOf, areFriends } from "./friends.js";
 import { levelOf } from "../public/shared/level.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
 import { createStore } from "./store.js";
@@ -41,28 +43,75 @@ app.get("/healthz", (req, res) => res.json({ ok: true }));
 // game connection. Send the Supabase access token as "Authorization: Bearer"
 // (and, while developing, the ?devpro=1 token as "X-Linotte-Dev");
 // ?fresh=1 (right after a purchase) skips the 5-minute cache.
-app.get("/api/me", async (req, res) => {
+// The app (on another origin, e.g. Vercel) calls these with the account's
+// token: allowed origins only, never cached.
+function apiHeaders(req, res) {
   const origin = req.get("Origin");
   if (origin && isOriginAllowed(origin)) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
   }
   res.set("Cache-Control", "no-store");
-  const token = (req.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-  const userId = await userIdFromToken(token);
+}
+const accountOf = (req) => userIdFromToken((req.get("Authorization") || "").replace(/^Bearer\s+/i, ""));
+for (const route of ["/api/me", "/api/ad-reward", "/api/leaderboard", "/api/friends"]) {
+  app.options(route, (req, res) => {
+    apiHeaders(req, res);
+    res.set("Access-Control-Allow-Headers", "Authorization, X-Linotte-Dev");
+    res.set("Access-Control-Allow-Methods", "GET, POST");
+    res.sendStatus(204);
+  });
+}
+
+app.get("/api/me", async (req, res) => {
+  apiHeaders(req, res);
+  const userId = await accountOf(req);
   if (userId && req.query.fresh === "1") forgetPro(userId);
   const devToken = req.get("X-Linotte-Dev") || ""; // ?devpro=1, see online.js
-  const [pro, xp] = await Promise.all([isPro({ userId, devToken }), experience(userId)]);
-  res.json({ signedIn: Boolean(userId), pro, xp, level: levelOf(xp) });
+  const [pro, xp, today] = await Promise.all([isPro({ userId, devToken }), experience(userId), todayStatus(userId)]);
+  res.json({ signedIn: Boolean(userId), pro, xp, level: levelOf(xp), ...today });
 });
-app.options("/api/me", (req, res) => {
-  const origin = req.get("Origin");
-  if (origin && isOriginAllowed(origin)) {
-    res.set("Access-Control-Allow-Origin", origin);
-    res.set("Access-Control-Allow-Headers", "Authorization, X-Linotte-Dev");
-    res.set("Vary", "Origin");
+
+// A rewarded ad watched to the end (see ads.js): +1 level point, a few times
+// a day. With the sample ads the app's word is taken; a real network will
+// confirm it to the server itself.
+app.post("/api/ad-reward", async (req, res) => {
+  apiHeaders(req, res);
+  const userId = await accountOf(req);
+  if (!userId) return res.status(401).json({ ok: false });
+  const result = await grantAdReward(userId);
+  const xp = await experience(userId);
+  res.json({ ...result, xp, level: levelOf(xp) });
+});
+
+// The account's friends (people played in private rooms), with their points
+// this week; between two Pro players, whether each is online too.
+app.get("/api/friends", async (req, res) => {
+  apiHeaders(req, res);
+  const userId = await accountOf(req);
+  if (!userId) return res.status(401).json({ friends: [] });
+  try {
+    const [mePro, list] = await Promise.all([isPro({ userId }), friendsOf(userId)]);
+    const friends = await Promise.all(list.map(async (f) => {
+      const pro = await isPro({ userId: f.id });
+      return { ...f, pro, online: mePro && pro ? isOnline(f.id) : null };
+    }));
+    res.json({ pro: mePro, friends });
+  } catch (err) {
+    console.error("friends:", err.message);
+    res.status(503).json({ friends: [] });
   }
-  res.sendStatus(204);
+});
+
+// This week's leaderboard, with the asking player's own place.
+app.get("/api/leaderboard", async (req, res) => {
+  apiHeaders(req, res);
+  try {
+    res.json(await weeklyLeaderboard(await accountOf(req), { range: req.query.range === "all" ? "all" : "week" }));
+  } catch (err) {
+    console.error("leaderboard:", err.message);
+    res.status(503).json({ rows: [], me: null });
+  }
 });
 
 // Invite links: https://host/j/K7QF opens the app already trying to join.
@@ -99,6 +148,9 @@ async function setAccount(socket, token) {
   d.name = profile.name || nameFromId(d.userId || d.playerId);
   d.country = profile.country;
   d.level = levelOf(await experience(d.userId)); // the number on the badge
+  // Online for friends (friends.js): whichever account this app is now.
+  markOffline(socket);
+  markOnline(socket);
 }
 
 io.on("connection", (socket) => {
@@ -196,7 +248,28 @@ io.on("connection", (socket) => {
     return room ? room.emote(socket.data.seat, p.id) : { ok: false };
   });
 
+  // A Pro player invites a Pro friend who is online: a private room, and
+  // the friend's app is asked to join it (friends.js).
+  on("friend_invite", { needsConsent: true }, async (p) => {
+    const me = socket.data;
+    const friendId = String(p.friendId || "");
+    if (!me.userId || !me.pro) return { ok: false, error: "pro_required" };
+    if (!(await areFriends(me.userId, friendId))) return { ok: false, error: "not_friends" };
+    if (!(await isPro({ userId: friendId }))) return { ok: false, error: "friend_not_pro" };
+    if (!isOnline(friendId)) return { ok: false, error: "friend_offline" };
+    const res = lobby.createPrivate(socket);
+    if (!res.ok) return res;
+    for (const s of socketsOf(friendId)) s.emit("friend_invite", { from: me.name, fromId: me.userId, code: res.code });
+    return res;
+  });
+  // ...and says no: the inviter hears it.
+  on("invite_declined", {}, (p) => {
+    for (const s of socketsOf(String(p.fromId || ""))) s.emit("invite_declined", { name: socket.data.name });
+    return { ok: true };
+  });
+
   socket.on("disconnect", () => {
+    markOffline(socket);
     if (socket.data.playerId) lobby.handleDisconnect(socket);
   });
 });

@@ -202,7 +202,7 @@ export async function addGameResults(entries) {
 export async function loadGameResults() {
     const c = await ready();
     const { data, error } = await c.from("game_results")
-        .select("mode, won, points, opponent_points, opponent, played_at")
+        .select("mode, won, points, opponent_points, opponent, played_at, abandoned")
         .order("played_at", { ascending: false })
         .limit(5000);
     if (error) throw error;

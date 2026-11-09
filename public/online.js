@@ -73,6 +73,7 @@ function entitlement() {
 // answer is kept so the badge shows at once next time, even offline.
 const PRO_KEY = "linotte-pro";
 const XP_KEY = "linotte-xp";
+const TODAY_KEY = "linotte-today"; // { day, dailyDone, adsLeft } for the account
 export function lastKnownPro() {
     return read(PRO_KEY) === "1";
 }
@@ -95,10 +96,59 @@ export async function fetchPro({ fresh = false } = {}) {
         const pro = Boolean(me.pro);
         write(PRO_KEY, pro ? "1" : "");
         write(XP_KEY, me.signedIn ? String(Number(me.xp) || 0) : "");
+        if (me.signedIn) write(TODAY_KEY, JSON.stringify({ day: utcDay(), dailyDone: Boolean(me.dailyDone), adsLeft: Number(me.adsLeft) || 0 }));
         return pro;
     } catch {
         return lastKnownPro(); // offline / server asleep: keep the last answer
     }
+}
+
+const utcDay = () => new Date().toISOString().slice(0, 10);
+
+// Today's bonuses for the account, as the server last said (a new UTC day
+// starts fresh): has the first win of the day been won, how many rewarded
+// ads are left. null as a guest.
+export function lastKnownToday() {
+    if (read(XP_KEY) === null || read(XP_KEY) === "") return null;
+    let t = null;
+    try { t = JSON.parse(read(TODAY_KEY) || "null"); } catch { /* none */ }
+    if (!t || t.day !== utcDay()) return { dailyDone: false, adsLeft: 5 };
+    return t;
+}
+
+// A rewarded ad watched to the end: the server adds the point (a few a day).
+export async function claimAdReward() {
+    const token = await accessToken();
+    if (!token) return { ok: false };
+    try {
+        const res = await fetch(`${SERVER_URL}/api/ad-reward`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+        const r = await res.json();
+        if (r.xp !== undefined) write(XP_KEY, String(Number(r.xp) || 0));
+        const t = lastKnownToday() || {};
+        write(TODAY_KEY, JSON.stringify({ day: utcDay(), dailyDone: Boolean(t.dailyDone), adsLeft: Number(r.adsLeft) || 0 }));
+        return r;
+    } catch {
+        return { ok: false };
+    }
+}
+
+// A leaderboard (see server/bonuses.js): "week" or "all", with this
+// account's place.
+export async function fetchLeaderboard(range = "week") {
+    const token = await accessToken();
+    const res = await fetch(`${SERVER_URL}/api/leaderboard?range=${range === "all" ? "all" : "week"}`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" });
+    if (!res.ok) throw new Error(`leaderboard: ${res.status}`);
+    return res.json();
+}
+
+// The account's friends (server/friends.js): people played in private
+// rooms, their points this week and, Pro to Pro, whether they're online.
+export async function fetchFriends() {
+    const token = await accessToken();
+    if (!token) return { pro: false, friends: [] };
+    const res = await fetch(`${SERVER_URL}/api/friends`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+    if (!res.ok) throw new Error(`friends: ${res.status}`);
+    return res.json();
 }
 
 export class OnlineClient {
@@ -148,6 +198,10 @@ export class OnlineClient {
         s.on("action", (msg) => this.h.onAction?.(msg));
         s.on("emote", (msg) => this.h.onEmote?.(msg));
         s.on("opponent_status", (msg) => this.h.onOpponentStatus?.(msg));
+        s.on("idle", (msg) => this.h.onIdle?.(msg));
+        s.on("bonus", (msg) => this.h.onBonus?.(msg));
+        s.on("friend_invite", (msg) => this.h.onFriendInvite?.(msg));
+        s.on("invite_declined", (msg) => this.h.onInviteDeclined?.(msg || {}));
         s.on("game_over", (msg) => this.h.onGameOver?.(msg));
         s.on("room_expired", () => this.h.onRoomExpired?.());
         s.on("rematch_offer", () => this.h.onRematchOffer?.());
@@ -202,6 +256,9 @@ export class OnlineClient {
     joinQueue() { return this.call("queue_join"); }
     leaveQueue() { return this.call("queue_leave"); }
     createRoom() { return this.call("room_create"); }
+    // Pro to Pro: a private room, and the friend's app is asked to join.
+    inviteFriend(friendId) { return this.call("friend_invite", { friendId }); }
+    declineInvite(fromId) { return this.call("invite_declined", { fromId }); }
     joinRoom(code) { return this.call("room_join", { code }); }
     leaveRoom() { return this.call("room_leave"); }
 

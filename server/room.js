@@ -12,9 +12,9 @@
 import { updateGame } from "../public/shared/gameEngine.js";
 import { createInitialGameState, rndNum } from "../public/shared/utils.js";
 import { piecesPath, pieces } from "../public/shared/assets.js";
-import { pickPieceIndexes, isPlayPiece } from "../public/shared/pieces.js";
+import { assignPieces, isPlayPiece } from "../public/shared/pieces.js";
 import {
-  TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS,
+  TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS, IDLE_TURNS_LIMIT,
   RECONNECT_GRACE_MS, EMOTES,
 } from "./config.js";
 import { HumanBot } from "./humanBot.js";
@@ -22,12 +22,7 @@ import { HumanBot } from "./humanBot.js";
 const COORD = /^[0-4][0-4]$/;
 const EMPTY_CALLED = () => [null, null, null, false, false, false, false, false];
 
-// Each player's favorite piece if they chose one, else a random one; the two
-// always look clearly different (see public/shared/pieces.js).
-function pickPieces(want1, want2) {
-  const make = (i) => ({ pieceImage: piecesPath + pieces[i], color: "#" + pieces[i].split("_")[1].slice(0, 6) });
-  return pickPieceIndexes(want1, want2).map(make);
-}
+const pieceOf = (i) => ({ pieceImage: piecesPath + pieces[i], color: "#" + pieces[i].split("_")[1].slice(0, 6) });
 
 let roomCounter = 0;
 
@@ -54,6 +49,7 @@ export class Room {
     this.turnTimer = null;
     this.rollGuard = null;
     this.graceTimers = {};
+    this.idleTurns = {}; // seat -> turns in a row ended without a roll
     this.lastEmoteAt = {};
   }
 
@@ -104,7 +100,12 @@ export class Room {
 
   //--------- lifecycle ---------
   start() {
-    const [a, b] = pickPieces(this.seats[1].piece, this.seats[2].piece);
+    // Each player's favorite piece if they chose one (Pro), else a random
+    // one; the two always look clearly different. When both want the same,
+    // the higher level keeps it (see assignPieces in shared/pieces.js).
+    const { pieces: [i1, i2], denied } = assignPieces(
+      this.seats[1].piece, this.seats[1].level || 0, this.seats[2].piece, this.seats[2].level || 0);
+    const [a, b] = [pieceOf(i1), pieceOf(i2)];
     const state = createInitialGameState();
     state.players[1].name = this.seats[1].name;
     state.players[2].name = this.seats[2].name;
@@ -117,10 +118,13 @@ export class Room {
     }
     Object.assign(state.players[1], a);
     Object.assign(state.players[2], b);
+    // The player who didn't get their favorite hears why (see startOnline).
+    if (denied) state.players[denied].pieceDenied = true;
     state.currentPlayer = Math.random() < 0.5 ? 1 : 2;
     this.state = state;
     this.starter = state.currentPlayer;
     this.status = "playing";
+    this.idleTurns = {};
     this.seq = 0;
     this.turnId = 1;
     this.rolling = false;
@@ -247,10 +251,18 @@ export class Room {
   applyEndTurn(seat, { forced }) {
     const s = this.state;
     const before = { 1: s.players[1].points, 2: s.players[2].points };
+    // A turn that ends without a single roll (the player's own clock ran
+    // out, or the server's): one more idle turn in a row.
+    const idle = s.dice.rollsLeft === 3;
     clearTimeout(this.rollGuard);
     updateGame(s, { type: "END_TURN" });
     this.turnId++;
     const result = this.relay(seat, forced ? { type: "END_TURN", forced: true } : { type: "END_TURN" });
+
+    if (this.seats[seat]?.kind === "human" && this.noteIdle(seat, idle)) {
+      this.forfeit(seat, "idle");
+      return result;
+    }
 
     const gained = { 1: s.players[1].points - before[1], 2: s.players[2].points - before[2] };
     const noPieces = s.players[1].remainingPieces === 0 || s.players[2].remainingPieces === 0;
@@ -315,9 +327,25 @@ export class Room {
     this.emitToSeat(this.otherSeat(seat), "opponent_status", { connected: true });
   }
 
+  // Counts a seat's idle turns in a row (see IDLE_TURNS_LIMIT) and tells
+  // both players when the count changes, so the apps can warn them. True
+  // when the seat has reached the limit.
+  noteIdle(seat, idle) {
+    const was = this.idleTurns[seat] || 0;
+    const now = idle ? was + 1 : 0;
+    this.idleTurns[seat] = now;
+    if (now !== was) this.broadcast("idle", { seat, turns: now, limit: IDLE_TURNS_LIMIT });
+    return now >= IDLE_TURNS_LIMIT;
+  }
+
   forfeit(seat, reason) {
     if (this.status !== "playing") return;
-    this.forfeitedBy = seat; // abandoned: costs level points (see results.js)
+    // Abandoned: costs level points (see results.js). Except leaving a game
+    // the opponent had already given up on: gone (disconnected) or idle.
+    const other = this.seats[this.otherSeat(seat)];
+    const excused = reason === "left" && other?.kind === "human"
+      && (!other.connected || (this.idleTurns[this.otherSeat(seat)] || 0) > 0);
+    this.forfeitedBy = excused ? 0 : seat;
     this.finish(this.otherSeat(seat), reason);
   }
 
@@ -348,7 +376,7 @@ export class Room {
       v: 1,
       id: this.id, kind: this.kind, code: this.code, status: this.status,
       state: this.state, seq: this.seq, turnId: this.turnId, rolling: this.rolling,
-      starter: this.starter, winner: this.winner, forfeitedBy: this.forfeitedBy || 0,
+      starter: this.starter, winner: this.winner, forfeitedBy: this.forfeitedBy || 0, idleTurns: this.idleTurns,
       createdAt: this.createdAt, endedAt: this.endedAt, turnEndsAt: this.turnEndsAt,
       seats: { 1: seat(1), 2: seat(2) },
     };
@@ -364,7 +392,7 @@ export class Room {
     room.id = data.id;
     Object.assign(room, {
       status: data.status, state: data.state, seq: data.seq, turnId: data.turnId,
-      starter: data.starter, winner: data.winner, forfeitedBy: data.forfeitedBy || 0,
+      starter: data.starter, winner: data.winner, forfeitedBy: data.forfeitedBy || 0, idleTurns: data.idleTurns || {},
       createdAt: data.createdAt, endedAt: data.endedAt,
     });
     for (const s of [1, 2]) {

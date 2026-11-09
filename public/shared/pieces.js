@@ -49,3 +49,19 @@ export function pickPieceIndexes(want1 = -1, want2 = -1) {
   const p2 = partners.includes(want2) ? want2 : randomOf(partners);
   return [p1, p2];
 }
+
+// Two Pro players may want the same piece, or two too alike to tell apart on
+// the board: the higher level keeps theirs (a tie is decided at random) and
+// the other plays a clearly different one this game, and is told so.
+// Returns { pieces: [p1, p2], denied } -- denied is the seat that didn't get
+// its favorite, or 0.
+export function assignPieces(want1 = -1, level1 = 0, want2 = -1, level2 = 0, random = Math.random) {
+  const both = isPlayPiece(want1) && isPlayPiece(want2);
+  if (both && (want1 === want2 || !partnersOf(want1).includes(want2))) {
+    const first = level1 !== level2 ? (level1 > level2 ? 1 : 2) : (random() < 0.5 ? 1 : 2);
+    return first === 1
+      ? { pieces: pickPieceIndexes(want1, -1), denied: 2 }
+      : { pieces: pickPieceIndexes(-1, want2), denied: 1 };
+  }
+  return { pieces: pickPieceIndexes(want1, want2), denied: 0 };
+}

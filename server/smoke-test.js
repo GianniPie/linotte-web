@@ -6,7 +6,7 @@ import { Lobby } from "./lobby.js";
 import { createMemoryStore } from "./store.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
 import { isPro, forgetPro } from "./entitlements.js";
-import { pickPieceIndexes, colorDistance } from "../public/shared/pieces.js";
+import { pickPieceIndexes, assignPieces, colorDistance } from "../public/shared/pieces.js";
 import { recordResults, experience, resultRows } from "./results.js";
 import { levelOf, levelStart } from "../public/shared/level.js";
 import { pieces } from "../public/shared/assets.js";
@@ -40,6 +40,7 @@ function fakeSocket(playerId, name) {
     id: "s" + ++n, connected: true, data: { playerId, name, consentVersion: 1 }, inbox: [],
     join(ch) { (channels.get(ch) || channels.set(ch, new Set()).get(ch)).add(s); },
     leave(ch) { channels.get(ch)?.delete(s); },
+    emit(event, payload) { s.inbox.push({ event, payload }); },
   };
   sockets.set(s.id, s);
   return s;
@@ -330,6 +331,19 @@ const lobby = new Lobby(io, store);
   const [a, b] = pickPieceIndexes(20, 20);
   assert.ok(a === 20 && b !== 20, "the same favorite: player 1 keeps it, player 2 gets another");
   assert.ok(pickPieceIndexes(3, -1)[0] >= 8, "a plain colour (pictures only) isn't a playing piece");
+  // Two Pro players want the same piece: the higher level keeps it.
+  let r = assignPieces(20, 1, 20, 5);
+  assert.ok(r.pieces[1] === 20 && r.pieces[0] !== 20 && r.denied === 1, "the higher level (seat 2) keeps it");
+  r = assignPieces(20, 7, 20, 2);
+  assert.ok(r.pieces[0] === 20 && r.pieces[1] !== 20 && r.denied === 2, "the higher level (seat 1) keeps it");
+  assert.equal(assignPieces(20, 3, 20, 3, () => 0.9).denied, 1, "a tie: drawn (seat 2 here)");
+  assert.equal(assignPieces(20, 3, 20, 3, () => 0.1).denied, 2, "a tie: drawn (seat 1 here)");
+  r = assignPieces(20, 0, -1, 0);
+  assert.ok(r.pieces[0] === 20 && r.denied === 0, "only one favorite: nobody is denied");
+  for (let n = 0; n < 50; n++) {
+    const [x, y] = assignPieces(20, 1, 20, 2).pieces;
+    assert.ok(colorDistance(hex(x), hex(y)) >= 120, "still clearly different");
+  }
   console.log("ok: favorite pieces");
 }
 
@@ -362,24 +376,157 @@ const lobby = new Lobby(io, store);
   assert.deepEqual(quit.map((r) => [r.user_id, r.won, r.abandoned]), [["a", true, false], ["b", false, true]], "the one who left abandoned");
   // The host stayed: no penalty; the guest left (no account, so no row).
   assert.equal(recorded[0].abandoned, false, "the one who stayed didn't abandon");
-  // Online wins +1, bot wins +1 for every 5, abandoned games -2
-  // (here 42 + 13 / 5 - 2 * 3 = 38).
+  // Online wins +2, lost or drawn to the end +1, bot wins +1 for every 5,
+  // abandoned games -2, 2 daily bonuses +2 each, 3 ads +1 each
+  // (here 2*42 + 7 + 13/5 - 2*3 + 2*2 + 3 = 94).
   const counts = async (u, o) => {
     sent.push([u, o]);
-    const n = u.includes("abandoned=is.true") ? 3 : u.includes("mode=eq.bot") ? 13 : 42;
+    const n = u.includes("kind=eq.daily") ? 2 : u.includes("kind=eq.ad") ? 3
+      : u.includes("abandoned=is.true") ? 3 : u.includes("mode=eq.bot") ? 13 : u.includes("won=is.false") ? 7 : 42;
     return { ok: true, headers: { get: () => `0-0/${n}` } };
   };
-  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 38, "experience is counted");
-  const asked = sent.slice(-3).map(([u]) => u);
+  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 94, "experience is counted, bonuses included");
+  const asked = sent.slice(-6).map(([u]) => u);
   assert.ok(asked.some((u) => u.includes("source=eq.server&won=is.true")), "online wins from the server");
+  assert.ok(asked.some((u) => u.includes("won=is.false&abandoned=is.false")), "online games finished without winning");
   assert.ok(asked.some((u) => u.includes("mode=eq.bot") && u.includes("from_guest=is.false")), "bot wins, not the guest's");
-  assert.ok(asked.some((u) => u.includes("abandoned=is.true")), "abandoned games");
+  assert.ok(asked.some((u) => u.includes("source=eq.server&abandoned=is.true")), "abandoned games");
   const none = async () => ({ ok: true, headers: { get: () => "*/0" } });
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");
   assert.equal(await experience(null, { key: "k" }), 0, "a guest has none");
-  assert.deepEqual([-6, -3, -2, -1, 0, 1, 2, 3, 6, 10, 55].map(levelOf), [-3, -2, -1, -1, 0, 1, 1, 2, 3, 4, 10], "levels");
-  assert.deepEqual([-2, -1, 0, 1, 3].map(levelStart), [-5, -2, 0, 1, 6], "where levels start");
+  assert.deepEqual([-6, -3, -2, -1, 0, 1, 2, 3, 6, 10, 54, 55, 64, 65, 155, 255].map(levelOf),
+    [-3, -2, -1, -1, 0, 1, 1, 2, 3, 4, 9, 10, 10, 11, 20, 30], "levels: one point more each, then 10 each from level 10");
+  assert.deepEqual([-2, -1, 0, 1, 3, 10, 11, 20].map(levelStart), [-5, -2, 0, 1, 6, 55, 65, 155], "where levels start");
   console.log("ok: online results are recorded");
+}
+
+//--------- 13. idle players: 3 turns in a row without a roll lose the game ---------
+{
+  const recorded = [];
+  const lobby5 = new Lobby(io, createMemoryStore(), { record: async (rows) => recorded.push(...rows) });
+  const a = fakeSocket("player-idleaaaa1", "Moth1");
+  const b = fakeSocket("player-idlebbbb2", "Newt2");
+  a.data.userId = "user-a"; b.data.userId = "user-b";
+  assert.ok(lobby5.createPrivate(a).ok);
+  assert.ok((await lobby5.joinByCode(b, lobby5.roomOfSocket(a).code)).ok);
+  const room = lobby5.roomOfSocket(a);
+  const idleSeat = room.state.currentPlayer;
+  const busySeat = room.otherSeat(idleSeat);
+  const idleSock = idleSeat === a.data.seat ? a : b;
+  const busySock = idleSock === a ? b : a;
+  const skip = () => assert.ok(room.handleAction(idleSeat, { type: "END_TURN" }).ok, "a turn may end without a roll (the clock ran out)");
+
+  skip(); await playTurn(room, busySeat);
+  skip(); await playTurn(room, busySeat);
+  assert.equal(room.status, "playing", "two idle turns: still playing");
+  const told = find(busySock, "idle").at(-1)?.payload;
+  assert.deepEqual(told, { seat: idleSeat, turns: 2, limit: 3 }, "both are told how many");
+  skip();
+  assert.equal(room.status, "over", "the third idle turn ends the game");
+  assert.equal(room.winner, busySeat, "the other player wins");
+  assert.equal(find(idleSock, "game_over").at(-1)?.payload.reason, "idle");
+  await wait(10);
+  const rowOf = (u) => recorded.find((r) => r.user_id === u);
+  assert.equal(rowOf(idleSock.data.userId).abandoned, true, "the idle player abandoned");
+  assert.equal(rowOf(busySock.data.userId).abandoned, false);
+
+  // Playing again resets the count.
+  const c = fakeSocket("player-idlecccc3", "Wren3");
+  const d = fakeSocket("player-idledddd4", "Toad4");
+  assert.ok(lobby5.createPrivate(c).ok);
+  assert.ok((await lobby5.joinByCode(d, lobby5.roomOfSocket(c).code)).ok);
+  const r2 = lobby5.roomOfSocket(c);
+  const p = r2.state.currentPlayer, q = r2.otherSeat(p);
+  r2.handleAction(p, { type: "END_TURN" }); await playTurn(r2, q);
+  await playTurn(r2, p); await playTurn(r2, q);
+  assert.equal(r2.idleTurns[p], 0, "a played turn clears the idle count");
+
+  // Leaving a game whose opponent is idle (or gone) costs nothing.
+  r2.handleAction(p, { type: "END_TURN" });
+  r2.forfeit(q, "left");
+  assert.equal(r2.forfeitedBy, 0, "leaving an idle opponent is not abandoning");
+  console.log("ok: idle players");
+}
+
+//--------- 14. bonuses: daily first win, ad rewards, the week ---------
+{
+  const { weekStart, grantAdReward, todayStatus, grantDailyBonus } = await import("./bonuses.js");
+  const monday = weekStart(new Date("2026-11-11T15:00:00Z")); // a Wednesday
+  assert.equal(monday.toISOString(), "2026-11-09T00:00:00.000Z", "the week starts on Monday, 00:00 UTC");
+  assert.equal(weekStart(new Date("2026-11-09T00:00:00Z")).toISOString(), "2026-11-09T00:00:00.000Z");
+  assert.equal(weekStart(new Date("2026-11-15T23:59:00Z")).toISOString(), "2026-11-09T00:00:00.000Z", "Sunday is still the same week");
+
+  // A fake xp_bonuses table.
+  const rows = [];
+  const db = async (u, o) => {
+    if (o.method === "POST") {
+      const row = JSON.parse(o.body);
+      if (row.kind === "daily" && rows.some((r) => r.kind === "daily" && r.user_id === row.user_id && r.day === row.day)) return { ok: false, status: 409 };
+      rows.push(row);
+      return { ok: true };
+    }
+    const kind = u.match(/kind=eq\.(\w+)/)[1];
+    const n = rows.filter((r) => r.kind === kind).length;
+    return { ok: true, headers: { get: () => `0-0/${n}` } };
+  };
+  const opt = { key: "k", url: "https://example.supabase.co", fetch: db };
+  assert.equal(await grantDailyBonus("u1", opt), true, "the first win of the day gets the bonus");
+  assert.equal(await grantDailyBonus("u1", opt), false, "the second doesn't");
+  assert.equal((await todayStatus("u1", opt)).dailyDone, true);
+  for (let i = 5; i > 0; i--) assert.deepEqual(await grantAdReward("u1", opt), { ok: true, adsLeft: i - 1 }, "an ad: +1");
+  assert.deepEqual(await grantAdReward("u1", opt), { ok: false, adsLeft: 0 }, "5 a day at most");
+
+  // The lobby gives the winner the daily bonus once the game is recorded.
+  const given = [];
+  const lobby6 = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async (u) => { given.push(u); return true; } });
+  const w = fakeSocket("player-bonusaaa1", "Lynx1");
+  const l = fakeSocket("player-bonusbbb2", "Mole2");
+  w.data.userId = "user-w"; l.data.userId = "user-l";
+  assert.ok(lobby6.createPrivate(w).ok);
+  assert.ok((await lobby6.joinByCode(l, lobby6.roomOfSocket(w).code)).ok);
+  lobby6.roomOfSocket(w).forfeit(l.data.seat, "left");
+  await wait(10);
+  assert.deepEqual(given, ["user-w"], "only the winner");
+  assert.deepEqual(find(w, "bonus").at(-1)?.payload, { kind: "daily", points: 2 }, "and their app is told");
+  console.log("ok: bonuses");
+}
+
+//--------- 15. friends: private games between accounts, who's online ---------
+{
+  const { markOnline, markOffline, isOnline, socketsOf, friendsOf } = await import("./friends.js");
+  const pairs = [];
+  const lobby7 = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async () => false, befriend: async (a, b) => pairs.push([a, b]) });
+  const a = fakeSocket("player-friendaa1", "Puma1");
+  const b = fakeSocket("player-friendbb2", "Seal2");
+  a.data.userId = "user-fa"; b.data.userId = "user-fb";
+  assert.ok(lobby7.createPrivate(a).ok);
+  assert.ok((await lobby7.joinByCode(b, lobby7.roomOfSocket(a).code)).ok);
+  lobby7.roomOfSocket(a).forfeit(b.data.seat, "left");
+  assert.deepEqual(pairs, [["user-fa", "user-fb"]], "a private game between two accounts makes them friends");
+
+  // A random game doesn't.
+  const c = fakeSocket("player-friendcc3", "Crow3");
+  c.data.userId = "user-fc";
+  const room = lobby7.newRoom({ kind: "random" });
+  lobby7.register(room);
+  room.addHuman(1, c, c.data);
+  room.addHuman(2, a, a.data);
+  room.start();
+  room.forfeit(1, "left");
+  assert.equal(pairs.length, 1, "a random opponent isn't a friend");
+
+  markOnline(a);
+  assert.ok(isOnline("user-fa") && socketsOf("user-fa").length === 1, "online while connected");
+  markOffline(a);
+  assert.ok(!isOnline("user-fa"), "offline once gone");
+  assert.deepEqual(await friendsOf("user-fa", { key: "" }), [], "no database: no friends");
+
+  const rows = [{ friend_id: "user-fb", name: null, country: "IT", games: 3, week_points: 7 }];
+  const list = await friendsOf("user-fa", { key: "k", url: "https://example.supabase.co", fetch: async () => ({ ok: true, text: async () => JSON.stringify(rows) }) });
+  assert.equal(list[0].id, "user-fb");
+  assert.ok(list[0].name.length > 0, "a friend without a profile name gets their animal name");
+  assert.equal(list[0].weekPoints, 7);
+  console.log("ok: friends");
 }
 
 //--------- 12. rematch ---------

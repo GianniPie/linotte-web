@@ -1,27 +1,91 @@
 //----------- EXPERIENCE AND LEVEL ---------------
-// The number on a player's badge is a level, from their experience points:
-// +1 per online win (random or friend: games recorded by the server), +1
-// for every 5 wins against the bot (recorded by the app, so worth less), and
-// -2 for every online game abandoned before its end (left, or gone for good
-// after a disconnection). Draws and losses don't count. Points and level can
-// go below zero. Counted by the server for an account (results.js); a
-// guest's level lives on its phone only and is never moved to an account.
+// The number on a player's badge is a level, from their experience points.
+// Online (random or friend, games recorded by the server): +2 for a win, +1
+// for a loss or draw played to the end, -2 for a game abandoned before its
+// end (left, gone for good after a disconnection, or 3 idle turns). Against
+// the bot (recorded by the app, so worth less): +1 for every 5 wins. Points
+// and level can go below zero. Counted by the server for an account
+// (results.js); a guest's level lives on its phone only and is never moved
+// to an account.
+//
+// Finishing a game is worth something even when it's lost: every game
+// played to the end moves the player on, and staying beats leaving.
+export const ONLINE_WIN_POINTS = 2;
+export const ONLINE_FINISHED_POINTS = 1;
 export const BOT_WINS_PER_POINT = 5;
 export const ABANDON_PENALTY = 2;
+// Bonuses (server/bonuses.js, the xp_bonuses table): the first online win
+// of the day (UTC), and watching a whole ad, a few times a day.
+export const DAILY_BONUS_POINTS = 2;
+export const AD_REWARD_POINTS = 1;
+export const AD_REWARDS_PER_DAY = 5;
 
-// Each level takes one point more than the one before: level 0 at 0 points,
-// 1 at 1, 2 at 3, 3 at 6, 4 at 10, 10 at 55. Below zero, the same steps
-// downwards: -1 at -1, -2 at -3, -3 at -6.
+// Rewards for reaching a level (see LEVEL_UNLOCKS and badgeTier in linotte.js):
+// the badge's colour changes at these levels.
+export const BADGE_TIERS = [
+    { from: 50, tier: "diamond" },
+    { from: 30, tier: "ruby" },
+    { from: 20, tier: "gold" },
+    { from: 10, tier: "silver" },
+    { from: 5, tier: "bronze" },
+];
+export function badgeTier(level) {
+    return BADGE_TIERS.find((b) => level >= b.from)?.tier || "plain";
+}
+
+// Looks unlocked by reaching a level: option index -> level. Only the FLAT
+// dice (3) and Linotte's own green background (Sun Tornado, 4) are free;
+// every other one is earned, about one a level at first. The options list
+// them in this order (see sortLooksByLevel in linotte.js).
+export const FREE_LOOKS = { dice: 3, background: 4 };
+export const LEVEL_UNLOCKS = {
+    dice: { 1: 2, 2: 4, 0: 6, 4: 10, 5: 15 },
+    background: { 0: 1, 1: 3, 2: 5, 3: 7, 5: 9, 6: 12, 7: 16, 8: 20 },
+};
+export const unlockLevel = (kind, index) => LEVEL_UNLOCKS[kind][index] ?? 0;
+
+// What a level brings: [{ kind: "badge", tier } | { kind: "dice" | "background", index }]
+export function rewardsAt(level) {
+    const out = [];
+    const tier = BADGE_TIERS.find((b) => b.from === level);
+    if (tier) out.push({ kind: "badge", tier: tier.tier });
+    for (const kind of ["dice", "background"]) {
+        for (const [index, at] of Object.entries(LEVEL_UNLOCKS[kind])) if (at === level) out.push({ kind, index: Number(index) });
+    }
+    return out;
+}
+
+// The next level (above `level`) that brings something, and what.
+export function nextReward(level) {
+    for (let l = Math.max(1, level + 1); l <= 50; l++) {
+        const r = rewardsAt(l);
+        if (r.length) return { level: l, rewards: r };
+    }
+    return null;
+}
+
+// Each level takes one point more than the one before up to level 10, then
+// 10 points each: quick level-ups at first, then a steady pace instead of
+// an ever steeper one. Level 0 at 0 points, 1 at 1, 2 at 3, 3 at 6, 10 at
+// 55, 11 at 65, 20 at 155, 30 at 255. Below zero, the same steps downwards:
+// -1 at -1, -2 at -3, -3 at -6.
+export const LEVEL_STEP_CAP = 10;
+const CAP_START = (LEVEL_STEP_CAP * (LEVEL_STEP_CAP + 1)) / 2; // 55
+
+// The points where a level starts, counting upwards from zero.
+function startOf(l) {
+    return l <= LEVEL_STEP_CAP ? (l * (l + 1)) / 2 : CAP_START + LEVEL_STEP_CAP * (l - LEVEL_STEP_CAP);
+}
+
 export function levelOf(xp) {
     const n = Math.trunc(Number(xp) || 0);
     if (n < 0) return -levelOf(-n);
+    if (n >= CAP_START) return LEVEL_STEP_CAP + Math.floor((n - CAP_START) / LEVEL_STEP_CAP);
     return Math.floor((Math.sqrt(1 + 8 * n) - 1) / 2);
 }
-
-const triangle = (l) => (l * (l + 1)) / 2;
 
 // The lowest points of a level: where it starts, counting upwards.
 export function levelStart(level) {
     const l = Math.trunc(level);
-    return l >= 0 ? triangle(l) : -(triangle(-l + 1) - 1);
+    return l >= 0 ? startOf(l) : -(startOf(-l + 1) - 1);
 }

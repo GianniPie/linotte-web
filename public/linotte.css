@@ -78,6 +78,22 @@ img[src*=".svg"] {
   box-sizing: border-box;
 }
 
+/* The game's height: the screen, minus the in-game banner's place below it
+   when there is one (portrait, not Pro; see .game-ad-slot in ads.css). The
+   game's sizes are taken off this, so it shrinks a little to leave the
+   banner room instead of running under it. */
+:root {
+  --ad-h: 0px;
+  --game-h: calc(100dvh - var(--ad-h));
+}
+
+@media (orientation: portrait) {
+  body.game-ad {
+    --ad-h: 60px; /* a 50px banner and at least 10px clear of ROLL/DONE */
+    --game-h: calc(100dvh - var(--ad-h));
+  }
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
@@ -132,16 +148,16 @@ html {
   /* The board's own width (same formula as .div-table's width below; the
      landscape block replaces it). The board scales its details off this,
      not off the column's font -- see .div-table. */
-  --board-w: min(calc(var(--col-w) * .95), 60dvh);
-  font-size: round(down, min(calc(var(--col-w) * 0.04267), 1.971dvh), 1px);
+  --board-w: min(calc(var(--col-w) * .95), calc(var(--game-h) * .6));
+  font-size: round(down, min(calc(var(--col-w) * 0.04267), calc(var(--game-h) * .01971)), 1px);
   display: flex;
   flex-flow: column;
   justify-content: center;
   align-items: center;
   width: 100%;
   max-width: 700px;
-  min-height: calc(var(--vh) * 100);
-  min-height: 100dvh;
+  min-height: calc(var(--vh) * 100 - var(--ad-h));
+  min-height: var(--game-h);
   margin-left: auto;
   margin-right: auto;
   /* Notch / home indicator (viewport-fit=cover is on). */
@@ -429,7 +445,7 @@ html {
   /* Also bounded by height, so a short portrait window (split-screen,
      browser chrome, small phone) shrinks the board instead of pushing
      ROLL/DONE off the bottom. */
-  width: min(95%, 60dvh);
+  width: min(95%, calc(var(--game-h) * .6));
   aspect-ratio: 1 / 1;
   margin: auto;
   margin-top: 1dvh;
@@ -1152,7 +1168,7 @@ body.table-flipped .tile::before {
        board was 30 ems wide instead of 22, ROLL/DONE came out flat, the
        player boxes squarer, the countdown squashed, and DONE touched the
        bottom edge. */
-    --col-w: min(700px, 46.18dvh);
+    --col-w: min(700px, calc(var(--game-h) * .4618));
     max-width: var(--col-w);
   }
 }
@@ -2439,7 +2455,7 @@ button,
      actually matters, since the dice are an active drop target and DONE's
      corner underneath this button isn't. */
   right: -8px;
-  bottom: -8px;
+  bottom: calc(-8px + var(--ad-h));
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -2669,8 +2685,8 @@ label {
   font-size: .75em;
   line-height: 1.2;
   white-space: nowrap;
-  background: rgb(232, 185, 35);
-  color: #5f4604;
+  background: var(--badge-bg, rgba(255, 255, 255, .9));
+  color: var(--badge-ink, #3d240c);
   border: .1em solid rgba(0, 0, 0, .35);
   font-variant-numeric: tabular-nums;
 }
@@ -2786,7 +2802,6 @@ label {
 /* Without Pro: a gold "PRO" tag with a padlock on each piece's bottom
    edge. The piece keeps its colours: it's there to be wanted. */
 body:not(.is-pro) .piece-options.is-pro-only::after,
-body.rooms-need-pro:not(.is-pro) #home-friend-btn::after,
 body.rooms-need-pro:not(.is-pro) #friend-create::after {
   content: "PRO";
   position: absolute;
@@ -2826,10 +2841,9 @@ html:lang(zh) p {
   font-feature-settings: normal;
 }
 
-/* FRIEND (home) and CREATE ROOM (its sheet) without Pro: the same tag, hung
-   on the button's top-right corner like the SOON badge. Joining a friend's
-   room stays free, so FRIEND still opens its sheet. */
-body.rooms-need-pro:not(.is-pro) #home-friend-btn::after,
+/* CREATE ROOM (in FRIEND's sheet) without Pro: the same tag, hung on the
+   button's top-right corner like the SOON badge. FRIEND itself has none:
+   joining a friend's room is free for everyone. */
 body.rooms-need-pro:not(.is-pro) #friend-create::after {
   bottom: auto;
   left: auto;
@@ -2855,4 +2869,38 @@ body.rooms-need-pro:not(.is-pro) #friend-create::after {
 .player-card-country[hidden],
 .plan-pill[hidden] {
   display: none;
+}
+
+/* The level badge's colour, a reward for reaching a level (see BADGE_TIERS
+   in shared/level.js): on the home, in games (Pro) and in the stats. */
+[data-tier="bronze"] { --badge-bg: linear-gradient(135deg, #e3a76f, #b06d32); --badge-ink: #3b1f08; }
+[data-tier="silver"] { --badge-bg: linear-gradient(135deg, #f1f4f7, #aab4bf); --badge-ink: #2b333b; }
+[data-tier="gold"] { --badge-bg: linear-gradient(135deg, #ffe27a, #e0a812); --badge-ink: #5a3f00; }
+[data-tier="ruby"] { --badge-bg: linear-gradient(135deg, #ff7a8f, #b3133a); --badge-ink: #ffffff; }
+[data-tier="diamond"] { --badge-bg: linear-gradient(135deg, #b9f3ff, #a98bff); --badge-ink: #1d1a4d; }
+
+/* Dice and backgrounds that come with a level: a "🔒 Lv N" tag until then
+   (the same tag as the Pro pieces, see applyLevelLocks in linotte.js). They
+   keep their real colours: they're there to be wanted. */
+.car-item-content.is-level-locked {
+  position: relative;
+  overflow: visible;
+}
+
+.car-item-content.is-level-locked::after {
+  content: attr(data-lock);
+  position: absolute;
+  bottom: -.55em;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 .4em 0 1.35em;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: .7em;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, .95) .35em center / .85em no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233d240c' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2' fill='%233d240c'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
+  color: #3d240c;
+  border: 1.5px solid rgba(0, 0, 0, .35);
+  font-family: "Changa One", sans-serif;
+  pointer-events: none;
 }

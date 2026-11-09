@@ -12,6 +12,33 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-11-09
+
+### Added
+- Ads, with sample stand-ins until the networks are connected (`public/ads.js`, `public/ads.css`: one place to swap in AdMob and a web network). The home banner (sized for an adaptive anchored banner, about 60px tall on a phone, which earns more than a fixed 320x50) shows a sample ad from made-up advertisers, labelled "Ad", rotating every 30 seconds; its ✕ opens Pro (remove ads). A full-screen video (15 s, skippable after 5) after every finished game, in any mode: it plays at the player's first step out of the game -- REMATCH, NEW GAME, or HOME / RESTART from the menu -- never over the celebration; not for Pro. Pro players see no banner (its place stays, empty).
+- In-game banner: a 50px banner under the game, in portrait, not for Pro. The game leaves it its place (`--ad-h` / `--game-h` in linotte.css: it shrinks a little instead of running under it), at least 10px clear of ROLL/DONE; the chat button and the toasts move up with it. No ✕ on it (it would sit under the chat button); the home banner keeps its own. Under every overlay. Not in landscape, where the board and the rail take the whole height.
+- Rewarded ads: in the stats, "Watch an ad: +1 point", up to 5 a day, for everyone, Pro included (it's their choice); the point only comes once the video is watched to the end (closing early asks first). The server adds it to the account (`POST /api/ad-reward`), the phone to a guest's level.
+- Daily bonus: the first online win of the day (UTC) is worth +2 extra points. ONLINE wears a gold "+2" tag with a little drawn gift box until it's won; the app says so when it happens (a "bonus" event from the server; on the phone for a guest).
+- Level rewards: only the FLAT dice and Linotte's green background (Sun Tornado) are free; every other look is earned. A new background at levels 1, 3, 5, 7, 9, 12, 16 and 20, new dice at 2, 4, 6, 10 and 15, locked with a "🔒 Lv N" tag in the options until then and listed in the order they're earned. The badge turns bronze at level 5, silver at 10, gold at 20, ruby at 30, diamond at 50 (home, in games, stats). Level-ups say what they bring; the stats show the next reward. A saved look that is locked at the current level falls back to the free one; an account's look on a new device is put on once its level is known.
+- Ranking section, on the home's Ranking tile (in the Shop's place until the shop opens; also from the stats), with three tabs. This week and All time: online points and bonuses (Monday to Sunday UTC, or since the start), the top 50 with flags, and your own place (`GET /api/leaderboard?range=week|all`); guests are asked to sign in to appear. Friends: the people you've played in a private room, both signed in (an account is the only way to know it's the same person again), with games together and this week's points (`GET /api/friends`, `supabase/friends.sql`).
+- Pro friends: when both are Pro, each sees whether the other is online (a green dot; Pro players keep the app connected on the home screen) and PLAY invites them with a tap, no link: the server opens a private room and the friend's app asks "… invites you to play" (PLAY / NOT NOW; busy in a game is a no). Without Pro the friends tab says what Pro adds, with GET PRO. The Pro sheet lists it, and "Exclusive pieces, dice and backgrounds" (art to come).
+- "How levels work" lists the daily bonus, the ads and the rewards.
+
+### Database
+- New: `supabase/xp_bonuses.sql` (the `xp_bonuses` table and the `weekly_leaderboard` function), then `supabase/friends.sql` (the `friends` table, `note_friends` and `friends_of`). Run both in Supabase, in this order, before publishing.
+
+### Changed
+- Levels, made to keep players coming back: every online game played to the end moves the player on. A win is +2, a loss or draw played to the end +1 (abandoned games still −2, bot wins still +1 for every 5). And the steps stop growing at level 10: one point more each up to 10 (level 10 at 55), then 10 points per level (20 at 155, 30 at 255, 50 at 455) instead of ever steeper ones (level 30 was at 465, 50 at 1275). Same for a guest's level on the phone. "How levels work" says so. `public/shared/level.js`.
+- Turns last 30 seconds instead of 60, in every mode (the server's backstop clock too; How to play says so).
+- Inactive players: a player who lets 3 turns in a row end without a single roll loses the online game as if they had left (−2 level points, `abandoned` in `game_results`); the winner reads "Your opponent stopped playing. You win!". One turn before, both are warned: the inactive player that one more missed turn loses the game and 2 points, the other that they'll win then, or may leave now. Leaving a game whose opponent is idle or disconnected costs nothing (on the server, and for a guest's level on the phone). "How levels work" lists both rules. `IDLE_TURNS_LIMIT` in `server/config.js`.
+- Two Pro players who chose the same piece (or two too alike to tell apart on the board): the higher level keeps theirs, a tie is drawn at random. Before, seat 1 always kept it, so in a friend room the host always won. The other plays a clearly different piece that game and is told why, after the coin flip ("Same piece as your opponent: the higher level keeps it..."). `assignPieces` in `public/shared/pieces.js`.
+- Stats: the level's explanation moved out of the box into a small, thin (?) next to "Level", which opens "How levels work": a short line under the title (with Pro every opponent sees your level), then every way to earn or lose points, the level steps, below zero, and the guest's level.
+- Stats, latest games: a draw (same points, nobody left) says Draw instead of Lost, and the words are singular ("Vinta", not "Vinte" as on the tile).
+- Options: Sound and Language moved to the bottom, under the backgrounds; the looks (table, piece, dice, background) come first.
+
+### Fixed
+- The winner screen's points stayed at 0 and broke what follows it (since 2.15.0): a local variable named `t` hid the translation function in the points count-up. Early-end messages ("Your opponent left. You win!") were skipped with it.
+
 ## [2.16.0] - 2026-11-08
 
 ### Changed
@@ -38,7 +65,7 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 - The player's flag is no longer a character in front of the name: on the home screen it comes before "Signed in"; in games it's a little tilted sticker laid over the box just after the name, so the name stays centred (online for both players, against the bot for this phone's player).
 - The online bots show a country flag too, about 3 in 10 (from the game's likely countries), and keep it after a server restart or a rematch.
 - The "🔒 PRO" tag on the locked pieces is no longer cut in half: the tile itself was clipping it.
-- Creating a friend room now needs Pro, as the Pro sheet already said: FRIEND and CREATE ROOM carry the gold "🔒 PRO" tag, and CREATE ROOM opens the Pro sheet. Joining a friend's room (link or code) stays free for everyone. One switch, `ROOMS_NEED_PRO` in `public/shared/accounts.js`, drives both the app and the server (it was an environment variable, off).
+- Creating a friend room now needs Pro, as the Pro sheet already said: CREATE ROOM carries the gold "🔒 PRO" tag and opens the Pro sheet (FRIEND itself has no tag: joining is free). Joining a friend's room (link or code) stays free for everyone. One switch, `ROOMS_NEED_PRO` in `public/shared/accounts.js`, drives both the app and the server (it was an environment variable, off).
 - The pill at the top right of the home says GET PRO without Pro (gold); with Pro it's a dark brown card with a gold star and PRO.
 - The account sheet says whether the account has Linotte Pro or the free version, with its level; the free version gets a GET PRO button.
 - How to play ends with a Legal section linking the Terms of Service and the Privacy Policy.

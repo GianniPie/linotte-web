@@ -186,10 +186,11 @@ import { emojiMarkup, emojiLabel } from "./emoji.js";
 import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
 import { nameProblem, cleanPlayerName, COUNTRIES, flagOf } from "./shared/playerNames.js";
 import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
-import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAbandon } from "./stats.js";
+import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAbandon, guestToday, guestAdReward } from "./stats.js";
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
-import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp } from "./online.js";
-import { levelOf, levelStart } from "./shared/level.js";
+import { renderBanner, interstitial, rewarded } from "./ads.js";
+import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
+import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
 gameState.players[2].name = "BOT";
@@ -417,6 +418,7 @@ function renderPlayerBox(player) {
         const box = document.getElementById(seat === 1 ? "playerP1" : "playerP2");
         box.classList.toggle("is-pro", Boolean(p.pro));
         box.dataset.badge = p.pro ? `★ ${p.level ?? 0}` : "";
+        box.dataset.tier = p.pro ? badgeTier(p.level ?? 0) : "";
     }
     // Online names ("Crane36") are longer than YOU/BOT/P1: a smaller size
     // keeps them whole instead of ending in "...".
@@ -693,7 +695,13 @@ let tidyness = getCookie("tidyness", 2);
 document.getElementById("bo" + tidyness).classList.add("selected"); //option section
 renderTidyness(tidyness);
 
-let dieCookie = getCookie("diceFaces", 3);
+// Dice and backgrounds come with levels (see shared/level.js): a saved
+// choice that is locked at this level (a new device, or points lost) falls
+// back to the free one. At start-up the account isn't known yet: the level
+// last seen on this phone.
+const startLevel = levelOf(lastKnownXp() ?? guestXp());
+const lookOrFree = (kind, saved) => (startLevel >= unlockLevel(kind, saved) ? saved : FREE_LOOKS[kind]);
+let dieCookie = lookOrFree("dice", Number(getCookie("diceFaces", FREE_LOOKS.dice)));
 document.getElementById("do" + dieCookie).classList.add("selected"); //option section
 document.getElementById("dice-title").textContent = t(diceNames[dieCookie]);
 let faces = diceFaces[dieCookie];  //faces of the selected die
@@ -701,7 +709,7 @@ let faces = diceFaces[dieCookie];  //faces of the selected die
 let selectedDie = dicePath + faces;
 preload(selectedDie);
 
-let selectedBg = getCookie("background", 4);
+let selectedBg = lookOrFree("background", Number(getCookie("background", FREE_LOOKS.background)));
 document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
 document.getElementById("bg-title").textContent = humanizeBgName(backgrounds[selectedBg]);
 for (let i = 0; i < backgrounds.length; i++) {
@@ -759,7 +767,7 @@ function getCookie(name, defaultValue) {
 
 
 //----------- TIMER -----------------
-const MAX_TIMER = 60;
+const MAX_TIMER = 30; // the same 30s as the server (TURN_SECONDS)
 let value = MAX_TIMER;
 let timerId = null;
 
@@ -1240,6 +1248,7 @@ function clearBoardVisuals() {
 const dieOptions = document.querySelectorAll(".die-options");
 dieOptions.forEach(dieOption => {
     dieOption.addEventListener("click", () => {
+        if (lockedToast(dieOption)) return;
         dieOptions.forEach(t => t.classList.remove("selected"));
         dieOption.classList.add("selected");
 
@@ -1259,6 +1268,7 @@ dieOptions.forEach(dieOption => {
 const bgOptions = document.querySelectorAll(".bg-options");
 bgOptions.forEach(bgOption => {
     bgOption.addEventListener("click", () => {
+        if (lockedToast(bgOption)) return;
         bgOptions.forEach(t => t.classList.remove("selected"));
         bgOption.classList.add("selected");
 
@@ -1443,6 +1453,7 @@ function showRematchState(state) {
 
 document.getElementById("winner-rematch").addEventListener("click", async (e) => {
     e.stopPropagation();
+    if (!(await endOfGameAd())) return;
     if (controller.mode === "bot") return newGameVsBot(botStrategy);
     if (controller.mode === "offline") return newGameOffline();
     showRematchState("waiting");
@@ -1451,10 +1462,29 @@ document.getElementById("winner-rematch").addEventListener("click", async (e) =>
     // ok: either waiting for the other player, or a "game_start" is on its way
 });
 
-document.getElementById("winner-button").addEventListener("click", (e) => {
+document.getElementById("winner-button").addEventListener("click", async (e) => {
     e.stopPropagation();
+    if (!(await endOfGameAd())) return;
     leaveToHome();
 });
+
+// The full-screen video after every finished game (see ads.js), any mode:
+// the game owes one when it ends (noteGameResult), played at the player's
+// first step out of it -- REMATCH, NEW GAME, or HOME / RESTART from the
+// menu -- never over the celebration. Not for Pro. False while one is
+// already playing (a second tap), so that tap is ignored.
+let adOwed = false;
+let adPlaying = false;
+async function endOfGameAd() {
+    if (adPlaying) return false;
+    if (!adOwed) return true;
+    adOwed = false;
+    if (document.body.classList.contains("is-pro")) return true;
+    adPlaying = true;
+    await interstitial();
+    adPlaying = false;
+    return true;
+}
 
 
 //winner popup 
@@ -1501,27 +1531,37 @@ let recordedGame = null;
 function noteGameResult(winner) {
     if (recordedGame === gameState) return;
     recordedGame = gameState;
+    adOwed = true; // the video at the next step out (see endOfGameAd)
     showRematchState(lastOverReason === "normal" || controller.mode !== "online" ? "ready" : "left");
+    const overReason = lastOverReason;
     lastOverReason = "normal";
     const mode = controller.mode === "bot" ? "bot" : controller.mode === "online" ? onlineKind : null;
     if (!mode) return; // "Same table": nobody's own game
     const me = controller.mode === "online" ? LOCAL_PLAYER : 1;
     const other = me === 1 ? 2 : 1;
-    // A win may raise the level: asked again once the game is recorded (by
-    // the server for an online game, by recordGame for one against the bot).
+    // Any finished online game, and a win against the bot, may raise the
+    // level: asked again once the game is recorded (by the server for an
+    // online game, by recordGame for one against the bot).
     const xpBefore = myXp();
     const recorded = recordGame({
         mode,
         won: winner === me,
+        // This phone's player let 3 turns run out: abandoned, not finished.
+        abandoned: controller.mode === "online" && overReason === "idle" && winner !== me,
         points: gameState.players[me].points,
         opponentPoints: gameState.players[other].points,
         opponent: controller.mode === "bot" ? "Bot" : gameState.players[other].name,
     });
-    if (winner === me && currentUser()) {
+    if ((winner === me || mode !== "bot") && currentUser()) {
         recorded.then(() => setTimeout(() => refreshPro({ fresh: true }), mode === "bot" ? 0 : 1500));
     } else if (!currentUser()) {
-        recorded.then(() => {
-            if (levelOf(guestXp()) > levelOf(xpBefore)) showToast(t("Level {n}!", { n: levelOf(guestXp()) }));
+        recorded.then((r) => {
+            if (r?.daily) {
+                showToast(t("First win of the day: +{n} bonus points!", { n: 2 }), 3000);
+                setTimeout(() => celebrateLevel(xpBefore, guestXp()), 3200);
+            } else {
+                celebrateLevel(xpBefore, guestXp());
+            }
             showHomeBadge();
         });
     }
@@ -1610,11 +1650,12 @@ function animateWinnerPoints(el, total) {
     const duration = 900;
     const start = performance.now();
     (function step(now) {
-        const t = Math.min(1, (now - start) / duration);
-        const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic: fast start, settles gently into the final number
+        // "progress", not "t": that name is the translation function.
+        const progress = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic: fast start, settles gently into the final number
         const value = Math.round(eased * total);
         shineSpan.textContent = t(value === 1 ? "{n} point" : "{n} points", { n: value });
-        if (t < 1) requestAnimationFrame(step);
+        if (progress < 1) requestAnimationFrame(step);
     })(start);
 }
 
@@ -3164,7 +3205,17 @@ const onlineClient = new OnlineClient({
     },
     onOpponentStatus: ({ connected }) => {
         if (controller.mode !== "online" || isGameOver) return;
+        opponentGone = !connected;
         showToast(connected ? t("Your opponent is back") : t("Your opponent disconnected, waiting for them..."), connected ? 2000 : 6000);
+    },
+    onIdle: onRemoteIdle,
+    onFriendInvite: (msg) => onFriendInvite(msg),
+    onInviteDeclined: (msg) => onInviteDeclined(msg),
+    // Today's first online win: the server added the bonus.
+    onBonus: ({ kind, points }) => {
+        if (kind !== "daily") return;
+        showToast(t("First win of the day: +{n} bonus points!", { n: points }), 3000);
+        setTimeout(() => refreshPro({ fresh: true }), 3200);
     },
     onGameOver: onRemoteGameOver,
     onPro: (pro) => setPro(pro),
@@ -3527,6 +3578,11 @@ function fillAccountSheet() {
     byId("account-level").textContent = t("Level {n}", { n: levelOf(myXp()) });
 }
 byId("account-getpro").addEventListener("click", () => showProSheet());
+
+// The (?) by the level in the stats: how levels work, then back to the stats
+// (still filled in).
+byId("st-level-help").addEventListener("click", () => showOnlineView("level-help"));
+byId("level-help-back").addEventListener("click", () => showOnlineView("stats"));
 byId("account-delete-confirm").addEventListener("click", (e) => loginStep(e.currentTarget, byId("account-delete-error"), async () => {
     await deleteAccount();
     closeOnlineOverlay();
@@ -3583,8 +3639,16 @@ function currentPrefs() {
     return { dice: Number(getCookie("diceFaces", 3)), background: Number(getCookie("background", 4)), board: Number(getCookie("tidyness", 2)), piece: favoritePiece() };
 }
 
+// A look the account chose that is still locked here (its level not known
+// yet on this device) waits, and is put on once unlocked (applyLevelLocks).
+let pendingLooks = {};
 function applyPrefs(prefs) {
-    const pick = (id) => { const el = document.getElementById(id); if (el && !el.classList.contains("selected")) el.click(); };
+    const pick = (id) => {
+        const el = document.getElementById(id);
+        if (!el || el.classList.contains("selected")) return;
+        if (el.classList.contains("is-level-locked")) { pendingLooks[id.slice(0, 2)] = id; return; }
+        el.click();
+    };
     if (Number.isInteger(prefs.dice)) pick("do" + prefs.dice);
     if (Number.isInteger(prefs.background)) pick("bg" + prefs.background);
     if (Number.isInteger(prefs.board)) pick("bo" + prefs.board);
@@ -3718,7 +3782,12 @@ initAuth().then(() => {
     refreshPro();
 });
 
-byId("home-ad").addEventListener("click", () => showProSheet());
+// The home banner: a sample ad for now (see ads.js); its ✕ opens Pro.
+renderBanner(byId("home-ad"), () => showProSheet());
+byId("home-ad").addEventListener("click", () => showToast(t("This is a sample ad.")));
+// ...and the one under the game (portrait, not for Pro: see setPro).
+renderBanner(byId("game-ad"), () => showProSheet());
+byId("game-ad").addEventListener("click", () => showToast(t("This is a sample ad.")));
 //----------- PRO ---------------
 // Linotte Pro: one purchase, for life, tied to the account. It's bought in
 // the store apps: their native layer (Capacitor + RevenueCat, logged in with
@@ -3729,6 +3798,7 @@ const store = () => window.LinotteNative?.buyPro ? window.LinotteNative : null;
 
 function setPro(pro) {
     document.body.classList.toggle("is-pro", pro);
+    document.body.classList.toggle("game-ad", !pro); // the in-game banner (ads.css)
     showHomeBadge();
     showPieceChoice(favoritePiece()); // the favorite piece is Pro only
     if (onlineOverlay.dataset.view === "pro") fillProSheet();
@@ -3738,10 +3808,79 @@ function setPro(pro) {
 async function refreshPro(options) {
     const before = lastKnownXp();
     setPro(await fetchPro(options));
+    stayReachable();
     const after = lastKnownXp();
-    if (before !== null && after !== null && levelOf(after) > levelOf(before)) {
-        showToast(t("Level {n}!", { n: levelOf(after) }));
+    if (before !== null && after !== null) celebrateLevel(before, after);
+}
+
+//--------- level rewards ---------
+// What reaching a level brings (see shared/level.js): a badge colour, a new
+// background or dice style. Said when it happens, shown as the next goal in
+// the stats, and locked until then in the options.
+function rewardText(r) {
+    if (r.kind === "badge") {
+        return t({ bronze: "Bronze badge", silver: "Silver badge", gold: "Gold badge", ruby: "Ruby badge", diamond: "Diamond badge" }[r.tier]);
     }
+    if (r.kind === "dice") return t("New dice: {name}", { name: t(diceNames[r.index]) });
+    return t("New background: {name}", { name: humanizeBgName(backgrounds[r.index]) });
+}
+
+// A level-up toast, with what came with it.
+function celebrateLevel(beforeXp, afterXp) {
+    const from = levelOf(beforeXp), to = levelOf(afterXp);
+    if (to <= from) return;
+    const got = [];
+    for (let l = from + 1; l <= to; l++) got.push(...rewardsAt(l));
+    showToast(got.length
+        ? t("Level {n}! {rewards}", { n: to, rewards: got.map(rewardText).join(" · ") })
+        : t("Level {n}!", { n: to }), got.length ? 5000 : 2500);
+    applyLevelLocks();
+}
+
+// Locked looks in the options: a "🔒 Lv N" tag, and a toast when tapped.
+function applyLevelLocks() {
+    const level = levelOf(myXp());
+    for (const [kind, prefix] of [["dice", "do"], ["background", "bg"]]) {
+        for (const [index, at] of Object.entries(LEVEL_UNLOCKS[kind])) {
+            const el = document.getElementById(prefix + index);
+            if (!el) continue;
+            const locked = level < at;
+            el.classList.toggle("is-level-locked", locked);
+            el.dataset.lock = locked ? t("Lv {n}", { n: at }) : "";
+        }
+    }
+    for (const [key, id] of Object.entries(pendingLooks)) {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains("is-level-locked")) {
+            delete pendingLooks[key];
+            if (!el.classList.contains("selected")) el.click();
+        }
+    }
+}
+
+// The options list the dice and backgrounds in the order they're earned:
+// the free one first, then by level.
+(function sortLooksByLevel() {
+    for (const [kind, prefix] of [["dice", "do"], ["background", "bg"]]) {
+        const first = document.getElementById(prefix + FREE_LOOKS[kind]);
+        const list = first?.closest(".car-list");
+        if (!list) continue;
+        const items = [...list.querySelectorAll(":scope > .car-item")];
+        const levelOfItem = (li) => unlockLevel(kind, Number(li.querySelector(`[id^="${prefix}"]`).id.slice(2)));
+        items.sort((a, b) => levelOfItem(a) - levelOfItem(b)).forEach((li) => list.appendChild(li));
+    }
+})();
+function lockedToast(el) {
+    if (!el.classList.contains("is-level-locked")) return false;
+    const at = LEVEL_UNLOCKS[el.id.startsWith("do") ? "dice" : "background"][Number(el.id.slice(2))];
+    showToast(t("Reach level {n} to unlock it.", { n: at }));
+    return true;
+}
+
+// Today's bonuses for this phone's player: the account's (from the server)
+// or the guest's.
+function myToday() {
+    return currentUser() ? lastKnownToday() || { dailyDone: false, adsLeft: AD_REWARDS_PER_DAY } : guestToday();
 }
 
 function fillProSheet() {
@@ -3798,6 +3937,10 @@ function showHomeBadge() {
     const badge = byId("home-badge");
     const level = levelOf(myXp());
     badge.hidden = false;
+    badge.dataset.tier = badgeTier(level);
+    applyLevelLocks();
+    // ONLINE wears a "🎁 +2" tag until today's first online win.
+    document.body.classList.toggle("daily-open", !myToday().dailyDone);
     const pro = document.body.classList.contains("is-pro");
     badge.classList.toggle("is-pro", pro);
     badge.textContent = pro ? `★ ${level}` : String(level);
@@ -3808,8 +3951,194 @@ function showHomeBadge() {
 // once sign-in has started (see initAuth below).
 setPro(lastKnownPro());
 
-byId("home-shop").addEventListener("click", () => showToast(t("The shop is coming soon.")));
+
 //----------- STATS SCREEN ---------------
+// The level box in the stats: the level and the way to the next one (the
+// account's, from the server, see refreshPro; or the guest's), the next
+// reward, and the rewarded ad.
+function fillStatsLevel() {
+    const xp = myXp();
+    const level = levelOf(xp);
+    const from = levelStart(level), to = levelStart(level + 1);
+    byId("st-level").textContent = t("Level {n}", { n: level });
+    byId("stats-level").dataset.tier = badgeTier(level);
+    byId("st-level-points").textContent = `${xp - from} / ${to - from}`;
+    byId("st-level-fill").style.width = `${((xp - from) / (to - from)) * 100}%`;
+    const next = nextReward(level);
+    byId("st-level-next").textContent = next ? t("Next reward at level {n}: {reward}", { n: next.level, reward: next.rewards.map(rewardText).join(" · ") }) : "";
+    const { adsLeft } = myToday();
+    const ad = byId("st-level-ad");
+    ad.disabled = adsLeft <= 0;
+    byId("st-level-ad-text").textContent = adsLeft > 0
+        ? t("Watch an ad: +1 point ({n} left today)", { n: adsLeft })
+        : t("No more ads today: come back tomorrow");
+}
+
+// Watching an ad to the end for a point (see ads.js): the server adds it to
+// the account (a few a day), or the phone to the guest's level.
+byId("st-level-ad").addEventListener("click", async () => {
+    if (myToday().adsLeft <= 0) return;
+    const before = myXp();
+    if (!(await rewarded())) return;
+    const r = currentUser() ? await claimAdReward() : guestAdReward();
+    if (!r.ok) {
+        showToast(r.adsLeft === 0 ? t("No more ads today: come back tomorrow") : t("Can't add the point right now. Please try again."));
+    } else {
+        showToast(t("+1 point!"));
+        setTimeout(() => celebrateLevel(before, myXp()), 1500);
+    }
+    showHomeBadge();
+    fillStatsLevel();
+});
+
+//--------- ranking ---------
+// The rankings section (the home's Ranking tile, or from the stats): this
+// week's and all-time leaderboards (online points and bonuses), and friends
+// -- the people played in private rooms; Pro to Pro, who's online and a tap
+// to invite them (server/friends.js).
+let rankingTab = "week";
+let rankingFrom = "home"; // where BACK goes: the home, or the stats
+byId("home-ranking").addEventListener("click", () => { rankingFrom = "home"; showRanking("week"); });
+byId("stats-ranking").addEventListener("click", () => { rankingFrom = "stats"; showRanking("week"); });
+byId("lb-back").addEventListener("click", () => (rankingFrom === "stats" ? showOnlineView("stats") : closeOnlineOverlay()));
+byId("lb-signin").addEventListener("click", () => byId("home-profile").click());
+byId("lb-pro-btn").addEventListener("click", () => showProSheet());
+document.querySelectorAll(".lb-tab").forEach((b) => b.addEventListener("click", () => showRanking(b.dataset.tab)));
+
+function rankingRow(cells, { me = false, cls = "" } = {}) {
+    const li = document.createElement("li");
+    li.className = cls;
+    li.classList.toggle("is-me", me);
+    for (const cell of cells) li.appendChild(cell);
+    return li;
+}
+const span = (className, text = "") => Object.assign(document.createElement("span"), { className, textContent: text });
+const nameWithFlag = (r) => `${r.country ? flagOf(r.country) + "\u2002" : ""}${r.name}`;
+
+async function showRanking(tab) {
+    rankingTab = tab;
+    document.querySelectorAll(".lb-tab").forEach((b) => b.classList.toggle("is-on", b.dataset.tab === tab));
+    const list = byId("lb-list"), me = byId("lb-me"), empty = byId("lb-empty");
+    list.replaceChildren();
+    me.hidden = true;
+    byId("lb-pro").hidden = true;
+    empty.hidden = false;
+    empty.textContent = t("Loading...");
+    byId("lb-note").textContent = {
+        week: t("Online points and bonuses since Monday. A new week starts every Monday."),
+        all: t("Online points and bonuses since the beginning."),
+        friends: t("The people you've played in a private room."),
+    }[tab];
+    byId("lb-signin").hidden = Boolean(currentUser()) || !ACCOUNTS_AVAILABLE;
+    showOnlineView("leaderboard");
+    if (tab === "friends") return showFriends();
+
+    let board;
+    try {
+        board = await fetchLeaderboard(tab);
+    } catch {
+        if (rankingTab === tab) empty.textContent = t("Can't load the ranking right now. Please try again.");
+        return;
+    }
+    if (rankingTab !== tab) return; // another tab was picked meanwhile
+    const row = (r) => rankingRow([span("lb-rank", `${r.rank}`), span("lb-name", nameWithFlag(r)), span("lb-points", t("{n} pts", { n: r.points }))], { me: r.me });
+    board.rows.forEach((r) => list.appendChild(row(r)));
+    empty.hidden = board.rows.length > 0;
+    empty.textContent = tab === "week" ? t("No points yet this week: be the first!") : t("No points yet: be the first!");
+    if (board.me && !board.rows.some((r) => r.me)) {
+        me.hidden = false;
+        me.replaceChildren(row(board.me));
+    } else if (currentUser() && !board.me) {
+        me.hidden = false;
+        me.textContent = t("You're not in the ranking yet: play an online game.");
+    } else if (!currentUser()) {
+        me.hidden = false;
+        me.textContent = t("Sign in to appear in the ranking.");
+    }
+}
+
+async function showFriends() {
+    const list = byId("lb-list"), empty = byId("lb-empty");
+    if (!currentUser()) {
+        empty.textContent = t("Sign in to keep your friends: play them in a private room and they'll be here.");
+        return;
+    }
+    let data;
+    try {
+        data = await fetchFriends();
+    } catch {
+        if (rankingTab === "friends") empty.textContent = t("Can't load your friends right now. Please try again.");
+        return;
+    }
+    if (rankingTab !== "friends") return;
+    byId("lb-pro").hidden = data.pro || !data.friends.length;
+    empty.hidden = data.friends.length > 0;
+    empty.textContent = t("No friends yet: play someone in a private room and they'll show up here.");
+    for (const f of data.friends) {
+        // Pro to Pro: a green dot when online, and PLAY to invite them.
+        const both = data.pro && f.pro;
+        const dot = span("lb-dot" + (both ? (f.online ? " is-online" : "") : " is-none"));
+        dot.title = both ? (f.online ? t("Online") : t("Offline")) : "";
+        const name = span("lb-name", nameWithFlag(f));
+        name.appendChild(span("lb-sub", t(f.games === 1 ? "1 game together · {p} pts this week" : "{n} games together · {p} pts this week", { n: f.games, p: f.weekPoints })));
+        const play = Object.assign(document.createElement("button"), { className: "lb-play", type: "button", textContent: t("PLAY") });
+        play.hidden = !(both && f.online);
+        play.addEventListener("click", () => inviteFriend(f));
+        list.appendChild(rankingRow([dot, name, span("lb-points", ""), play], { cls: "lb-friend" }));
+    }
+}
+
+// PLAY on a friend: the server opens a private room and asks their app to
+// join; meanwhile this player waits in it, as after CREATE ROOM.
+async function inviteFriend(f) {
+    onlineKind = "friend";
+    if (!(await prepareOnline())) return;
+    const res = await onlineClient.inviteFriend(f.id);
+    if (res.ok) {
+        showWaitingRoom(res.code);
+        showToast(t("Invite sent to {name}.", { name: f.name }));
+        return;
+    }
+    if (res.error === "pro_required") return showProSheet();
+    if (res.error === "already_in_game") return onlineClient.rejoin();
+    showToast(res.error === "friend_offline" ? t("{name} isn't online any more.", { name: f.name }) : t("Can't invite {name} right now.", { name: f.name }));
+    if (rankingTab === "friends") showRanking("friends");
+}
+
+// A Pro friend invites this player: join their room, or say no.
+let pendingInvite = null;
+function onFriendInvite({ from, fromId, code }) {
+    // Busy in a game: no, without asking.
+    if (gameInProgress && !isGameOver) { onlineClient.declineInvite(fromId); return; }
+    pendingInvite = { fromId, code };
+    byId("invite-title").textContent = t("{name} invites you to play", { name: from });
+    hideHomeScreen();
+    showOnlineView("invite");
+}
+byId("invite-accept").addEventListener("click", () => {
+    const inv = pendingInvite;
+    pendingInvite = null;
+    if (inv) joinFriendByCode(inv.code);
+});
+byId("invite-decline").addEventListener("click", () => {
+    if (pendingInvite) onlineClient.declineInvite(pendingInvite.fromId);
+    pendingInvite = null;
+    closeOnlineOverlay();
+});
+// The friend said no (or was busy): out of the waiting room.
+function onInviteDeclined({ name }) {
+    if (onlineOverlay.dataset.view !== "waiting") return;
+    showToast(t("{name} can't play now.", { name: name || t("Your friend") }), 3500);
+    byId("room-cancel").click();
+}
+
+// Pro players keep the app connected on the home screen, so their Pro
+// friends see them online and can invite them (friends.js).
+function stayReachable() {
+    if (currentUser() && document.body.classList.contains("is-pro") && hasConsent() && onlineClient.available()) onlineClient.connect();
+}
+
+
 async function showStats() {
     let st;
     try {
@@ -3830,15 +4159,7 @@ async function showStats() {
     set("st-best-streak", st.bestStreak);
     set("st-best", st.all.best);
 
-    // The level and the way to the next one: the account's (from the
-    // server, see refreshPro) or the guest's.
-    const xp = myXp();
-    const level = levelOf(xp);
-    const from = levelStart(level), to = levelStart(level + 1);
-    set("st-level", t("Level {n}", { n: level }));
-    byId("st-level-guest").hidden = st.signedIn;
-    set("st-level-points", `${xp - from} / ${to - from}`);
-    byId("st-level-fill").style.width = `${((xp - from) / (to - from)) * 100}%`;
+    fillStatsLevel();
 
     const modes = byId("stats-modes");
     modes.replaceChildren();
@@ -3854,7 +4175,11 @@ async function showStats() {
     for (const g of st.recent) {
         const li = document.createElement("li");
         const cells = [
-            ["res " + (g.won ? "won" : "lost"), g.won ? t("Won") : t("Lost")],
+            // A draw (same points, nobody left) is neither; one game, so
+            // singular words ("Won" is the tile's plural in some languages).
+            ...[g.won ? ["res won", t("Win")]
+                : !g.abandoned && g.points === g.opponent_points ? ["res draw", t("Draw")]
+                : ["res lost", t("Loss")]],
             ["who", t("{score} vs {name}", { score: `${g.points}–${g.opponent_points}`, name: g.opponent || "?" })],
             ["when", day.format(new Date(g.played_at))],
         ];
@@ -3900,11 +4225,12 @@ byId("home-continue-btn").addEventListener("click", () => {
 
 // HOME in the Game tab. An online game ends when you leave it, so that one
 // asks first.
-byId("game-home-btn").addEventListener("click", () => {
+byId("game-home-btn").addEventListener("click", async () => {
     if (controller.mode === "online" && gameInProgress && !isGameOver) {
         showOnlineView("leave");
         return;
     }
+    if (!(await endOfGameAd())) return;
     showHomeScreen();
 });
 
@@ -3921,8 +4247,9 @@ byId("leave-confirm").addEventListener("click", leaveToHome);
 // (off-line only).
 byId("restart-btn").addEventListener("click", () => showOnlineView("restart"));
 
-byId("restart-confirm").addEventListener("click", () => {
+byId("restart-confirm").addEventListener("click", async () => {
     closeOnlineOverlay();
+    if (!(await endOfGameAd())) return;
     if (controller.mode === "offline") {
         flipCoin("P1", "P2").then((startingPlayer) => {
             newGameOffline(startingPlayer);
@@ -4032,6 +4359,8 @@ async function beginOnlineGame(snap) {
 
     gameState = snap.state;
     LOCAL_PLAYER = snap.seat;
+    idleTurns = {};
+    opponentGone = snap.opponentConnected === false;
     gameState.players[snap.seat].name = t("YOU");
     startOnline();
     expectedSeq = snap.seq + 1;
@@ -4041,6 +4370,10 @@ async function beginOnlineGame(snap) {
         const label = (seat) => gameState.players[seat].name;
         await flipCoin(label(1), label(2), snap.starter);
         startTurnTimer();
+        // Both chose the same piece (Pro): the higher level kept it.
+        if (gameState.players[LOCAL_PLAYER]?.pieceDenied) {
+            showToast(t("Same piece as your opponent: the higher level keeps it. This game you play another one."), 4500);
+        }
     } else {
         resumeTurnTimer(Math.ceil(snap.timeLeftMs / 1000));
     }
@@ -4107,8 +4440,10 @@ function renderOnlineBoard() {
 function leaveOnlineGameIfAny() {
     if (controller.mode !== "online") return;
     // Leaving before the end abandons the game: it costs level points (the
-    // server counts an account's; a guest's are kept here).
-    if (gameInProgress && !isGameOver) {
+    // server counts an account's; a guest's are kept here). Not when the
+    // opponent had already given up: gone, or letting their turns run out.
+    const excused = opponentGone || (idleTurns[LOCAL_PLAYER === 1 ? 2 : 1] || 0) > 0;
+    if (gameInProgress && !isGameOver && !excused) {
         noteGuestAbandon();
         if (currentUser()) setTimeout(() => refreshPro({ fresh: true }), 1500);
     }
@@ -4227,7 +4562,31 @@ function onRemoteGameOver({ winner, reason }) {
 
     showWinnerPopup(winner);
     if (winner === LOCAL_PLAYER) {
-        setWinnerText(reason === "disconnect" ? t("Your opponent disconnected. You win!") : t("Your opponent left. You win!"));
+        setWinnerText(reason === "disconnect" ? t("Your opponent disconnected. You win!")
+            : reason === "idle" ? t("Your opponent stopped playing. You win!")
+            : t("Your opponent left. You win!"));
+    } else if (reason === "idle") {
+        // This phone's player let their turns run out: abandoned.
+        showToast(t("You missed {n} turns in a row: the game counts as abandoned (−2 level points).", { n: IDLE_LIMIT_SHOWN }), 6000);
+        noteGuestAbandon();
+        if (currentUser()) setTimeout(() => refreshPro({ fresh: true }), 1500);
+    }
+}
+
+// Turns let run out without a roll, per seat (the server counts them, see
+// IDLE_TURNS_LIMIT in server/config.js). One turn before the limit both
+// players are warned; the opponent of an idle player may leave at no cost.
+let idleTurns = {};
+let opponentGone = false;
+const IDLE_LIMIT_SHOWN = 3;
+function onRemoteIdle({ seat, turns, limit }) {
+    if (controller.mode !== "online" || isGameOver) return;
+    idleTurns[seat] = turns;
+    if (turns !== limit - 1) return;
+    if (seat === LOCAL_PLAYER) {
+        showToast(t("You let {n} turns run out without playing: miss the next one too and you lose the game and 2 level points.", { n: turns }), 7000);
+    } else {
+        showToast(t("Your opponent is inactive: if they miss their next turn too, you win. You can also leave now without losing points."), 7000);
     }
 }
 

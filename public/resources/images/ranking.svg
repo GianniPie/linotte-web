@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Temporary Ranking icon (a cup), drawn to match the Stats icon and the
+     menu icons (t001-t004): black at 50% as one shape, 13-unit lines with
+     rounded ends, 180.86 units wide. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="180.86" height="180.86" viewBox="0 0 180.86 180.86">
+  <g opacity="0.5" fill="none" stroke="#000000" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 50 24 H 130.86 V 66 A 40.43 40.43 0 0 1 50 66 Z"/>
+    <path d="M 50 40 H 26 V 52 A 26 26 0 0 0 52 78"/>
+    <path d="M 130.86 40 H 154.86 V 52 A 26 26 0 0 1 128.86 78"/>
+    <path d="M 90.43 106.5 V 130"/>
+    <path d="M 58 156.5 H 122.86 V 142 A 12 12 0 0 0 110.86 130 H 70 A 12 12 0 0 0 58 142 Z"/>
+  </g>
+</svg>
