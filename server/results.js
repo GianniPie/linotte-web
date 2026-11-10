@@ -65,9 +65,12 @@ export async function recordResults(rows, { key = SECRET_KEY, url = SUPABASE_URL
 // tampering with the app) -- 2 per win, 1 per loss or draw played to the end,
 // minus 2 per game abandoned -- one for every 5 wins against the bot played
 // while signed in (not the guest games moved in at sign-in), and its bonuses
-// (bonuses.js). 0 without the secret key or on any error.
-export async function experience(userId, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
-  if (!userId || !key || !url) return 0;
+// (bonuses.js). With it, the online record that goes on the player card:
+// games played (abandoned ones count, as losses) and won. Zeros without the
+// secret key or on any error.
+const NONE = { xp: 0, record: { played: 0, won: 0 } };
+export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
+  if (!userId || !key || !url) return NONE;
   const count = async (filter) => {
     const query = `user_id=eq.${encodeURIComponent(userId)}&${filter}&select=id`;
     const res = await fetchImpl(`${url}/rest/v1/game_results?${query}`, {
@@ -87,10 +90,17 @@ export async function experience(userId, { key = SECRET_KEY, url = SUPABASE_URL,
       count("source=eq.server&abandoned=is.true"),
       bonusPoints(userId, { key, url, fetch: fetchImpl }),
     ]);
-    return ONLINE_WIN_POINTS * wins + ONLINE_FINISHED_POINTS * finished
-      + Math.floor(bot / BOT_WINS_PER_POINT) - ABANDON_PENALTY * abandoned + bonus;
+    return {
+      xp: ONLINE_WIN_POINTS * wins + ONLINE_FINISHED_POINTS * finished
+        + Math.floor(bot / BOT_WINS_PER_POINT) - ABANDON_PENALTY * abandoned + bonus,
+      record: { played: wins + finished + abandoned, won: wins },
+    };
   } catch (err) {
     console.error("experience not counted:", err.message);
-    return 0;
+    return NONE;
   }
+}
+
+export async function experience(userId, options) {
+  return (await accountStats(userId, options)).xp;
 }

@@ -27,7 +27,7 @@ export function updateGame(state, action) {
 // depend on a client's own Math.random. Offline/bot games omit it and the
 // engine rolls locally as before.
 function rollDice(state, values) {
-    if (state.dice.rollsLeft <= 0) return state;
+    if (!canRoll(state)) return state;
     for (let i = 0; i < 5; i++) {
         if (!state.dice.locked[i]) {
             state.dice.values[i] = values ? values[i] : rndNum(1, 6);
@@ -46,14 +46,46 @@ function stopRoll(state) {
 
 function lockDice(state, locked) {
     state.dice.locked = locked;
+    // A call still open that these locks make impossible is dropped (a
+    // Carré with 4 dice kept, any call with all 5): see callAllowed.
+    for (let i = 3; i < 8; i++) if (state.called[i] && !callAllowed(state, i)) state.called[i] = 0;
     return state;
 }
 
 
+// Only allowed calls are kept, one at most. (While the dice roll no call can
+// be made at all: the app and the server both refuse it.)
 function selectCall(state, called) {
-    state.called = called;
+    const next = [null, null, null, 0, 0, 0, 0, 0];
+    const pick = [3, 4, 5, 6, 7].find((i) => called[i] && callAllowed(state, i));
+    if (pick !== undefined) next[pick] = 1;
+    state.called = next;
     return state;
 }
+
+
+//--------- the rules of a roll and a call ---------
+const lockedCount = (state) => state.dice.locked.filter(Boolean).length;
+
+// ROLL needs a roll left and at least one die free to roll.
+export function canRoll(state) {
+    return state.dice.rollsLeft > 0 && lockedCount(state) < 5;
+}
+
+// Why a call (index 3..7: full, carre, petite, suite, yam) can't be made now,
+// or null when it can: after the turn's first roll and before its last
+// (it can change before each roll, never while the dice roll); never with all
+// 5 dice locked (nothing left to roll); a Carré never with 4 dice locked (one
+// die to roll for it is no gamble) nor when a Carré is already made.
+export function callBlockedBy(state, index) {
+    if (state.dice.rollsLeft === 3 || state.dice.rollsLeft <= 0) return "timing";
+    const n = lockedCount(state);
+    if (n >= 5) return "all_locked";
+    if (index === 4 && n >= 4) return "carre_four_locked";
+    if (index === 4 && state.combinationsRealized[4] === 1) return "carre_made";
+    return null;
+}
+export const callAllowed = (state, index) => callBlockedBy(state, index) === null;
 
 
 function placePiece(state, coordinates, player) {

@@ -46,7 +46,9 @@ export const QUEUE_BOT_DELAY_MS = [7000, 15000];
 export const BOT_TIME_SCALE = process.env.BOT_TIME_SCALE ? Number(process.env.BOT_TIME_SCALE) : 1;
 
 // The only chat there is: the client's emoji wheel. Anything else is dropped.
-export const EMOTES = ["🎲", "❤️", "😮", "🤣", "🙏🏻", "😡", "🥺", "🫤", "👋"];
+// The chat reactions players can send (the list lives in public/shared/chat.js
+// with their drawings and labels).
+export { CHAT_IDS as EMOTES } from "../public/shared/chat.js";
 
 // Where games are saved so they survive a server restart (see store.js):
 // Render Key Value's internal URL, e.g. redis://red-xxxxxxxx:6379. Empty:

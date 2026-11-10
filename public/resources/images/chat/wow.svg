@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 103.843 103.843">
+  <defs>
+    <style>
+      .cls-1{fill:#eabf4f}
+      .cls-2{fill:#9a7926}
+      .cls-3{fill:#2e1b09}
+    </style>
+  </defs>
+  <title>Asset 8</title>
+  <g id="Asset_8" data-name="Asset 8">
+    <g>
+      <g>
+        <g>
+          <circle cx="51.921" cy="51.921" r="48.421" class="cls-1"/>
+          <path d="M0 51.921 C0 23.246 23.246 0 51.921 0 C80.597 0 103.843 23.246 103.843 51.921 C103.843 80.597 80.597 103.843 51.921 103.843 C23.246 103.843 0 80.597 0 51.921 Z M51.921 7 C27.112 7 7 27.112 7 51.921 C7 76.731 27.112 96.843 51.921 96.843 C76.731 96.843 96.843 76.731 96.843 51.921 C96.843 27.112 76.731 7 51.921 7 Z" class="cls-2"/>
+        </g>
+        <g>
+          <ellipse cx="33.718" cy="39.2" rx="7.486" ry="10.362" class="cls-3"/>
+          <ellipse cx="70.125" cy="39.2" rx="7.486" ry="10.362" class="cls-3"/>
+        </g>
+      </g>
+      <ellipse cx="51.038" cy="71.543" rx="11.092" ry="13.093" class="cls-3"/>
+    </g>
+  </g>
+</svg>

@@ -19,7 +19,7 @@
 // Bump when sw.js's own strategy changes, or to flush stale copies. App files (see isAppShell) no
 // longer depend on this to update -- they are fetched network-first -- but a
 // new name evicts the stale copies older installs are holding.
-const CACHE_VERSION = "linotte-v2.18.0";
+const CACHE_VERSION = "linotte-v2.19.0";
 
 const PRECACHE_URLS = [
     "/",
@@ -29,6 +29,20 @@ const PRECACHE_URLS = [
     "/home.css",
     "/resources/images/stats.svg",
     "/resources/images/ranking.svg",
+    "/resources/images/levelroad.svg",
+    "/resources/images/chat.svg",
+    "/resources/images/chat/ok.svg",
+    "/resources/images/chat/hahah.svg",
+    "/resources/images/chat/wow.svg",
+    "/resources/images/chat/roll.svg",
+    "/resources/images/chat/heart.svg",
+    "/resources/images/chat/grrr.svg",
+    "/resources/images/chat/mhhh.svg",
+    "/resources/images/chat/pls.svg",
+    "/resources/images/chat/thx.svg",
+    "/resources/images/chat/hey.svg",
+    "/resources/images/chat/tick.svg",
+    "/resources/images/chat/ding.svg",
     "/resources/images/avatar-guest.svg",
     "/animations.css",
     "/linotte.js",
@@ -38,6 +52,7 @@ const PRECACHE_URLS = [
     "/stats.js",
     "/ads.js",
     "/ads.css",
+    "/levels.css",
     "/i18n.js",
     "/lang/it.js",
     "/lang/fr.js",
@@ -45,7 +60,6 @@ const PRECACHE_URLS = [
     "/lang/pt.js",
     "/lang/zh.js",
     "/demo.js",
-    "/emoji.js",
     "/demo.css",
     "/config.js",
     "/vendor/socket.io.esm.min.js",
@@ -62,6 +76,7 @@ const PRECACHE_URLS = [
     "/shared/accounts.js",
     "/shared/assets.js",
     "/shared/botAI.js",
+    "/shared/chat.js",
     "/shared/level.js",
     "/shared/demoScripts.js",
     "/shared/fairyTrail.js",

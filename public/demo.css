@@ -132,6 +132,12 @@
   height: 1.583em;
   border-width: .125em;
   border-radius: .417em;
+  /* The look of the menu's cards (Ranking, Stats...): translucent white,
+     the app's black-at-low-opacity frame, the brown Changa One. */
+  background-color: rgba(255, 255, 255, .82);
+  border-color: rgba(0, 0, 0, .35);
+  color: #3d240c;
+  -webkit-text-fill-color: #3d240c;
 }
 
 .demo-icon-btn {
@@ -145,8 +151,8 @@
   height: 2.923em;
   padding: 0;
   border-radius: 50%;
-  border: .2308em solid var(--btn-border-color); /* 3px on the phone */
-  background-color: rgba(255, 255, 255, .5);
+  border: .2308em solid rgba(0, 0, 0, .35); /* 3px on the phone */
+  background-color: rgba(255, 255, 255, .82);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -187,7 +193,7 @@
   font-size: 1.231em;
   padding: .625em .75em;
   border-radius: .625em;
-  background-color: rgba(255, 255, 255, .62);
+  background-color: rgba(255, 255, 255, .82);
   color: #000;
   font-family: var(--text-font);
   line-height: 1.45;

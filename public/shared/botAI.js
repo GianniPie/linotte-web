@@ -761,9 +761,15 @@ export function chooseCallToMake(state, player, strategy) {
   const keptValues = state.dice.values.filter((_, i) => actualLock[i] || state.dice.locked[i]);
 
   let best = null;
+  // The dice that will be locked for the next roll: with all five there is
+  // no roll to call for; with four, no Carré (see callBlockedBy).
+  const lockedNext = actualLock.filter((l, i) => l || state.dice.locked[i]).length;
+  if (lockedNext >= 5) return null;
+
   for (const comboKey of Object.keys(CALL_INDEX)) {
     // Not possible to call carre if a carre is already realized this throw.
     if (comboKey === "carre" && state.combinationsRealized[4] === 1) continue;
+    if (comboKey === "carre" && lockedNext >= 4) continue;
 
     // Calling the very combo already being chased is only ever useful when
     // its own two tiles are both taken — then the call is the ONLY way it

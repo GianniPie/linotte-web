@@ -76,6 +76,7 @@ function entitlement() {
 // answer is kept so the badge shows at once next time, even offline.
 const PRO_KEY = "linotte-pro";
 const XP_KEY = "linotte-xp";
+const RECORD_KEY = "linotte-record"; // { played, won } online, for the player card
 const TODAY_KEY = "linotte-today"; // { day, dailyDone, adsLeft } for the account
 export function lastKnownPro() {
     return read(PRO_KEY) === "1";
@@ -85,6 +86,10 @@ export function lastKnownPro() {
 export function lastKnownXp() {
     const v = read(XP_KEY);
     return v === null || v === "" ? null : Number(v) || 0;
+}
+// The account's online record as the server last said, null as a guest.
+export function lastKnownRecord() {
+    try { return JSON.parse(read(RECORD_KEY) || "null"); } catch { return null; }
 }
 export async function fetchPro({ fresh = false } = {}) {
     const token = await accessToken();
@@ -99,6 +104,7 @@ export async function fetchPro({ fresh = false } = {}) {
         const pro = Boolean(me.pro);
         write(PRO_KEY, pro ? "1" : "");
         write(XP_KEY, me.signedIn ? String(Number(me.xp) || 0) : "");
+        write(RECORD_KEY, me.signedIn && me.record ? JSON.stringify(me.record) : "");
         if (me.signedIn) write(TODAY_KEY, JSON.stringify({ day: utcDay(), dailyDone: Boolean(me.dailyDone), adsLeft: Number(me.adsLeft) || 0 }));
         return pro;
     } catch {
@@ -280,7 +286,7 @@ export class OnlineClient {
         });
     }
     sendEmote(id) {
-        if (this.socket?.connected) this.socket.emit("emote", { id });
+        return this.call("emote", { id });
     }
 }
 

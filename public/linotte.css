@@ -1474,9 +1474,12 @@ html.is-resizing *::after {
 .opt-header {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
+  /* back, Game, Options, Help, Ranking, Stats, Level road */
+  grid-template-columns: repeat(7, 1fr);
   align-items: center;
   height: 60px;
+  padding: 0 14px;
+  box-sizing: border-box;
 }
 
 .icon {
@@ -1484,9 +1487,10 @@ html.is-resizing *::after {
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;
-  height: 40px;
+  height: 36px;
   aspect-ratio: 1/1;
-  margin: 1em;
+  margin: 0;
+  justify-self: center;
 }
 
 /* The arrow is drawn by ::after. Opened from the home, the menu's header
@@ -1542,8 +1546,10 @@ html.is-resizing *::after {
   max-width: none;
   height: 2.75em;
   margin: .75em 0 1em;
-  grid-template-columns: 1fr auto auto 1fr;
-  column-gap: 5em;
+  padding: 0;
+  /* back, Options, Help, Ranking, Stats, Level road: spread over the bar */
+  grid-template-columns: repeat(6, auto);
+  justify-content: space-between;
 }
 
 .options-overlay[data-context="home"] .icon {
@@ -1555,10 +1561,14 @@ html.is-resizing *::after {
   justify-self: start;
 }
 
+.options-overlay[data-context="home"] .icon {
+  justify-self: auto;
+}
+
 .options-overlay[data-context="home"] .tab-indicator {
   margin-top: 0;
   top: calc(100% + .625em);
-  width: 4.125em;
+  width: 3em;
   height: .5em;
   border-radius: .25em;
 }
@@ -1579,6 +1589,174 @@ html.is-resizing *::after {
 
 #icon-tab3 {
   background-image: url("resources/images/t004.svg");
+}
+
+#icon-tab4 {
+  background-image: url("resources/images/ranking.svg");
+}
+
+#icon-tab5 {
+  background-image: url("resources/images/stats.svg");
+}
+
+#icon-tab6 {
+  background-image: url("resources/images/levelroad.svg");
+}
+
+/* The menu over a winner screen (opened from the level-up's LEVEL ROAD):
+   above the winner card (70) and the sheets (90), under the toasts (95). */
+.options-overlay.is-top {
+  z-index: 94;
+}
+
+
+/* ---------- the menu's pages share one look ----------
+   Game, Options and Help in the same translucent card as Ranking, Stats
+   (see .opt-sheet.sheet above): a heading in Changa One, no outlined pill,
+   thin lines between the sections. */
+.opt-sheet .title,
+.opt-flow .title {
+  width: auto;
+  height: auto;
+  margin: 0 0 .5em;
+  border: 0;
+  border-radius: 0;
+  font-family: "Changa One", sans-serif;
+  font-weight: 400;
+  font-size: 1.5em;
+  line-height: 1.1;
+  color: #3d240c;
+  -webkit-text-fill-color: #3d240c;
+}
+
+.opt-flow #rules-goal,
+.opt-sheet #rules-goal,
+#page-game .opt-sheet .title {
+  font-size: 1.9em;
+}
+
+.opt-sheet section {
+  width: 100%;
+  margin: 0;
+}
+
+.opt-sheet section + section,
+.opt-sheet .separator + section + section {
+  padding-top: .9em;
+  border-top: 1px solid rgba(0, 0, 0, .15);
+}
+
+.opt-sheet .separator {
+  display: none;
+}
+
+.opt-sheet .car-list-wrapper {
+  width: 100%;
+}
+
+/* The translucent white of the buttons would vanish on the card. */
+.opt-sheet .opt-btn,
+.opt-sheet .sound-btn {
+  background-color: rgba(0, 0, 0, .08);
+}
+
+/* Help: the text sits straight on the card. */
+:is(.opt-sheet, .opt-flow) .rules {
+  padding-bottom: 0;
+}
+
+:is(.opt-sheet, .opt-flow) .rules-section {
+  margin-bottom: 0;
+}
+
+.opt-sheet .rules-section + .rules-section {
+  margin-top: .9em;
+}
+
+:is(.opt-sheet, .opt-flow) .rules-section > .rules-block,
+:is(.opt-sheet, .opt-flow) .rules-combos,
+:is(.opt-sheet, .opt-flow) .rules-foot {
+  width: 100%;
+}
+
+:is(.opt-sheet, .opt-flow) .rules-block {
+  padding: 0;
+  background: none;
+}
+
+:is(.opt-sheet, .opt-flow) .rules-combos .rules-block {
+  padding: 0;
+  min-height: 0;
+}
+
+:is(.opt-sheet, .opt-flow) .rules-block.rules-score {
+  padding: 0;
+}
+
+:is(.opt-sheet, .opt-flow) .rules-icon {
+  background-color: rgba(0, 0, 0, .5);
+  border-color: rgba(0, 0, 0, .35);
+}
+
+.opt-sheet .rules-foot {
+  margin-top: 1.5em;
+  border-top-color: rgba(0, 0, 0, .15);
+}
+
+
+.opt-flow .separator {
+  display: none;
+}
+
+/* Captions under a title: what is chosen now (the titles themselves stay). */
+.opt-current {
+  margin: -.3em 0 .6em;
+  text-align: center;
+  font-family: "Changa One", sans-serif;
+  font-size: .95em;
+  color: #3d240c;
+  opacity: .65;
+}
+
+.opt-current:empty {
+  display: none;
+}
+
+/* Help: one card per section, like the level road's, straight on the
+   background. */
+.opt-flow .rules {
+  padding: 0 .8em 1.5em;
+  display: flex;
+  flex-direction: column;
+  gap: .7em;
+}
+
+.opt-flow .rules-section,
+.opt-flow .rules-foot {
+  margin: 0;
+  width: auto;
+  padding: .75em .9em .9em;
+  box-sizing: border-box;
+  border: .125em solid rgba(0, 0, 0, .18);
+  border-radius: .9em;
+  background: rgba(255, 255, 255, .88);
+  color: #3d240c;
+}
+
+/* Stats, ranking: the sheets' content, in a translucent card on the menu's
+   background. */
+.opt-sheet.sheet {
+  width: auto;
+  max-height: none;
+  overflow: visible;
+  margin: 0 .8em 1.5em;
+  background: rgba(255, 255, 255, .82);
+  box-shadow: none;
+  font-size: 16px;
+}
+
+.opt-sheet .sheet-view {
+  display: flex;
 }
 
 #icon-tab1.disabled {
@@ -2434,134 +2612,196 @@ button,
 }
 
 /* ============================================
-   CHAT EMOJI WHEEL
-   Graphic-only placeholder for future online play: a floating button
-   opens a dial of emoji pinned to the bottom-right corner, mostly off
-   -screen, with only the quarter-circle arc nearest the button showing.
-   Dragging the dial rotates it, bringing other emoji into that visible
-   arc; clicking one throws it to the center of the screen. It's fixed
-   positioned so it never takes layout space from ROLL/DONE's own grid.
+   CHAT REACTIONS
+   Online games only. A round button (placed by placeChatFab in linotte.js,
+   between the two players or in a corner) opens a FAN of icons, like the
+   Dock's stacks: they leave the button along a curve, each with a short
+   label on its side that only the sender reads. Tapping one sends it (the
+   receiver sees just the icon, tossed to the middle of the screen); the
+   bell is a nudge: the board shakes and rings for both.
    ============================================ */
 
 .chat-fab {
   position: fixed;
-  /* Tucked into the actual viewport corner -- on a phone-height screen
-     there's only ~20px of clearance below the board in any direction, not
-     enough to float a usable button above/beside ROLL/DONE without
-     touching them. The corner is pinned low enough that it stays clear of
-     the dice row (see .div-dice) above it -- that's the one overlap that
-     actually matters, since the dice are an active drop target and DONE's
-     corner underneath this button isn't. */
-  right: -8px;
-  bottom: calc(-8px + var(--ad-h));
-  width: 44px;
-  height: 44px;
+  left: calc(var(--fab-x, -100px) - var(--fab-size, 44px) / 2);
+  top: calc(var(--fab-y, -100px) - var(--fab-size, 44px) / 2);
+  width: var(--fab-size, 44px);
+  height: var(--fab-size, 44px);
+  padding: 0;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.6em;
-  /* Same gold as the coin-flip's front face (see .flip-coin-front) --
-     reads as "yellow" without introducing a brand new color. Same border
-     as every other button (--btn-border). */
-  background-color: rgb(232, 185, 35);
-  border: 3px solid var(--btn-border-color); /* a fixed 44px circle */
-  box-shadow: 0 4px 10px rgba(0, 0, 0, .3);
-  z-index: 40;
+  /* Translucent white like the other round controls, with the app's thin
+     bubble icon (chat.svg) in black at 50%. */
+  background: rgba(255, 255, 255, .55) url("resources/images/chat.svg") center / 68% no-repeat;
+  border: 3px solid rgba(0, 0, 0, .35);
+  box-sizing: border-box;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .2);
+  z-index: 47; /* above the fan it opens, to close it again */
   cursor: pointer;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .2s;
 }
 
-.chat-wheel-overlay.hidden {
-  /* Same compound-selector note as .flip-coin-overlay.hidden elsewhere in
-     this file: a bare .hidden{display:none} would tie on specificity with
-     this component's own later-declared display:block below and could
-     lose depending on source order, so it's paired with the component's
-     own class here instead. */
+.chat-fab[hidden],
+.chat-fan[hidden] {
   display: none;
 }
 
-.chat-wheel-overlay {
+/* The button's place: a third column beside DONE, in online games only
+   (body.chat-on, set by syncChat). ROLL and DONE give it room; the turn
+   label, which replaces them on the opponent's turn, keeps out of it. The
+   button itself is fixed and follows this slot. */
+.chat-slot {
+  display: none;
+}
+
+body.chat-on .div-buttons {
+  grid-template-columns: 1fr 1fr 44px;
+  grid-column-gap: 10px;
+}
+
+body.chat-on .div-buttons > .button.roll {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+body.chat-on .div-buttons > .button.done {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+body.chat-on .div-buttons > .turn-label {
+  grid-column: 1 / 3;
+  grid-row: 1;
+}
+
+body.chat-on .chat-slot {
+  display: block;
+  grid-column: 3;
+  grid-row: 1;
+  width: 44px;
+  height: 44px;
+}
+
+/* Open: only a little more solid, it doesn't turn. */
+.chat-fab[aria-expanded="true"] {
+  background-color: rgba(255, 255, 255, .85);
+}
+
+.chat-fan {
   position: fixed;
   inset: 0;
   z-index: 45; /* above the board, below options/home/winner/flip-coin overlays */
-  background: rgba(0, 0, 0, .15);
 }
 
-.chat-wheel {
-  position: fixed;
-  /* Center pinned on the same point the FAB is pinned above (its own
-     right/bottom offset plus half its own size -- see .chat-fab), so
-     exactly one quadrant of this ring falls inside the screen, anchored
-     right behind the button that opens it. It's fine for this (open only
-     while picking an emoji) to reach up over the dice -- only the FAB
-     that opens it has to stay clear of them, since that one's visible
-     throughout the turn, not just while picking. */
-  width: 220px;
-  height: 220px;
-  right: calc(8px + 22px - 110px);
-  bottom: calc(8px + 22px - 110px);
-  border-radius: 50%;
-  /* clip-path (not just border-radius, which doesn't affect hit-testing)
-     keeps the square element's corners outside the visible circle from
-     eating clicks meant for the backdrop behind them. */
-  clip-path: circle(50%);
-  background-color: rgba(255, 255, 255, .7);
-  touch-action: none; /* dragging is handled manually via pointer events */
-  /* Set from JS (see chatWheelRotation in linotte.js) as a custom property,
-     not a plain transform, so .chat-emoji below can read the same value
-     and cancel it out -- otherwise every emoji would visibly spin along
-     with the dial instead of staying upright as it's dragged. */
-  transform: rotate(var(--wheel-rotation, 0deg));
+.chat-fan-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  transition: background .15s;
 }
 
-.chat-emoji {
+.chat-fan.is-open .chat-fan-backdrop {
+  background: rgba(0, 0, 0, .18);
+}
+
+.chat-fan-items {
+  position: absolute;
+  left: var(--fab-x, 0);
+  top: var(--fab-y, 0);
+  width: 0;
+  height: 0;
+}
+
+/* Each item sits on the button and flies out to --dx/--dy when the fan
+   opens, one after the other (--i), springing a little past its place. */
+.chat-fan-item {
+  position: absolute;
+  left: calc(var(--item-size, 44px) / -2);
+  top: calc(var(--item-size, 44px) / -2);
+  width: var(--item-size, 44px);
+  height: var(--item-size, 44px);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  opacity: 0;
+  transform: translate(0, 0) scale(.3);
+  transition: transform .16s cubic-bezier(.3, 1.3, .5, 1), opacity .1s;
+  transition-delay: calc((var(--n) - var(--i)) * 6ms); /* closing: the far ones go first */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chat-fan.is-open .chat-fan-item {
+  opacity: 1;
+  transform: translate(var(--dx), var(--dy)) scale(1);
+  transition-delay: calc(var(--i) * 10ms);
+}
+
+.chat-fan-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3));
+  pointer-events: none;
+}
+
+/* The label: a small pill on the side of the icon, away from the curve. */
+.chat-fan-label {
   position: absolute;
   top: 50%;
-  left: 50%;
-  width: 56px;
-  height: 56px;
-  margin: -28px;
-  background: none;
-  border: none;
-  font-size: 2em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Place each emoji at radius 76px from the wheel's center at its own
-     fixed --angle, counter-rotate it back upright against that placement
-     (the standard "spoke" trick), then counter-rotate again against
-     whatever the dial's own live rotation currently is -- the net result
-     reads as 0deg no matter where on the dial it sits or how far the
-     dial's been spun. */
-  transform:
-    rotate(var(--angle))
-    translate(76px)
-    rotate(calc(-1 * var(--angle)))
-    rotate(calc(-1 * var(--wheel-rotation, 0deg)));
+  transform: translateY(-50%);
+  padding: .15em .7em;
+  border-radius: 1em;
+  background: rgba(255, 255, 255, .9);
+  color: #3d240c;
+  font: 15px/1.25 "Changa One", sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .18);
+  pointer-events: none;
 }
 
-/* The emoji are the app's own inline SVG drawings (emoji.js), not the OS's
-   glossy emoji font: flat like the rest of the game, identical everywhere. */
-.chat-emoji .emoji {
-  width: 38px;
-  height: 38px;
-  pointer-events: none; /* clicks still land on the button, not the image */
+.chat-fan[data-side="left"] .chat-fan-label {
+  right: calc(100% + 8px);
 }
 
-/* Plain white dots on the chat button, drawn with CSS -- simpler than an
-   emoji glyph and immune to the dark-mode safety net near the top of this
-   file (which forces `filter: none` on every <img>/<svg>). */
-.chat-fab-dots {
-  display: flex;
-  gap: 4px;
+.chat-fan[data-side="right"] .chat-fan-label {
+  left: calc(100% + 8px);
 }
 
-.chat-fab-dots span {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #fff;
+.chat-fan-item.is-wait {
+  filter: grayscale(1);
+  opacity: .5 !important;
+}
+
+.chat-fan-item:active img {
+  transform: scale(.9);
+}
+
+/* The nudge: the board shakes (MSN-style), both players'. `translate` and
+   `rotate` are their own properties, so they add to the board's own
+   transform (the table flip) instead of replacing it. */
+body.nudge .div-table {
+  animation: nudgeShake .8s cubic-bezier(.36, .07, .19, .97) both;
+}
+
+@keyframes nudgeShake {
+  0%, 100% { translate: 0 0; rotate: 0deg; }
+  8% { translate: -12px 3px; rotate: -1.4deg; }
+  16% { translate: 12px -3px; rotate: 1.4deg; }
+  24% { translate: -11px 2px; rotate: -1.2deg; }
+  32% { translate: 11px -2px; rotate: 1.2deg; }
+  42% { translate: -8px 2px; rotate: -.9deg; }
+  52% { translate: 8px -2px; rotate: .9deg; }
+  64% { translate: -5px 1px; rotate: -.5deg; }
+  76% { translate: 4px -1px; rotate: .4deg; }
+  88% { translate: -2px 0; rotate: -.2deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.nudge .div-table { animation: none; }
+  .chat-fan-item { transition: none; }
 }
 
 .chat-toss-stage {
@@ -2590,10 +2830,11 @@ body:has(#options-overlay:not(.hidden)) .chat-toss-stage {
      couple of fixed stops) can't produce on their own. */
 }
 
-.chat-toss-emoji .emoji {
+.chat-toss-emoji img {
   display: block;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .3));
 }
 
 
@@ -2671,7 +2912,7 @@ label {
   position: relative;
 }
 
-.player.is-pro[data-badge]:not([data-badge=""])::after {
+.player[data-badge]:not([data-badge=""])::after {
   content: attr(data-badge);
   position: absolute;
   top: 0;
@@ -2687,6 +2928,75 @@ label {
   color: var(--badge-ink, #3d240c);
   border: .1em solid rgba(0, 0, 0, .35);
   font-variant-numeric: tabular-nums;
+}
+
+/* Everyone's level shows; Pro adds the star (in the text) and a gold frame. */
+.player.is-pro[data-badge]:not([data-badge=""])::after {
+  border-color: rgb(232, 185, 35);
+  box-shadow: 0 0 0 .1em rgba(232, 185, 35, .55);
+}
+
+/* The player card's level: the badge they wear in the game, bigger, with
+   Pro / Free / Guest in small under it. */
+.pc-badge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .25em;
+}
+
+.pc-badge-wrap[hidden],
+.pc-badge[hidden] {
+  display: none;
+}
+
+.pc-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 5em;
+  padding: .25em 1.1em .3em;
+  border-radius: 1.2em;
+  background: var(--badge-bg, rgba(255, 255, 255, .9));
+  color: var(--badge-ink, #3d240c);
+  border: .15em solid rgba(0, 0, 0, .35);
+  font-family: "Changa One", sans-serif;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pc-badge small {
+  font-size: .75em;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  opacity: .8;
+}
+
+.pc-badge b {
+  font-weight: normal;
+  font-size: 2.3em;
+}
+
+.pc-badge.is-pro {
+  border-color: rgb(232, 185, 35);
+  box-shadow: 0 0 0 .15em rgba(232, 185, 35, .55);
+}
+
+.pc-plan {
+  font-family: "Changa One", sans-serif;
+  font-size: .8em;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  opacity: .7;
+}
+
+.pc-plan.is-pro {
+  opacity: 1;
+  color: #8a6400;
+}
+
+.pc-record[hidden] {
+  display: none;
 }
 
 
@@ -2864,8 +3174,7 @@ body.rooms-need-pro:not(.is-pro) #friend-create::after {
   font-size: 1.05em;
 }
 
-.player-card-country[hidden],
-.plan-pill[hidden] {
+.player-card-country[hidden] {
   display: none;
 }
 

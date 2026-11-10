@@ -141,6 +141,7 @@ let rollBtnEnabled = true;
 let doneBtnEnabled = true;
 let pieceEnabled = true;
 let isGameOver = false;
+let chatSync = () => {}; // set once the chat is built (see syncChat)
 // Guards playEndGameSequence against running twice for the same game --
 // see its own comment for why that could otherwise happen and cut the
 // celebration short.
@@ -177,19 +178,19 @@ window.addEventListener('orientationchange', onViewportChange);
 //----------- GAME STATE ---------------
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
 import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces, avatarIds, avatarUrl } from "./shared/assets.js";
-import { updateGame } from "./shared/gameEngine.js";
+import { updateGame, canRoll, callBlockedBy } from "./shared/gameEngine.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget } from "./shared/botAI.js";
 import GameController from './shared/gameController.js';
 import { playFairyTrail } from "./shared/fairyTrail.js";
 import { initCombinationDemos } from "./demo.js";
-import { emojiMarkup, emojiLabel } from "./emoji.js";
+import { CHAT, chatImage, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME } from "./shared/chat.js";
 import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
 import { nameProblem, cleanPlayerName, COUNTRIES, flagOf } from "./shared/playerNames.js";
 import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
 import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAbandon, guestToday, guestAdReward } from "./stats.js";
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
-import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
+import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
 import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
@@ -303,6 +304,7 @@ function refreshContinueCard() {
 
 function showHomeScreen() {
     showBackground(ownBackground()); // an online game's table was someone else's
+    setTimeout(chatSync, 0);
     optionsOverlay.classList.add("hidden");
     flipPending = false;
     document.body.classList.remove("table-flipped"); // the home is never upside down
@@ -411,20 +413,44 @@ function renderPlayerBox(player) {
 
     textPlayerP1.textContent = gameState.players[1].name;
     textPlayerP2.textContent = gameState.players[2].name;
-    // Online, the server says who is Pro: they carry their badge, a star and
-    // their level. Everything else (country, Pro, level) is on the card a
-    // tap on the box opens (showPlayerCard).
+    // Every player shows their level on their box (online, the server says
+    // it, for signed-in players); Pro adds a star and a gold frame. Against
+    // the bot, this phone's player shows their own. Everything else (country,
+    // Pro, record) is on the card a tap on the box opens (showPlayerCard).
     for (const seat of [1, 2]) {
         const p = gameState.players[seat];
         const box = document.getElementById(seat === 1 ? "playerP1" : "playerP2");
-        box.classList.toggle("is-pro", Boolean(p.pro));
-        box.dataset.badge = p.pro ? `★ ${p.level ?? 0}` : "";
-        box.dataset.tier = p.pro ? badgeTier(p.level ?? 0) : "";
+        const level = controller?.mode === "bot" && seat === 1 ? levelOf(myXp()) : p.level ?? null;
+        const pro = controller?.mode === "bot" && seat === 1 ? document.body.classList.contains("is-pro") : Boolean(p.pro);
+        box.classList.toggle("is-pro", pro);
+        box.dataset.badge = level === null ? "" : `${pro ? "★ " : ""}${t("Lv {n}", { n: level })}`;
+        box.dataset.tier = level === null ? "" : badgeTier(level);
     }
     // Online names ("Crane36") are longer than YOU/BOT/P1: a smaller size
     // keeps them whole instead of ending in "...".
     textPlayerP1.classList.toggle("long", gameState.players[1].name.length > 5);
     textPlayerP2.classList.toggle("long", gameState.players[2].name.length > 5);
+}
+
+// The same face for the player card and the account sheet: the level as the
+// badge worn in the game, Pro / Free / Guest in small under it, and the
+// online record. `prefix` is the ids' ("pc" or "ac").
+function paintIdentity(prefix, { level, pro, plan, rec }) {
+    const badge = byId(`${prefix}-badge`);
+    badge.hidden = level === null;
+    badge.classList.toggle("is-pro", pro);
+    badge.dataset.tier = level === null ? "" : badgeTier(level);
+    byId(`${prefix}-badge-label`).textContent = t("Level");
+    byId(`${prefix}-badge-num`).textContent = level === null ? "" : `${pro ? "\u2605\u2009" : ""}${level}`;
+    const label = byId(`${prefix}-plan`);
+    label.textContent = plan;
+    label.classList.toggle("is-pro", pro);
+    byId(`${prefix}-record`).hidden = !rec;
+    if (rec) {
+        byId(`${prefix}-played`).textContent = rec.played;
+        byId(`${prefix}-won`).textContent = rec.won;
+        byId(`${prefix}-rate`).textContent = rec.played ? `${Math.round((rec.won / rec.played) * 100)}%` : "\u2013";
+    }
 }
 
 // A tap on a player's box: who they are. Their name, country and, online,
@@ -443,14 +469,17 @@ function showPlayerCard(seat) {
     byId("pc-country").textContent = country ? `${flagOf(country)}\u2002${countryName}` : "";
     byId("pc-country").hidden = !country;
 
+    // Their level, big, as the badge they wear in the game (Pro: a star and a
+    // gold frame); under it, in small, Pro / Free / Guest. Every signed-in
+    // player's level is known (the server says it online); your own always.
     const pro = mine ? document.body.classList.contains("is-pro") : Boolean(p.pro);
-    const plan = byId("pc-plan");
-    plan.hidden = isBot || controller.mode === "offline";
-    plan.textContent = pro ? `★ ${t("Linotte Pro")}` : t("Free version");
-    plan.classList.toggle("is-pro", pro);
-
-    const level = mine ? levelOf(myXp()) : p.pro && p.level != null ? p.level : null;
-    byId("pc-level").textContent = level === null ? "" : t("Level {n}", { n: level });
+    const level = mine && controller.mode !== "online" ? levelOf(myXp()) : p.level ?? (mine ? levelOf(myXp()) : null);
+    const guest = mine ? !currentUser() : level === null;
+    // The online record (won, and the share of games won), where there is one:
+    // signed-in players, from the server's count.
+    const rec = controller.mode === "online" ? p.record : mine && currentUser() ? lastKnownRecord() : null;
+    paintIdentity("pc", { level, pro, plan: guest ? t("Guest") : pro ? t("Pro") : t("Free"), rec });
+    byId("pc-badge-wrap").hidden = isBot || controller.mode === "offline";
     showOnlineView("player");
 }
 boxPlayer1.addEventListener("click", () => showPlayerCard(1));
@@ -704,7 +733,7 @@ const startLevel = levelOf(lastKnownXp() ?? guestXp());
 const lookOrFree = (kind, saved) => (startLevel >= unlockLevel(kind, saved) ? saved : FREE_LOOKS[kind]);
 let dieCookie = lookOrFree("dice", Number(getCookie("diceFaces", FREE_LOOKS.dice)));
 document.getElementById("do" + dieCookie).classList.add("selected"); //option section
-document.getElementById("dice-title").textContent = t(diceNames[dieCookie]);
+document.getElementById("dice-current").textContent = t(diceNames[dieCookie]);
 let faces = diceFaces[dieCookie];  //faces of the selected die
 
 let selectedDie = dicePath + faces;
@@ -739,7 +768,7 @@ function showTableLook(look, fresh) {
 
 let selectedBg = lookOrFree("background", Number(getCookie("background", FREE_LOOKS.background)));
 document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
-document.getElementById("bg-title").textContent = humanizeBgName(backgrounds[selectedBg]);
+document.getElementById("bg-current").textContent = humanizeBgName(backgrounds[selectedBg]);
 for (let i = 0; i < backgrounds.length; i++) {
     preload(bgPath + backgrounds[i]);
 }
@@ -754,11 +783,6 @@ if (isVolumeOn == true) {
 } else {
     document.getElementById("sound-off").classList.add("selected");
 }
-// The section title says which one is on.
-function updateSoundTitle() {
-    document.getElementById("sound-title").textContent = isVolumeOn ? t("Sound") : t("No sound");
-}
-updateSoundTitle();
 
 
 function setCookie(name, value, days = 365) {
@@ -997,6 +1021,7 @@ function updateGameTab() {
 // handed over) turns the game now, once the menu is out of the way.
 function closeOptions() {
     optionsOverlay.classList.add("hidden");
+    optionsOverlay.classList.remove("is-top");
     // Back on the home, the arrow turns into the options icon again.
     if (optionsOverlay.dataset.context === "home") {
         const settings = document.getElementById("home-settings");
@@ -1039,21 +1064,34 @@ function handleTab(page) {
     currentOptionsTab = page;
     moveIndicator(page);
     if (page === "options") requestAnimationFrame(() => centerLists());
+    // The pages that show the player's own progress are filled each time they open.
+    if (page === "ranking") showRanking(rankingTab);
+    else if (page === "stats") showStats();
+    else if (page === "road") showRoad();
+}
+
+// Opens the menu on one of its pages (the home's shortcuts, the level-up's
+// LEVEL ROAD...), or switches to it when the menu is already open. `top`
+// puts the menu above a winner screen.
+function openMenuPage(page, { top = false } = {}) {
+    if (optionsOverlay.classList.contains("hidden")) {
+        optionsOverlay.classList.toggle("is-top", top);
+        openOptions(isHomeShown() ? "home" : "game", page);
+    } else {
+        handleTab(page);
+    }
 }
 
 function moveIndicator(page) {
     // Relative to the header (the indicator's positioned parent), which is
     // centered and no longer starts at x=0 on wide screens.
     const headerLeft = document.querySelector(".opt-header").getBoundingClientRect().left;
-    const rect1 = document.getElementById("icon-tab1").getBoundingClientRect();
-    const rect2 = document.getElementById("icon-tab2").getBoundingClientRect();
-    const rect3 = document.getElementById("icon-tab3").getBoundingClientRect();
-
+    const icon = document.querySelector(`.opt-header .icon[data-page="${page}"]`);
+    if (!icon) return;
+    const rect = icon.getBoundingClientRect();
     // Centred under its icon, whatever the two sizes (larger from the home).
     const indicator = document.getElementById("tabIndicator");
-    const under = (r) => r.left - headerLeft + (r.width - indicator.offsetWidth) / 2;
-    const map = { game: under(rect1), options: under(rect2), help: under(rect3) };
-    indicator.style.left = map[page] + "px";
+    indicator.style.left = (rect.left - headerLeft + (rect.width - indicator.offsetWidth) / 2) + "px";
 }
 
 
@@ -1069,7 +1107,6 @@ volumeOptions.forEach(volumeOption => {
             isVolumeOn = true;
         }
         setCookie("volumeOn", isVolumeOn);
-        updateSoundTitle();
     });
 });
 
@@ -1283,7 +1320,7 @@ dieOptions.forEach(dieOption => {
         dieOption.classList.add("selected");
 
         var dieId = Number(dieOption.id[2]);
-        document.getElementById("dice-title").textContent = t(diceNames[dieId]);
+        document.getElementById("dice-current").textContent = t(diceNames[dieId]);
         faces = diceFaces[dieId];
         selectedDie = dicePath + faces;
         const diceSpriteImg = new Image();
@@ -1303,7 +1340,7 @@ bgOptions.forEach(bgOption => {
         bgOption.classList.add("selected");
 
         var bgId = Number(bgOption.id[2]);
-        document.getElementById("bg-title").textContent = humanizeBgName(backgrounds[bgId]);
+        document.getElementById("bg-current").textContent = humanizeBgName(backgrounds[bgId]);
 
         showBackground(bgId);
         setCookie("background", bgId);
@@ -1346,7 +1383,7 @@ bgOptions.forEach(bgOption => {
 
 function showPieceChoice(i) {
     document.querySelectorAll(".piece-options").forEach((el) => el.classList.toggle("selected", el.id === "po" + i));
-    document.getElementById("piece-title").textContent = isPlayPiece(i) ? t("Your piece") : t("Random piece");
+    document.getElementById("piece-current").textContent = isPlayPiece(i) ? t("Your piece") : t("Random piece");
 }
 
 function selectPiece(i) {
@@ -1379,7 +1416,7 @@ function selectPiece(i) {
 })();
 
 function renderTidyness(tidyness) {
-    const boardTitle = document.getElementById("board-title");
+    const boardTitle = document.getElementById("board-current");
     const boardTexts = document.querySelectorAll('.board-options-text');
     boardTexts.forEach(t => t.classList.remove('selected'));
 
@@ -1524,6 +1561,7 @@ function checkGameOver() {
     rollBtnEnabled = false;
     doneBtnEnabled = false;
     isGameOver = true;
+    chatSync();
 
     // The game is over: dice, results/calls and ROLL no longer do
     // anything, so all three dim to the exact same level the bot's-turn
@@ -1581,19 +1619,25 @@ function noteGameResult(winner) {
         opponentPoints: gameState.players[other].points,
         opponent: controller.mode === "bot" ? "Bot" : gameState.players[other].name,
     });
-    if ((winner === me || mode !== "bot") && currentUser()) {
-        recorded.then(() => setTimeout(() => refreshPro({ fresh: true }), mode === "bot" ? 0 : 1500));
-    } else if (!currentUser()) {
-        recorded.then((r) => {
-            if (r?.daily) {
-                showToast(t("First win of the day: +{n} bonus points!", { n: 2 }), 3000);
-                setTimeout(() => celebrateLevel(xpBefore, guestXp()), 3200);
-            } else {
-                celebrateLevel(xpBefore, guestXp());
-            }
+    // What the game was worth: the points earned and the way to the next
+    // level, on the winner card, then the celebration if a level was reached.
+    recorded.then(async (r) => {
+        let after;
+        if (currentUser()) {
+            if (mode === "bot" && winner !== me) return; // a lost bot game earns nothing
+            await sleep(mode === "bot" ? 0 : 1500); // online: the server has to record it
+            await refreshPro({ fresh: true, celebrate: false });
+            after = lastKnownXp() ?? xpBefore;
+        } else {
+            if (r?.daily) showToast(t("First win of the day: +{n} bonus points!", { n: 2 }), 3000);
+            after = guestXp();
             showHomeBadge();
-        });
-    }
+        }
+        if (after === xpBefore) return;
+        xpStrip = { base: xpBefore, after };
+        showXpGain(xpBefore, after);
+        setTimeout(() => celebrateLevel(xpBefore, after), 1700);
+    });
 }
 
 function determineWinner() {
@@ -1605,6 +1649,7 @@ function determineWinner() {
 
 
 function showWinnerPopup(winner) {
+    resetXpGain();
     noteGameResult(winner);
     const pointsEl = document.getElementById("winner-points");
     if (winner) { // both player 1 or 2
@@ -1739,6 +1784,8 @@ rollBtn.addEventListener("click", function () {
     if (!isMyTurn()) return;
     if (rollBtnEnabled == false) return;
     if (gameState.dice.rollsLeft < 1) return;
+    // All five dice locked: nothing to roll (see canRoll in gameEngine.js).
+    if (!canRoll(gameState)) { showToast(t("Unlock at least one die to roll.")); return; }
     rollBtnEnabled = false;
     doneBtnEnabled = false;
 
@@ -1756,6 +1803,7 @@ rollBtn.addEventListener("click", function () {
 
     const rollsBefore = gameState.dice.rollsLeft;
     controller.dispatch({ type: "ROLL_DICE" });
+    showCalls(); // a call made before this roll is now fixed
     rollAnimationID = setInterval(rollAnimation, 100);
     stopRollID = setInterval(stopRoll, 1200);
 
@@ -2122,8 +2170,27 @@ doneBtn.addEventListener("click", () => {
 // to have (the server's dice are still on their way).
 function setRollsLeftUI(n) {
     rollBtnText.innerText = t("ROLL {n}", { n });
-    rollBtn.classList.toggle("is-inactive", n < 1);
+    rollBtn.classList.toggle("is-inactive", n < 1 || gameState.dice.locked.every(Boolean));
     doneBtn.classList.toggle("is-inactive", n >= 3);
+}
+
+// After the dice locks change: ROLL greys out with all five locked, and a
+// call the locks made impossible (a Carré with 4 dice kept, any call with
+// all 5) is dropped by the engine -- shown here, and said once.
+function afterLocksChanged({ mine = true } = {}) {
+    rollBtn.classList.toggle("is-inactive", gameState.dice.rollsLeft < 1 || gameState.dice.locked.every(Boolean));
+    const before = ccElements.findIndex((cc) => cc.classList.contains("checked"));
+    showCalls();
+    if (mine && before >= 3 && !gameState.called[before]) {
+        showToast(before === 4 && !gameState.dice.locked.every(Boolean)
+            ? t("Carré call cancelled: you can't call it with 4 dice locked.")
+            : t("Call cancelled: with all the dice locked there's nothing to roll."), 3500);
+    }
+}
+
+// The calls as the state has them (the engine may have dropped one).
+function showCalls() {
+    ccElements.forEach((cc, i) => cc.classList.toggle("checked", i >= 3 && Boolean(gameState.called[i])));
 }
 
 //----------- PRESS FEEDBACK -----------------
@@ -2531,6 +2598,7 @@ async function playBotTurn() {
             rollRecord.lock = locked.map((l) => (l ? 1 : 0));
             await applyBotLock(locked);
             await sleep(800);
+            if (gameState.dice.locked.every(Boolean)) break; // keeping all five: nothing to roll
         }
 
         await sleep(600);
@@ -2561,6 +2629,7 @@ async function botRoll() {
         new Audio("resources/sounds/roll.mp3").play();
     }
     controller.dispatch({ type: "ROLL_DICE" });
+    showCalls(); // the bot's call, if any, is now fixed
     setRollsLeftUI(gameState.dice.rollsLeft);
     tileElements.forEach(el => el.classList.remove("tile_highlighted"));
     rrElements.forEach(el => el.classList.remove("highlighted"));
@@ -2676,6 +2745,7 @@ document.querySelectorAll(".die").forEach(el => {
         }
 
         controller.dispatch({ type: "LOCK_DICE", locked: gameState.dice.locked });
+        afterLocksChanged();
 
         // socket.emit("action", {
         //     type: "LOCK_DICE",
@@ -2719,30 +2789,26 @@ document.querySelectorAll(".result").forEach(el => {
 
         //Only for selectable results
         if (!el.classList.contains("selectable")) return;
-        //Only if not firts throw
-        if (gameState.dice.rollsLeft === 3) return;
-
         const elemId = document.getElementById(this.id).id;
-        const targetId = idToIndex(elemId);
-        const targetDiv = document.getElementById("cc" + targetId);
-    
-        if(gameState.called[targetId]){
-            targetDiv.classList.remove("checked");
+        const targetId = Number(idToIndex(elemId)); // "3" -> 3: the rules compare numbers
+
+        // The rules of a call live in the engine (callBlockedBy): after the
+        // first roll, changeable before each roll (never mid-roll: see
+        // rollBtnEnabled above), never with all 5 dice locked, a Carré never
+        // with 4 locked nor when a Carré is already made.
+        if (gameState.called[targetId]) {
             gameState.called[targetId] = 0;
         } else {
-            document.querySelectorAll(".call.selectable").forEach(el => {
-                el.classList.remove("checked"); // reset
-                gameState.called[idToIndex(el.id)] = 0;
-            });
-            //Not possible to call carre if 4 dice are locked
-            if (document.querySelectorAll(".die.selected").length === 4 && targetDiv === "cc5") { syncCall(); return; }
-            //Not possible to call carre on carre
-            if (gameState.combinationsRealized[4] === 1 && targetDiv === "cc5") { syncCall(); return; }
-            //Only if at least one die is rolled
-            if (document.querySelectorAll(".die.selected").length === 5) { syncCall(); return; }
-
-            targetDiv.classList.add("checked");
-            gameState.called[targetId] = 1;
+            const why = callBlockedBy(gameState, targetId);
+            if (why) {
+                const say = {
+                    all_locked: t("Unlock at least one die to call."),
+                    carre_four_locked: t("You can't call Carré with 4 dice locked."),
+                }[why];
+                if (say) showToast(say);
+                return;
+            }
+            for (let i = 3; i < 8; i++) gameState.called[i] = i === targetId ? 1 : 0;
         }
         syncCall();
     });
@@ -2752,6 +2818,7 @@ document.querySelectorAll(".result").forEach(el => {
 // lets the opponent see the call being made.
 function syncCall() {
     controller.dispatch({ type: "SELEC_CALL", called: gameState.called.slice() });
+    showCalls();
 }
 
 
@@ -2888,157 +2955,228 @@ function renderBoardFromState(table) {
 // });
 
 
-//------------------ CHAT EMOJI WHEEL ----------------------
-// Graphic-only placeholder for future online play -- there's no peer to
-// send a thrown emoji to yet, so it just plays the toss animation locally.
+//------------------ CHAT REACTIONS (the fan) ----------------------
+// Online games only. A round button (between the two players, or in a corner:
+// see placeChatFab) opens a fan of icons like the Dock's stacks; each is
+// labelled for the sender and the receiver sees just the icon (tossed to the
+// middle of the screen, throwChatEmoji). The bell is a nudge, like MSN's: the
+// board shakes and rings for both (nudgeBoard). The list is in
+// shared/chat.js; the server only relays these and limits the bell.
 const chatFab = document.getElementById("chat-fab");
-const chatWheelOverlay = document.getElementById("chat-wheel-overlay");
-const chatWheel = document.getElementById("chat-wheel");
+const chatFan = document.getElementById("chat-fan");
+const chatFanItems = document.getElementById("chat-fan-items");
 const chatTossStage = document.getElementById("chat-toss-stage");
 
-// The app's own emoji drawings (emoji.js) instead of the OS's glossy emoji
-// font: flat and outlined like the rest of the game, identical everywhere,
-// and part of the app (nothing to download, works offline). The buttons
-// keep the emoji character in data-emoji -- that's what is sent online.
-chatWheel.querySelectorAll(".chat-emoji").forEach((btn) => {
-    btn.innerHTML = emojiMarkup(btn.dataset.emoji);
-    btn.setAttribute("aria-label", emojiLabel(btn.dataset.emoji));
+let chatAnchor = { x: 0, y: 0, size: 44 };
+
+CHAT.forEach((c, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chat-fan-item";
+    btn.dataset.id = c.id;
+    btn.style.setProperty("--i", i);
+    btn.style.setProperty("--n", CHAT.length);
+    const img = document.createElement("img");
+    img.src = chatImage(c.id);
+    img.alt = "";
+    const label = document.createElement("span");
+    label.className = "chat-fan-label";
+    label.textContent = t(c.label);
+    btn.setAttribute("aria-label", t(c.label));
+    btn.append(img, label);
+    btn.addEventListener("click", () => pickChat(c.id, btn));
+    chatFanItems.appendChild(btn);
 });
 
-let chatWheelRotation = 0;
-let chatWheelDragging = false;
-let chatWheelPointerId = null;
-let chatWheelDragStartAngle = 0;
-let chatWheelDragStartRotation = 0;
-let chatWheelDragStartX = 0;
-let chatWheelDragStartY = 0;
-let chatWheelDidDrag = false;
-let chatWheelDownBtn = null;
-let chatWheelLastAngle = 0;
-let chatWheelLastTime = 0;
-let chatWheelVelocity = 0; // degrees per ms, for the release-inertia spin below
-let chatWheelInertiaFrame = null;
-
-function chatWheelAngleFromCenter(x, y) {
-    const rect = chatWheel.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
+// Shown only while an online game is being played.
+function chatAvailable() {
+    return controller.mode === "online" && gameInProgress && !isGameOver && !isHomeShown();
 }
 
-function setChatWheelRotation(deg) {
-    chatWheelRotation = deg;
-    // A custom property, not a plain transform -- .chat-emoji's own
-    // transform (see linotte.css) reads this same value to counter-rotate
-    // itself, so every emoji stays upright regardless of the dial's spin.
-    chatWheel.style.setProperty("--wheel-rotation", chatWheelRotation + "deg");
+function syncChat() {
+    const on = chatAvailable();
+    document.body.classList.toggle("chat-on", on); // makes room beside DONE
+    chatFab.hidden = !on;
+    if (!on) { closeChatFan(true); return; }
+    placeChatFab();
 }
+chatSync = syncChat;
+setInterval(syncChat, 400);
+window.addEventListener("resize", syncChat);
+window.addEventListener("orientationchange", () => setTimeout(syncChat, 200));
 
-function stopChatWheelInertia() {
-    if (chatWheelInertiaFrame !== null) {
-        cancelAnimationFrame(chatWheelInertiaFrame);
-        chatWheelInertiaFrame = null;
+// The button follows its slot beside DONE (see .chat-slot in linotte.css).
+function placeChatFab() {
+    const r = document.getElementById("chat-slot").getBoundingClientRect();
+    if (!r.width) return; // not laid out yet: placed on the next tick
+    const x = r.left + r.width / 2, y = r.top + r.height / 2, size = 44;
+    chatAnchor = { x, y, size };
+    for (const el of [chatFab, chatFan]) {
+        el.style.setProperty("--fab-x", `${x}px`);
+        el.style.setProperty("--fab-y", `${y}px`);
+        el.style.setProperty("--fab-size", `${size}px`);
     }
 }
 
-chatFab.addEventListener("click", () => {
-    chatWheelOverlay.classList.remove("hidden");
-});
+// The fan's geometry, from where the button is: it opens toward the middle of
+// the screen, leaving the button along an axis that tilts only as much as
+// the room needs (straight up or down on a phone held upright, diagonal on
+// a wide, short screen), bending away from the edge like the Dock's stacks.
+function layoutChatFan() {
+    const n = CHAT.length;
+    const vw = innerWidth, vh = innerHeight, margin = 10;
+    const item = vh < 720 ? 40 : 44; // smaller on short screens, to fit all twelve
+    const step = item + 3;
+    const { x: ax, y: ay, size } = chatAnchor;
+    const down = ay < vh / 2;
+    const bend = ax > vw / 2 ? -1 : 1; // toward the middle, sideways
+    const roomY = (down ? vh - ay : ay) - margin - item / 2 - size / 2;
+    const tilt = Math.acos(Math.min(1, Math.max(0.2, roomY / (n * step))));
+    const curve = 0.75 * (1 - Math.sin(tilt)); // a tilted axis already spreads it out
+    chatFan.style.setProperty("--item-size", `${item}px`);
+    const spots = CHAT.map((_, i) => {
+        const k = i + 1;
+        const along = k * step;
+        return {
+            dx: bend * (along * Math.sin(tilt) + curve * k * k),
+            dy: (down ? 1 : -1) * along * Math.cos(tilt),
+        };
+    });
 
-chatWheelOverlay.addEventListener("click", (e) => {
-    if (e.target === chatWheelOverlay) {
-        stopChatWheelInertia();
-        chatWheelOverlay.classList.add("hidden");
-    }
-});
+    // Labels go on the side where they fit (preferably away from the bend).
+    const els = [...chatFanItems.children];
+    const widest = Math.max(...els.map((el) => el.querySelector(".chat-fan-label").offsetWidth));
+    const left = ax + Math.min(...spots.map((p) => p.dx)) - item / 2 - 8 - widest;
+    const right = ax + Math.max(...spots.map((p) => p.dx)) + item / 2 + 8 + widest;
+    const fitsLeft = left >= margin, fitsRight = right <= vw - margin;
+    let side = bend < 0 ? "right" : "left"; // away from the bend
+    if (side === "left" && !fitsLeft) side = "right";
+    if (side === "right" && !fitsRight) side = "left";
+    chatFan.dataset.side = side;
+    // Still too wide (a narrow screen): slide the whole fan back inside.
+    let shift = 0;
+    const lo = side === "left" ? left : ax + Math.min(...spots.map((p) => p.dx)) - item / 2;
+    const hi = side === "right" ? right : ax + Math.max(...spots.map((p) => p.dx)) + item / 2;
+    // Back inside the screen; the icons stay whole first, the labels second.
+    shift = Math.min(margin - lo > 0 ? margin - lo : 0, vw - margin - hi);
+    els.forEach((el, i) => {
+        el.style.setProperty("--dx", `${spots[i].dx + shift}px`);
+        el.style.setProperty("--dy", `${spots[i].dy}px`);
+    });
+}
 
-chatWheel.addEventListener("pointerdown", (e) => {
-    stopChatWheelInertia(); // grabbing the dial takes over from any spin still coasting
-    chatWheelDragging = true;
-    chatWheelDidDrag = false;
-    chatWheelPointerId = e.pointerId;
-    // setPointerCapture below re-targets the pointerup (and the click that
-    // follows it) to chatWheel itself, no matter what's visually under the
-    // pointer -- so a plain per-button "click" listener never actually
-    // fires once capture is set on an ancestor. Recording the button a
-    // press started on here, and acting on it in endChatWheelDrag's own
-    // pointerup instead of waiting for a click that will never arrive, is
-    // what makes picking an emoji work at all.
-    chatWheelDownBtn = e.target.closest(".chat-emoji");
-    chatWheelDragStartX = e.clientX;
-    chatWheelDragStartY = e.clientY;
-    chatWheelDragStartAngle = chatWheelAngleFromCenter(e.clientX, e.clientY);
-    chatWheelDragStartRotation = chatWheelRotation;
-    chatWheelLastAngle = chatWheelDragStartAngle;
-    chatWheelLastTime = performance.now();
-    chatWheelVelocity = 0;
-    chatWheel.setPointerCapture(e.pointerId);
-});
+// The bell is limited like on the server (NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME).
+let chatNudge = { at: 0, n: 0 };
+function nudgeWait() {
+    if (chatNudge.n >= NUDGE_MAX_PER_GAME) return t("You've rung enough for this game.");
+    const left = Math.ceil((NUDGE_COOLDOWN_MS - (Date.now() - chatNudge.at)) / 1000);
+    return left > 0 ? t("Wait a few seconds before ringing again.") : "";
+}
 
-chatWheel.addEventListener("pointermove", (e) => {
-    if (!chatWheelDragging || e.pointerId !== chatWheelPointerId) return;
-    const now = performance.now();
-    const currentAngle = chatWheelAngleFromCenter(e.clientX, e.clientY);
-    const totalDelta = currentAngle - chatWheelDragStartAngle;
-    // Drag detection is in screen pixels moved, NOT degrees rotated: the
-    // emoji sit near the dial's rim, where a couple of px of ordinary tap
-    // jitter is already several degrees of angle (close to the center,
-    // the same jitter is nothing) -- an angle-based threshold was tripping
-    // on perfectly normal taps and silently swallowing every pick, which
-    // is why throwing an emoji looked like it was doing nothing at all.
-    const movedPx = Math.hypot(e.clientX - chatWheelDragStartX, e.clientY - chatWheelDragStartY);
-    if (movedPx > 8) chatWheelDidDrag = true;
-    setChatWheelRotation(chatWheelDragStartRotation + totalDelta);
+let chatFanTimer = null;
+function openChatFan() {
+    if (!chatAvailable()) return;
+    clearTimeout(chatFanTimer);
+    chatFan.hidden = false;
+    layoutChatFan();
+    const bell = chatFanItems.querySelector(`[data-id="${NUDGE}"]`);
+    bell.classList.toggle("is-wait", Boolean(nudgeWait()));
+    chatFab.setAttribute("aria-expanded", "true");
+    void chatFan.offsetWidth; // so the opening plays from the closed state
+    chatFan.classList.add("is-open");
+}
 
-    // Instantaneous angular speed between this move and the last one (not
-    // the average over the whole drag) -- this is what carries into the
-    // release-inertia spin below, so a flick reads by its last motion, not
-    // however the drag started.
-    const dt = now - chatWheelLastTime;
-    if (dt > 0) chatWheelVelocity = (currentAngle - chatWheelLastAngle) / dt;
-    chatWheelLastAngle = currentAngle;
-    chatWheelLastTime = now;
-});
+function closeChatFan(now = false) {
+    chatFab.setAttribute("aria-expanded", "false");
+    if (chatFan.hidden) return;
+    chatFan.classList.remove("is-open");
+    clearTimeout(chatFanTimer);
+    if (now) { chatFan.hidden = true; return; }
+    chatFanTimer = setTimeout(() => { chatFan.hidden = true; }, 260);
+}
 
-function endChatWheelDrag(e) {
-    if (!chatWheelDragging) return;
-    chatWheelDragging = false;
+chatFab.addEventListener("click", () => (chatFan.classList.contains("is-open") ? closeChatFan() : openChatFan()));
+document.getElementById("chat-fan-backdrop").addEventListener("click", () => closeChatFan());
 
-    // No drag happened and the press started on an emoji -- that's a pick,
-    // handled here rather than via that button's own "click" listener,
-    // which setPointerCapture (see pointerdown above) prevents from ever
-    // receiving the event.
-    if (!chatWheelDidDrag && chatWheelDownBtn) {
-        stopChatWheelInertia();
-        throwChatEmoji(chatWheelDownBtn.dataset.emoji, chatWheelDownBtn.getBoundingClientRect());
-        if (controller.mode === "online" && gameInProgress && !isGameOver) {
-            onlineClient.sendEmote(chatWheelDownBtn.dataset.emoji);
+async function pickChat(id, btn) {
+    if (!chatAvailable()) { closeChatFan(); return; }
+    const from = btn.getBoundingClientRect();
+    if (id === NUDGE) {
+        const wait = nudgeWait();
+        if (wait) { showToast(wait); return; }
+        closeChatFan();
+        const res = await onlineClient.sendEmote(id);
+        if (res?.ok) {
+            chatNudge = { at: Date.now(), n: chatNudge.n + 1 };
+            throwChatEmoji(id, from);
+            nudgeBoard();
+        } else {
+            showToast(t("Wait a few seconds before ringing again."));
         }
-        chatWheelOverlay.classList.add("hidden");
-        chatWheelDownBtn = null;
         return;
     }
-    chatWheelDownBtn = null;
+    throwChatEmoji(id, from);
+    onlineClient.sendEmote(id);
+    closeChatFan();
+}
 
-    // Keeps spinning on its own after release and gradually slows down --
-    // same "flick a dial" feel as a real one, instead of snapping dead the
-    // instant the finger lifts.
-    const FRICTION_PER_FRAME = 0.94; // at a 60fps frame (~16.67ms)
-    const MIN_VELOCITY = 0.01; // deg/ms -- below this it's imperceptible, just stop
-    let lastFrameTime = performance.now();
-    function step(now) {
-        const dt = Math.min(now - lastFrameTime, 48); // cap the step so a stutter/tab-switch can't fling it
-        lastFrameTime = now;
-        setChatWheelRotation(chatWheelRotation + chatWheelVelocity * dt);
-        chatWheelVelocity *= Math.pow(FRICTION_PER_FRAME, dt / 16.6667);
-        chatWheelInertiaFrame = Math.abs(chatWheelVelocity) > MIN_VELOCITY ? requestAnimationFrame(step) : null;
+// The nudge: the board shakes, a trill rings, and the phone buzzes -- for
+// the one who rang and the one who was rung.
+function nudgeBoard() {
+    playNudgeSound();
+    try { navigator.vibrate?.([70, 40, 70, 40, 70]); } catch { /* no vibration */ }
+    document.body.classList.remove("nudge");
+    void document.body.offsetWidth;
+    document.body.classList.add("nudge");
+    setTimeout(() => document.body.classList.remove("nudge"), 900);
+}
+
+// A bell's trill made on the spot (nothing to download): two notes alternating
+// fast, each ringing out with a few higher partials. The audio context is
+// unlocked by the first tap anywhere, so it can ring when the other player
+// rings it too.
+let audioCtx = null;
+function audio() {
+    if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
     }
-    if (Math.abs(chatWheelVelocity) > MIN_VELOCITY) {
-        chatWheelInertiaFrame = requestAnimationFrame(step);
+    return audioCtx;
+}
+document.addEventListener("pointerdown", () => {
+    const c = audio();
+    if (c && c.state === "suspended") c.resume();
+}, { passive: true });
+
+function playNudgeSound() {
+    if (!isVolumeOn) return;
+    const c = audio();
+    if (!c) return;
+    if (c.state === "suspended") c.resume();
+    const start = c.currentTime + 0.02;
+    const master = c.createGain();
+    master.gain.setValueAtTime(0.0001, start);
+    master.gain.exponentialRampToValueAtTime(0.35, start + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.0001, start + 0.95);
+    master.connect(c.destination);
+    const notes = [1568, 1976]; // G6 and B6
+    for (let k = 0; k < 10; k++) {
+        const at = start + k * 0.07;
+        for (const [mult, level] of [[1, 1], [2.4, 0.35], [3.7, 0.15]]) {
+            const osc = c.createOscillator();
+            osc.type = "sine";
+            osc.frequency.value = notes[k % 2] * mult;
+            const g = c.createGain();
+            g.gain.setValueAtTime(0, at);
+            g.gain.linearRampToValueAtTime(level * (1 - k * 0.06), at + 0.005);
+            g.gain.exponentialRampToValueAtTime(0.001, at + 0.16);
+            osc.connect(g);
+            g.connect(master);
+            osc.start(at);
+            osc.stop(at + 0.18);
+        }
     }
 }
-chatWheel.addEventListener("pointerup", endChatWheelDrag);
-chatWheel.addEventListener("pointercancel", endChatWheelDrag);
 
 function quadBezierPoint(p0, p1, p2, t) {
     const u = 1 - t;
@@ -3048,7 +3186,7 @@ function quadBezierPoint(p0, p1, p2, t) {
 function throwChatEmoji(emoji, originRect) {
     const el = document.createElement("div");
     el.className = "chat-toss-emoji";
-    el.innerHTML = emojiMarkup(emoji);
+    el.innerHTML = `<img src="${chatImage(emoji)}" alt="">`;
 
     const startX = originRect.left + originRect.width / 2;
     const startY = originRect.top + originRect.height / 2;
@@ -3229,8 +3367,10 @@ const onlineClient = new OnlineClient({
     onWaitingRoom: (code) => showWaitingRoom(code),
     onAction: onRemoteAction,
     onEmote: ({ from, id }) => {
+        if (!CHAT.some((c) => c.id === id)) return; // one this app doesn't know
         const box = document.getElementById(from === 1 ? "playerP1" : "playerP2");
         throwChatEmoji(id, box.getBoundingClientRect());
+        if (id === NUDGE) nudgeBoard();
     },
     onOpponentStatus: ({ connected }) => {
         if (controller.mode !== "online" || isGameOver) return;
@@ -3244,7 +3384,13 @@ const onlineClient = new OnlineClient({
     onBonus: ({ kind, points }) => {
         if (kind !== "daily") return;
         showToast(t("First win of the day: +{n} bonus points!", { n: points }), 3000);
-        setTimeout(() => refreshPro({ fresh: true }), 3200);
+        setTimeout(async () => {
+            const before = lastKnownXp();
+            await refreshPro({ fresh: true, celebrate: false });
+            const after = lastKnownXp();
+            if (xpStrip) { xpStrip.after = after; showXpGain(xpStrip.base, after); }
+            if (before !== null && after !== null) celebrateLevel(before, after);
+        }, 3200);
     },
     onGameOver: onRemoteGameOver,
     onPro: (pro) => setPro(pro),
@@ -3587,7 +3733,9 @@ byId("login-email-send").addEventListener("click", sendLoginCode);
 byId("login-email-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sendLoginCode(); });
 byId("login-code-submit").addEventListener("click", submitLoginCode);
 byId("login-code-input").addEventListener("keydown", (e) => { if (e.key === "Enter") submitLoginCode(); });
-byId("account-signout").addEventListener("click", async () => {
+byId("account-signout").addEventListener("click", () => showOnlineView("account-signout"));
+byId("account-signout-back").addEventListener("click", () => showOnlineView("account"));
+byId("account-signout-confirm").addEventListener("click", async () => {
     try { await signOut(); } catch (err) { console.error("sign-out:", err); }
     closeOnlineOverlay();
     showToast(t("Signed out. You're playing as a guest."));
@@ -3599,15 +3747,19 @@ byId("account-delete").addEventListener("click", () => {
 });
 byId("account-delete-back").addEventListener("click", () => showOnlineView("account"));
 
-// The account says what it has: Linotte Pro, or the free version with a way
-// to get Pro; and its level.
+// The account says who you are the way the player card does (name, country,
+// level badge, Pro or Free, the record), and offers Pro when you don't have it.
 function fillAccountSheet() {
     const pro = document.body.classList.contains("is-pro");
-    const plan = byId("account-plan");
-    plan.textContent = pro ? `★ ${t("Linotte Pro")}` : t("Free version");
-    plan.classList.toggle("is-pro", pro);
+    const user = currentUser();
+    byId("ac-name").textContent = profile?.name || user?.name || user?.email?.split("@")[0] || t("Player");
+    const country = profile?.country;
+    let countryName = country;
+    try { countryName = new Intl.DisplayNames([LANG, "en"], { type: "region" }).of(country); } catch { /* the code */ }
+    byId("ac-country").textContent = country ? `${flagOf(country)}\u2002${countryName}` : "";
+    byId("ac-country").hidden = !country;
+    paintIdentity("ac", { level: levelOf(myXp()), pro, plan: pro ? t("Pro") : t("Free"), rec: lastKnownRecord() });
     byId("account-getpro").hidden = pro;
-    byId("account-level").textContent = t("Level {n}", { n: levelOf(myXp()) });
 }
 byId("account-getpro").addEventListener("click", () => showProSheet());
 
@@ -3621,7 +3773,7 @@ document.querySelectorAll(".level-rules li").forEach((li) => {
     if (parts.length < 2) return;
     li.replaceChildren(...parts.map((part, i) => (i % 2 ? Object.assign(document.createElement("b"), { textContent: part }) : part)));
 });
-byId("level-help-back").addEventListener("click", () => showOnlineView("stats"));
+byId("level-help-back").addEventListener("click", hideOnlineOverlay); // back to the stats page under it
 byId("account-delete-confirm").addEventListener("click", (e) => loginStep(e.currentTarget, byId("account-delete-error"), async () => {
     await deleteAccount();
     closeOnlineOverlay();
@@ -3844,12 +3996,13 @@ function setPro(pro) {
 }
 
 // Also brings the level up to date, and celebrates when it went up.
-async function refreshPro(options) {
+// `celebrate: false` when the caller shows the gain itself (the winner card).
+async function refreshPro({ celebrate = true, ...options } = {}) {
     const before = lastKnownXp();
     setPro(await fetchPro(options));
     stayReachable();
     const after = lastKnownXp();
-    if (before !== null && after !== null) celebrateLevel(before, after);
+    if (celebrate && before !== null && after !== null) celebrateLevel(before, after);
 }
 
 //--------- level rewards ---------
@@ -3864,17 +4017,395 @@ function rewardText(r) {
     return t("New background: {name}", { name: humanizeBgName(backgrounds[r.index]) });
 }
 
-// A level-up toast, with what came with it.
+// Reaching a level is celebrated full screen (showLevelUp), with what it
+// unlocked. Losing one is told, quietly (showLevelDown).
 function celebrateLevel(beforeXp, afterXp) {
     const from = levelOf(beforeXp), to = levelOf(afterXp);
-    if (to <= from) return;
-    const got = [];
-    for (let l = from + 1; l <= to; l++) got.push(...rewardsAt(l));
-    showToast(got.length
-        ? t("Level {n}! {rewards}", { n: to, rewards: got.map(rewardText).join(" · ") })
-        : t("Level {n}!", { n: to }), got.length ? 5000 : 2500);
-    applyLevelLocks();
+    if (to === from) return;
+    applyLevelLocks(); // so the new looks can be put on at once (or locked again)
+    if (to < from) showLevelDown(from, to, afterXp);
+    else showLevelUp(from, to);
 }
+
+//--------- the winner card: what the game was worth ---------
+// The points earned by the game and the way to the next level, under the
+// score. xpStrip keeps where it started, so a bonus that arrives a moment
+// later (the first online win of the day) adds to the same strip.
+let xpStrip = null;
+
+function resetXpGain() {
+    xpStrip = null;
+    byId("winner-xp").hidden = true;
+    byId("winner-container").classList.remove("has-xp");
+}
+
+function levelProgress(xp) {
+    const level = levelOf(xp);
+    // Level 0 runs from -4 to 4: at or above zero, its bar starts at 0.
+    const from = level === 0 && xp >= 0 ? 0 : levelStart(level), to = levelStart(level + 1);
+    return { level, from, to, share: Math.max(0, Math.min(1, (xp - from) / (to - from))) };
+}
+
+function showXpGain(before, after) {
+    const box = byId("winner-xp");
+    const gain = after - before;
+    const now = levelProgress(after), was = levelProgress(before);
+    byId("winner-container").classList.add("has-xp");
+    box.hidden = false;
+    const gainEl = byId("wx-gain");
+    gainEl.textContent = gain >= 0 ? `+${gain}` : `\u2212${-gain}`;
+    gainEl.classList.toggle("is-negative", gain < 0);
+    gainEl.style.animation = "none";
+    void gainEl.offsetWidth;
+    gainEl.style.animation = "";
+    byId("wx-level").textContent = t("Level {n}", { n: now.level });
+    byId("wx-pts").textContent = `${after - now.from} / ${now.to - now.from}`;
+    // The bar starts where it was (from empty after a level change) and fills.
+    const fill = byId("wx-fill");
+    fill.style.transition = "none";
+    fill.style.width = `${(was.level === now.level ? was.share : 0) * 100}%`;
+    void fill.offsetWidth;
+    fill.style.transition = "";
+    fill.style.width = `${now.share * 100}%`;
+}
+
+//--------- the celebration ---------
+// A full-screen overlay when a level is reached: the badge in its tier's
+// colour spinning in with light rays, confetti, the new level counted up, and
+// every reward it brought (a background or dice to put on at once, a badge
+// colour), then what comes next. Several in a row wait their turn.
+const luQueue = [];
+let luOpen = false;
+
+function rewardThumb(r) {
+    const el = document.createElement("div");
+    el.className = "lu-thumb" + (r.kind === "dice" ? " is-dice" : "");
+    if (r.kind === "badge") {
+        const sw = document.createElement("span");
+        sw.className = "lu-swatch";
+        sw.dataset.tier = r.tier;
+        sw.textContent = "\u2605";
+        el.appendChild(sw);
+    } else {
+        const src = document.querySelector(`#${r.kind === "dice" ? "do" : "bg"}${r.index} img`)?.getAttribute("src");
+        if (src) {
+            const img = document.createElement("img");
+            img.src = src;
+            img.alt = "";
+            el.appendChild(img);
+        }
+    }
+    return el;
+}
+
+function rewardName(r) {
+    if (r.kind === "badge") return rewardText(r);
+    return r.kind === "dice" ? t(diceNames[r.index]) : humanizeBgName(backgrounds[r.index]);
+}
+
+const rewardKindLabel = (r) => (r.kind === "badge" ? t("Badge colour") : r.kind === "dice" ? t("Dice style") : t("Background"));
+
+function showLevelUp(from, to) {
+    if (luOpen) { luQueue.push([from, to]); return; }
+    luOpen = true;
+    const rewards = [];
+    for (let l = from + 1; l <= to; l++) rewards.push(...rewardsAt(l));
+
+    const overlay = byId("levelup-overlay");
+    const badge = byId("lu-badge");
+    badge.dataset.tier = badgeTier(to);
+    byId("lu-level").textContent = from;
+    byId("lu-title").textContent = t("Level {n}!", { n: to });
+    byId("lu-sub").textContent = rewards.length ? t("You unlocked:") : "";
+
+    const list = byId("lu-rewards");
+    list.replaceChildren();
+    rewards.forEach((r, i) => {
+        const li = document.createElement("li");
+        li.className = "lu-reward";
+        li.style.setProperty("--i", i);
+        const text = document.createElement("div");
+        text.className = "lu-reward-text";
+        const tag = Object.assign(document.createElement("span"), { className: "lu-tag", textContent: `${t("NEW")} \u00b7 ${rewardKindLabel(r)}` });
+        text.append(tag, Object.assign(document.createElement("b"), { textContent: rewardName(r) }));
+        li.append(rewardThumb(r), text);
+        if (r.kind !== "badge") {
+            // A look can be put on right there.
+            const id = (r.kind === "dice" ? "do" : "bg") + r.index;
+            const use = Object.assign(document.createElement("button"), { className: "lu-use", type: "button", textContent: t("USE IT") });
+            use.addEventListener("click", () => {
+                document.getElementById(id)?.click();
+                use.textContent = t("IN USE");
+                use.disabled = true;
+            });
+            li.appendChild(use);
+        } else {
+            li.style.gridTemplateColumns = "4.2em minmax(0, 1fr)";
+        }
+        list.appendChild(li);
+    });
+
+    const next = nextReward(to);
+    byId("lu-next").textContent = next
+        ? t("Next reward at level {n}: {reward}", { n: next.level, reward: next.rewards.map(rewardText).join(" \u00b7 ") })
+        : "";
+
+    // The animations restart from the top every time.
+    overlay.hidden = false;
+    overlay.style.animation = "none";
+    void overlay.offsetWidth;
+    overlay.style.animation = "";
+    byId("lu-ok").focus({ preventScroll: true });
+    // The light rays turn around the badge, wherever it landed.
+    const bb = badge.getBoundingClientRect();
+    overlay.style.setProperty("--ray-x", `${bb.left + bb.width / 2}px`);
+    overlay.style.setProperty("--ray-y", `${bb.top + bb.height / 2}px`);
+
+    // The number climbs to the new level once the badge has landed.
+    const steps = to - from;
+    for (let k = 1; k <= Math.min(steps, 12); k++) {
+        setTimeout(() => { if (luOpen) byId("lu-level").textContent = steps <= 12 ? from + k : to; }, 650 + k * Math.min(260, 700 / steps));
+    }
+    playFanfare();
+    const big = rewards.length > 0;
+    const colors = ["#ffd84d", "#ffffff", "#f08a24", "#7ed6a5", "#7b6cf6", "#ff6b81"];
+    const burst = (opts) => confetti({ colors, zIndex: 100, disableForReducedMotion: true, ...opts });
+    setTimeout(() => burst({ particleCount: big ? 120 : 70, spread: 90, startVelocity: 48, origin: { x: 0.5, y: 0.32 } }), 500);
+    setTimeout(() => burst({ particleCount: big ? 60 : 30, angle: 60, spread: 70, origin: { x: 0, y: 0.7 } }), 900);
+    setTimeout(() => burst({ particleCount: big ? 60 : 30, angle: 120, spread: 70, origin: { x: 1, y: 0.7 } }), 900);
+    if (big) setTimeout(() => burst({ particleCount: 90, spread: 110, startVelocity: 38, origin: { x: 0.5, y: 0.4 } }), 1500);
+}
+
+function closeLevelUp() {
+    byId("levelup-overlay").hidden = true;
+    luOpen = false;
+    const queued = luQueue.shift();
+    if (queued) setTimeout(() => showLevelUp(...queued), 250);
+}
+byId("lu-ok").addEventListener("click", closeLevelUp);
+byId("lu-road").addEventListener("click", () => { closeLevelUp(); openMenuPage("road", { top: true }); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && luOpen) closeLevelUp(); });
+
+//--------- losing a level ---------
+// Only when the level goes down (abandoned games cost points): no rays, no
+// party. The badge, in the colour it had, cracks and shakes; its number drops
+// out and the new one falls in (one beat, however many levels); the badge
+// sinks, pale, shedding bits of its colour. Then what is locked again and how
+// far the way back is.
+let ldOpen = false;
+let ldRun = 0;
+const SHARD_COLORS = {
+    plain: ["#f4f4f4", "#b9b9b9"], bronze: ["#e3a76f", "#b06d32"], silver: ["#f1f4f7", "#aab4bf"],
+    gold: ["#ffe27a", "#e0a812"], ruby: ["#ff7a8f", "#b3133a"], diamond: ["#b9f3ff", "#a98bff"],
+};
+
+function showLevelDown(from, to, xp) {
+    if (ldOpen) return;
+    ldOpen = true;
+    const run = ++ldRun;
+    const overlay = byId("leveldown-overlay");
+    const stage = byId("ld-stage");
+    const badge = byId("ld-badge");
+    stage.classList.remove("is-cracked", "is-shaking", "is-down");
+    overlay.classList.remove("is-hit");
+    badge.dataset.tier = badgeTier(from);
+    byId("ld-old").textContent = from;
+    byId("ld-level").textContent = to;
+    byId("ld-chip").textContent = `\u25BC ${from - to}`;
+    byId("ld-title").textContent = t("Level {n}", { n: to });
+
+    // What went back under a lock (the looks only: the badge colour is told by the badge itself).
+    const names = [];
+    for (let l = to + 1; l <= from; l++) for (const r of rewardsAt(l)) if (r.kind !== "badge") names.push(rewardName(r));
+    const shown = names.slice(0, 4).join(", ") + (names.length > 4 ? "\u2026" : "");
+    byId("ld-locked").textContent = names.length ? t("Locked again: {names}", { names: shown }) : "";
+    byId("ld-next").textContent = t("{n} points to level {l}", { n: Math.max(0, levelStart(from) - xp), l: from });
+
+    overlay.hidden = false;
+    overlay.style.animation = "none";
+    void overlay.offsetWidth;
+    overlay.style.animation = "";
+    byId("ld-ok").focus({ preventScroll: true });
+
+    const at = (ms, fn) => setTimeout(() => { if (ldOpen && run === ldRun) fn(); }, ms);
+    // 1. a crack runs across the badge, it shakes, the screen flinches
+    at(700, () => {
+        stage.classList.add("is-cracked", "is-shaking");
+        overlay.classList.add("is-hit");
+        navigator.vibrate?.(70);
+        playLevelDownTone(true);
+    });
+    // 2. the number drops out, the new one falls in; the badge sinks and sheds
+    at(1100, () => {
+        stage.classList.add("is-down");
+        badge.dataset.tier = badgeTier(to);
+        const bb = badge.getBoundingClientRect();
+        if (typeof confetti === "function") {
+            confetti({
+                particleCount: 34, angle: 270, spread: 70, startVelocity: 16, gravity: 1.6, decay: 0.9,
+                ticks: 100, scalar: 0.85, shapes: ["square"], colors: SHARD_COLORS[badgeTier(from)], zIndex: 100,
+                disableForReducedMotion: true,
+                origin: { x: (bb.left + bb.width / 2) / innerWidth, y: (bb.top + bb.height * 0.7) / innerHeight },
+            });
+        }
+    });
+}
+
+function closeLevelDown() {
+    byId("leveldown-overlay").hidden = true;
+    ldOpen = false;
+}
+byId("ld-ok").addEventListener("click", closeLevelDown);
+byId("ld-road").addEventListener("click", () => { closeLevelDown(); openMenuPage("road", { top: true }); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && ldOpen) closeLevelDown(); });
+
+// A low thud as the crack runs, then two soft notes going down.
+function playLevelDownTone(thud) {
+    if (!isVolumeOn) return;
+    const c = audio();
+    if (!c) return;
+    if (c.state === "suspended") c.resume();
+    const start = c.currentTime + 0.02;
+    const notes = thud ? [[96, 0, 0.45, 0.5], [392, 0.42, 0.7, 0.16], [293.66, 0.7, 0.9, 0.16]] : [[392, 0, 0.7, 0.16], [293.66, 0.28, 0.7, 0.16]];
+    for (const [freq, at, len, vol] of notes) {
+        const osc = c.createOscillator();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, start + at);
+        if (freq < 120) osc.frequency.exponentialRampToValueAtTime(48, start + at + len);
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, start + at);
+        g.gain.linearRampToValueAtTime(vol, start + at + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + at + len);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(start + at);
+        osc.stop(start + at + len + 0.1);
+    }
+}
+
+// A short rising fanfare, made on the spot like the bell's trill.
+function playFanfare() {
+    if (!isVolumeOn) return;
+    const c = audio();
+    if (!c) return;
+    if (c.state === "suspended") c.resume();
+    const start = c.currentTime + 0.05;
+    const master = c.createGain();
+    master.gain.setValueAtTime(0.0001, start);
+    master.gain.exponentialRampToValueAtTime(0.32, start + 0.03);
+    master.gain.exponentialRampToValueAtTime(0.0001, start + 1.6);
+    master.connect(c.destination);
+    const notes = [[523.25, 0], [659.25, 0.13], [783.99, 0.26], [1046.5, 0.42]];
+    for (const [freq, at] of notes) {
+        for (const [mult, level, type] of [[1, 1, "triangle"], [2, 0.28, "sine"]]) {
+            const osc = c.createOscillator();
+            osc.type = type;
+            osc.frequency.value = freq * mult;
+            const g = c.createGain();
+            g.gain.setValueAtTime(0, start + at);
+            g.gain.linearRampToValueAtTime(level, start + at + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, start + at + (freq > 1000 ? 1.2 : 0.4));
+            osc.connect(g);
+            g.connect(master);
+            osc.start(start + at);
+            osc.stop(start + at + 1.3);
+        }
+    }
+    // A little sparkle on top.
+    for (let k = 0; k < 5; k++) {
+        const osc = c.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = 2093 + k * 330;
+        const g = c.createGain();
+        const at = start + 0.5 + k * 0.07;
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(0.12, at + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, at + 0.25);
+        osc.connect(g);
+        g.connect(master);
+        osc.start(at);
+        osc.stop(at + 0.3);
+    }
+}
+
+//--------- the level road ---------
+// Every level with something to unlock, from the first to the last, with what
+// you have, where you are and how far the next one is. Found in the stats,
+// the account and the celebration.
+function roadStop(l, level, nextLevel) {
+    const li = document.createElement("li");
+    li.className = "road-stop" + (l <= level ? " is-reached" : l === nextLevel ? " is-next" : "");
+    const node = Object.assign(document.createElement("div"), { className: "road-node", textContent: l <= level ? "\u2713" : l });
+    const card = document.createElement("div");
+    card.className = "road-card";
+    const top = document.createElement("div");
+    top.className = "road-card-top";
+    top.append(Object.assign(document.createElement("b"), { textContent: t("Level {n}", { n: l }) }),
+        Object.assign(document.createElement("span"), { className: "road-pts", textContent: t("{n} points", { n: levelStart(l) }) }));
+    const gifts = document.createElement("ul");
+    gifts.className = "road-gifts";
+    for (const r of rewardsAt(l)) {
+        const g = document.createElement("li");
+        g.className = "road-gift";
+        const thumb = rewardThumb(r);
+        thumb.className = "road-thumb" + (r.kind === "dice" ? " is-dice" : "");
+        const text = document.createElement("div");
+        text.className = "road-gift-text";
+        text.append(Object.assign(document.createElement("span"), { textContent: rewardName(r) }),
+            Object.assign(document.createElement("small"), { textContent: rewardKindLabel(r) }));
+        g.append(thumb, text);
+        gifts.appendChild(g);
+    }
+    card.append(top, gifts);
+    if (l === nextLevel) {
+        card.appendChild(Object.assign(document.createElement("div"), { className: "road-note", textContent: t("{n} points to go", { n: levelStart(l) - myXp() }) }));
+    }
+    li.append(node, card);
+    return li;
+}
+
+function roadYou(xp) {
+    const { level, from, to, share } = levelProgress(xp);
+    const li = document.createElement("li");
+    li.className = "road-stop is-you is-reached";
+    const node = Object.assign(document.createElement("div"), { className: "road-node", textContent: level });
+    node.dataset.tier = badgeTier(level);
+    const card = document.createElement("div");
+    card.className = "road-card";
+    const top = document.createElement("div");
+    top.className = "road-card-top";
+    top.append(Object.assign(document.createElement("b"), { textContent: t("You are here") }),
+        Object.assign(document.createElement("span"), { className: "road-pts", textContent: t("{n} points", { n: xp }) }));
+    const bar = document.createElement("div");
+    bar.className = "road-bar";
+    bar.appendChild(Object.assign(document.createElement("div"), {}));
+    bar.firstChild.style.width = `${share * 100}%`;
+    card.append(top,
+        Object.assign(document.createElement("div"), { className: "road-note", textContent: t("Level {n}", { n: level }) + " \u00b7 " + t("{n} points to level {l}", { n: to - xp, l: level + 1 }) }),
+        bar);
+    li.append(node, card);
+    return li;
+}
+
+function showRoad() {
+    const xp = myXp();
+    const level = levelOf(xp);
+    const stops = [];
+    for (let l = 1; l <= 50; l++) if (rewardsAt(l).length) stops.push(l);
+    const nextLevel = stops.find((l) => l > level);
+    const list = byId("road-list");
+    list.replaceChildren();
+    const you = roadYou(xp);
+    let placed = false;
+    for (const l of stops) {
+        if (!placed && l > level) { list.appendChild(you); placed = true; }
+        list.appendChild(roadStop(l, level, nextLevel));
+    }
+    if (!placed) list.appendChild(you);
+    list.appendChild(Object.assign(document.createElement("li"), { className: "road-end", textContent: t("More rewards are coming.") }));
+    you.scrollIntoView({ block: "center" });
+}
+byId("account-road").addEventListener("click", () => { hideOnlineOverlay(); openMenuPage("road"); });
 
 // Locked looks in the options: a "🔒 Lv N" tag, and a toast when tapped.
 function applyLevelLocks() {
@@ -3972,6 +4503,9 @@ byId("pro-restore").addEventListener("click", (e) => {
 // the account's or, as a guest, the phone's. Gold with a star for Pro
 // players, who show it to their opponents too; plain, and seen only by the
 // player, without Pro.
+// The Pro sheet shows what the star looks like, as it will on your badge.
+byId("pro-sample").textContent = `\u2605 ${t("Lv {n}", { n: 12 })}`;
+
 function showHomeBadge() {
     const badge = byId("home-badge");
     const level = levelOf(myXp());
@@ -3982,7 +4516,7 @@ function showHomeBadge() {
     document.body.classList.toggle("daily-open", !myToday().dailyDone);
     const pro = document.body.classList.contains("is-pro");
     badge.classList.toggle("is-pro", pro);
-    badge.textContent = pro ? `★ ${level}` : String(level);
+    badge.textContent = `${pro ? "★ " : ""}${t("Lv {n}", { n: level })}`;
     badge.title = t("Level {n}", { n: level });
 }
 
@@ -4037,10 +4571,7 @@ byId("st-level-ad").addEventListener("click", async () => {
 // -- the people played in private rooms; Pro to Pro, who's online and a tap
 // to invite them (server/friends.js).
 let rankingTab = "week";
-let rankingFrom = "home"; // where BACK goes: the home, or the stats
-byId("home-ranking").addEventListener("click", () => { rankingFrom = "home"; showRanking("week"); });
-byId("stats-ranking").addEventListener("click", () => { rankingFrom = "stats"; showRanking("week"); });
-byId("lb-back").addEventListener("click", () => (rankingFrom === "stats" ? showOnlineView("stats") : closeOnlineOverlay()));
+byId("home-ranking").addEventListener("click", () => openMenuPage("ranking"));
 byId("lb-signin").addEventListener("click", () => byId("home-profile").click());
 byId("lb-pro-btn").addEventListener("click", () => showProSheet());
 document.querySelectorAll(".lb-tab").forEach((b) => b.addEventListener("click", () => showRanking(b.dataset.tab)));
@@ -4070,7 +4601,6 @@ async function showRanking(tab) {
         friends: t("The people you've played in a private room."),
     }[tab];
     byId("lb-signin").hidden = Boolean(currentUser()) || !ACCOUNTS_AVAILABLE;
-    showOnlineView("leaderboard");
     if (tab === "friends") return showFriends();
 
     let board;
@@ -4231,10 +4761,9 @@ async function showStats() {
         }
         recent.appendChild(li);
     }
-    showOnlineView("stats");
 }
 
-byId("home-stats").addEventListener("click", showStats);
+byId("home-stats").addEventListener("click", () => openMenuPage("stats"));
 // A guest's stats only live on this phone: one tap to keep them.
 byId("stats-signin").addEventListener("click", () => byId("home-profile").click());
 document.querySelectorAll("[data-sheet-close]").forEach((el) => el.addEventListener("click", closeOnlineOverlay));
@@ -4406,10 +4935,12 @@ async function beginOnlineGame(snap) {
     gameState = snap.state;
     LOCAL_PLAYER = snap.seat;
     showTableLook(snap.state?.tableLook, snap.fresh);
+    if (snap.fresh) chatNudge = { at: 0, n: 0 };
     idleTurns = {};
     opponentGone = snap.opponentConnected === false;
     gameState.players[snap.seat].name = t("YOU");
     startOnline();
+    chatSync();
     expectedSeq = snap.seq + 1;
     renderOnlineBoard();
 
@@ -4491,8 +5022,10 @@ function leaveOnlineGameIfAny() {
     // opponent had already given up: gone, or letting their turns run out.
     const excused = opponentGone || (idleTurns[LOCAL_PLAYER === 1 ? 2 : 1] || 0) > 0;
     if (gameInProgress && !isGameOver && !excused) {
+        const xpBefore = myXp();
         noteGuestAbandon();
         if (currentUser()) setTimeout(() => refreshPro({ fresh: true }), 1500);
+        else setTimeout(() => celebrateLevel(xpBefore, myXp()), 800);
     }
     setOnlineSession(false);
     onlineClient.leaveRoom();
@@ -4547,6 +5080,7 @@ async function replayRemote(action, gen) {
             if (isVolumeOn) new Audio("resources/sounds/roll.mp3").play();
             withReplay(() => controller.dispatch(action));
             setRollsLeftUI(gameState.dice.rollsLeft);
+            showCalls(); // the call made before this roll is now fixed
             tileElements.forEach((el) => el.classList.remove("tile_highlighted"));
             rrElements.forEach((el) => el.classList.remove("highlighted"));
             for (let i = 0; i < 12 && gen === remoteGen; i++) {
@@ -4565,10 +5099,11 @@ async function replayRemote(action, gen) {
         case "LOCK_DICE":
             withReplay(() => controller.dispatch(action));
             ddElements.forEach((dd, i) => dd.classList.toggle("selected", Boolean(action.locked[i])));
+            afterLocksChanged({ mine: false });
             break;
         case "SELEC_CALL":
             withReplay(() => controller.dispatch(action));
-            ccElements.forEach((cc, i) => cc.classList.toggle("checked", i >= 3 && Boolean(action.called[i])));
+            showCalls();
             break;
         case "PLACE_PIECE":
             if (action.player === 0) withReplay(() => removePiece("p" + action.coordinates));
@@ -4595,6 +5130,7 @@ function onRemoteGameOver({ winner, reason }) {
     turnHandoverPending = false;
     forcedWinner = winner;
     isGameOver = true;
+    chatSync();
     rollBtnEnabled = false;
     doneBtnEnabled = false;
 

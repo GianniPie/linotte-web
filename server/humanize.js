@@ -68,9 +68,11 @@ export const slips = {
   indecision: (p) => Math.random() < 0.06 + 0.12 * p.impulsive,
 };
 
-// Emoji replies, keyed by what the opponent sent.
+// Reactions the humanized bot sends back, keyed by what the opponent sent
+// (the ids are those of public/shared/chat.js).
 const REPLY = {
   "👋": ["👋"],
+  "👍": ["👍", "🙏🏻"],
   "❤️": ["❤️", "🙏🏻"],
   "🤣": ["🤣", "🤣", "😮"],
   "😮": ["🤣", "😮"],
@@ -79,6 +81,8 @@ const REPLY = {
   "🫤": ["🥺", "🫤"],
   "🎲": ["🎲", "🤣"],
   "🙏🏻": ["❤️", "🙏🏻"],
+  "⏳": ["🫤", "👍"],
+  "🔔": ["🫤", "🤣"],
 };
 
 export function replyTo(id) {

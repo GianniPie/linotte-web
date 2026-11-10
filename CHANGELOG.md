@@ -12,6 +12,42 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-11-10
+
+### Added
+- Levels are celebrated. Reaching one opens a full-screen celebration (`showLevelUp`, `public/levels.css`): the badge in its tier's colour spins in with light rays, confetti and a rising fanfare (made on the spot, off with the sound), the new level counted up, every reward it brought -- a background or dice you can put on right there ("USE IT"), a badge colour -- and the next reward; several in a row wait their turn. It replaces the toast. It opens when the points are known: after a game, from an ad, at start-up.
+- The winner card shows what the game was worth: "+2", the level and a bar filling toward the next one (a late bonus, the first online win of the day, adds to it); a level reached then opens the celebration after a moment. A lost game against the bot earns nothing and shows nothing.
+- The level road (a tab of the menu; also from the account and the celebration): every level that brings something, in order, with what it brings (a picture of each background, dice and badge colour), the ones reached (✓), where you are (your badge, the points, a bar and how many are left) and the next one highlighted with the points to go; it opens on where you are. Levels not reached yet carry a padlock, on the level and on each reward.
+
+### Changed
+- The level is visible to everyone, not only Pro: every signed-in player shows it on their box in online games (a guest has none the server can trust; against the bot you show your own); the badge takes its tier's colour. Pro adds a star and a gold frame. The Pro sheet and "How levels work" say so.
+- Losing a level (abandoning a game, online or as a guest) shows a "LEVEL DOWN" screen, no confetti but not shy: the badge, in the colour it had, cracks and shakes (with a low thud and a short vibration, a red flush on the screen), the old number drops out and the new one falls in (a single beat, a red ▼N chip for how many levels), the badge sinks pale and sheds bits of its colour; then what is locked again and how many points it takes to get back. CONTINUE or LEVEL ROAD. Shown only when the level goes down (`showLevelDown`); the Chinese font was regenerated for the new texts.
+- Ranking, Stats and the Level road are now pages of the app menu, with their icons in its top bar next to Options and Help (a trophy, bars, a winding road with a flag), in the same style; the home's bottom icons are shortcuts that open the menu on that page. They are in the menu in a game too. The level-up's LEVEL ROAD opens the menu on its page, above the winner screen. The Stats page no longer has a RANKING button (the tab is one tap away); the road no longer has its own screen.
+- Game, Options and Help use the same look as the new pages: one translucent white card with Changa One headings (no outlined pills) and thin lines between the sections; the combination tiles in Help sit on a dark tile so their white icons still show. The combination videos match: their title, replay and close buttons and the caption box take the same translucent white and low-opacity frame.
+- Menu pages, round two: Options and Level road now have a title; the Options section titles no longer change with the selection (Table style, Piece, Dice style, Background, Sound, Language): what is chosen now is a small line under each title; How to play is one card per section on the background, like the level road's cards; the LEVEL ROAD button under the stats is gone (the road is a tab).
+- The level badge now says "Lv N" (in the game's player boxes and on the home), and the Pro sheet leads with the gold star and frame, shown as a sample badge on a gold line.
+- The account sheet now looks like the player card: your name and country, the level badge with Pro / Free in small under it, the online record, then LEVEL ROAD and the buttons. GET PRO (for free accounts) is the home's gold pill, the same, right under the badge; "Delete account" moved inside EDIT PROFILE (under CANCEL / SAVE), and SIGN OUT asks once more (Sign out? STAY / SIGN OUT).
+- The player card leads with the level, as the badge worn in the game (tier colour; Pro adds a star and a gold frame), with just "Pro", "Free" or "Guest" in small under it instead of a big plan pill. It also shows the level of every signed-in player and their online record: games played, won and the share won (`record` in `/api/me` and on each seat; abandoned games count as played, as losses). Guests have none.
+
+### Fixed
+- Labels that wrapped or spilled in some languages. Every button and label of every screen (home, sheets, options, consent, game, winner card) was measured in the 6 languages at 3 screen sizes (320x568, 375x812 and 812x375): French "Touchez pour vous connecter" and Spanish "Toca para iniciar sesión" in the profile pill, Portuguese "Melhor sequência", French "Meilleure série" and Italian "Serie migliore" in the stats tiles, and the French sign-in buttons ("SE CONNECTER AVEC …") now fit on one line ("Se connecter", "Iniciar sesión", "Melhor série", "Série max", "Serie max", "CONNEXION AVEC …").
+
+### Changed
+- Chat reactions, redone: the new icon set (`public/resources/images/chat/`, one list for the app and the server in `public/shared/chat.js`: ok (the thumb), hahah, wow (the surprised face), mwah (the heart), roll (the dice), grrr, mhhh, nooo (the puppy eyes: a plea or a "why??"), thanks, hey, wait (the hourglass) and the bell). The dial is replaced by a fan like the Dock's stacks: the icons leave the button along a curve, each with a short label that only the sender reads ("hahah", "roll", "wait"...; translated); the receiver sees just the icon tossed to the middle of the screen. The fan's axis tilts as the room needs (diagonal on a phone turned sideways). It opens in about a quarter of a second and closes a little faster.
+- The chat button and the fan only exist in online games being played (before, in every game, throwing the icon only for oneself). The button is a round translucent one with a thin bubble icon, beside DONE at the end of the ROLL/DONE row (ROLL and DONE give it room, only in online games): the same place on the opponent's turn too, when the turn label replaces them.
+- The bell is a nudge, like MSN's: the board shakes, a trill rings (made on the spot, nothing to download) and the phone buzzes, for the one who rang and the one rung. Limited: one every 10 seconds, 5 a game (the server enforces it).
+- Fixed along the way: the scripted player of the smoke tests could lock all five dice and roll again, which the rules now refuse (a test, not the game).
+
+### Changed
+- The first-run screen no longer promises that you can change how ads are personalised (there is no such setting yet; the ads are samples): it says "Linotte is free to play, with ads. Linotte Pro removes them." The personalisation choice (Google UMP, asked at first launch where the law requires it, with a button in the options to change it) comes with the real ads. The consent version is unchanged: the new text promises less, so nobody has to accept again.
+
+### Fixed
+- Game rules, enforced alike by the app, the bots and the server (`canRoll` / `callBlockedBy` in `public/shared/gameEngine.js`):
+  - no ROLL with all five dice locked: ROLL greys out and says to unlock one;
+  - no call with all five dice locked, and no Carré call with four locked; a call the locks make impossible is cancelled, and said;
+  - a call can change before each roll, never while the dice roll (the app ignores taps mid-roll, the server refuses them).
+  The app's own checks for the Carré never fired (it compared an element with a text, and a text index with a number); the server only checked the five-locked call.
+
 ## [2.18.0] - 2026-11-09
 
 ### Changed

@@ -54,6 +54,7 @@
     <link href="home.css" rel="stylesheet" type="text/css" />
     <link href="demo.css" rel="stylesheet" type="text/css" />
     <link href="ads.css" rel="stylesheet" type="text/css" />
+    <link href="levels.css" rel="stylesheet" type="text/css" />
 
     <link href="fonts/fonts.css" rel="stylesheet">
     <link rel="preload" href="fonts/changa-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -156,7 +157,7 @@
             <div class="sheet-title" id="consent-title" data-i18n>Before you play</div>
             <ul class="sheet-list">
                 <li data-i18n>You must be 16 or older. The game is fine for any age, but it shows ads and has online play, and under EU privacy law (GDPR) younger players may need a parent's consent for that.</li>
-                <li data-i18n>Linotte is free to play. You can change how its ads are personalised at any time.</li>
+                <li data-i18n>Linotte is free to play, with ads. Linotte Pro removes them.</li>
                 <li data-i18n>Random online games may be played against a computer-controlled opponent when few players are online, and its emoji reactions may be automated too.</li>
                 <li data-i18n>A private game against a friend is always against a real person.</li>
                 <li data-i18n>No account is needed. A random ID stays on your device so a dropped game can be resumed.</li>
@@ -259,37 +260,24 @@
                 <div class="button sheet-btn cancel" id="login-code-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
             <div class="sheet-view" data-view="account">
-                <div class="sheet-title" data-i18n>Your account</div>
-                <div class="sheet-text" data-i18n-html>Signed in as <b id="account-email"></b></div>
-                <!-- Pro or free (and the level), see fillAccountSheet in linotte.js -->
-                <div class="account-plan">
-                    <span class="plan-pill" id="account-plan"></span>
-                    <span class="plan-level" id="account-level"></span>
+                <!-- who you are, as others see you (same as the player card: showPlayerCard), see fillAccountSheet in linotte.js -->
+                <div class="sheet-title" id="ac-name"></div>
+                <div class="player-card-country" id="ac-country"></div>
+                <div class="sheet-text sheet-small" data-i18n-html>Signed in as <b id="account-email"></b></div>
+                <div class="pc-badge-wrap">
+                    <div class="pc-badge" id="ac-badge"><small id="ac-badge-label"></small><b id="ac-badge-num"></b></div>
+                    <div class="pc-plan" id="ac-plan"></div>
                 </div>
-                <div class="button sheet-btn pro" id="account-getpro"><div class="text-button" data-i18n>GET PRO</div></div>
+                <button class="get-pro-hero" id="account-getpro" type="button" data-i18n>GET PRO</button>
+                <div class="stats-grid pc-record" id="ac-record" hidden>
+                    <div class="stat"><b id="ac-played">0</b><span data-i18n>Played</span></div>
+                    <div class="stat"><b id="ac-won">0</b><span data-i18n>Won</span></div>
+                    <div class="stat"><b id="ac-rate">0%</b><span data-i18n>Win rate</span></div>
+                </div>
+                <button class="level-road-btn" id="account-road" type="button" data-i18n>LEVEL ROAD</button>
                 <div class="button sheet-btn bot" id="account-edit"><div class="text-button" data-i18n>EDIT PROFILE</div></div>
                 <div class="button sheet-btn cancel" id="account-signout"><div class="text-button" data-i18n>SIGN OUT</div></div>
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
-                <button class="sheet-link" id="account-delete" type="button" data-i18n>Delete account</button>
-            </div>
-            <!-- this week's ranking (server/bonuses.js), from the stats -->
-            <div class="sheet-view" data-view="leaderboard">
-                <div class="sheet-title" data-i18n>Ranking</div>
-                <div class="lb-tabs" role="tablist">
-                    <button class="lb-tab" data-tab="week" type="button" role="tab" data-i18n>This week</button>
-                    <button class="lb-tab" data-tab="all" type="button" role="tab" data-i18n>All time</button>
-                    <button class="lb-tab" data-tab="friends" type="button" role="tab" data-i18n>Friends</button>
-                </div>
-                <div class="sheet-text sheet-small" id="lb-note"></div>
-                <div class="lb-pro" id="lb-pro" hidden>
-                    <span data-i18n>With Pro, see which friends are online and invite them with a tap, no link to send.</span>
-                    <button class="lb-pro-btn" id="lb-pro-btn" type="button" data-i18n>GET PRO</button>
-                </div>
-                <div class="sheet-text" id="lb-empty" hidden></div>
-                <ol class="lb-list" id="lb-list"></ol>
-                <div class="lb-me" id="lb-me" hidden></div>
-                <div class="button sheet-btn alt" id="lb-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
-                <div class="button sheet-btn go" id="lb-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
             <!-- a Pro friend's invite (see friends.js on the server) -->
             <div class="sheet-view" data-view="invite">
@@ -301,7 +289,7 @@
             <!-- the (?) by the level in the stats: the rules, see shared/level.js -->
             <div class="sheet-view" data-view="level-help">
                 <div class="sheet-title" data-i18n>How levels work</div>
-                <div class="sheet-text sheet-small" data-i18n>With Pro, every opponent sees your level.</div>
+                <div class="sheet-text sheet-small" data-i18n>Every opponent sees your level. Pro adds a star and a gold frame to your badge.</div>
                 <ul class="sheet-list level-rules">
                     <li data-i18n>Each online game you win, against a random opponent or a friend: +2 points.</li>
                     <li data-i18n>Each online game you lose or draw, played to the end: +1 point.</li>
@@ -325,9 +313,16 @@
             <div class="sheet-view" data-view="player">
                 <div class="sheet-title" id="pc-name"></div>
                 <div class="player-card-country" id="pc-country"></div>
-                <div class="account-plan">
-                    <span class="plan-pill" id="pc-plan"></span>
-                    <span class="plan-level" id="pc-level"></span>
+                <!-- their level, as the badge they wear in the game; under it, in small, Pro / Free / Guest -->
+                <div class="pc-badge-wrap" id="pc-badge-wrap">
+                    <div class="pc-badge" id="pc-badge"><small id="pc-badge-label"></small><b id="pc-badge-num"></b></div>
+                    <div class="pc-plan" id="pc-plan"></div>
+                </div>
+                <!-- the online record of a signed-in player (the server's count) -->
+                <div class="stats-grid pc-record" id="pc-record" hidden>
+                    <div class="stat"><b id="pc-played">0</b><span data-i18n>Played</span></div>
+                    <div class="stat"><b id="pc-won">0</b><span data-i18n>Won</span></div>
+                    <div class="stat"><b id="pc-rate">0%</b><span data-i18n>Win rate</span></div>
                 </div>
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
             </div>
@@ -346,6 +341,14 @@
                     <div class="button sheet-btn cancel" id="profile-cancel"><div class="text-button" data-i18n>CANCEL</div></div>
                     <div class="button sheet-btn go" id="profile-save"><div class="text-button" data-i18n>SAVE</div></div>
                 </div>
+                <button class="sheet-link" id="account-delete" type="button" data-i18n>Delete account</button>
+            </div>
+            <!-- signing out asks once more (the account sheet's SIGN OUT only gets here) -->
+            <div class="sheet-view" data-view="account-signout">
+                <div class="sheet-title" data-i18n>Sign out?</div>
+                <div class="sheet-text" data-i18n>You'll play as a guest on this phone. Your level, record and Pro stay with your account: sign in again to get them back.</div>
+                <div class="button sheet-btn go" id="account-signout-back"><div class="text-button" data-i18n>STAY</div></div>
+                <div class="button sheet-btn cancel" id="account-signout-confirm"><div class="text-button" data-i18n>SIGN OUT</div></div>
             </div>
             <div class="sheet-view" data-view="account-delete">
                 <div class="sheet-title" data-i18n>Delete your account?</div>
@@ -361,10 +364,10 @@
             <div class="sheet-view" data-view="pro">
                 <div class="sheet-title" data-i18n>Linotte Pro</div>
                 <ul class="sheet-list">
+                    <li class="pro-star"><span class="pro-sample" id="pro-sample" data-tier="silver"></span><span data-i18n>A gold star and frame on your badge</span></li>
                     <li data-i18n>Create private rooms to play with friends</li>
                     <li data-i18n>See which friends are online and invite them with a tap</li>
                     <li data-i18n>Choose the piece you play with</li>
-                    <li data-i18n>Your level on your badge, seen by every opponent</li>
                     <li data-i18n>No ads</li>
                     <li data-i18n>Exclusive pieces, dice and backgrounds</li>
                 </ul>
@@ -374,41 +377,6 @@
                 <div class="button sheet-btn cancel" id="pro-restore"><div class="text-button" data-i18n>RESTORE PURCHASE</div></div>
                 <div class="sheet-text" id="pro-thanks" data-i18n>You're Pro. Thank you for supporting Linotte!</div>
                 <div class="button sheet-btn cancel" data-sheet-close><div class="text-button" id="pro-close-text" data-i18n>NOT NOW</div></div>
-            </div>
-            <!-- Stats (see "Stats screen" in linotte.js, public/stats.js) -->
-            <div class="sheet-view" data-view="stats">
-                <div class="sheet-title" data-i18n>Your stats</div>
-                <div class="sheet-text sheet-small" id="stats-note"></div>
-                <div class="button sheet-btn alt" id="stats-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
-                <div class="stats-level" id="stats-level">
-                    <div class="stats-level-row">
-                        <b id="st-level">Level 1</b>
-                        <button class="help-dot" id="st-level-help" type="button" aria-label="How levels work"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7.7 7.7a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="10" cy="14.4" r=".9" fill="currentColor"/></svg></button>
-                        <span id="st-level-points">0 / 1</span>
-                    </div>
-                    <div class="stats-level-bar"><div id="st-level-fill"></div></div>
-                    <div class="stats-level-next" id="st-level-next"></div>
-                    <button class="level-ad" id="st-level-ad" type="button"><span class="level-ad-play" aria-hidden="true">▶</span><span id="st-level-ad-text"></span></button>
-                </div>
-                <div class="button sheet-btn alt lb-open" id="stats-ranking"><div class="text-button" data-i18n>RANKING</div></div>
-                <div class="sheet-text" id="stats-empty" data-i18n>No games yet. Play one and come back!</div>
-                <div class="stats-body" id="stats-body">
-                    <div class="stats-grid">
-                        <div class="stat"><b id="st-played">0</b><span data-i18n>Played</span></div>
-                        <div class="stat"><b id="st-won">0</b><span data-i18n>Won</span></div>
-                        <div class="stat"><b id="st-rate">0%</b><span data-i18n>Win rate</span></div>
-                        <div class="stat"><b id="st-streak">0</b><span data-i18n>Win streak</span></div>
-                        <div class="stat"><b id="st-best-streak">0</b><span data-i18n>Best streak</span></div>
-                        <div class="stat"><b id="st-best">0</b><span data-i18n>Best score</span></div>
-                    </div>
-                    <table class="stats-modes">
-                        <thead><tr><th></th><th data-i18n>Played</th><th data-i18n>Won</th><th data-i18n>Avg</th></tr></thead>
-                        <tbody id="stats-modes"></tbody>
-                    </table>
-                    <div class="profile-label" data-i18n>Last games</div>
-                    <ul class="stats-recent" id="stats-recent"></ul>
-                </div>
-                <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
             </div>
             <!-- leaving an online game for the home -->
             <div class="sheet-view" data-view="leave">
@@ -677,6 +645,9 @@
                 <div id="doneBtn" class="button done">
                     <div class="text-button" data-i18n>DONE</div>
                 </div>
+                <!-- the chat button's place beside DONE, only in online games
+                     (see syncChat in linotte.js) -->
+                <div class="chat-slot" id="chat-slot"></div>
                 <div id="turn-label" class="turn-label" style="display:none">
                     <span class="turn-label-text"></span>
                 </div>
@@ -699,6 +670,9 @@
             <div class="icon" id="icon-tab1" data-page="game"></div>
             <div class="icon" id="icon-tab2" data-page="options"></div>
             <div class="icon" id="icon-tab3" data-page="help"></div>
+            <div class="icon" id="icon-tab4" data-page="ranking" role="button" aria-label="Ranking"></div>
+            <div class="icon" id="icon-tab5" data-page="stats" role="button" aria-label="Stats"></div>
+            <div class="icon" id="icon-tab6" data-page="road" role="button" aria-label="Level road"></div>
 
             <div id="tabIndicator" class="tab-indicator"></div>
         </div>
@@ -708,6 +682,7 @@
 
             <!-- GAME -->
             <div class="opt-page" id="page-game">
+                <div class="sheet opt-sheet">
                 <!-- Only what belongs to the game in progress; the modes are
                      on the home screen. -->
                 <section>
@@ -725,12 +700,16 @@
                 <section class="game-home">
                     <div class="button game-home-btn" id="game-home-btn"><div class="text-button" data-i18n>HOME</div></div>
                 </section>
+                </div>
             </div>
 
             <!-- OPTIONS -->
             <div class="opt-page hidden" id="page-options">
+                <div class="sheet opt-sheet">
+                <div class="sheet-title" data-i18n>Options</div>
                 <section>
-                    <div class="title" id="board-title" data-i18n>Table style</div>
+                    <div class="title" data-i18n>Table style</div>
+                    <div class="opt-current" id="board-current"></div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
                             <div class="car-item board-options" id="bo0"><img src="resources/images/board_p.svg"></div>
@@ -742,7 +721,8 @@
 
                 <!-- your piece: filled in by linotte.js ("Favorite piece") -->
                 <section>
-                    <div class="title" id="piece-title" data-i18n>Random piece</div>
+                    <div class="title" data-i18n>Piece</div>
+                    <div class="opt-current" id="piece-current"></div>
                     <div class="car-list-wrapper">
                         <ul class="car-list" id="piece-list"></ul>
                         <button class="car-button previous" data-carousel="piece" data-direction="previous"
@@ -753,7 +733,8 @@
                 </section>
 
                 <section>
-                    <div class="title" id="dice-title" data-i18n>Dice style</div>
+                    <div class="title" data-i18n>Dice style</div>
+                    <div class="opt-current" id="dice-current"></div>
                     <div class="car-list-wrapper">
                         <ul class="car-list">
                             <li class="car-item">
@@ -790,7 +771,8 @@
                 </section>
 
                 <section>
-                    <div class="title" id="bg-title" data-i18n>Background</div>
+                    <div class="title" data-i18n>Background</div>
+                    <div class="opt-current" id="bg-current"></div>
                     <div class="car-list-wrapper">
                         <ul class="car-list">
                             <li class="car-item">
@@ -837,7 +819,7 @@
                 </section>
 
                 <section>
-                    <div class="title" id="sound-title" data-i18n>Sound</div>
+                    <div class="title" data-i18n>Sound</div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
                             <div class="car-btn">
@@ -857,10 +839,80 @@
                         <div class="car-list list-centered" id="language-list"></div>
                     </div>
                 </section>
+                </div>
+            </div>
+
+            <!-- RANKING (this week, all time, friends): see showRanking in linotte.js -->
+            <div class="opt-page hidden" id="page-ranking">
+                <div class="sheet opt-sheet">
+                <div class="sheet-view" data-view="leaderboard">
+                    <div class="sheet-title" data-i18n>Ranking</div>
+                    <div class="lb-tabs" role="tablist">
+                        <button class="lb-tab" data-tab="week" type="button" role="tab" data-i18n>This week</button>
+                        <button class="lb-tab" data-tab="all" type="button" role="tab" data-i18n>All time</button>
+                        <button class="lb-tab" data-tab="friends" type="button" role="tab" data-i18n>Friends</button>
+                    </div>
+                    <div class="sheet-text sheet-small" id="lb-note"></div>
+                    <div class="lb-pro" id="lb-pro" hidden>
+                        <span data-i18n>With Pro, see which friends are online and invite them with a tap, no link to send.</span>
+                        <button class="lb-pro-btn" id="lb-pro-btn" type="button" data-i18n>GET PRO</button>
+                    </div>
+                    <div class="sheet-text" id="lb-empty" hidden></div>
+                    <ol class="lb-list" id="lb-list"></ol>
+                    <div class="lb-me" id="lb-me" hidden></div>
+                    <div class="button sheet-btn alt" id="lb-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
+                </div>
+                </div>
+            </div>
+
+            <!-- STATS and the level: see showStats in linotte.js -->
+            <div class="opt-page hidden" id="page-stats">
+                <div class="sheet opt-sheet">
+                <div class="sheet-view" data-view="stats">
+                    <div class="sheet-title" data-i18n>Your stats</div>
+                    <div class="sheet-text sheet-small" id="stats-note"></div>
+                    <div class="button sheet-btn alt" id="stats-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
+                    <div class="stats-level" id="stats-level">
+                        <div class="stats-level-row">
+                            <b id="st-level">Level 1</b>
+                            <button class="help-dot" id="st-level-help" type="button" aria-label="How levels work"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7.7 7.7a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="10" cy="14.4" r=".9" fill="currentColor"/></svg></button>
+                            <span id="st-level-points">0 / 1</span>
+                        </div>
+                        <div class="stats-level-bar"><div id="st-level-fill"></div></div>
+                        <div class="stats-level-next" id="st-level-next"></div>
+                        <button class="level-ad" id="st-level-ad" type="button"><span class="level-ad-play" aria-hidden="true">▶</span><span id="st-level-ad-text"></span></button>
+                    </div>
+                    <div class="sheet-text" id="stats-empty" data-i18n>No games yet. Play one and come back!</div>
+                    <div class="stats-body" id="stats-body">
+                        <div class="stats-grid">
+                            <div class="stat"><b id="st-played">0</b><span data-i18n>Played</span></div>
+                            <div class="stat"><b id="st-won">0</b><span data-i18n>Won</span></div>
+                            <div class="stat"><b id="st-rate">0%</b><span data-i18n>Win rate</span></div>
+                            <div class="stat"><b id="st-streak">0</b><span data-i18n>Win streak</span></div>
+                            <div class="stat"><b id="st-best-streak">0</b><span data-i18n>Best streak</span></div>
+                            <div class="stat"><b id="st-best">0</b><span data-i18n>Best score</span></div>
+                        </div>
+                        <table class="stats-modes">
+                            <thead><tr><th></th><th data-i18n>Played</th><th data-i18n>Won</th><th data-i18n>Avg</th></tr></thead>
+                            <tbody id="stats-modes"></tbody>
+                        </table>
+                        <div class="profile-label" data-i18n>Last games</div>
+                        <ul class="stats-recent" id="stats-recent"></ul>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- LEVEL ROAD: every level with something to unlock, what you have and how far the next one is (showRoad in linotte.js) -->
+            <div class="opt-page hidden" id="page-road">
+                <div class="road-panel">
+                    <div class="road-heading" data-i18n>Level road</div>
+                    <ol class="road-list" id="road-list"></ol>
+                </div>
             </div>
 
             <!-- HELP -->
-            <div class="opt-page hidden" id="page-help">
+            <div class="opt-page opt-flow hidden" id="page-help">
                 <!-- Read top to bottom in the order the game is played: goal, a
                      turn, what the dice can make, scoring, the end. Built from
                      the same pieces as the other tabs (the .title pill, the
@@ -1048,6 +1100,15 @@
                     </div>
                     <div class="winner-text" id="winner-text"></div>
                     <div class="winner-points" id="winner-points"></div>
+                    <!-- points earned by this game and the way to the next level (showXpGain in linotte.js) -->
+                    <div class="winner-xp" id="winner-xp" hidden>
+                        <div class="wx-row">
+                            <span class="wx-gain" id="wx-gain"></span>
+                            <span class="wx-level" id="wx-level"></span>
+                            <span class="wx-pts" id="wx-pts"></span>
+                        </div>
+                        <div class="wx-bar"><div id="wx-fill"></div></div>
+                    </div>
                     <div class="winner-buttons">
                         <div class="winner-button rematch" id="winner-rematch"><span id="winner-rematch-text" data-i18n>REMATCH</span></div>
                         <div class="winner-button" id="winner-button" data-i18n>NEW GAME</div>
@@ -1057,25 +1118,55 @@
         </div>
     </div>
 
-    <!-- chat emoji wheel: graphic-only placeholder for future online play --
-         throwing an emoji only shows it locally for now, there's no peer to
-         send it to yet. -->
-    <div class="chat-fab" id="chat-fab">
-        <div class="chat-fab-dots"><span></span><span></span><span></span></div>
+    <!-- Level up / unlock celebration (showLevelUp in linotte.js): full screen,
+         with what the new level brings. -->
+    <div id="levelup-overlay" class="levelup-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="lu-title">
+        <div class="lu-rays" aria-hidden="true"></div>
+        <div class="lu-card">
+            <div class="lu-kicker" data-i18n>LEVEL UP!</div>
+            <div class="lu-badge" id="lu-badge"><span id="lu-level">1</span></div>
+            <h2 class="lu-title" id="lu-title"></h2>
+            <div class="lu-sub" id="lu-sub"></div>
+            <ul class="lu-rewards" id="lu-rewards"></ul>
+            <div class="lu-next" id="lu-next"></div>
+            <div class="lu-buttons">
+                <button class="lu-btn lu-ok" id="lu-ok" type="button" data-i18n>CONTINUE</button>
+                <button class="lu-btn lu-road" id="lu-road" type="button" data-i18n>LEVEL ROAD</button>
+            </div>
+        </div>
     </div>
 
-    <div id="chat-wheel-overlay" class="chat-wheel-overlay hidden">
-        <div class="chat-wheel" id="chat-wheel">
-            <button class="chat-emoji" data-emoji="🎲" style="--angle:0deg">🎲</button>
-            <button class="chat-emoji" data-emoji="❤️" style="--angle:40deg">❤️</button>
-            <button class="chat-emoji" data-emoji="😮" style="--angle:80deg">😮</button>
-            <button class="chat-emoji" data-emoji="🤣" style="--angle:120deg">🤣</button>
-            <button class="chat-emoji" data-emoji="🙏🏻" style="--angle:160deg">🙏🏻</button>
-            <button class="chat-emoji" data-emoji="😡" style="--angle:200deg">😡</button>
-            <button class="chat-emoji" data-emoji="🥺" style="--angle:240deg">🥺</button>
-            <button class="chat-emoji" data-emoji="🫤" style="--angle:280deg">🫤</button>
-            <button class="chat-emoji" data-emoji="👋" style="--angle:320deg">👋</button>
+    <!-- Losing a level: quiet, no confetti; the badge slides down to the level
+         you are at now (showLevelDown in linotte.js). -->
+    <div id="leveldown-overlay" class="leveldown-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="ld-title">
+        <div class="ld-card">
+            <div class="ld-kicker" data-i18n>LEVEL DOWN</div>
+            <div class="ld-stage" id="ld-stage">
+                <div class="ld-badge" id="ld-badge">
+                    <span class="ld-num ld-old" id="ld-old">1</span>
+                    <span class="ld-num ld-new" id="ld-level">0</span>
+                    <svg class="ld-crack" viewBox="0 0 100 100" aria-hidden="true"><path d="M57 2 L45 22 L60 37 L42 55 L58 72 L47 98" pathLength="1"/></svg>
+                </div>
+                <div class="ld-chip" id="ld-chip"></div>
+            </div>
+            <h2 class="ld-title" id="ld-title"></h2>
+            <div class="ld-sub" data-i18n>Games left unfinished cost points.</div>
+            <div class="ld-locked" id="ld-locked"></div>
+            <div class="ld-next" id="ld-next"></div>
+            <div class="lu-buttons ld-buttons">
+                <button class="lu-btn lu-ok" id="ld-ok" type="button" data-i18n>CONTINUE</button>
+                <button class="lu-btn lu-road" id="ld-road" type="button" data-i18n>LEVEL ROAD</button>
+            </div>
         </div>
+    </div>
+
+    <!-- chat reactions: online games only (see syncChat in linotte.js). The
+         button opens a fan of icons, like the Dock's stacks; each icon is
+         labelled for the sender, the receiver sees only the icon. -->
+    <button class="chat-fab" id="chat-fab" type="button" aria-label="Reactions" aria-expanded="false" hidden></button>
+    <div id="chat-fan" class="chat-fan" hidden>
+        <div class="chat-fan-backdrop" id="chat-fan-backdrop"></div>
+        <div class="chat-fan-items" id="chat-fan-items"></div>
     </div>
 
     <div class="chat-toss-stage" id="chat-toss-stage"></div>

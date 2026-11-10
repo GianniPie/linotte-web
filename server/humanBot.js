@@ -180,6 +180,7 @@ export class HumanBot {
       if (!this.live(turnId)) return;
       await this.applyLock(chooseDiceToLock(s.dice.values, s, seat, strategy));
       if (!this.live(turnId)) return;
+      if (s.dice.locked.every(Boolean)) return; // keeping all five: nothing to roll
       await this.pause("beforeRoll");
       if (!this.live(turnId)) return;
     }

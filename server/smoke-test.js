@@ -7,7 +7,7 @@ import { createMemoryStore } from "./store.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
 import { isPro, forgetPro } from "./entitlements.js";
 import { pickPieceIndexes, assignPieces, colorDistance } from "../public/shared/pieces.js";
-import { recordResults, experience, resultRows } from "./results.js";
+import { recordResults, experience, accountStats, resultRows } from "./results.js";
 import { levelOf, levelStart } from "../public/shared/level.js";
 import { pieces } from "../public/shared/assets.js";
 import { generateKeyPair, exportJWK, createLocalJWKSet, SignJWT } from "jose";
@@ -59,7 +59,9 @@ async function playTurn(room, seat) {
     if (s.dice.rollsLeft <= 0 || shouldStopRolling(s, seat, strategy)) break;
     const call = chooseCallToMake(s, seat, strategy);
     if (call != null) { const called = [null, null, null, 0, 0, 0, 0, 0]; called[call] = 1; act({ type: "SELEC_CALL", called }); }
-    act({ type: "LOCK_DICE", locked: chooseDiceToLock(s.dice.values, s, seat, strategy) });
+    const locked = chooseDiceToLock(s.dice.values, s, seat, strategy);
+    act({ type: "LOCK_DICE", locked });
+    if (locked.every(Boolean)) break; // keeping all five: nothing to roll (see canRoll)
   }
   const ex = explainPlacement(room.state, seat, strategy);
   if (ex.chosen) act({ type: "PLACE_PIECE", coordinates: ex.chosen.rc, player: seat });
@@ -386,6 +388,8 @@ const lobby = new Lobby(io, store);
     return { ok: true, headers: { get: () => `0-0/${n}` } };
   };
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 94, "experience is counted, bonuses included");
+  const stats = await accountStats("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts });
+  assert.deepEqual(stats.record, { played: 52, won: 42 }, "the online record: 42 won of 52 (42 + 7 finished + 3 abandoned)");
   const asked = sent.slice(-6).map(([u]) => u);
   assert.ok(asked.some((u) => u.includes("source=eq.server&won=is.true")), "online wins from the server");
   assert.ok(asked.some((u) => u.includes("won=is.false&abandoned=is.false")), "online games finished without winning");
@@ -563,11 +567,13 @@ const lobby = new Lobby(io, store);
   // The room picks the table.
   const rich = fakeSocket("player-matchrr5", "Owl5");
   const poor = fakeSocket("player-matchpp6", "Fox6");
-  Object.assign(rich.data, { userId: "u-rich", level: 10, xp: 300, background: 3 });
+  Object.assign(rich.data, { userId: "u-rich", level: 10, xp: 300, background: 3, record: { played: 20, won: 12 } });
   Object.assign(poor.data, { userId: "u-poor", level: 1, xp: 8, background: 0 });
   assert.ok(lobby8.createPrivate(rich).ok);
   assert.ok((await lobby8.joinByCode(poor, lobby8.roomOfSocket(rich).code)).ok);
   const room = lobby8.roomOfSocket(rich);
+  assert.equal(room.state.players[rich.data.seat].level, 10, "a signed-in player shows their level, Pro or not");
+  assert.deepEqual(room.state.players[rich.data.seat].record, { played: 20, won: 12 }, "and their online record");
   assert.deepEqual(room.state.tableLook, { seat: rich.data.seat, background: 3 }, "both play at the table of the one with more points");
   const cheat = fakeSocket("player-matchcc7", "Rat7");
   Object.assign(cheat.data, { userId: "u-cheat", level: 0, xp: 0, background: 8 });
@@ -576,6 +582,93 @@ const lobby = new Lobby(io, store);
   room2.addHuman(1, cheat, cheat.data);
   assert.equal(room2.seats[1].background, 4, "a background not unlocked yet falls back to the free one");
   console.log("ok: table and matching");
+}
+
+//--------- 17. the rules of a roll and a call ---------
+{
+  const { updateGame, canRoll, callBlockedBy } = await import("../public/shared/gameEngine.js");
+  const { createInitialGameState } = await import("../public/shared/utils.js");
+  const fresh = () => {
+    const st = createInitialGameState();
+    updateGame(st, { type: "ROLL_DICE", values: [2, 2, 2, 5, 6] });
+    updateGame(st, { type: "STOP_ROLL" });
+    return st;
+  };
+  let st = fresh();
+  updateGame(st, { type: "LOCK_DICE", locked: [true, true, true, true, true] });
+  assert.ok(!canRoll(st), "no roll with all five dice locked");
+  const before = st.dice.rollsLeft;
+  updateGame(st, { type: "ROLL_DICE", values: [1, 1, 1, 1, 1] });
+  assert.equal(st.dice.rollsLeft, before, "...the engine ignores it");
+  assert.equal(callBlockedBy(st, 3), "all_locked", "no call with all dice locked");
+
+  st = fresh();
+  updateGame(st, { type: "LOCK_DICE", locked: [true, true, true, true, false] });
+  assert.equal(callBlockedBy(st, 4), "carre_four_locked", "no Carré with 4 dice locked");
+  assert.equal(callBlockedBy(st, 3), null, "another call is fine");
+
+  st = fresh();
+  updateGame(st, { type: "SELEC_CALL", called: [null, null, null, 0, 1, 0, 0, 0] });
+  assert.equal(st.called[4], 1, "Carré called with 3 dice locked... ");
+  updateGame(st, { type: "LOCK_DICE", locked: [true, true, true, true, false] });
+  assert.ok(!st.called[4], "...and dropped once a fourth die is locked");
+
+  st = fresh();
+  updateGame(st, { type: "SELEC_CALL", called: [null, null, null, 1, 0, 0, 0, 0] });
+  updateGame(st, { type: "ROLL_DICE", values: [3, 3, 3, 4, 4] });
+  updateGame(st, { type: "STOP_ROLL" });
+  updateGame(st, { type: "SELEC_CALL", called: [null, null, null, 0, 0, 0, 0, 1] });
+  assert.equal(st.called[7], 1, "the call can change between one throw and the next");
+
+  // The server refuses them too.
+  const lobby9 = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async () => false, befriend: async () => {} });
+  const a = fakeSocket("player-rulesaaa1", "Ram1");
+  const b = fakeSocket("player-rulesbbb2", "Yak2");
+  assert.ok(lobby9.createPrivate(a).ok);
+  assert.ok((await lobby9.joinByCode(b, lobby9.roomOfSocket(a).code)).ok);
+  const room = lobby9.roomOfSocket(a);
+  const seat = room.state.currentPlayer;
+  const act = (x) => room.handleAction(seat, x);
+  assert.ok(act({ type: "ROLL_DICE" }).ok && act({ type: "STOP_ROLL" }).ok);
+  assert.ok(act({ type: "LOCK_DICE", locked: [true, true, true, true, false] }).ok);
+  assert.equal(act({ type: "SELEC_CALL", called: [null, null, null, 0, 1, 0, 0, 0] }).reason, "cannot_call", "server: no Carré with 4 locked");
+  assert.ok(act({ type: "SELEC_CALL", called: [null, null, null, 1, 0, 0, 0, 0] }).ok, "server: a Full is fine");
+  assert.ok(act({ type: "LOCK_DICE", locked: [true, true, true, true, true] }).ok);
+  assert.equal(act({ type: "ROLL_DICE" }).reason, "cannot_roll", "server: no roll with all five locked");
+  assert.ok(act({ type: "LOCK_DICE", locked: [true, true, true, false, false] }).ok);
+  assert.ok(act({ type: "SELEC_CALL", called: [null, null, null, 1, 0, 0, 0, 0] }).ok);
+  assert.ok(act({ type: "ROLL_DICE" }).ok);
+  assert.equal(act({ type: "SELEC_CALL", called: [null, null, null, 0, 0, 0, 0, 1] }).reason, "cannot_call", "server: no call while the dice roll");
+  assert.ok(act({ type: "STOP_ROLL" }).ok);
+  assert.ok(act({ type: "SELEC_CALL", called: [null, null, null, 0, 0, 0, 0, 1] }).ok, "server: a new call before the next roll");
+  room.forfeit(seat, "left");
+  console.log("ok: roll and call rules");
+}
+
+//--------- 18. chat reactions and the bell ---------
+{
+  const lobby10 = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async () => false, befriend: async () => {} });
+  const a = fakeSocket("player-chataaaa1", "Cat1");
+  const b = fakeSocket("player-chatbbbb2", "Dog2");
+  assert.ok(lobby10.createPrivate(a).ok);
+  assert.ok((await lobby10.joinByCode(b, lobby10.roomOfSocket(a).code)).ok);
+  const room = lobby10.roomOfSocket(a);
+  const seat = a.data.seat;
+  assert.equal(room.state.players[seat].level, null, "a guest shows no level (nothing the server can trust)");
+  assert.equal(room.state.players[seat].record, null);
+  assert.ok(room.emote(seat, "👍").ok, "a reaction from the set goes through");
+  assert.ok(!room.emote(seat, "❤️").ok, "one that isn't in the set is refused");
+  assert.equal(find(b, "emote").at(-1)?.payload.id, "👍", "and the other player gets it");
+
+  const wait = () => { room.lastEmoteAt[seat] = 0; };
+  wait(); assert.ok(room.emote(seat, "🔔").ok, "the bell rings");
+  wait(); assert.equal(room.emote(seat, "🔔").error, "nudge_limit", "but not again within 10 seconds");
+  for (let n = 2; n <= 5; n++) { room.nudges[seat].at -= 11000; wait(); assert.ok(room.emote(seat, "🔔").ok, `bell ${n} of 5`); }
+  room.nudges[seat].at -= 11000; wait();
+  assert.equal(room.emote(seat, "🔔").error, "nudge_limit", "5 a game at most");
+  assert.ok(find(b, "emote").filter((m) => m.payload.id === "🔔").length === 5, "the other player was rung 5 times");
+  room.forfeit(seat, "left");
+  console.log("ok: chat reactions");
 }
 
 //--------- 12. rematch ---------

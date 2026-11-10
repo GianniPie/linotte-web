@@ -9,11 +9,12 @@
 // Transport-agnostic on purpose: the room only needs `io.to(id).emit`, so it
 // can later move behind Redis or a Durable Object without touching the rules.
 
-import { updateGame } from "../public/shared/gameEngine.js";
+import { updateGame, canRoll, callAllowed } from "../public/shared/gameEngine.js";
 import { createInitialGameState, rndNum } from "../public/shared/utils.js";
 import { piecesPath, pieces } from "../public/shared/assets.js";
 import { assignPieces, isPlayPiece } from "../public/shared/pieces.js";
 import { tableSeat, ownsBackground, FREE_LOOKS } from "../public/shared/level.js";
+import { NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME } from "../public/shared/chat.js";
 import {
   TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS, IDLE_TURNS_LIMIT,
   RECONNECT_GRACE_MS, EMOTES,
@@ -52,6 +53,7 @@ export class Room {
     this.graceTimers = {};
     this.idleTurns = {}; // seat -> turns in a row ended without a roll
     this.lastEmoteAt = {};
+    this.nudges = {}; // seat -> { at, n }: the bell's limits (see emote)
   }
 
   get channel() { return "room:" + this.id; }
@@ -64,10 +66,10 @@ export class Room {
 
   freeSeat() { return !this.seats[1] ? 1 : !this.seats[2] ? 2 : 0; }
 
-  addHuman(seat, socket, { playerId, name, userId = null, pro = false, country = "", piece = -1, level = 0, xp = 0, background = FREE_LOOKS.background }) {
+  addHuman(seat, socket, { playerId, name, userId = null, pro = false, country = "", piece = -1, level = 0, xp = 0, record = null, background = FREE_LOOKS.background }) {
     this.seats[seat] = {
       kind: "human", playerId, name, userId: userId || null, pro: Boolean(pro), country: country || "",
-      level: Number(level) || 0, xp: Number(xp) || 0,
+      level: Number(level) || 0, xp: Number(xp) || 0, record: record || { played: 0, won: 0 },
       // The background they'd show (the table, see tableSeat): only one
       // their level has unlocked (nothing can be bought yet).
       background: ownsBackground(background, xp) ? background : FREE_LOOKS.background, bought: false,
@@ -117,8 +119,11 @@ export class Room {
     for (const s of [1, 2]) {
       state.players[s].pro = Boolean(this.seats[s].pro);
       state.players[s].country = this.seats[s].country || "";
-      // The PRO badge shows the level; without Pro nobody else sees it.
-      state.players[s].level = this.seats[s].pro ? this.seats[s].level || 0 : null;
+      // Every signed-in player shows their level and online record (a guest's
+      // can't be trusted: none; Pro adds a star and a frame to the badge).
+      const signedIn = Boolean(this.seats[s].userId);
+      state.players[s].level = signedIn ? this.seats[s].level || 0 : null;
+      state.players[s].record = signedIn ? this.seats[s].record : null;
     }
     Object.assign(state.players[1], a);
     Object.assign(state.players[2], b);
@@ -186,7 +191,8 @@ export class Room {
     const s = this.state;
     switch (raw.type) {
       case "ROLL_DICE": {
-        if (this.rolling || s.dice.rollsLeft <= 0) return this.reject("cannot_roll");
+        // no roll left, or all five dice locked (nothing to roll)
+        if (this.rolling || !canRoll(s)) return this.reject("cannot_roll");
         const values = s.dice.values.map((v, i) => (s.dice.locked[i] ? v : rndNum(1, 6)));
         updateGame(s, { type: "ROLL_DICE", values });
         this.rolling = true;
@@ -216,7 +222,9 @@ export class Room {
         let n = 0;
         for (let i = 3; i < 8; i++) if (c[i]) { called[i] = 1; n++; }
         if (n > 1) return this.reject("bad_action"); // one call at a time
-        if (n === 1 && s.dice.locked.every(Boolean)) return this.reject("cannot_call");
+        // never mid-roll (above); never with all dice locked; a Carré never
+        // with 4 locked (see callBlockedBy in gameEngine.js)
+        for (let i = 3; i < 8; i++) if (called[i] && !callAllowed(s, i)) return this.reject("cannot_call");
         updateGame(s, { type: "SELEC_CALL", called });
         return this.relay(seat, { type: "SELEC_CALL", called: called.slice() });
       }
@@ -311,6 +319,13 @@ export class Room {
     if (this.status !== "playing" || !EMOTES.includes(id)) return { ok: false };
     const now = Date.now();
     if (now - (this.lastEmoteAt[seat] || 0) < 800) return { ok: false };
+    // The bell (a nudge: the board shakes and rings for both) is limited: one
+    // every 10 seconds and 5 a game, or it becomes a nuisance.
+    if (id === NUDGE) {
+      const sent = this.nudges[seat] || { at: 0, n: 0 };
+      if (now - sent.at < NUDGE_COOLDOWN_MS || sent.n >= NUDGE_MAX_PER_GAME) return { ok: false, error: "nudge_limit" };
+      this.nudges[seat] = { at: now, n: sent.n + 1 };
+    }
     this.lastEmoteAt[seat] = now;
     const other = this.otherSeat(seat);
     this.emitToSeat(other, "emote", { from: seat, id });
@@ -378,7 +393,7 @@ export class Room {
       const x = this.seats[s];
       if (!x) return null;
       if (x.kind === "bot") return { kind: "bot", playerId: x.playerId, name: x.name, bot: x.bot.toJSON() };
-      return { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "", level: x.level || 0 };
+      return { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "", level: x.level || 0, record: x.record || null };
     };
     return {
       v: 1,
@@ -410,7 +425,7 @@ export class Room {
         room.seats[s] = { kind: "bot", playerId: x.playerId, name: x.name, country: x.bot?.country || "", connected: true, bot: HumanBot.fromJSON(x.bot) };
         room.seats[s].bot.attach(room, s);
       } else {
-        room.seats[s] = { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "", level: x.level || 0, socketId: null, connected: false };
+        room.seats[s] = { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), country: x.country || "", level: x.level || 0, record: x.record || { played: 0, won: 0 }, socketId: null, connected: false };
       }
     }
     if (room.status !== "playing") return room;

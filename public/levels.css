@@ -1,0 +1,868 @@
+/* ============================================
+   LEVELS
+   The points earned at the end of a game (on the winner card), the full-screen
+   celebration when a level is reached and a reward unlocked, and the level
+   road: every level with something to unlock and where you are.
+   (The rules and the numbers are in shared/level.js, the code in linotte.js.)
+   ============================================ */
+
+/* ---------- points earned, on the winner card ---------- */
+.winner-xp {
+  width: 100%;
+  margin-top: 1.5cqw;
+  margin-bottom: 2.5cqw;
+  padding: 0 1cqw;
+  box-sizing: border-box;
+  color: #3d240c;
+}
+
+.winner-xp[hidden] {
+  display: none;
+}
+
+.wx-row {
+  display: flex;
+  align-items: baseline;
+  gap: 2cqw;
+  font-size: 4.4cqw;
+  line-height: 1.1;
+  font-family: "Changa One", sans-serif;
+}
+
+.wx-gain {
+  font-size: 6.6cqw;
+  color: #1f7a45;
+  animation: wxPop .7s cubic-bezier(.2, 1.7, .4, 1) both;
+}
+
+.wx-gain.is-negative {
+  color: #b3261e;
+}
+
+.wx-pts {
+  margin-left: auto;
+  opacity: .7;
+  font-variant-numeric: tabular-nums;
+}
+
+.wx-bar {
+  height: 2.6cqw;
+  margin-top: 1.2cqw;
+  border-radius: 1.3cqw;
+  background: rgba(0, 0, 0, .16);
+  overflow: hidden;
+}
+
+.wx-bar > div {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(232, 185, 35);
+  transition: width 1.1s cubic-bezier(.2, .8, .2, 1);
+}
+
+@keyframes wxPop {
+  from { opacity: 0; transform: scale(.3) translateY(1em); }
+}
+
+/* A card with the points bar is a little tighter around the piece. */
+.winner-container.has-xp .h-winner-table {
+  margin-top: 11cqw;
+}
+
+.winner-container.has-xp .piece-popup-container {
+  width: 26cqw;
+}
+
+.winner-container.has-xp .winner-text {
+  margin-top: 2cqw;
+}
+
+/* ---------- the celebration ---------- */
+.levelup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 98; /* above the winner card, the sheets and the toasts; the confetti library draws at 100 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px));
+  background: radial-gradient(circle at 50% 34%, rgba(70, 38, 6, .7), rgba(8, 4, 0, .94) 72%);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  animation: luFade .35s ease-out both;
+}
+
+.levelup-overlay[hidden] {
+  display: none;
+}
+
+.lu-card {
+  position: relative;
+  width: min(100%, 26em);
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .55em;
+  padding: .5em .4em 1em;
+  text-align: center;
+  color: #fff;
+  font-family: "Changa One", sans-serif;
+  font-size: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lu-kicker {
+  font-size: min(1.15em, 4.6vw);
+  letter-spacing: .2em;
+  padding-left: .2em;
+  white-space: nowrap;
+  color: rgb(255, 226, 122);
+  animation: luDrop .55s .1s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+
+/* The badge, in the colour of its tier; light rays turn behind it. */
+.lu-badge {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  width: 8em;
+  height: 8em;
+  margin: .5em 0 .3em;
+  border-radius: 50%;
+  background: var(--badge-bg, linear-gradient(135deg, #fff, #d9d9d9));
+  border: .3em solid rgb(255, 226, 122);
+  box-shadow: 0 0 0 .22em rgba(0, 0, 0, .35), 0 .5em 1.6em rgba(0, 0, 0, .55), 0 0 3.5em rgba(255, 214, 90, .55);
+  color: var(--badge-ink, #3d240c);
+  animation: luPop .9s .15s cubic-bezier(.2, 1.7, .4, 1) both;
+}
+
+/* The rays are the overlay's own (the card scrolls and would cut them), put
+   on the badge's centre by showLevelUp. */
+.lu-rays {
+  position: absolute;
+  left: var(--ray-x, 50%);
+  top: var(--ray-y, 30%);
+  width: 220vmax;
+  height: 220vmax;
+  margin: -110vmax 0 0 -110vmax;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 226, 122, .26) 0 7deg, transparent 7deg 22deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, transparent 38%);
+  mask-image: radial-gradient(circle, #000 0, transparent 38%);
+  animation: luSpin 30s linear infinite;
+  pointer-events: none;
+}
+
+.lu-card {
+  z-index: 1;
+}
+
+/* A light sweeping across the badge. */
+.lu-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .55) 50%, transparent 62%);
+  background-size: 250% 100%;
+  animation: luShine 2.6s 1.1s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.lu-badge > span {
+  font-size: 4.6em;
+  line-height: 1;
+  text-shadow: 0 .04em 0 rgba(255, 255, 255, .35);
+  font-variant-numeric: tabular-nums;
+}
+
+.lu-title {
+  margin: 0;
+  font-size: 2.2em;
+  line-height: 1.05;
+  font-weight: 400;
+  text-shadow: 0 .06em .2em rgba(0, 0, 0, .5);
+  animation: luRise .6s .45s both;
+}
+
+.lu-sub {
+  font-size: 1.1em;
+  color: rgb(255, 226, 122);
+  animation: luRise .6s .6s both;
+}
+
+.lu-sub:empty {
+  display: none;
+}
+
+.lu-rewards {
+  width: 100%;
+  margin: .2em 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .5em;
+}
+
+.lu-reward {
+  display: grid;
+  grid-template-columns: 4.2em minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .7em;
+  padding: .5em .7em;
+  border-radius: 1em;
+  background: rgba(255, 255, 255, .13);
+  border: .12em solid rgba(255, 226, 122, .55);
+  text-align: left;
+  animation: luReward .6s calc(.8s + var(--i, 0) * .22s) cubic-bezier(.2, 1.5, .4, 1) both;
+}
+
+.lu-thumb {
+  width: 4.2em;
+  height: 4.2em;
+  border-radius: .8em;
+  background: rgba(255, 255, 255, .85) center / cover no-repeat;
+  border: .12em solid rgba(255, 255, 255, .8);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  animation: luWiggle 2.4s calc(1.6s + var(--i, 0) * .22s) ease-in-out infinite;
+}
+
+.lu-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lu-thumb.is-dice img {
+  object-fit: contain;
+  padding: .25em;
+}
+
+.lu-swatch {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: var(--badge-bg, #fff);
+  color: var(--badge-ink, #3d240c);
+  font-size: 1.9em;
+}
+
+.lu-reward-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .1em;
+}
+
+.lu-tag {
+  font-size: .72em;
+  letter-spacing: .12em;
+  color: rgb(255, 226, 122);
+}
+
+.lu-reward-text b {
+  font-weight: 400;
+  font-size: 1.25em;
+  line-height: 1.1;
+}
+
+.lu-use {
+  padding: .35em .8em;
+  border: .12em solid rgba(0, 0, 0, .35);
+  border-radius: .8em;
+  background: rgb(232, 185, 35);
+  color: #5f4604;
+  font: 1em "Changa One", sans-serif;
+  cursor: pointer;
+}
+
+.lu-use[disabled] {
+  background: rgba(255, 255, 255, .25);
+  color: rgba(255, 255, 255, .8);
+  border-color: rgba(255, 255, 255, .35);
+  cursor: default;
+}
+
+.lu-next {
+  font-size: .95em;
+  color: rgba(255, 255, 255, .8);
+  animation: luRise .6s 1.2s both;
+}
+
+.lu-next:empty {
+  display: none;
+}
+
+.lu-buttons {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: .5em;
+  margin-top: .3em;
+  animation: luRise .6s 1.3s both;
+}
+
+.lu-btn {
+  padding: .6em 1em;
+  border-radius: .9em;
+  border: .15em solid rgba(0, 0, 0, .4);
+  font: 1.25em "Changa One", sans-serif;
+  cursor: pointer;
+}
+
+.lu-ok {
+  background: rgb(46, 160, 90);
+  color: #fff;
+}
+
+.lu-road {
+  background: rgba(255, 255, 255, .85);
+  color: #3d240c;
+  font-size: 1.05em;
+}
+
+@keyframes luFade { from { opacity: 0; } }
+@keyframes luDrop { from { opacity: 0; transform: translateY(-1.4em) scale(1.4); } }
+@keyframes luPop { from { opacity: 0; transform: scale(.1) rotate(-30deg); } }
+@keyframes luRise { from { opacity: 0; transform: translateY(1em); } }
+@keyframes luReward { from { opacity: 0; transform: translateX(-1.5em) scale(.85); } }
+@keyframes luSpin { to { transform: rotate(360deg); } }
+@keyframes luShine { 0%, 55% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
+@keyframes luWiggle { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-7deg) scale(1.05); } 84% { transform: rotate(6deg) scale(1.05); } 92% { transform: rotate(-3deg); } }
+
+/* ---------- the road ---------- */
+.road-heading {
+  margin: 0 0 1em;
+  padding: .3em .6em .35em;
+  text-align: center;
+  font: 1.7em/1.1 "Changa One", sans-serif;
+  border-radius: .55em;
+  background: rgba(255, 255, 255, .88);
+  border: .075em solid rgba(0, 0, 0, .18);
+  color: #3d240c;
+}
+
+.road-panel {
+  width: min(100%, 32em);
+  margin: 0 auto;
+  padding: .6em 1em 3em;
+  box-sizing: border-box;
+  font-size: 16px;
+  color: #3d240c;
+  text-align: left;
+}
+
+.road-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.road-stop {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3em minmax(0, 1fr);
+  gap: .8em;
+  padding-bottom: 1.1em;
+}
+
+/* The road itself: a line from each node down to the next. */
+.road-stop::before {
+  content: "";
+  position: absolute;
+  left: calc(1.5em - .22em);
+  top: 1.5em;
+  bottom: -1.5em;
+  width: .44em;
+  border-radius: .22em;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .2) 0 .5em, transparent .5em .9em);
+}
+
+.road-stop.is-reached::before {
+  background: rgb(46, 160, 90);
+}
+
+.road-stop:last-child::before {
+  display: none;
+}
+
+.road-node {
+  position: relative;
+  z-index: 1;
+  width: 3em;
+  height: 3em;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: .25em solid rgba(0, 0, 0, .28);
+  font: 1.15em "Changa One", sans-serif;
+  color: #3d240c;
+  box-sizing: border-box;
+}
+
+.road-stop.is-reached .road-node {
+  background: rgb(46, 160, 90);
+  border-color: #1f7a45;
+  color: #fff;
+}
+
+.road-stop.is-next .road-node {
+  background: rgb(232, 185, 35);
+  border-color: #8a6708;
+  animation: roadPulse 1.8s ease-in-out infinite;
+}
+
+/* "You are here": the badge in your tier's colour. */
+.road-stop.is-you .road-node {
+  width: 3.4em;
+  height: 3.4em;
+  margin-left: -.2em;
+  background: var(--badge-bg, #fff);
+  color: var(--badge-ink, #3d240c);
+  border-color: rgb(232, 185, 35);
+  box-shadow: 0 0 0 .22em rgba(232, 185, 35, .35);
+  animation: roadPulse 2.2s ease-in-out infinite;
+}
+
+.road-card {
+  align-self: start;
+  padding: .55em .8em .65em;
+  border-radius: .9em;
+  background: rgba(255, 255, 255, .88);
+  border: .125em solid rgba(0, 0, 0, .18);
+  min-width: 0;
+}
+
+.road-stop.is-next .road-card {
+  border-color: rgb(232, 185, 35);
+  box-shadow: 0 0 0 .15em rgba(232, 185, 35, .4);
+}
+
+.road-stop.is-you .road-card {
+  background: #fff;
+  border-color: rgb(232, 185, 35);
+}
+
+.road-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .6em;
+  font-family: "Changa One", sans-serif;
+}
+
+.road-card-top b {
+  font-weight: 400;
+  font-size: 1.1em;
+}
+
+.road-pts {
+  font-size: .82em;
+  opacity: .7;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.road-gifts {
+  margin: .35em 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .4em;
+}
+
+.road-gift {
+  display: grid;
+  grid-template-columns: 3em minmax(0, 1fr);
+  align-items: center;
+  gap: .65em;
+}
+
+.road-thumb {
+  width: 3em;
+  height: 3em;
+  border-radius: .6em;
+  background: rgba(0, 0, 0, .06) center / cover no-repeat;
+  border: .1em solid rgba(0, 0, 0, .2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.road-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.road-thumb.is-dice img {
+  object-fit: contain;
+  padding: .2em;
+}
+
+.road-thumb .lu-swatch {
+  font-size: 1.25em;
+}
+
+.road-gift-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: "Changa One", sans-serif;
+  line-height: 1.1;
+}
+
+.road-gift-text small {
+  font: .75em system-ui, sans-serif;
+  opacity: .65;
+}
+
+.road-bar {
+  height: .6em;
+  margin-top: .5em;
+  border-radius: .3em;
+  background: rgba(0, 0, 0, .14);
+  overflow: hidden;
+}
+
+.road-bar > div {
+  height: 100%;
+  background: rgb(232, 185, 35);
+  border-radius: inherit;
+}
+
+.road-note {
+  margin-top: .4em;
+  font: .85em system-ui, sans-serif;
+  opacity: .8;
+}
+
+.road-end {
+  padding: .4em 0 0 3.8em;
+  font: .9em system-ui, sans-serif;
+  opacity: .7;
+}
+
+/* Not reached yet: a padlock on the level and on each reward's picture. */
+.road-stop:not(.is-reached) .road-node::after {
+  content: "";
+  position: absolute;
+  right: -.45em;
+  bottom: -.45em;
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 50%;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233d240c' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2' fill='%233d240c'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / 68% no-repeat;
+  border: .12em solid rgba(0, 0, 0, .35);
+  box-sizing: border-box;
+}
+
+.road-stop:not(.is-reached) .road-thumb {
+  position: relative;
+  overflow: visible;
+}
+
+.road-stop:not(.is-reached) .road-thumb::after {
+  content: "";
+  position: absolute;
+  right: -.35em;
+  bottom: -.35em;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .95) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233d240c' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2' fill='%233d240c'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / 66% no-repeat;
+  border: .1em solid rgba(0, 0, 0, .35);
+  box-sizing: border-box;
+}
+
+@keyframes roadPulse {
+  50% { transform: scale(1.1); }
+}
+
+/* ---------- where to find the road ---------- */
+.level-road-btn {
+  align-self: center;
+  padding: .35em .9em;
+  border: .125em solid rgba(0, 0, 0, .25);
+  border-radius: .8em;
+  background: rgba(255, 255, 255, .8);
+  color: #3d240c;
+  font: .95em "Changa One", sans-serif;
+  cursor: pointer;
+}
+
+#account-road {
+  align-self: center;
+  margin: .2em 0;
+}
+
+/* GET PRO in the account: the home's pill, the same (see .home-pro in home.css). */
+.get-pro-hero {
+  align-self: center;
+  height: calc(2.75em / 1.0625);
+  padding: 0 1em;
+  border-radius: calc(1.375em / 1.0625);
+  background: rgb(232, 185, 35);
+  border: var(--btn-border);
+  border-width: calc(.1875em / 1.0625);
+  box-sizing: border-box;
+  font: 1.0625em "Changa One", sans-serif;
+  font-size: calc(var(--home-scale) * 1.0625); /* the home's own size */
+  color: #5f4604;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.get-pro-hero[hidden] {
+  display: none;
+}
+
+.get-pro-hero:active {
+  transform: translateY(.08em);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .levelup-overlay,
+  .lu-kicker,
+  .lu-badge,
+  .lu-rays,
+  .lu-badge::after,
+  .lu-title,
+  .lu-sub,
+  .lu-reward,
+  .lu-thumb,
+  .lu-next,
+  .lu-buttons,
+  .road-stop .road-node,
+  .wx-gain {
+    animation: none !important;
+  }
+}
+
+/* ---------- losing a level ---------- */
+/* The same overlay, without the party: dark, the badge cracking and sinking. */
+.leveldown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px));
+  background: radial-gradient(circle at 50% 34%, rgba(40, 36, 32, .8), rgba(6, 5, 4, .96) 72%);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  animation: luFade .5s ease-out both;
+}
+
+.leveldown-overlay[hidden] {
+  display: none;
+}
+
+/* A red flush as the crack runs. */
+.leveldown-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 34%, rgba(214, 40, 40, .5), transparent 65%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.leveldown-overlay.is-hit::after {
+  animation: ldFlush 1.1s ease-out;
+}
+
+.ld-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 24em);
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .55em;
+  padding: .5em .4em 1em;
+  text-align: center;
+  color: #fff;
+  font-family: "Changa One", sans-serif;
+  font-size: 16px;
+}
+
+.ld-kicker {
+  font-size: min(1.15em, 4.6vw);
+  letter-spacing: .2em;
+  padding-left: .2em;
+  white-space: nowrap;
+  color: rgb(255, 150, 140);
+  text-shadow: 0 0 .8em rgba(214, 40, 40, .6);
+  animation: ldKicker .7s .1s both;
+}
+
+.ld-stage {
+  position: relative;
+  margin: .6em 0 .5em;
+  animation: ldAppear .6s .2s both;
+}
+
+.ld-stage.is-shaking {
+  animation: ldShake .55s cubic-bezier(.36, .07, .19, .97);
+}
+
+.ld-badge {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  width: 8em;
+  height: 8em;
+  border-radius: 50%;
+  background: var(--badge-bg, linear-gradient(135deg, #fff, #d9d9d9));
+  border: .3em solid rgba(255, 255, 255, .6);
+  box-shadow: 0 0 0 .22em rgba(0, 0, 0, .35), 0 .5em 1.6em rgba(0, 0, 0, .55);
+  color: var(--badge-ink, #3d240c);
+  transition: transform .8s cubic-bezier(.5, 0, .3, 1), filter .8s;
+}
+
+.ld-stage.is-down .ld-badge {
+  transform: translateY(.5em) scale(.93);
+  filter: saturate(.5) brightness(.82);
+}
+
+/* The number: the old one drops out of the bottom, the new one falls in from the top. */
+.ld-num {
+  grid-area: 1 / 1;
+  font-size: 4.6em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 .04em 0 rgba(255, 255, 255, .35);
+}
+
+.ld-new {
+  opacity: 0;
+}
+
+.ld-stage.is-down .ld-old {
+  opacity: 0;
+  animation: ldOut .45s ease-in;
+}
+
+.ld-stage.is-down .ld-new {
+  opacity: 1;
+  animation: ldIn .6s .15s cubic-bezier(.3, 1.6, .5, 1) both;
+}
+
+/* The crack, drawn from the top. */
+.ld-crack {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: #1a0d03;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(.6px .6px 0 rgba(255, 255, 255, .45));
+  pointer-events: none;
+}
+
+.ld-stage.is-cracked .ld-crack {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset .3s ease-in;
+}
+
+/* ▼ N: how many levels. */
+.ld-chip {
+  position: absolute;
+  right: -.9em;
+  top: -.2em;
+  padding: .1em .55em;
+  border-radius: 1em;
+  background: #c93232;
+  border: .12em solid rgba(255, 255, 255, .8);
+  color: #fff;
+  font-size: 1.1em;
+  line-height: 1.2;
+  opacity: 0;
+  transform: scale(.3);
+}
+
+.ld-stage.is-down .ld-chip {
+  opacity: 1;
+  transform: none;
+  transition: opacity .2s .25s, transform .45s .25s cubic-bezier(.3, 1.8, .5, 1);
+}
+
+.ld-title {
+  margin: 0;
+  font-size: 2.2em;
+  line-height: 1.05;
+  font-weight: 400;
+  text-shadow: 0 .06em .2em rgba(0, 0, 0, .5);
+  animation: luRise .6s 1.2s both;
+}
+
+.ld-sub {
+  color: rgba(255, 255, 255, .78);
+  animation: luRise .6s 1.4s both;
+}
+
+.ld-locked,
+.ld-next {
+  font-size: .95em;
+  color: rgba(255, 255, 255, .82);
+  animation: luRise .6s 1.6s both;
+}
+
+.ld-locked:empty {
+  display: none;
+}
+
+.ld-buttons {
+  animation-delay: 1.8s;
+}
+
+@keyframes ldAppear { from { opacity: 0; transform: translateY(1.2em) scale(.85); } }
+@keyframes ldKicker { from { opacity: 0; letter-spacing: .5em; } }
+@keyframes ldShake {
+  10%, 90% { transform: translateX(-2px) rotate(-1deg); }
+  20%, 80% { transform: translateX(4px) rotate(1.5deg); }
+  30%, 50%, 70% { transform: translateX(-7px) rotate(-2deg); }
+  40%, 60% { transform: translateX(7px) rotate(2deg); }
+}
+@keyframes ldFlush { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes ldOut { to { transform: translateY(130%); } }
+@keyframes ldIn { from { transform: translateY(-130%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .leveldown-overlay,
+  .leveldown-overlay.is-hit::after,
+  .ld-kicker,
+  .ld-stage,
+  .ld-stage.is-shaking,
+  .ld-badge,
+  .ld-num,
+  .ld-crack,
+  .ld-chip,
+  .ld-title,
+  .ld-sub,
+  .ld-locked,
+  .ld-next,
+  .ld-buttons {
+    animation: none !important;
+    transition: none !important;
+  }
+}

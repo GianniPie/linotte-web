@@ -12,7 +12,7 @@ import { PORT, CONSENT_VERSION, EMOTES, ROOMS_NEED_PRO, isOriginAllowed } from "
 import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
 import { isPro, forgetPro } from "./entitlements.js";
-import { experience } from "./results.js";
+import { accountStats } from "./results.js";
 import { todayStatus, grantAdReward, weeklyLeaderboard } from "./bonuses.js";
 import { markOnline, markOffline, socketsOf, isOnline, friendsOf, areFriends } from "./friends.js";
 import { levelOf, FREE_LOOKS } from "../public/shared/level.js";
@@ -68,8 +68,8 @@ app.get("/api/me", async (req, res) => {
   const userId = await accountOf(req);
   if (userId && req.query.fresh === "1") forgetPro(userId);
   const devToken = req.get("X-Linotte-Dev") || ""; // ?devpro=1, see online.js
-  const [pro, xp, today] = await Promise.all([isPro({ userId, devToken }), experience(userId), todayStatus(userId)]);
-  res.json({ signedIn: Boolean(userId), pro, xp, level: levelOf(xp), ...today });
+  const [pro, stats, today] = await Promise.all([isPro({ userId, devToken }), accountStats(userId), todayStatus(userId)]);
+  res.json({ signedIn: Boolean(userId), pro, xp: stats.xp, level: levelOf(stats.xp), record: stats.record, ...today });
 });
 
 // A rewarded ad watched to the end (see ads.js): +1 level point, a few times
@@ -80,7 +80,7 @@ app.post("/api/ad-reward", async (req, res) => {
   const userId = await accountOf(req);
   if (!userId) return res.status(401).json({ ok: false });
   const result = await grantAdReward(userId);
-  const xp = await experience(userId);
+  const { xp } = await accountStats(userId);
   res.json({ ...result, xp, level: levelOf(xp) });
 });
 
@@ -147,8 +147,10 @@ async function setAccount(socket, token) {
   const profile = d.userId ? await profileOf(token) : { name: "", country: "" };
   d.name = profile.name || nameFromId(d.userId || d.playerId);
   d.country = profile.country;
-  d.xp = await experience(d.userId); // a guest has none the server can trust
+  const stats = await accountStats(d.userId); // a guest has none the server can trust
+  d.xp = stats.xp;
   d.level = levelOf(d.xp); // the number on the badge
+  d.record = stats.record; // games played and won online, for the player card
   // Online for friends (friends.js): whichever account this app is now.
   markOffline(socket);
   markOnline(socket);

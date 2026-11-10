@@ -76,6 +76,32 @@
   gap: .5em;
 }
 
+/* The Pro sheet's first line: what the star looks like, on a gold wash. */
+.sheet-list .pro-star {
+  list-style: none;
+  margin-left: -1.2em;
+  display: flex;
+  align-items: center;
+  gap: .7em;
+  padding: .45em .6em;
+  border-radius: .7em;
+  background: rgba(232, 185, 35, .2);
+  border: .1em solid rgba(232, 185, 35, .6);
+}
+
+.pro-sample {
+  flex: none;
+  padding: .05em .55em;
+  border-radius: .7em;
+  background: var(--badge-bg);
+  color: var(--badge-ink);
+  border: .1em solid rgb(232, 185, 35);
+  box-shadow: 0 0 0 .1em rgba(232, 185, 35, .55);
+  font-family: "Changa One", sans-serif;
+  font-size: .95em;
+  white-space: nowrap;
+}
+
 .sheet-check {
   display: flex;
   align-items: flex-start;
@@ -117,10 +143,9 @@
 #online-overlay[data-view="account"] .sheet-view[data-view="account"],
 #online-overlay[data-view="player"] .sheet-view[data-view="player"],
 #online-overlay[data-view="level-help"] .sheet-view[data-view="level-help"],
-#online-overlay[data-view="leaderboard"] .sheet-view[data-view="leaderboard"],
 #online-overlay[data-view="invite"] .sheet-view[data-view="invite"],
 #online-overlay[data-view="profile"] .sheet-view[data-view="profile"],
-#online-overlay[data-view="stats"] .sheet-view[data-view="stats"],
+#online-overlay[data-view="account-signout"] .sheet-view[data-view="account-signout"],
 #online-overlay[data-view="account-delete"] .sheet-view[data-view="account-delete"],
 #online-overlay[data-view="pro"] .sheet-view[data-view="pro"],
 #online-overlay[data-view="leave"] .sheet-view[data-view="leave"],
@@ -552,40 +577,6 @@
   font-weight: bold;
 }
 
-/* Account: Pro or free, and the level. Pro has the home pill's membership
-   colours (dark brown, gold); free is a plain outline. */
-.account-plan {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: .6em;
-  flex-wrap: wrap;
-}
-
-.plan-pill {
-  padding: .2em .8em;
-  border-radius: 1em;
-  border: .125em solid rgba(0, 0, 0, .35);
-  font-family: "Changa One", sans-serif;
-  font-size: 1.05em;
-  color: #3d240c;
-  background: rgba(255, 255, 255, .7);
-}
-
-.plan-pill.is-pro {
-  background: #3d240c;
-  color: rgb(242, 200, 60);
-}
-
-.plan-level {
-  font-family: "Changa One", sans-serif;
-  opacity: .75;
-}
-
-.plan-level:empty {
-  display: none;
-}
-
 .sheet-btn.pro {
   background-color: rgb(232, 185, 35);
 }
@@ -714,10 +705,6 @@
 .lb-me[hidden],
 #lb-empty[hidden] {
   display: none;
-}
-
-.lb-open .text-button {
-  font-size: .9em;
 }
 
 /* Ranking tabs: this week, all time, friends. */
