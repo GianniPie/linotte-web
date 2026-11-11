@@ -67,8 +67,10 @@ export async function recordResults(rows, { key = SECRET_KEY, url = SUPABASE_URL
 // while signed in (not the guest games moved in at sign-in), and its bonuses
 // (bonuses.js). With it, the online record that goes on the player card:
 // games played (abandoned ones count, as losses) and won. Zeros without the
-// secret key or on any error.
+// secret key; when Supabase can't be read, "unknown" (xp null), so the app
+// keeps the level it had instead of showing level 0.
 const NONE = { xp: 0, record: { played: 0, won: 0 } };
+const UNKNOWN = { xp: null, record: null };
 export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
   if (!userId || !key || !url) return NONE;
   const count = async (filter) => {
@@ -97,10 +99,10 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
     };
   } catch (err) {
     console.error("experience not counted:", err.message);
-    return NONE;
+    return UNKNOWN;
   }
 }
 
 export async function experience(userId, options) {
-  return (await accountStats(userId, options)).xp;
+  return (await accountStats(userId, options)).xp ?? 0;
 }

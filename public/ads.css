@@ -116,6 +116,18 @@
   }
 }
 
+/* Flipped (SAME TABLE, portrait): the whole page is upside down, banner
+   included, which put it on top of ROLL and DONE. It goes back to the bottom
+   of the screen, the right way up: in the flipped page's own coordinates that
+   is above its top edge. */
+@media (orientation: portrait) {
+  body.table-flipped.game-ad .game-ad-slot {
+    bottom: auto;
+    top: calc(env(safe-area-inset-bottom, 0px) - var(--ad-h));
+    transform: translateX(-50%) rotate(180deg);
+  }
+}
+
 /* Pro: no ads. The banner's place stays, empty, so the home doesn't jump. */
 body.is-pro .home-ad {
   visibility: hidden;

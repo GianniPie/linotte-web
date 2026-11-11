@@ -99,20 +99,27 @@ export async function fetchPro({ fresh = false } = {}) {
     if (token) headers.Authorization = `Bearer ${token}`;
     if (dev) headers["X-Linotte-Dev"] = dev;
     try {
-        const res = await fetch(`${SERVER_URL}/api/me${fresh ? "?fresh=1" : ""}`, { headers, cache: "no-store" });
+        const res = await fetch(`${SERVER_URL}/api/me?tz=${tzMinutes()}${fresh ? "&fresh=1" : ""}`, { headers, cache: "no-store" });
         const me = await res.json();
         const pro = Boolean(me.pro);
         write(PRO_KEY, pro ? "1" : "");
-        write(XP_KEY, me.signedIn ? String(Number(me.xp) || 0) : "");
-        write(RECORD_KEY, me.signedIn && me.record ? JSON.stringify(me.record) : "");
-        if (me.signedIn) write(TODAY_KEY, JSON.stringify({ day: utcDay(), dailyDone: Boolean(me.dailyDone), adsLeft: Number(me.adsLeft) || 0 }));
+        // xp null: the server couldn't read the points just now; keep the last ones.
+        if (!me.signedIn) { write(XP_KEY, ""); write(RECORD_KEY, ""); }
+        else if (me.xp !== null && me.xp !== undefined) {
+            write(XP_KEY, String(Number(me.xp) || 0));
+            write(RECORD_KEY, me.record ? JSON.stringify(me.record) : "");
+        } else if (read(XP_KEY) === null || read(XP_KEY) === "") write(XP_KEY, "0");
+        // adsLeft null: the server couldn't read today's bonuses; keep what the app had.
+        if (me.signedIn && typeof me.adsLeft === "number") write(TODAY_KEY, JSON.stringify({ day: localDay(), dailyDone: Boolean(me.dailyDone), adsLeft: me.adsLeft }));
         return pro;
     } catch {
         return lastKnownPro(); // offline / server asleep: keep the last answer
     }
 }
 
-const utcDay = () => new Date().toISOString().slice(0, 10);
+// The day for bonuses and ads is the device's own: it changes at its midnight.
+const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const tzMinutes = () => new Date().getTimezoneOffset(); // minutes behind UTC, sent to the server
 
 // Today's bonuses for the account, as the server last said (a new UTC day
 // starts fresh): has the first win of the day been won, how many rewarded
@@ -121,7 +128,7 @@ export function lastKnownToday() {
     if (read(XP_KEY) === null || read(XP_KEY) === "") return null;
     let t = null;
     try { t = JSON.parse(read(TODAY_KEY) || "null"); } catch { /* none */ }
-    if (!t || t.day !== utcDay()) return { dailyDone: false, adsLeft: 5 };
+    if (!t || t.day !== localDay()) return { dailyDone: false, adsLeft: 5 };
     return t;
 }
 
@@ -130,11 +137,11 @@ export async function claimAdReward() {
     const token = await accessToken();
     if (!token) return { ok: false };
     try {
-        const res = await fetch(`${SERVER_URL}/api/ad-reward`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+        const res = await fetch(`${SERVER_URL}/api/ad-reward?tz=${tzMinutes()}`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
         const r = await res.json();
-        if (r.xp !== undefined) write(XP_KEY, String(Number(r.xp) || 0));
+        if (r.xp !== undefined && r.xp !== null) write(XP_KEY, String(Number(r.xp) || 0));
         const t = lastKnownToday() || {};
-        write(TODAY_KEY, JSON.stringify({ day: utcDay(), dailyDone: Boolean(t.dailyDone), adsLeft: Number(r.adsLeft) || 0 }));
+        if (typeof r.adsLeft === "number") write(TODAY_KEY, JSON.stringify({ day: localDay(), dailyDone: Boolean(t.dailyDone), adsLeft: r.adsLeft }));
         return r;
     } catch {
         return { ok: false };
@@ -193,6 +200,7 @@ export class OnlineClient {
                     piece: this.h.getPiece?.() ?? -1,
                     background: this.h.getBackground?.(),
                     accessToken: await accessToken(),
+                    tz: tzMinutes(),
                 }, (res) => {
                     if (res?.ok) { this.name = res.name; this.h.onPro?.(Boolean(res.pro)); }
                     this.h.onConnection?.(true, res);
@@ -210,6 +218,7 @@ export class OnlineClient {
         s.on("opponent_status", (msg) => this.h.onOpponentStatus?.(msg));
         s.on("idle", (msg) => this.h.onIdle?.(msg));
         s.on("bonus", (msg) => this.h.onBonus?.(msg));
+        s.on("recorded", () => this.h.onRecorded?.());
         s.on("friend_invite", (msg) => this.h.onFriendInvite?.(msg));
         s.on("invite_declined", (msg) => this.h.onInviteDeclined?.(msg || {}));
         s.on("game_over", (msg) => this.h.onGameOver?.(msg));

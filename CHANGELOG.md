@@ -12,6 +12,21 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.19.1] - 2026-11-11
+
+### Changed
+- The day for the first-win bonus and the 5 rewarded ads changes at midnight on the player's device, not at UTC's: the app sends its time zone with `/api/me`, `/api/ad-reward` and the game connection, and the server counts the day from it (guests: the device's date). The weekly ranking still runs Monday 00:00 UTC. No SQL change.
+- Options: one island per option (Table style, Piece, Dice style, Background, Sound, Language), like the help's sections, under an "Options" heading island.
+- Level road: the stops are pastilles in the colour their level's badge gets (bronze from 5, silver from 10...), with a green frame once reached, a gold pulsing one for the next, and the padlock for those still to come.
+- The stat tiles (Played, Won, Win rate, Win streak, Best streak, Best score) say what they count in the black message when touched (on the player card only for your own).
+- The level badge is the same pastille everywhere, written "Lv N" ("★ Lv N" with a gold frame for Pro) in the tier's colour (`.lv-pill`): on the home, on the player boxes, on the player and account cards, in the Pro sheet, in the level-up and level-down screens (a big pastille instead of a round medal, with "Lv" and the number counting separately), on the level road's stops (pastilles instead of circles) and in the stats and the winner card's points strip.
+- On the home, the level badge sits under your name (on the line with the flag and "Signed in"), with the gold frame for Pro.
+
+### Fixed
+- "No more ads today" no longer shows when the server simply couldn't read today's bonuses: it now says "unknown", the app keeps what it knew (the button stays available) and a tap that can't be counted says "Can't add the point right now. Please try again." instead of "come back tomorrow".
+- SAME TABLE with FLIP (portrait): the banner no longer covers ROLL and DONE, and the page no longer runs under the notch. The banner stays at the bottom of the screen, the right way up, and the room the page keeps clear for the notch and the home indicator follows the flip.
+- The level on the home (and everywhere it shows) now follows the server's points: they are read again whenever the home shows and when the app comes back to the front, and again as soon as the server says the game just played is saved (a new "recorded" message), so a game's points no longer show up late or not at all. The server keeps each player's connection up to date after a game too (opponents and matching saw the old level), and when it can't read its database it now says "unknown" instead of 0, so the app keeps the level it had instead of dropping to level 0.
+
 ## [2.19.0] - 2026-11-10
 
 ### Added

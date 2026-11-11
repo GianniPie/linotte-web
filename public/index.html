@@ -80,8 +80,8 @@
             <button class="home-profile has-soon" id="home-profile" type="button">
                 <span class="home-avatar" aria-hidden="true"></span>
                 <span class="home-pinfo">
-                    <span class="home-pname"><span id="home-pname">Guest</span><span class="win-badge" id="home-badge" hidden></span></span>
-                    <span class="home-psub"><span class="home-flag" id="home-flag" hidden></span><span id="home-psub" data-i18n>Tap to sign in</span></span>
+                    <span class="home-pname"><span id="home-pname">Guest</span></span>
+                    <span class="home-psub"><span class="win-badge lv-pill" id="home-badge" hidden></span><span class="home-flag" id="home-flag" hidden></span><span id="home-psub" data-i18n>Tap to sign in</span></span>
                 </span>
                 <span class="soon-badge" data-i18n>SOON</span>
             </button>
@@ -265,14 +265,14 @@
                 <div class="player-card-country" id="ac-country"></div>
                 <div class="sheet-text sheet-small" data-i18n-html>Signed in as <b id="account-email"></b></div>
                 <div class="pc-badge-wrap">
-                    <div class="pc-badge" id="ac-badge"><small id="ac-badge-label"></small><b id="ac-badge-num"></b></div>
+                    <div class="pc-badge lv-pill" id="ac-badge"></div>
                     <div class="pc-plan" id="ac-plan"></div>
                 </div>
                 <button class="get-pro-hero" id="account-getpro" type="button" data-i18n>GET PRO</button>
                 <div class="stats-grid pc-record" id="ac-record" hidden>
-                    <div class="stat"><b id="ac-played">0</b><span data-i18n>Played</span></div>
-                    <div class="stat"><b id="ac-won">0</b><span data-i18n>Won</span></div>
-                    <div class="stat"><b id="ac-rate">0%</b><span data-i18n>Win rate</span></div>
+                    <div class="stat" data-explain="Games you finished, online and against the bot."><b id="ac-played">0</b><span data-i18n>Played</span></div>
+                    <div class="stat" data-explain="Games you won."><b id="ac-won">0</b><span data-i18n>Won</span></div>
+                    <div class="stat" data-explain="The share of your games that you won."><b id="ac-rate">0%</b><span data-i18n>Win rate</span></div>
                 </div>
                 <button class="level-road-btn" id="account-road" type="button" data-i18n>LEVEL ROAD</button>
                 <div class="button sheet-btn bot" id="account-edit"><div class="text-button" data-i18n>EDIT PROFILE</div></div>
@@ -315,14 +315,14 @@
                 <div class="player-card-country" id="pc-country"></div>
                 <!-- their level, as the badge they wear in the game; under it, in small, Pro / Free / Guest -->
                 <div class="pc-badge-wrap" id="pc-badge-wrap">
-                    <div class="pc-badge" id="pc-badge"><small id="pc-badge-label"></small><b id="pc-badge-num"></b></div>
+                    <div class="pc-badge lv-pill" id="pc-badge"></div>
                     <div class="pc-plan" id="pc-plan"></div>
                 </div>
                 <!-- the online record of a signed-in player (the server's count) -->
                 <div class="stats-grid pc-record" id="pc-record" hidden>
-                    <div class="stat"><b id="pc-played">0</b><span data-i18n>Played</span></div>
-                    <div class="stat"><b id="pc-won">0</b><span data-i18n>Won</span></div>
-                    <div class="stat"><b id="pc-rate">0%</b><span data-i18n>Win rate</span></div>
+                    <div class="stat" data-explain="Games you finished, online and against the bot."><b id="pc-played">0</b><span data-i18n>Played</span></div>
+                    <div class="stat" data-explain="Games you won."><b id="pc-won">0</b><span data-i18n>Won</span></div>
+                    <div class="stat" data-explain="The share of your games that you won."><b id="pc-rate">0%</b><span data-i18n>Win rate</span></div>
                 </div>
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
             </div>
@@ -364,7 +364,7 @@
             <div class="sheet-view" data-view="pro">
                 <div class="sheet-title" data-i18n>Linotte Pro</div>
                 <ul class="sheet-list">
-                    <li class="pro-star"><span class="pro-sample" id="pro-sample" data-tier="silver"></span><span data-i18n>A gold star and frame on your badge</span></li>
+                    <li class="pro-star"><span class="pro-sample lv-pill is-pro" id="pro-sample" data-tier="silver"></span><span data-i18n>A gold star and frame on your badge</span></li>
                     <li data-i18n>Create private rooms to play with friends</li>
                     <li data-i18n>See which friends are online and invite them with a tap</li>
                     <li data-i18n>Choose the piece you play with</li>
@@ -704,9 +704,9 @@
             </div>
 
             <!-- OPTIONS -->
-            <div class="opt-page hidden" id="page-options">
-                <div class="sheet opt-sheet">
-                <div class="sheet-title" data-i18n>Options</div>
+            <div class="opt-page opt-flow hidden" id="page-options">
+                <div class="opt-stack">
+                <div class="page-heading" data-i18n>Options</div>
                 <section>
                     <div class="title" data-i18n>Table style</div>
                     <div class="opt-current" id="board-current"></div>
@@ -874,7 +874,7 @@
                     <div class="button sheet-btn alt" id="stats-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
                     <div class="stats-level" id="stats-level">
                         <div class="stats-level-row">
-                            <b id="st-level">Level 1</b>
+                            <b id="st-level" class="lv-pill">Lv 1</b>
                             <button class="help-dot" id="st-level-help" type="button" aria-label="How levels work"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.6" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M7.7 7.7a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="10" cy="14.4" r=".9" fill="currentColor"/></svg></button>
                             <span id="st-level-points">0 / 1</span>
                         </div>
@@ -885,12 +885,12 @@
                     <div class="sheet-text" id="stats-empty" data-i18n>No games yet. Play one and come back!</div>
                     <div class="stats-body" id="stats-body">
                         <div class="stats-grid">
-                            <div class="stat"><b id="st-played">0</b><span data-i18n>Played</span></div>
-                            <div class="stat"><b id="st-won">0</b><span data-i18n>Won</span></div>
-                            <div class="stat"><b id="st-rate">0%</b><span data-i18n>Win rate</span></div>
-                            <div class="stat"><b id="st-streak">0</b><span data-i18n>Win streak</span></div>
-                            <div class="stat"><b id="st-best-streak">0</b><span data-i18n>Best streak</span></div>
-                            <div class="stat"><b id="st-best">0</b><span data-i18n>Best score</span></div>
+                            <div class="stat" data-explain="Games you finished, online and against the bot."><b id="st-played">0</b><span data-i18n>Played</span></div>
+                            <div class="stat" data-explain="Games you won."><b id="st-won">0</b><span data-i18n>Won</span></div>
+                            <div class="stat" data-explain="The share of your games that you won."><b id="st-rate">0%</b><span data-i18n>Win rate</span></div>
+                            <div class="stat" data-explain="Wins in a row, counting back from your latest game."><b id="st-streak">0</b><span data-i18n>Win streak</span></div>
+                            <div class="stat" data-explain="Your longest run of wins in a row."><b id="st-best-streak">0</b><span data-i18n>Best streak</span></div>
+                            <div class="stat" data-explain="The most points you made in a single game."><b id="st-best">0</b><span data-i18n>Best score</span></div>
                         </div>
                         <table class="stats-modes">
                             <thead><tr><th></th><th data-i18n>Played</th><th data-i18n>Won</th><th data-i18n>Avg</th></tr></thead>
@@ -906,7 +906,7 @@
             <!-- LEVEL ROAD: every level with something to unlock, what you have and how far the next one is (showRoad in linotte.js) -->
             <div class="opt-page hidden" id="page-road">
                 <div class="road-panel">
-                    <div class="road-heading" data-i18n>Level road</div>
+                    <div class="page-heading" data-i18n>Level road</div>
                     <ol class="road-list" id="road-list"></ol>
                 </div>
             </div>
@@ -1104,7 +1104,7 @@
                     <div class="winner-xp" id="winner-xp" hidden>
                         <div class="wx-row">
                             <span class="wx-gain" id="wx-gain"></span>
-                            <span class="wx-level" id="wx-level"></span>
+                            <span class="wx-level lv-pill" id="wx-level"></span>
                             <span class="wx-pts" id="wx-pts"></span>
                         </div>
                         <div class="wx-bar"><div id="wx-fill"></div></div>
@@ -1124,7 +1124,7 @@
         <div class="lu-rays" aria-hidden="true"></div>
         <div class="lu-card">
             <div class="lu-kicker" data-i18n>LEVEL UP!</div>
-            <div class="lu-badge" id="lu-badge"><span id="lu-level">1</span></div>
+            <div class="lu-badge lv-pill" id="lu-badge"><span id="lu-pre"></span><span id="lu-level">1</span><span id="lu-post"></span></div>
             <h2 class="lu-title" id="lu-title"></h2>
             <div class="lu-sub" id="lu-sub"></div>
             <ul class="lu-rewards" id="lu-rewards"></ul>
@@ -1142,9 +1142,10 @@
         <div class="ld-card">
             <div class="ld-kicker" data-i18n>LEVEL DOWN</div>
             <div class="ld-stage" id="ld-stage">
-                <div class="ld-badge" id="ld-badge">
-                    <span class="ld-num ld-old" id="ld-old">1</span>
-                    <span class="ld-num ld-new" id="ld-level">0</span>
+                <div class="ld-badge lv-pill" id="ld-badge">
+                    <span class="ld-pre" id="ld-pre"></span>
+                    <span class="ld-nums"><span class="ld-num ld-old" id="ld-old">1</span><span class="ld-num ld-new" id="ld-level">0</span></span>
+                    <span class="ld-post" id="ld-post"></span>
                     <svg class="ld-crack" viewBox="0 0 100 100" aria-hidden="true"><path d="M57 2 L45 22 L60 37 L42 55 L58 72 L47 98" pathLength="1"/></svg>
                 </div>
                 <div class="ld-chip" id="ld-chip"></div>

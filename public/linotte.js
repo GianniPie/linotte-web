@@ -302,7 +302,20 @@ function refreshContinueCard() {
     card.hidden = false;
 }
 
+// The level on the home is the server's: asked again whenever the home shows
+// or the app comes back to the front (not more than every 15 seconds).
+let lastRefreshAt = 0;
+// The account's points when the game on the winner card ended (null: no card).
+let gameXpBase = null;
+function refreshIfStale() {
+    if (!currentUser() || Date.now() - lastRefreshAt < 15000) return;
+    refreshPro();
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshIfStale(); });
+
 function showHomeScreen() {
+    gameXpBase = null; // the winner card is gone
+    refreshIfStale();
     showBackground(ownBackground()); // an online game's table was someone else's
     setTimeout(chatSync, 0);
     optionsOverlay.classList.add("hidden");
@@ -398,6 +411,17 @@ function isMyTurn() {
 }
 
 
+// The one way a level is written: "Lv 12", with a star in front for Pro.
+const isMyPro = () => document.body.classList.contains("is-pro");
+function levelLabel(level, pro = false) {
+    return `${pro ? "\u2605 " : ""}${t("Lv {n}", { n: level })}`;
+}
+// The same label cut around the number, for badges whose number counts.
+function levelParts(pro = false) {
+    const [pre, post] = t("Lv {n}", { n: "\u0001" }).split("\u0001");
+    return [(pro ? "\u2605 " : "") + pre, post];
+}
+
 function renderPlayerBox(player) {
     if (player === 1) {
         document.getElementsByClassName("player p1")[0].style.setProperty("--glow", gameState.players[1].color);
@@ -423,7 +447,7 @@ function renderPlayerBox(player) {
         const level = controller?.mode === "bot" && seat === 1 ? levelOf(myXp()) : p.level ?? null;
         const pro = controller?.mode === "bot" && seat === 1 ? document.body.classList.contains("is-pro") : Boolean(p.pro);
         box.classList.toggle("is-pro", pro);
-        box.dataset.badge = level === null ? "" : `${pro ? "★ " : ""}${t("Lv {n}", { n: level })}`;
+        box.dataset.badge = level === null ? "" : levelLabel(level, pro);
         box.dataset.tier = level === null ? "" : badgeTier(level);
     }
     // Online names ("Crane36") are longer than YOU/BOT/P1: a smaller size
@@ -440,8 +464,7 @@ function paintIdentity(prefix, { level, pro, plan, rec }) {
     badge.hidden = level === null;
     badge.classList.toggle("is-pro", pro);
     badge.dataset.tier = level === null ? "" : badgeTier(level);
-    byId(`${prefix}-badge-label`).textContent = t("Level");
-    byId(`${prefix}-badge-num`).textContent = level === null ? "" : `${pro ? "\u2605\u2009" : ""}${level}`;
+    badge.textContent = level === null ? "" : levelLabel(level, pro);
     const label = byId(`${prefix}-plan`);
     label.textContent = plan;
     label.classList.toggle("is-pro", pro);
@@ -479,6 +502,12 @@ function showPlayerCard(seat) {
     // signed-in players, from the server's count.
     const rec = controller.mode === "online" ? p.record : mine && currentUser() ? lastKnownRecord() : null;
     paintIdentity("pc", { level, pro, plan: guest ? t("Guest") : pro ? t("Pro") : t("Free"), rec });
+    // The tiles explain themselves for your own card ("Games you won"), not an opponent's.
+    document.querySelectorAll("#pc-record .stat").forEach((el) => {
+        const text = el.dataset.explain || el.dataset.explainOwn;
+        el.dataset.explainOwn = text;
+        if (mine) el.dataset.explain = text; else delete el.dataset.explain;
+    });
     byId("pc-badge-wrap").hidden = isBot || controller.mode === "offline";
     showOnlineView("player");
 }
@@ -1622,17 +1651,17 @@ function noteGameResult(winner) {
     // What the game was worth: the points earned and the way to the next
     // level, on the winner card, then the celebration if a level was reached.
     recorded.then(async (r) => {
-        let after;
         if (currentUser()) {
             if (mode === "bot" && winner !== me) return; // a lost bot game earns nothing
-            await sleep(mode === "bot" ? 0 : 1500); // online: the server has to record it
-            await refreshPro({ fresh: true, celebrate: false });
-            after = lastKnownXp() ?? xpBefore;
-        } else {
-            if (r?.daily) showToast(t("First win of the day: +{n} bonus points!", { n: 2 }), 3000);
-            after = guestXp();
-            showHomeBadge();
+            // The account's points are the server's: asked now, and again when
+            // the server says the game is in its books ("recorded", see onRecorded).
+            gameXpBase = xpBefore;
+            await sleep(mode === "bot" ? 0 : 1500);
+            return showGameXp();
         }
+        if (r?.daily) showToast(t("First win of the day: +{n} bonus points!", { n: 2 }), 3000);
+        const after = guestXp();
+        showHomeBadge();
         if (after === xpBefore) return;
         xpStrip = { base: xpBefore, after };
         showXpGain(xpBefore, after);
@@ -3380,6 +3409,8 @@ const onlineClient = new OnlineClient({
     onIdle: onRemoteIdle,
     onFriendInvite: (msg) => onFriendInvite(msg),
     onInviteDeclined: (msg) => onInviteDeclined(msg),
+    // The server saved the game just played: its points are final now.
+    onRecorded: () => { if (currentUser()) showGameXp(); },
     // Today's first online win: the server added the bonus.
     onBonus: ({ kind, points }) => {
         if (kind !== "daily") return;
@@ -3998,6 +4029,7 @@ function setPro(pro) {
 // Also brings the level up to date, and celebrates when it went up.
 // `celebrate: false` when the caller shows the gain itself (the winner card).
 async function refreshPro({ celebrate = true, ...options } = {}) {
+    lastRefreshAt = Date.now();
     const before = lastKnownXp();
     setPro(await fetchPro(options));
     stayReachable();
@@ -4032,9 +4064,23 @@ function celebrateLevel(beforeXp, afterXp) {
 // score. xpStrip keeps where it started, so a bonus that arrives a moment
 // later (the first online win of the day) adds to the same strip.
 let xpStrip = null;
+// Asks the server for the account's points and brings the winner card, the
+// home badge and the level up to date with them. Safe to call twice for the
+// same game: only a change from what is already shown does anything.
+async function showGameXp() {
+    await refreshPro({ fresh: true, celebrate: gameXpBase === null });
+    const after = lastKnownXp();
+    if (after === null || gameXpBase === null) return;
+    const shown = xpStrip ? xpStrip.after : gameXpBase;
+    if (after === shown) return;
+    xpStrip = { base: gameXpBase, after };
+    showXpGain(gameXpBase, after);
+    setTimeout(() => celebrateLevel(shown, after), 1700);
+}
 
 function resetXpGain() {
     xpStrip = null;
+    gameXpBase = null;
     byId("winner-xp").hidden = true;
     byId("winner-container").classList.remove("has-xp");
 }
@@ -4058,7 +4104,9 @@ function showXpGain(before, after) {
     gainEl.style.animation = "none";
     void gainEl.offsetWidth;
     gainEl.style.animation = "";
-    byId("wx-level").textContent = t("Level {n}", { n: now.level });
+    byId("wx-level").textContent = levelLabel(now.level, isMyPro());
+    byId("wx-level").classList.toggle("is-pro", isMyPro());
+    byId("wx-level").dataset.tier = badgeTier(now.level);
     byId("wx-pts").textContent = `${after - now.from} / ${now.to - now.from}`;
     // The bar starts where it was (from empty after a level change) and fills.
     const fill = byId("wx-fill");
@@ -4114,6 +4162,10 @@ function showLevelUp(from, to) {
     const overlay = byId("levelup-overlay");
     const badge = byId("lu-badge");
     badge.dataset.tier = badgeTier(to);
+    const [pre, post] = levelParts(isMyPro());
+    byId("lu-pre").textContent = pre;
+    byId("lu-post").textContent = post;
+    badge.classList.toggle("is-pro", isMyPro());
     byId("lu-level").textContent = from;
     byId("lu-title").textContent = t("Level {n}!", { n: to });
     byId("lu-sub").textContent = rewards.length ? t("You unlocked:") : "";
@@ -4209,6 +4261,10 @@ function showLevelDown(from, to, xp) {
     stage.classList.remove("is-cracked", "is-shaking", "is-down");
     overlay.classList.remove("is-hit");
     badge.dataset.tier = badgeTier(from);
+    const [pre, post] = levelParts(isMyPro());
+    byId("ld-pre").textContent = pre;
+    byId("ld-post").textContent = post;
+    badge.classList.toggle("is-pro", isMyPro());
     byId("ld-old").textContent = from;
     byId("ld-level").textContent = to;
     byId("ld-chip").textContent = `\u25BC ${from - to}`;
@@ -4335,7 +4391,8 @@ function playFanfare() {
 function roadStop(l, level, nextLevel) {
     const li = document.createElement("li");
     li.className = "road-stop" + (l <= level ? " is-reached" : l === nextLevel ? " is-next" : "");
-    const node = Object.assign(document.createElement("div"), { className: "road-node", textContent: l <= level ? "\u2713" : l });
+    const node = Object.assign(document.createElement("div"), { className: "road-node", textContent: levelLabel(l) });
+    node.dataset.tier = badgeTier(l);
     const card = document.createElement("div");
     card.className = "road-card";
     const top = document.createElement("div");
@@ -4368,7 +4425,7 @@ function roadYou(xp) {
     const { level, from, to, share } = levelProgress(xp);
     const li = document.createElement("li");
     li.className = "road-stop is-you is-reached";
-    const node = Object.assign(document.createElement("div"), { className: "road-node", textContent: level });
+    const node = Object.assign(document.createElement("div"), { className: "road-node" + (isMyPro() ? " is-pro" : ""), textContent: levelLabel(level, isMyPro()) });
     node.dataset.tier = badgeTier(level);
     const card = document.createElement("div");
     card.className = "road-card";
@@ -4504,7 +4561,7 @@ byId("pro-restore").addEventListener("click", (e) => {
 // players, who show it to their opponents too; plain, and seen only by the
 // player, without Pro.
 // The Pro sheet shows what the star looks like, as it will on your badge.
-byId("pro-sample").textContent = `\u2605 ${t("Lv {n}", { n: 12 })}`;
+byId("pro-sample").textContent = levelLabel(12, true);
 
 function showHomeBadge() {
     const badge = byId("home-badge");
@@ -4516,7 +4573,7 @@ function showHomeBadge() {
     document.body.classList.toggle("daily-open", !myToday().dailyDone);
     const pro = document.body.classList.contains("is-pro");
     badge.classList.toggle("is-pro", pro);
-    badge.textContent = `${pro ? "★ " : ""}${t("Lv {n}", { n: level })}`;
+    badge.textContent = levelLabel(level, pro);
     badge.title = t("Level {n}", { n: level });
 }
 
@@ -4534,7 +4591,9 @@ function fillStatsLevel() {
     const level = levelOf(xp);
     // Level 0 runs from -4 to 4: at or above zero, the bar starts at 0.
     const from = level === 0 && xp >= 0 ? 0 : levelStart(level), to = levelStart(level + 1);
-    byId("st-level").textContent = t("Level {n}", { n: level });
+    byId("st-level").textContent = levelLabel(level, isMyPro());
+    byId("st-level").classList.toggle("is-pro", isMyPro());
+    byId("st-level").dataset.tier = badgeTier(level);
     byId("stats-level").dataset.tier = badgeTier(level);
     byId("st-level-points").textContent = `${xp - from} / ${to - from}`;
     byId("st-level-fill").style.width = `${((xp - from) / (to - from)) * 100}%`;
@@ -4764,6 +4823,11 @@ async function showStats() {
 }
 
 byId("home-stats").addEventListener("click", () => openMenuPage("stats"));
+// A stat tile says what it counts when touched (the black message).
+document.addEventListener("click", (e) => {
+    const tile = e.target.closest?.(".stat[data-explain]");
+    if (tile) showToast(t(tile.dataset.explain), 4500);
+});
 // A guest's stats only live on this phone: one tap to keep them.
 byId("stats-signin").addEventListener("click", () => byId("home-profile").click());
 document.querySelectorAll("[data-sheet-close]").forEach((el) => el.addEventListener("click", closeOnlineOverlay));

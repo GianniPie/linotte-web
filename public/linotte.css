@@ -470,6 +470,17 @@ body.table-flipped .div-table {
   transform: rotate(-180deg);
 }
 
+/* Flipped in portrait, the page is upside down, so what it keeps clear at its
+   top and bottom swaps places on the screen: the notch's room (the top inset)
+   has to be at the layout's bottom to end up under the notch, and the
+   banner's place (see .game-ad-slot in ads.css) stays at the screen bottom. */
+@media (orientation: portrait) {
+  body.table-flipped .flex-block {
+    padding-top: env(safe-area-inset-bottom, 0px);
+    padding-bottom: env(safe-area-inset-top, 0px);
+  }
+}
+
 /* Effects drawn in screen coordinates (the fairy-trail canvas covers the
    whole page and its points come from getBoundingClientRect) would be turned
    180deg along with the flipped body and land mirrored. Turning the canvas
@@ -1656,7 +1667,9 @@ html.is-resizing *::after {
 
 /* The translucent white of the buttons would vanish on the card. */
 .opt-sheet .opt-btn,
-.opt-sheet .sound-btn {
+.opt-sheet .sound-btn,
+.opt-flow .opt-btn,
+.opt-flow .sound-btn {
   background-color: rgba(0, 0, 0, .08);
 }
 
@@ -1741,6 +1754,41 @@ html.is-resizing *::after {
   border-radius: .9em;
   background: rgba(255, 255, 255, .88);
   color: #3d240c;
+}
+
+/* A page title in its own island, like the level road's and Options'. */
+.page-heading {
+  margin: 0 0 .2em;
+  padding: .3em .6em .35em;
+  text-align: center;
+  font: 1.7em/1.1 "Changa One", sans-serif;
+  border-radius: .55em;
+  background: rgba(255, 255, 255, .88);
+  border: .075em solid rgba(0, 0, 0, .18);
+  color: #3d240c;
+}
+
+/* Options: one island per option, like the help's sections. */
+.opt-stack {
+  padding: 0 .8em 1.5em;
+  display: flex;
+  flex-direction: column;
+  gap: .7em;
+}
+
+.opt-flow section {
+  margin: 0;
+  padding: .75em .9em .9em;
+  box-sizing: border-box;
+  border: .125em solid rgba(0, 0, 0, .18);
+  border-radius: .9em;
+  background: rgba(255, 255, 255, .88);
+  color: #3d240c;
+  text-align: center;
+}
+
+.opt-flow .car-list-wrapper {
+  width: 100%;
 }
 
 /* Stats, ranking: the sheets' content, in a translucent card on the menu's
@@ -2919,10 +2967,11 @@ label {
   left: 50%;
   transform: translate(-50%, -55%);
   z-index: 2;
-  padding: .05em .45em;
-  border-radius: .7em;
+  padding: .05em .55em;
+  border-radius: .8em;
+  font-family: "Changa One", sans-serif;
   font-size: .75em;
-  line-height: 1.2;
+  line-height: 1.25;
   white-space: nowrap;
   background: var(--badge-bg, rgba(255, 255, 255, .9));
   color: var(--badge-ink, #3d240c);
@@ -2951,35 +3000,8 @@ label {
 }
 
 .pc-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 5em;
-  padding: .25em 1.1em .3em;
-  border-radius: 1.2em;
-  background: var(--badge-bg, rgba(255, 255, 255, .9));
-  color: var(--badge-ink, #3d240c);
-  border: .15em solid rgba(0, 0, 0, .35);
-  font-family: "Changa One", sans-serif;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.pc-badge small {
-  font-size: .75em;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  opacity: .8;
-}
-
-.pc-badge b {
-  font-weight: normal;
-  font-size: 2.3em;
-}
-
-.pc-badge.is-pro {
-  border-color: rgb(232, 185, 35);
-  box-shadow: 0 0 0 .15em rgba(232, 185, 35, .55);
+  font-size: 1.9em;
+  padding: .05em .7em;
 }
 
 .pc-plan {
@@ -3185,6 +3207,27 @@ body.rooms-need-pro:not(.is-pro) #friend-create::after {
 [data-tier="gold"] { --badge-bg: linear-gradient(135deg, #ffe27a, #e0a812); --badge-ink: #5a3f00; }
 [data-tier="ruby"] { --badge-bg: linear-gradient(135deg, #ff7a8f, #b3133a); --badge-ink: #ffffff; }
 [data-tier="diamond"] { --badge-bg: linear-gradient(135deg, #b9f3ff, #a98bff); --badge-ink: #1d1a4d; }
+
+/* The level badge: one pastille everywhere (home, player boxes, cards, Pro
+   sheet, celebrations, road, stats). Size comes from the font-size of each
+   place; the tier gives the colours, Pro a gold frame (and a star in the text). */
+.lv-pill {
+  display: inline-block;
+  padding: .05em .55em;
+  border-radius: .8em;
+  font-family: "Changa One", sans-serif;
+  line-height: 1.25;
+  white-space: nowrap;
+  background: var(--badge-bg, rgba(255, 255, 255, .9));
+  color: var(--badge-ink, #3d240c);
+  border: .1em solid rgba(0, 0, 0, .35);
+  font-variant-numeric: tabular-nums;
+}
+
+.lv-pill.is-pro {
+  border-color: rgb(232, 185, 35);
+  box-shadow: 0 0 0 .1em rgba(232, 185, 35, .55);
+}
 
 /* Dice and backgrounds that come with a level: a "🔒 Lv N" tag until then
    (the same tag as the Pro pieces, see applyLevelLocks in linotte.js). They

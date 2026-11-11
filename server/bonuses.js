@@ -15,7 +15,16 @@ import { nameFromId } from "./names.js";
 
 const SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 
-const today = (now = new Date()) => now.toISOString().slice(0, 10); // UTC day
+// A "day" for the daily bonus and the rewarded ads is the player's own: it
+// changes at midnight on their device, not at UTC's. The app sends its time
+// zone (minutes behind UTC, what Date#getTimezoneOffset says); the server
+// keeps the time itself. Changing the phone's clock or zone only gets a new
+// day's ads, which is fine. Without one: UTC.
+export const clampTz = (tz) => {
+  const n = Math.round(Number(tz));
+  return Number.isFinite(n) ? Math.max(-14 * 60, Math.min(12 * 60, n)) : 0;
+};
+const today = (tz = 0, now = Date.now()) => new Date(now - clampTz(tz) * 60000).toISOString().slice(0, 10);
 
 // Monday 00:00 UTC of this week.
 export function weekStart(now = new Date()) {
@@ -63,17 +72,19 @@ export async function bonusPoints(userId, options) {
 // What's left today: the daily bonus (not yet won?) and rewarded ads.
 export async function todayStatus(userId, options) {
   const db = client(options);
+  const day = today(options?.tz);
   if (!db || !userId) return { dailyDone: false, adsLeft: 0 };
   const id = encodeURIComponent(userId);
   try {
     const [daily, ads] = await Promise.all([
-      db.count(`user_id=eq.${id}&kind=eq.daily&day=eq.${today()}`),
-      db.count(`user_id=eq.${id}&kind=eq.ad&day=eq.${today()}`),
+      db.count(`user_id=eq.${id}&kind=eq.daily&day=eq.${day}`),
+      db.count(`user_id=eq.${id}&kind=eq.ad&day=eq.${day}`),
     ]);
     return { dailyDone: daily > 0, adsLeft: Math.max(0, AD_REWARDS_PER_DAY - ads) };
   } catch (err) {
+    // Not "none left": the app can't tell, and says so instead of "come back tomorrow".
     console.error("today's bonuses not read:", err.message);
-    return { dailyDone: true, adsLeft: 0 };
+    return { dailyDone: null, adsLeft: null };
   }
 }
 
@@ -83,7 +94,7 @@ export async function grantDailyBonus(userId, options) {
   const db = client(options);
   if (!db || !userId) return false;
   try {
-    return await db.add({ user_id: userId, kind: "daily", points: DAILY_BONUS_POINTS, day: today() });
+    return await db.add({ user_id: userId, kind: "daily", points: DAILY_BONUS_POINTS, day: today(options?.tz) });
   } catch (err) {
     console.error("daily bonus not given:", err.message);
     return false;
@@ -95,8 +106,9 @@ export async function grantAdReward(userId, options) {
   const db = client(options);
   if (!db || !userId) return { ok: false, adsLeft: 0 };
   const { adsLeft } = await todayStatus(userId, options);
+  if (adsLeft === null) return { ok: false, adsLeft: null };
   if (adsLeft <= 0) return { ok: false, adsLeft: 0 };
-  const ok = await db.add({ user_id: userId, kind: "ad", points: AD_REWARD_POINTS, day: today() });
+  const ok = await db.add({ user_id: userId, kind: "ad", points: AD_REWARD_POINTS, day: today(options?.tz) });
   return { ok, adsLeft: ok ? adsLeft - 1 : adsLeft };
 }
 

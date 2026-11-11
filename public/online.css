@@ -91,15 +91,7 @@
 
 .pro-sample {
   flex: none;
-  padding: .05em .55em;
-  border-radius: .7em;
-  background: var(--badge-bg);
-  color: var(--badge-ink);
-  border: .1em solid rgb(232, 185, 35);
-  box-shadow: 0 0 0 .1em rgba(232, 185, 35, .55);
-  font-family: "Changa One", sans-serif;
   font-size: .95em;
-  white-space: nowrap;
 }
 
 .sheet-check {
@@ -636,12 +628,9 @@
   padding-left: .1em;
 }
 
-/* The level box takes the badge's colour on its level number. */
-.stats-level[data-tier]:not([data-tier="plain"]) #st-level {
-  padding: 0 .35em;
-  border-radius: .35em;
-  background: var(--badge-bg);
-  color: var(--badge-ink);
+/* The level in the stats: the pastille, a little bigger. */
+#st-level {
+  font-size: 1.05em;
 }
 
 /* The weekly ranking. */
@@ -827,4 +816,9 @@ body.daily-open .sheet-daily {
 .sheet-reassure {
   color: rgb(36, 128, 70);
   font-weight: bold;
+}
+
+/* Stat tiles explain themselves when touched. */
+.stat[data-explain] {
+  cursor: pointer;
 }

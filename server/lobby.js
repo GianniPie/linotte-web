@@ -37,12 +37,15 @@ export class Lobby {
   // `record` saves finished games for the Stats screen (see results.js) and
   // `grantDaily` the first win of the day (bonuses.js); the smoke test passes
   // its own.
-  constructor(io, store = noStore, { record = recordResults, grantDaily = grantDailyBonus, befriend = noteFriends } = {}) {
+  // `afterRecord` brings a connection's own points up to date once its game
+  // is saved (server.js).
+  constructor(io, store = noStore, { record = recordResults, grantDaily = grantDailyBonus, befriend = noteFriends, afterRecord = async () => {} } = {}) {
     this.io = io;
     this.store = store;
     this.record = record;
     this.grantDaily = grantDaily;
     this.befriend = befriend;
+    this.afterRecord = afterRecord;
     this.queue = new Map(); // playerId -> { socket, timer }
     this.rooms = new Map(); // roomId -> Room
     this.byCode = new Map(); // code -> Room
@@ -304,12 +307,28 @@ export class Lobby {
       this.store.deleteRoom(room); // nothing left to resume
       const recorded = this.record(resultRows(room));
       this.giveDailyBonus(room, recorded);
+      this.tellRecorded(room, recorded);
       // Two accounts that played a private room are friends (friends.js).
       const [a, b] = [room.seats[1], room.seats[2]];
       if (room.kind === "private" && a?.userId && b?.userId) this.befriend(a.userId, b.userId);
       // Keep it around for ROOM_OVER_TTL_MS (see sweep) so a refresh can still
       // show the result, but free the code right away.
       if (room.code) this.byCode.delete(room.code);
+    }
+  }
+
+  // Once the game is saved, each signed-in player's connection gets its new
+  // points (what opponents and matching see) and its app is told ("recorded"),
+  // so the level it shows is the server's, not a guess made too early.
+  async tellRecorded(room, recorded) {
+    await recorded;
+    for (const seat of [1, 2]) {
+      const p = room.seats[seat];
+      if (p?.kind !== "human" || !p.userId) continue;
+      const socket = this.io.sockets.sockets.get(p.socketId);
+      if (!socket) continue;
+      try { await this.afterRecord(socket); } catch (err) { console.error("stats not refreshed:", err.message); }
+      socket.emit("recorded", {});
     }
   }
 
@@ -320,8 +339,9 @@ export class Lobby {
     const winner = room.seats[seat];
     if (!seat || winner?.kind !== "human" || !winner.userId) return;
     await recorded;
-    if (!(await this.grantDaily(winner.userId))) return;
-    this.io.sockets.sockets.get(winner.socketId)?.emit("bonus", { kind: "daily", points: DAILY_BONUS_POINTS });
+    const socket = this.io.sockets.sockets.get(winner.socketId);
+    if (!(await this.grantDaily(winner.userId, { tz: socket?.data?.tz }))) return;
+    socket?.emit("bonus", { kind: "daily", points: DAILY_BONUS_POINTS });
   }
 
   closeRoom(room) {

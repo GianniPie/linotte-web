@@ -79,7 +79,8 @@ function noteGuest(what) {
     g[what] = (Number(g[what]) || 0) + 1;
     writeGuest(g);
 }
-const utcDay = () => new Date().toISOString().slice(0, 10);
+// The day is the device's own: it changes at its midnight.
+const utcDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 // Today's bonuses for the guest: first online win of the day, ads left.
 export function guestToday() {
     const g = readGuest();

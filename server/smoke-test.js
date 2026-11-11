@@ -398,6 +398,11 @@ const lobby = new Lobby(io, store);
   const none = async () => ({ ok: true, headers: { get: () => "*/0" } });
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");
   assert.equal(await experience(null, { key: "k" }), 0, "a guest has none");
+  const broken = async () => ({ ok: false, status: 500, headers: { get: () => null } });
+  const unknown = await accountStats("user-host", { key: "k", url: "https://example.supabase.co", fetch: broken });
+  assert.equal(unknown.xp, null, "when Supabase can't be read the points are unknown, not 0");
+  assert.equal(unknown.record, null, "and so is the record");
+  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: broken }), 0, "experience() still gives a number");
   assert.deepEqual([-15, -14, -5, -4, 0, 4, 5, 14, 15, 30, 274, 275, 324, 325, 775, 1275].map(levelOf),
     [-2, -1, -1, 0, 0, 0, 1, 1, 2, 3, 9, 10, 10, 11, 20, 30], "levels: 5 points more each, then 50 each from level 10");
   assert.deepEqual([-2, -1, 0, 1, 3, 10, 11, 20].map(levelStart), [-29, -14, -4, 5, 30, 275, 325, 775], "where levels start");
@@ -480,10 +485,29 @@ const lobby = new Lobby(io, store);
   assert.equal((await todayStatus("u1", opt)).dailyDone, true);
   for (let i = 5; i > 0; i--) assert.deepEqual(await grantAdReward("u1", opt), { ok: true, adsLeft: i - 1 }, "an ad: +1");
   assert.deepEqual(await grantAdReward("u1", opt), { ok: false, adsLeft: 0 }, "5 a day at most");
+  // The day is the player's: midnight on their device (the app sends its zone).
+  const asked = [];
+  const spy = { ...opt, fetch: async (u, o) => { asked.push(u); return { ok: true, headers: { get: () => "0-0/0" } }; } };
+  const realNow = Date.now;
+  Date.now = () => new Date("2026-11-11T23:30:00Z").getTime(); // 00:30 on the 12th in Rome (UTC+1: 60 minutes *behind* UTC is -60)
+  try {
+    await todayStatus("u9", { ...spy, tz: -60 });
+    assert.ok(asked.every((u) => u.includes("day=eq.2026-11-12")), "past midnight in Rome it is already the 12th");
+    asked.length = 0;
+    await todayStatus("u9", { ...spy, tz: 5 * 60 }); // New York in winter, 18:30 on the 11th
+    assert.ok(asked.every((u) => u.includes("day=eq.2026-11-11")), "still the 11th in New York");
+    asked.length = 0;
+    await todayStatus("u9", spy);
+    assert.ok(asked.every((u) => u.includes("day=eq.2026-11-11")), "no zone: UTC");
+  } finally { Date.now = realNow; }
+  const down = { ...opt, fetch: async () => ({ ok: false, status: 500, headers: { get: () => null } }) };
+  assert.deepEqual(await todayStatus("u1", down), { dailyDone: null, adsLeft: null }, "a database error is unknown, not 'none left'");
+  assert.deepEqual(await grantAdReward("u1", down), { ok: false, adsLeft: null }, "and no ad is counted either way");
 
   // The lobby gives the winner the daily bonus once the game is recorded.
   const given = [];
-  const lobby6 = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async (u) => { given.push(u); return true; } });
+  const refreshed = [];
+  const lobby6 = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async (u) => { given.push(u); return true; }, afterRecord: async (sock) => { refreshed.push(sock.id); } });
   const w = fakeSocket("player-bonusaaa1", "Lynx1");
   const l = fakeSocket("player-bonusbbb2", "Mole2");
   w.data.userId = "user-w"; l.data.userId = "user-l";
@@ -493,6 +517,8 @@ const lobby = new Lobby(io, store);
   await wait(10);
   assert.deepEqual(given, ["user-w"], "only the winner");
   assert.deepEqual(find(w, "bonus").at(-1)?.payload, { kind: "daily", points: 2 }, "and their app is told");
+  assert.ok(find(w, "recorded").length === 1 && find(l, "recorded").length === 1, "both signed-in apps hear the game is recorded");
+  assert.deepEqual(refreshed.sort(), [l.id, w.id].sort(), "and both connections' points are read again");
   console.log("ok: bonuses");
 }
 

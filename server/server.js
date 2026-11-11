@@ -13,7 +13,7 @@ import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
 import { isPro, forgetPro } from "./entitlements.js";
 import { accountStats } from "./results.js";
-import { todayStatus, grantAdReward, weeklyLeaderboard } from "./bonuses.js";
+import { todayStatus, grantAdReward, weeklyLeaderboard, clampTz } from "./bonuses.js";
 import { markOnline, markOffline, socketsOf, isOnline, friendsOf, areFriends } from "./friends.js";
 import { levelOf, FREE_LOOKS } from "../public/shared/level.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
@@ -68,8 +68,9 @@ app.get("/api/me", async (req, res) => {
   const userId = await accountOf(req);
   if (userId && req.query.fresh === "1") forgetPro(userId);
   const devToken = req.get("X-Linotte-Dev") || ""; // ?devpro=1, see online.js
-  const [pro, stats, today] = await Promise.all([isPro({ userId, devToken }), accountStats(userId), todayStatus(userId)]);
-  res.json({ signedIn: Boolean(userId), pro, xp: stats.xp, level: levelOf(stats.xp), record: stats.record, ...today });
+  const [pro, stats, today] = await Promise.all([isPro({ userId, devToken }), accountStats(userId), todayStatus(userId, { tz: req.query.tz })]);
+  // xp null: Supabase couldn't be read just now, the app keeps what it had.
+  res.json({ signedIn: Boolean(userId), pro, xp: stats.xp, level: stats.xp === null ? null : levelOf(stats.xp), record: stats.record, ...today });
 });
 
 // A rewarded ad watched to the end (see ads.js): +1 level point, a few times
@@ -79,9 +80,9 @@ app.post("/api/ad-reward", async (req, res) => {
   apiHeaders(req, res);
   const userId = await accountOf(req);
   if (!userId) return res.status(401).json({ ok: false });
-  const result = await grantAdReward(userId);
+  const result = await grantAdReward(userId, { tz: req.query.tz });
   const { xp } = await accountStats(userId);
-  res.json({ ...result, xp, level: levelOf(xp) });
+  res.json({ ...result, xp, level: xp === null ? null : levelOf(xp) });
 });
 
 // The account's friends (people played in private rooms), with their points
@@ -121,7 +122,7 @@ app.get("/j/:code", (req, res) => {
 });
 
 const store = await createStore();
-const lobby = new Lobby(io, store);
+const lobby = new Lobby(io, store, { afterRecord: (socket) => setStats(socket) });
 let stopping = false;
 
 //----------- CONNECTIONS ---------------
@@ -141,16 +142,27 @@ function allow(socket) {
 // Who this connection is: a signed-in player shows the name and country of
 // their profile (the random animal name if they chose none); a guest gets the
 // animal name of their device. Same on every phone for the same account.
+// The account's points, level and record on its connection: what opponents
+// see and what matching uses. Read at hello, and again after each game is
+// recorded (see `afterRecord` in lobby.js). When Supabase can't be read, what
+// was there stays.
+async function setStats(socket) {
+  const d = socket.data;
+  const stats = await accountStats(d.userId); // a guest has none the server can trust
+  if (stats.xp === null && d.statsFor === d.userId) return;
+  d.statsFor = d.userId;
+  d.xp = stats.xp ?? 0;
+  d.level = levelOf(d.xp); // the number on the badge
+  d.record = stats.record ?? { played: 0, won: 0 }; // games played and won online, for the player card
+}
+
 async function setAccount(socket, token) {
   const d = socket.data;
   d.userId = await userIdFromToken(token);
   const profile = d.userId ? await profileOf(token) : { name: "", country: "" };
   d.name = profile.name || nameFromId(d.userId || d.playerId);
   d.country = profile.country;
-  const stats = await accountStats(d.userId); // a guest has none the server can trust
-  d.xp = stats.xp;
-  d.level = levelOf(d.xp); // the number on the badge
-  d.record = stats.record; // games played and won online, for the player card
+  await setStats(socket);
   // Online for friends (friends.js): whichever account this app is now.
   markOffline(socket);
   markOnline(socket);
@@ -177,6 +189,7 @@ io.on("connection", (socket) => {
   on("hello", { needsHello: false }, async (p) => {
     if (!PLAYER_ID.test(String(p.playerId || ""))) return { ok: false, error: "bad_player_id" };
     socket.data.playerId = p.playerId;
+    socket.data.tz = clampTz(p.tz); // minutes behind UTC: the player's own midnight (bonuses.js)
     // Signed in: the account (not the device) gives the name, so it's the
     // same on every phone. Guests: the device's own id.
     await setAccount(socket, p.accessToken);
