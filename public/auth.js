@@ -15,6 +15,21 @@ let starting = null;
 let current = null; // { id, email, name, avatar, provider } or null
 const listeners = new Set();
 
+// Start from what the last visit left: supabase-js keeps the session (and its
+// user) in localStorage, so the app can open as that account at once and let
+// the library confirm it a moment later, instead of showing a guest first.
+// If the session turns out to be gone, setUser(null) says so.
+function savedUser() {
+    try {
+        if (!ACCOUNTS_AVAILABLE) return null;
+        const ref = new URL(SUPABASE_URL).hostname.split(".")[0];
+        const session = JSON.parse(localStorage.getItem(`sb-${ref}-auth-token`) || "null");
+        return session?.user?.id ? toUser(session.user) : null;
+    } catch {
+        return null;
+    }
+}
+
 function loadLibrary() {
     if (window.supabase?.createClient) return Promise.resolve();
     return new Promise((resolve, reject) => {
@@ -40,10 +55,14 @@ function toUser(u) {
 
 function setUser(u) {
     const next = toUser(u);
-    if (next?.id === current?.id && next?.email === current?.email) return;
+    if (next?.id === current?.id && next?.email === current?.email) {
+        current = next; // the same account, confirmed: nothing to announce
+        return;
+    }
     current = next;
     listeners.forEach((f) => f(current));
 }
+current = savedUser();
 
 // Back from Google/Apple (or the link in the email), the page URL carries
 // ?code=... -- supabase-js turns it into a session; then it's tidied away so
@@ -158,7 +177,9 @@ export async function deleteAccount() {
 
 // The signed-in player's current token, for the game server; null as a guest.
 export async function accessToken() {
-    if (!client || !current) return null;
+    if (!current) return null;
+    if (!client) await initAuth(); // opened as the saved account: wait for the library
+    if (!client) return null;
     const { data } = await client.auth.getSession();
     return data.session?.access_token ?? null;
 }

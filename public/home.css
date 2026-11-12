@@ -74,7 +74,7 @@
   flex: 1;
   min-width: 0;
   max-width: 18em; /* on a wide landscape bar it would run across the screen */
-  height: 2.75em;
+  height: calc(2.75em + 2px); /* as tall as the icons beside it plus a hair: a pill looks smaller than a circle of the same height */
   display: flex;
   align-items: center;
   gap: .5em;
@@ -82,6 +82,8 @@
   border-radius: 1.375em;
   background: rgba(255, 255, 255, .5);
   border: var(--btn-border);
+  /* The thickness of the options icon's ring (13 of its 180.86 units, in its 2.75em). */
+  border-width: calc(2.75em * 13 / 180.86);
   box-sizing: border-box;
   text-align: left;
 }
@@ -139,12 +141,12 @@
    sizes below are divided back to the bar's em. */
 .home-pro {
   flex: none;
-  height: calc(2.75em / 1.0625);
+  height: calc(2.75em / 1.0625 + 2px); /* as the profile pill: a hair taller than the icons */
   padding: 0 1em !important;
   border-radius: calc(1.375em / 1.0625);
   background: rgb(232, 185, 35);
   border: var(--btn-border);
-  border-width: calc(.1875em / 1.0625);
+  border-width: calc(2.75em * 13 / 180.86 / 1.0625); /* the options icon's ring */
   box-sizing: border-box;
   font-size: 1.0625em !important;
   color: #5f4604 !important;
@@ -459,6 +461,18 @@ body:not(.is-pro) .home-pro-owned {
     grid-area: ad;
     width: min(100%, 45.5em); /* a 728px leaderboard on a wide screen */
     justify-self: center;
+  }
+
+  /* Pro: no banner, so no room kept for it: the rest is centred in the screen. */
+  body.is-pro .home-overlay {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "top top"
+      "header main";
+  }
+
+  body.is-pro .home-ad {
+    display: none;
   }
 }
 

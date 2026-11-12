@@ -364,11 +364,16 @@
   bottom: -.95em;
   width: .44em;
   border-radius: .22em;
-  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .2) 0 .5em, transparent .5em .9em);
+  background: repeating-linear-gradient(to bottom, var(--road-todo, rgba(0, 0, 0, .2)) 0 .5em, transparent .5em .9em);
 }
 
+/* Done: solid, up to where you are. From "You are here" on, the way ahead is dashed. */
 .road-stop.is-reached::before {
-  background: rgb(46, 160, 90);
+  background: var(--road-done, rgb(46, 160, 90));
+}
+
+.road-stop.is-you::before {
+  background: repeating-linear-gradient(to bottom, var(--road-todo, rgba(0, 0, 0, .2)) 0 .5em, transparent .5em .9em);
 }
 
 .road-stop:last-child::before {
@@ -399,12 +404,11 @@
 
 /* Reached: a green frame. The pastille keeps the colour its level's badge has. */
 .road-stop.is-reached .road-node {
-  border-color: #1f7a45;
+  border-color: var(--road-done, #1f7a45);
 }
 
 .road-stop.is-next .road-node {
   border-color: rgb(232, 185, 35);
-  animation: roadPulse 1.8s ease-in-out infinite;
 }
 
 /* "You are here": the badge in your tier's colour. */
@@ -594,12 +598,12 @@
 /* GET PRO in the account: the home's pill, the same (see .home-pro in home.css). */
 .get-pro-hero {
   align-self: center;
-  height: calc(2.75em / 1.0625);
+  height: calc(2.75em / 1.0625 + 2px); /* as the profile pill: a hair taller than the icons */
   padding: 0 1em;
   border-radius: calc(1.375em / 1.0625);
   background: rgb(232, 185, 35);
   border: var(--btn-border);
-  border-width: calc(.1875em / 1.0625);
+  border-width: calc(2.75em * 13 / 180.86 / 1.0625); /* the options icon's ring */
   box-sizing: border-box;
   font: 1.0625em "Changa One", sans-serif;
   font-size: calc(var(--home-scale) * 1.0625); /* the home's own size */

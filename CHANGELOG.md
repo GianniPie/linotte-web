@@ -12,6 +12,13 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.19.2] - 2026-11-12
+
+### Changed
+- The home's profile pill and GET PRO (also in the account sheet): 2px taller than the icons beside it (a pill looks smaller than a circle of the same height; the three stay centred on each other), its border is as thick as the options icon's ring, and once you are signed in the "Signed in" text is gone (the badge and the flag are what is under the name).
+- Level road: only "You are here" pulses (the next level keeps a still gold frame); the way from "You are here" to the next level is dashed, not solid; and the road takes the colour of your table background (a tint of its average colour for the done part and the dashes) instead of always green.
+- The app starts from what the last visit left, then updates from the server: if you were signed in it opens as that account at once (the saved session's user, and the last name, picture, country, level, Pro, and today's bonuses) instead of showing a guest and correcting itself seconds later; your table background is applied before the first paint (no flash of the default one); the server's answer replaces the saved data when it arrives. A server that can't check the account just then no longer clears the saved level, Pro or record, and the account's options are only applied again when they changed on another device. The sign-in library starts downloading with the page.
+
 ## [2.19.1] - 2026-11-11
 
 ### Changed
@@ -23,6 +30,8 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 - On the home, the level badge sits under your name (on the line with the flag and "Signed in"), with the gold frame for Pro.
 
 ### Fixed
+- Changing the language no longer flashes the game's green background with the combination pills while the page reloads: nothing shows until the options are open again.
+- The home in landscape for Pro players is centred: it no longer keeps room for the banner they don't have.
 - "No more ads today" no longer shows when the server simply couldn't read today's bonuses: it now says "unknown", the app keeps what it knew (the button stays available) and a tap that can't be counted says "Can't add the point right now. Please try again." instead of "come back tomorrow".
 - SAME TABLE with FLIP (portrait): the banner no longer covers ROLL and DONE, and the page no longer runs under the notch. The banner stays at the bottom of the screen, the right way up, and the room the page keeps clear for the notch and the home indicator follows the flip.
 - The level on the home (and everywhere it shows) now follows the server's points: they are read again whenever the home shows and when the app comes back to the front, and again as soon as the server says the game just played is saved (a new "recorded" message), so a game's points no longer show up late or not at all. The server keeps each player's connection up to date after a game too (opponents and matching saw the old level), and when it can't read its database it now says "unknown" instead of 0, so the app keeps the level it had instead of dropping to level 0.

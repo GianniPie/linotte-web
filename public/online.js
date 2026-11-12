@@ -6,7 +6,7 @@
 
 import { io } from "./vendor/socket.io.esm.min.js";
 import { SERVER_URL } from "./config.js";
-import { accessToken } from "./auth.js";
+import { accessToken, currentUser } from "./auth.js";
 
 // Must equal CONSENT_VERSION in server/config.js. Bump both whenever the
 // Terms / Privacy / bot notice text changes: everyone is asked again.
@@ -94,13 +94,22 @@ export function lastKnownRecord() {
 export async function fetchPro({ fresh = false } = {}) {
     const token = await accessToken();
     const dev = devProToken();
-    if (!token && !dev) { write(PRO_KEY, ""); write(XP_KEY, ""); return false; }
+    if (!token && !dev) {
+        // No account: nothing to remember. With one but no token right now (the
+        // library is still starting, or offline), keep what is saved.
+        if (currentUser()) return lastKnownPro();
+        write(PRO_KEY, ""); write(XP_KEY, ""); write(RECORD_KEY, "");
+        return false;
+    }
     const headers = {};
     if (token) headers.Authorization = `Bearer ${token}`;
     if (dev) headers["X-Linotte-Dev"] = dev;
     try {
         const res = await fetch(`${SERVER_URL}/api/me?tz=${tzMinutes()}${fresh ? "&fresh=1" : ""}`, { headers, cache: "no-store" });
         const me = await res.json();
+        // The app has an account but the server says "nobody": it couldn't check
+        // the token just now. Keep what is saved rather than show a guest.
+        if (!me.signedIn && currentUser() && !dev) return lastKnownPro();
         const pro = Boolean(me.pro);
         write(PRO_KEY, pro ? "1" : "");
         // xp null: the server couldn't read the points just now; keep the last ones.
@@ -202,7 +211,9 @@ export class OnlineClient {
                     accessToken: await accessToken(),
                     tz: tzMinutes(),
                 }, (res) => {
-                    if (res?.ok) { this.name = res.name; this.h.onPro?.(Boolean(res.pro)); }
+                    // (A hello the server took for a guest while the app has an account says
+                    // "not Pro": not to be believed, the saved answer stays.)
+                    if (res?.ok) { this.name = res.name; if (res.signedIn || !currentUser()) this.h.onPro?.(Boolean(res.pro)); }
                     this.h.onConnection?.(true, res);
                     resolve(res);
                     // Back after a drop (or a backgrounded app): ask for our room.
@@ -238,7 +249,7 @@ export class OnlineClient {
     async reauth() {
         if (!this.socket?.connected) return; // the next hello carries it
         const res = await this.call("auth", { accessToken: await accessToken() });
-        if (res?.ok) { this.name = res.name; this.h.onPro?.(Boolean(res.pro)); }
+        if (res?.ok) { this.name = res.name; if (res.signedIn || !currentUser()) this.h.onPro?.(Boolean(res.pro)); }
     }
 
     // Another game against the same opponent: { ok, waiting } -- waiting

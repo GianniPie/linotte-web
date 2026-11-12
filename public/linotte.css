@@ -127,7 +127,7 @@ html {
 .body {
   text-align: center;
   background-color: whitesmoke;
-  background-image: url("resources/images/backgrounds/sun-tornado.svg");
+  background-image: var(--own-bg, url("resources/images/backgrounds/sun-tornado.svg"));
   background-position: center center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -1474,7 +1474,7 @@ html.is-resizing *::after {
 .opt-bg {
   position: absolute;
   inset: 0;
-  background-image: url("resources/images/backgrounds/sun-tornado.svg");
+  background-image: var(--own-bg, url("resources/images/backgrounds/sun-tornado.svg"));
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;

@@ -804,6 +804,9 @@ for (let i = 0; i < backgrounds.length; i++) {
 body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
 optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]));
 modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+// Kept for the next visit's first paint (see the head of index.html).
+const rememberOwnBg = (id) => { try { localStorage.setItem("linotte-own-bg", bgPath + backgrounds[id]); } catch { /* storage off */ } };
+rememberOwnBg(selectedBg);
 
 let isVolumeOn = true;
 isVolumeOn = toBoolean(getCookie("volumeOn", "true"));
@@ -1372,6 +1375,7 @@ bgOptions.forEach(bgOption => {
         document.getElementById("bg-current").textContent = humanizeBgName(backgrounds[bgId]);
 
         showBackground(bgId);
+        rememberOwnBg(bgId);
         setCookie("background", bgId);
         onlineClient?.setLook(bgId);
         centerLists(true);
@@ -3839,7 +3843,23 @@ function showAvatarPhoto(avatar, src) {
 // server checks the name again), and the options that follow them to every
 // device: dice, background, board and favorite piece. Stored in Supabase
 // (profiles.sql).
-var profile = null;       // the loaded profile, null as a guest or until loaded
+// The loaded profile, null as a guest. The last one seen is kept on the phone
+// (name, picture, country, options) and used at once on the next visit; the
+// server's answer replaces it a moment later.
+const PROFILE_KEY = "linotte-profile";
+function cachedProfile(userId) {
+    try {
+        const saved = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
+        return userId && saved?.id === userId ? saved.profile || null : null;
+    } catch { return null; }
+}
+function keepProfile(userId, value) {
+    try {
+        if (userId && value) localStorage.setItem(PROFILE_KEY, JSON.stringify({ id: userId, profile: value }));
+        else localStorage.removeItem(PROFILE_KEY);
+    } catch { /* storage off: nothing kept */ }
+}
+var profile = cachedProfile(currentUser()?.id);
 var syncReady = false;    // true once this account's options have been applied
 var prefsTimer = 0;
 
@@ -3864,6 +3884,12 @@ function currentPrefs() {
 // A look the account chose that is still locked here (its level not known
 // yet on this device) waits, and is put on once unlocked (applyLevelLocks).
 let pendingLooks = {};
+// The options as the account last had them (what this phone already applied).
+const PREFS_SEEN_KEY = "linotte-prefs-seen";
+function rememberPrefs(prefs) {
+    try { localStorage.setItem(PREFS_SEEN_KEY, JSON.stringify(prefs)); } catch { /* storage off */ }
+}
+
 function applyPrefs(prefs) {
     const pick = (id) => {
         const el = document.getElementById(id);
@@ -3883,11 +3909,17 @@ async function syncProfile(userId) {
         const loaded = await loadProfile();
         if (currentUser()?.id !== userId) return; // signed out meanwhile
         profile = loaded || {};
+        keepProfile(userId, profile);
         showHomeProfile();
         const saved = profile.prefs || {};
         // First sign-in on any device: this device's choices become the account's.
-        if (Object.keys(saved).length) applyPrefs(saved);
-        else await saveProfile({ prefs: currentPrefs() });
+        // Later, the account's options are only applied when they changed elsewhere
+        // (this phone's choices are already on screen).
+        if (Object.keys(saved).length) {
+            const was = localStorage.getItem(PREFS_SEEN_KEY);
+            if (was !== JSON.stringify(saved)) applyPrefs(saved);
+            rememberPrefs(saved);
+        } else await saveProfile({ prefs: currentPrefs() });
         syncReady = true;
         moveLocalGamesToAccount();
     } catch (err) {
@@ -3902,7 +3934,7 @@ function prefChanged(cookie) {
     clearTimeout(prefsTimer);
     prefsTimer = setTimeout(() => {
         const prefs = currentPrefs();
-        saveProfile({ prefs }).then(() => { if (profile) profile.prefs = prefs; }).catch((err) => console.error("options not saved:", err.message));
+        saveProfile({ prefs }).then(() => { if (profile) { profile.prefs = prefs; keepProfile(currentUser()?.id, profile); } rememberPrefs(prefs); }).catch((err) => console.error("options not saved:", err.message));
     }, 1200);
 }
 
@@ -3968,6 +4000,7 @@ byId("profile-save").addEventListener("click", (e) => {
     loginStep(e.currentTarget, byId("profile-error"), async () => {
         await saveProfile(fields);
         profile = { ...(profile || {}), ...fields };
+        keepProfile(currentUser()?.id, profile);
         showHomeProfile();
         onlineClient.reauth(); // the game server picks up the new name and flag
         showOnlineView("account");
@@ -3979,8 +4012,10 @@ byId("profile-save").addEventListener("click", (e) => {
 let lastUserId;
 onUserChange((user) => {
     const avatar = document.querySelector("#home-profile .home-avatar");
-    byId("home-psub").textContent = user ? t("Signed in") : t("Tap to sign in");
-    profile = null;
+    // Signed in, the line under the name is just the badge and the flag.
+    byId("home-psub").textContent = user ? "" : t("Tap to sign in");
+    profile = cachedProfile(user?.id); // the last one seen, until the server's arrives
+    if (!user) keepProfile(null, null);
     showHomeProfile();
     if (user) syncProfile(user.id);
     else syncReady = false;
@@ -4461,6 +4496,48 @@ function showRoad() {
     if (!placed) list.appendChild(you);
     list.appendChild(Object.assign(document.createElement("li"), { className: "road-end", textContent: t("More rewards are coming.") }));
     you.scrollIntoView({ block: "center" });
+    tintRoad(list);
+}
+
+// The road takes the colour of the table background: its average, as a
+// dark tint for the done part and a lighter one for the dashes ahead.
+const tintCache = new Map();
+async function backgroundTint(url) {
+    if (tintCache.has(url)) return tintCache.get(url);
+    let tint = null;
+    try {
+        const img = new Image();
+        img.src = url;
+        await img.decode();
+        const c = document.createElement("canvas");
+        c.width = c.height = 24;
+        const x = c.getContext("2d", { willReadFrequently: true });
+        x.drawImage(img, 0, 0, 24, 24);
+        const d = x.getImageData(0, 0, 24, 24).data;
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] < 128) continue;
+            r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+        }
+        if (n) {
+            r /= n * 255; g /= n * 255; b /= n * 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, dl = max - min;
+            let h = 0;
+            if (dl) h = max === r ? ((g - b) / dl) % 6 : max === g ? (b - r) / dl + 2 : (r - g) / dl + 4;
+            tint = { h: Math.round((h * 60 + 360) % 360), s: Math.round(dl ? (dl / (1 - Math.abs(2 * l - 1))) * 100 : 0) };
+        }
+    } catch { /* the default colours */ }
+    tintCache.set(url, tint);
+    return tint;
+}
+
+function tintRoad(list) {
+    backgroundTint(bgPath + backgrounds[ownBackground()]).then((tint) => {
+        if (!tint) return;
+        const s = Math.max(25, Math.min(70, tint.s));
+        list.style.setProperty("--road-done", `hsl(${tint.h} ${s}% 30%)`);
+        list.style.setProperty("--road-todo", `hsl(${tint.h} ${s}% 20% / .4)`);
+    });
 }
 byId("account-road").addEventListener("click", () => { hideOnlineOverlay(); openMenuPage("road"); });
 

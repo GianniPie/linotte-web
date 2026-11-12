@@ -9,7 +9,7 @@
          i18n.js has translated it (no flash of English), and after a
          language change until the options are open again; shown anyway after
          3 seconds if something goes wrong. Same language choice as i18n.js. -->
-    <style>.i18n-pending body { visibility: hidden; }</style>
+    <style>.i18n-pending body, .i18n-pending body * { visibility: hidden !important; }</style>
     <script>
         (function () {
             var supported = ["en", "it", "fr", "es", "pt", "zh"], lang = "en";
@@ -47,6 +47,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+
+    <!-- The player's own table background, as the last visit left it, before the
+         first paint (the app sets it again once it runs): no flash of the default. -->
+    <script>
+        try {
+            var ownBg = localStorage.getItem("linotte-own-bg");
+            if (ownBg) document.documentElement.style.setProperty("--own-bg", "url('" + ownBg + "')");
+        } catch (e) { /* storage off: the default */ }
+    </script>
+    <!-- The sign-in library downloads while the page starts, not after it. -->
+    <link rel="preload" href="vendor/supabase.js" as="script">
 
     <link href="animations.css" rel="stylesheet" type="text/css" />
     <link href="linotte.css" rel="stylesheet" type="text/css" />
