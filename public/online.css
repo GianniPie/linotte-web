@@ -847,3 +847,14 @@ body.daily-open .sheet-daily {
 .stat[data-explain] {
   cursor: pointer;
 }
+
+/* "How levels work": the one-line summary hugs the title and is set apart from the rules below. */
+.sheet-view[data-view="level-help"] .sheet-title {
+  margin-bottom: -.4em;
+}
+
+.level-note {
+  padding-bottom: .9em;
+  margin-bottom: .5em;
+  border-bottom: 1px solid rgba(0, 0, 0, .15);
+}

@@ -300,7 +300,7 @@
             <!-- the (?) by the level in the stats: the rules, see shared/level.js -->
             <div class="sheet-view" data-view="level-help">
                 <div class="sheet-title" data-i18n>How levels work</div>
-                <div class="sheet-text sheet-small" data-i18n>Every opponent sees your level. Pro adds a star and a gold frame to your badge.</div>
+                <div class="sheet-text sheet-small level-note" data-i18n>Everyone sees your level. Pro adds a star.</div>
                 <ul class="sheet-list level-rules">
                     <li data-i18n>Each online game you win, against a random opponent or a friend: +2 points.</li>
                     <li data-i18n>Each online game you lose or draw, played to the end: +1 point.</li>
@@ -375,12 +375,11 @@
             <div class="sheet-view" data-view="pro">
                 <div class="sheet-title" data-i18n>Linotte Pro</div>
                 <ul class="sheet-list">
-                    <li class="pro-star"><span class="pro-sample lv-pill is-pro" id="pro-sample" data-tier="silver"></span><span data-i18n>A gold star and frame on your badge</span></li>
-                    <li data-i18n>Create private rooms to play with friends</li>
-                    <li data-i18n>See which friends are online and invite them with a tap</li>
-                    <li data-i18n>Choose the piece you play with</li>
+                    <li class="pro-star"><span class="pro-sample lv-pill is-pro" id="pro-sample" data-tier="silver"></span><span data-i18n>A star on your badge</span></li>
                     <li data-i18n>No ads</li>
-                    <li data-i18n>Exclusive pieces, dice and backgrounds</li>
+                    <li data-i18n>Create private rooms to play with friends</li>
+                    <li data-i18n>See which Pro friends are online and invite them with a tap</li>
+                    <li data-i18n>Choose the piece you play with</li>
                 </ul>
                 <div class="sheet-text pro-price" id="pro-price" data-i18n>One purchase, for life</div>
                 <div class="sheet-text sheet-small" id="pro-note"></div>
@@ -865,7 +864,7 @@
                     </div>
                     <div class="sheet-text sheet-small" id="lb-note"></div>
                     <div class="lb-pro" id="lb-pro" hidden>
-                        <span data-i18n>With Pro, see which friends are online and invite them with a tap, no link to send.</span>
+                        <span data-i18n>With Pro, see which Pro friends are online and invite them with a tap, no link to send.</span>
                         <button class="lb-pro-btn" id="lb-pro-btn" type="button" data-i18n>GET PRO</button>
                     </div>
                     <div class="sheet-text" id="lb-empty" hidden></div>

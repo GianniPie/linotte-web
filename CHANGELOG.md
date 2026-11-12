@@ -12,6 +12,18 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-11-12
+
+### Added
+- The phone's back gesture or button closes what is open instead of leaving the app, one layer at a time: a level screen, a sheet (as its BACK / CANCEL / NOT NOW would), then the menu. With nothing open it leaves, as before. (Consent, the game itself and the winner screen are not closed by it.)
+
+### Changed
+- The Pro sheet says only what Pro really gives: "See which Pro friends are online and invite them with a tap" (it works between two Pro friends, as the ranking's hint now says too), and the line "Exclusive pieces, dice and backgrounds" is gone (dice and backgrounds are level rewards for everyone; the pieces are covered by "Choose the piece you play with").
+- Pro is just the star: the gold frame around a Pro player's level badge is gone, everywhere. The Pro sheet lists the badge line first ("A star on your badge"), then "No ads". In "How levels work" the summary under the title is shorter and correct ("Everyone sees your level. Pro adds a star."), sits close to the title and is set apart from the rules by a line.
+
+### Fixed
+- SAME TABLE with FLIP (portrait): the page's <body> is no longer the thing that turns. The game and the panels that belong to the player whose turn it is (menu, winner screen, sheets, messages) turn in place instead, so the banner, fixed to the screen, is never touched by the turn: it no longer disappears mid-turn on phones. The banner is back in the page and under the menus; the menu, turned, now covers the whole screen.
+
 ## [2.20.1] - 2026-11-12
 
 ### Fixed

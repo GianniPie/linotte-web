@@ -4081,9 +4081,6 @@ initAuth().then(() => {
 renderBanner(byId("home-ad"), () => showProSheet());
 byId("home-ad").addEventListener("click", () => showToast(t("This is a sample ad.")));
 // ...and the one under the game (portrait, not for Pro: see setPro).
-// The banner lives outside the body (before it): FLIP turns the body upside
-// down and the banner stays where it is, only the game turns.
-document.documentElement.insertBefore(byId("game-ad"), document.body);
 renderBanner(byId("game-ad"), () => showProSheet());
 byId("game-ad").addEventListener("click", () => showToast(t("This is a sample ad.")));
 //----------- PRO ---------------
@@ -4097,7 +4094,6 @@ const store = () => window.LinotteNative?.buyPro ? window.LinotteNative : null;
 function setPro(pro) {
     document.body.classList.toggle("is-pro", pro);
     document.body.classList.toggle("game-ad", !pro); // the room kept for the in-game banner (--ad-h)
-    document.documentElement.classList.toggle("game-ad", !pro); // the banner itself (ads.css)
     showHomeBadge();
     showPieceChoice(favoritePiece()); // the favorite piece is Pro only
     if (onlineOverlay.dataset.view === "pro") fillProSheet();
@@ -5432,3 +5428,66 @@ initCombinationDemos({
         return { pieceImage: me.pieceImage, color: me.color };
     },
 });
+
+
+//----------- THE PHONE'S BACK GESTURE / BUTTON ---------------
+// Back used to leave the app. Now it closes what is open on top, one layer
+// at a time: a level screen, a sheet (what its BACK / CANCEL / NOT NOW does),
+// the menu. With nothing open it leaves, as usual. Each open layer has one
+// history entry of its own (pushState); closing a layer from the screen takes
+// its entry off again, and the "popstate" that causes is not a back.
+(function backButton() {
+    const SHEET_BACK = {
+        searching: "searching-cancel", friend: "friend-back", waiting: "room-cancel", joincode: "code-back",
+        message: "message-ok", "login-email": "login-email-back", "login-code": "login-code-back", invite: "invite-decline",
+        "level-help": "level-help-back", profile: "profile-cancel", "account-signout": "account-signout-back",
+        "account-delete": "account-delete-back",
+    };
+    function dismissSheet() {
+        const v = onlineOverlay.dataset.view;
+        const view = onlineOverlay.querySelector(`.sheet-view[data-view="${v}"]`);
+        const btn = view?.querySelector("[data-sheet-close]") || (SHEET_BACK[v] && document.getElementById(SHEET_BACK[v]));
+        if (btn) btn.click(); else closeOnlineOverlay();
+    }
+    // Bottom to top.
+    const layers = () => {
+        const list = [];
+        if (!optionsOverlay.classList.contains("hidden")) list.push(closeOptions);
+        if (onlineOverlay.style.display !== "none" && onlineOverlay.dataset.view) list.push(dismissSheet);
+        if (!byId("levelup-overlay").hidden) list.push(closeLevelUp);
+        if (!byId("leveldown-overlay").hidden) list.push(closeLevelDown);
+        return list;
+    };
+
+    let depth = 0;      // history entries pushed for the layers now open
+    let ignored = 0;    // popstates caused by our own history.go(), not by the player
+    let ignoreTimer = 0;
+    function reconcile() {
+        const want = layers().length;
+        if (want > depth) {
+            for (; depth < want; depth++) history.pushState({ linotteLayer: depth + 1 }, "");
+        } else if (want < depth) {
+            const n = depth - want;
+            depth = want;
+            ignored++;
+            clearTimeout(ignoreTimer);
+            ignoreTimer = setTimeout(() => { ignored = 0; }, 800); // never swallow a real back for long
+            history.go(-n);
+        }
+    }
+    window.addEventListener("popstate", () => {
+        if (ignored > 0) { ignored--; return; }
+        const open = layers();
+        if (!open.length) return; // nothing open: the page was already left or this is a stale entry
+        depth = Math.max(0, depth - 1); // the browser took one of our entries
+        open[open.length - 1](); // close the top one
+        reconcile(); // still open (a BACK that stays in the sheets): the entry is given back
+    });
+
+    const watch = new MutationObserver(reconcile);
+    watch.observe(optionsOverlay, { attributes: true, attributeFilter: ["class"] });
+    watch.observe(onlineOverlay, { attributes: true, attributeFilter: ["style", "data-view"] });
+    watch.observe(byId("levelup-overlay"), { attributes: true, attributeFilter: ["hidden"] });
+    watch.observe(byId("leveldown-overlay"), { attributes: true, attributeFilter: ["hidden"] });
+    try { history.replaceState(null, ""); } catch { /* no history */ }
+})();

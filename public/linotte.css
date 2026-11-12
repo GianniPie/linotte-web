@@ -451,41 +451,56 @@ html {
   transition: transform .6s ease;
 }
 
-/* FLIP (same-table/hotseat only -- see #flip-table-btn in linotte.js):
-   spins the whole page 180deg so whoever's now facing the screen gets an
-   upright view of their own turn, instead of reading everything upside
-   down after passing the device across the table. The board itself gets
-   an EXTRA 180deg on top of that, canceling the page's own rotation --
-   it's the one shared physical object between both players and has to
-   stay the same way up no matter whose turn it is. */
-body {
+/* FLIP (same-table/hotseat only -- see #flip-table-btn in linotte.js), in
+   portrait: the game (.flex-block) and the panels that belong to whoever's
+   turn it is (menu, winner screen, sheets, messages) turn 180deg, in place,
+   so whoever's now facing the screen gets an upright view of their own turn,
+   instead of reading everything upside down after passing the device across
+   the table. Not the <body> itself: turning it made the banner (fixed to the
+   screen) jump and disappear mid-turn on phones. The board gets an EXTRA
+   180deg on top of that, canceling the game's own rotation -- it's the one
+   shared physical object between both players and has to stay the same way
+   up no matter whose turn it is. */
+.div-table {
   transition: transform .6s ease;
 }
 
-/* Turned upside down, what the page keeps clear at its top (the notch) lands
-   at the bottom and the other way round: it is moved down by the difference
-   of the two (nothing to lay out again, so the turn stays smooth). */
-body.table-flipped {
-  transform: translateY(calc(env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))) rotate(180deg);
-}
+@media (orientation: portrait) {
+  .flex-block {
+    transition: transform .6s ease;
+  }
 
-body.table-flipped .div-table {
-  transform: rotate(-180deg);
-}
+  /* Turned upside down, what the page keeps clear at its top (the notch) lands
+     at the bottom and the other way round: it is moved down by the difference
+     of the two (nothing to lay out again, so the turn stays smooth). */
+  body.table-flipped .flex-block {
+    transform: translateY(calc(env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))) rotate(180deg);
+  }
 
-/* The banner's place (see .game-ad-slot in ads.css) stays at the screen
-   bottom when flipped: the banner itself is outside the body and doesn't turn. */
+  body.table-flipped .div-table {
+    transform: rotate(-180deg);
+  }
+
+  #options-overlay,
+  #winner-overlay,
+  #online-overlay,
+  #toast {
+    transition: rotate .6s ease;
+  }
+
+  body.table-flipped #options-overlay,
+  body.table-flipped #winner-overlay,
+  body.table-flipped #online-overlay,
+  body.table-flipped #toast {
+    rotate: 180deg;
+  }
+}
 
 /* Effects drawn in screen coordinates (the fairy-trail canvas covers the
-   whole page and its points come from getBoundingClientRect) would be turned
-   180deg along with the flipped body and land mirrored. Turning the canvas
-   back the same amount cancels it out. */
+   whole page and its points come from getBoundingClientRect) stay as they
+   are: nothing that carries them turns. */
 .fairy-canvas {
   transition: rotate .6s ease;
-}
-
-body.table-flipped .fairy-canvas {
-  rotate: 180deg;
 }
 
 /* The board keeps its layout for both players (it's the shared object), but
@@ -1327,7 +1342,6 @@ body.table-flipped .tile::before {
      only the game column (and the full-screen panels that belong to the
      player whose turn it is) turn upside down, in place. The tile symbols
      still turn (body.table-flipped .tile::before, above). */
-  body.table-flipped,
   body.table-flipped .div-table {
     transform: none;
   }
@@ -2993,11 +3007,7 @@ label {
   font-variant-numeric: tabular-nums;
 }
 
-/* Everyone's level shows; Pro adds the star (in the text) and a gold frame. */
-.player.is-pro[data-badge]:not([data-badge=""])::after {
-  border-color: rgb(232, 185, 35);
-  box-shadow: 0 0 0 .1em rgba(232, 185, 35, .55);
-}
+/* Everyone's level shows; Pro adds the star (in the text). */
 
 /* The player card's level: the badge they wear in the game, bigger, with
    Pro / Free / Guest in small under it. */
@@ -3238,10 +3248,7 @@ body.rooms-need-pro:not(.is-pro) #friend-create::after {
   font-variant-numeric: tabular-nums;
 }
 
-.lv-pill.is-pro {
-  border-color: rgb(232, 185, 35);
-  box-shadow: 0 0 0 .1em rgba(232, 185, 35, .55);
-}
+/* Pro is the star in front of the text; there is no other frame. */
 
 /* Dice and backgrounds that come with a level: a "🔒 Lv N" tag until then
    (the same tag as the Pro pieces, see applyLevelLocks in linotte.js). They
