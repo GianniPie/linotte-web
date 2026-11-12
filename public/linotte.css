@@ -473,7 +473,8 @@ body.table-flipped .div-table {
 /* Flipped in portrait, the page is upside down, so what it keeps clear at its
    top and bottom swaps places on the screen: the notch's room (the top inset)
    has to be at the layout's bottom to end up under the notch, and the
-   banner's place (see .game-ad-slot in ads.css) stays at the screen bottom. */
+   banner's place (see .game-ad-slot in ads.css) stays at the screen bottom:
+   the banner itself is outside the body and doesn't turn. */
 @media (orientation: portrait) {
   body.table-flipped .flex-block {
     padding-top: env(safe-area-inset-bottom, 0px);
@@ -1822,6 +1823,25 @@ html.is-resizing *::after {
   opacity: 50%;
   border-radius: 4px;
   transition: left var(--state) var(--ease-out);
+}
+
+/* A page that comes in by a swipe slides in from the side it came from. */
+.opt-page.slide-in-next {
+  animation: optSlideNext .24s ease-out;
+}
+
+.opt-page.slide-in-prev {
+  animation: optSlidePrev .24s ease-out;
+}
+
+@keyframes optSlideNext { from { opacity: 0; transform: translateX(32px); } }
+@keyframes optSlidePrev { from { opacity: 0; transform: translateX(-32px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .opt-page.slide-in-next,
+  .opt-page.slide-in-prev {
+    animation: none;
+  }
 }
 
 /* pages */

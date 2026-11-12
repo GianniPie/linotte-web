@@ -680,6 +680,31 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* While the ranking loads: grey lines in the rows' places, with a light passing over them. */
+.lb-skel .sk {
+  display: block;
+  height: .85em;
+  border-radius: .45em;
+  background: linear-gradient(100deg, rgba(0, 0, 0, .08) 30%, rgba(0, 0, 0, .16) 50%, rgba(0, 0, 0, .08) 70%) 0 0 / 250% 100%;
+  animation: lbShimmer 1.3s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * .08s);
+}
+
+.lb-skel .sk-rank { width: 1.3em; justify-self: end; }
+.lb-skel .sk-name { width: 62%; }
+.lb-skel:nth-child(3n) .sk-name { width: 48%; }
+.lb-skel:nth-child(3n + 1) .sk-name { width: 74%; }
+.lb-skel .sk-pts { width: 3em; }
+
+@keyframes lbShimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-skel .sk { animation: none; }
+}
+
 .lb-list li.is-me,
 .lb-me li {
   border-radius: .5em;

@@ -78,11 +78,13 @@
 }
 
 @media all {
-  body.game-ad .game-ad-slot {
+  /* A child of <html>, before <body> (moved there at start-up, see linotte.js):
+     SAME TABLE turns the body upside down and the banner must not turn with it.
+     No z-index: before the body in the order, so under every overlay in it. */
+  html.game-ad .game-ad-slot {
     position: fixed;
     left: 50%;
     bottom: env(safe-area-inset-bottom, 0px);
-    z-index: 3;
     transform: translateX(-50%);
     width: min(calc(100vw - 16px), 468px);
     height: 50px;
@@ -113,18 +115,6 @@
      mistake (the home banner has it). */
   .game-ad-slot .ad-remove {
     display: none;
-  }
-}
-
-/* Flipped (SAME TABLE, portrait): the whole page is upside down, banner
-   included, which put it on top of ROLL and DONE. It goes back to the bottom
-   of the screen, the right way up: in the flipped page's own coordinates that
-   is above its top edge. */
-@media (orientation: portrait) {
-  body.table-flipped.game-ad .game-ad-slot {
-    bottom: auto;
-    top: calc(env(safe-area-inset-bottom, 0px) - var(--ad-h));
-    transform: translateX(-50%) rotate(180deg);
   }
 }
 

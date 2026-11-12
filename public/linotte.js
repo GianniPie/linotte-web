@@ -1083,15 +1083,21 @@ document.querySelectorAll(".icon").forEach(icon => {
 // after a rotation or resize moves the icons (see onViewportChange).
 let currentOptionsTab = "game";
 
-function handleTab(page) {
+function handleTab(page, { from = 0 } = {}) {
     if (page === "back") {
         closeOptions();
         return;
     }
 
     // cambia pagina
-    document.querySelectorAll(".opt-page").forEach(p => p.classList.add("hidden"));
-    document.getElementById("page-" + page).classList.remove("hidden");
+    document.querySelectorAll(".opt-page").forEach((p) => p.classList.add("hidden"));
+    const shown = document.getElementById("page-" + page);
+    shown.classList.remove("hidden", "slide-in-next", "slide-in-prev");
+    // A swipe brings the page in from the side it came from.
+    if (from) {
+        void shown.offsetWidth;
+        shown.classList.add(from > 0 ? "slide-in-next" : "slide-in-prev");
+    }
 
     currentOptionsTab = page;
     moveIndicator(page);
@@ -1101,6 +1107,32 @@ function handleTab(page) {
     else if (page === "stats") showStats();
     else if (page === "road") showRoad();
 }
+
+// Swipe left or right anywhere on the menu to go to the next or the previous
+// page, in the order of the icons in the top bar. Not from the sideways-
+// scrolling lists (dice, backgrounds, pieces) or the form fields, which use
+// the gesture themselves.
+(function menuSwipe() {
+    let start = null;
+    const pages = () => [...document.querySelectorAll(".opt-header .icon:not(#icon-back)")]
+        .filter((el) => el.offsetParent && !el.classList.contains("disabled")).map((el) => el.dataset.page);
+    optionsOverlay.addEventListener("touchstart", (e) => {
+        const t0 = e.touches[0];
+        start = e.touches.length === 1 && !e.target.closest(".car-list, .car-list-wrapper, input, select, textarea, .stats-modes")
+            ? { x: t0.clientX, y: t0.clientY, at: Date.now() } : null;
+    }, { passive: true });
+    optionsOverlay.addEventListener("touchend", (e) => {
+        if (!start) return;
+        const t1 = e.changedTouches[0];
+        const dx = t1.clientX - start.x, dy = t1.clientY - start.y, quick = Date.now() - start.at < 700;
+        start = null;
+        if (!quick || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+        const list = pages();
+        const i = list.indexOf(currentOptionsTab);
+        const next = list[i + (dx < 0 ? 1 : -1)];
+        if (next) handleTab(next, { from: dx < 0 ? 1 : -1 });
+    }, { passive: true });
+})();
 
 // Opens the menu on one of its pages (the home's shortcuts, the level-up's
 // LEVEL ROAD...), or switches to it when the menu is already open. `top`
@@ -3801,6 +3833,8 @@ byId("account-getpro").addEventListener("click", () => showProSheet());
 // The (?) by the level in the stats: how levels work, then back to the stats
 // (still filled in).
 byId("st-level-help").addEventListener("click", () => showOnlineView("level-help"));
+// ...and the same one from the level road, under its title.
+byId("road-how").addEventListener("click", () => showOnlineView("level-help"));
 // In the rules, what each thing is worth stands out: every "+2" / "−2" in bold
 // (the texts are already translated by now).
 document.querySelectorAll(".level-rules li").forEach((li) => {
@@ -4043,6 +4077,9 @@ initAuth().then(() => {
 renderBanner(byId("home-ad"), () => showProSheet());
 byId("home-ad").addEventListener("click", () => showToast(t("This is a sample ad.")));
 // ...and the one under the game (portrait, not for Pro: see setPro).
+// The banner lives outside the body (before it): FLIP turns the body upside
+// down and the banner stays where it is, only the game turns.
+document.documentElement.insertBefore(byId("game-ad"), document.body);
 renderBanner(byId("game-ad"), () => showProSheet());
 byId("game-ad").addEventListener("click", () => showToast(t("This is a sample ad.")));
 //----------- PRO ---------------
@@ -4055,7 +4092,8 @@ const store = () => window.LinotteNative?.buyPro ? window.LinotteNative : null;
 
 function setPro(pro) {
     document.body.classList.toggle("is-pro", pro);
-    document.body.classList.toggle("game-ad", !pro); // the in-game banner (ads.css)
+    document.body.classList.toggle("game-ad", !pro); // the room kept for the in-game banner (--ad-h)
+    document.documentElement.classList.toggle("game-ad", !pro); // the banner itself (ads.css)
     showHomeBadge();
     showPieceChoice(favoritePiece()); // the favorite piece is Pro only
     if (onlineOverlay.dataset.view === "pro") fillProSheet();
@@ -4722,15 +4760,27 @@ function rankingRow(cells, { me = false, cls = "" } = {}) {
 const span = (className, text = "") => Object.assign(document.createElement("span"), { className, textContent: text });
 const nameWithFlag = (r) => `${r.country ? flagOf(r.country) + "\u2002" : ""}${r.name}`;
 
+// Grey placeholder rows (a rank, a name, points) with a shimmer, while the ranking loads.
+function skeletonRows(n) {
+    return Array.from({ length: n }, (_, i) => {
+        const li = document.createElement("li");
+        li.className = "lb-skel";
+        li.setAttribute("aria-hidden", "true");
+        li.style.setProperty("--i", i);
+        li.append(span("sk sk-rank"), span("sk sk-name"), span("sk sk-pts"));
+        return li;
+    });
+}
+
 async function showRanking(tab) {
     rankingTab = tab;
     document.querySelectorAll(".lb-tab").forEach((b) => b.classList.toggle("is-on", b.dataset.tab === tab));
     const list = byId("lb-list"), me = byId("lb-me"), empty = byId("lb-empty");
-    list.replaceChildren();
+    list.replaceChildren(...skeletonRows(tab === "friends" ? 3 : 8)); // grey lines that shimmer until the data is here
+    list.setAttribute("aria-busy", "true");
     me.hidden = true;
     byId("lb-pro").hidden = true;
-    empty.hidden = false;
-    empty.textContent = t("Loading...");
+    empty.hidden = true;
     byId("lb-note").textContent = {
         week: t("Online points and bonuses since Monday. A new week starts every Monday."),
         all: t("Online points and bonuses since the beginning."),
@@ -4743,10 +4793,12 @@ async function showRanking(tab) {
     try {
         board = await fetchLeaderboard(tab);
     } catch {
-        if (rankingTab === tab) empty.textContent = t("Can't load the ranking right now. Please try again.");
+        if (rankingTab === tab) { list.replaceChildren(); list.removeAttribute("aria-busy"); empty.hidden = false; empty.textContent = t("Can't load the ranking right now. Please try again."); }
         return;
     }
     if (rankingTab !== tab) return; // another tab was picked meanwhile
+    list.replaceChildren();
+    list.removeAttribute("aria-busy");
     const row = (r) => rankingRow([span("lb-rank", `${r.rank}`), span("lb-name", nameWithFlag(r)), span("lb-points", t("{n} pts", { n: r.points }))], { me: r.me });
     board.rows.forEach((r) => list.appendChild(row(r)));
     empty.hidden = board.rows.length > 0;
@@ -4766,6 +4818,9 @@ async function showRanking(tab) {
 async function showFriends() {
     const list = byId("lb-list"), empty = byId("lb-empty");
     if (!currentUser()) {
+        list.replaceChildren();
+        list.removeAttribute("aria-busy");
+        empty.hidden = false;
         empty.textContent = t("Sign in to keep your friends: play them in a private room and they'll be here.");
         return;
     }
@@ -4773,10 +4828,12 @@ async function showFriends() {
     try {
         data = await fetchFriends();
     } catch {
-        if (rankingTab === "friends") empty.textContent = t("Can't load your friends right now. Please try again.");
+        if (rankingTab === "friends") { list.replaceChildren(); list.removeAttribute("aria-busy"); empty.hidden = false; empty.textContent = t("Can't load your friends right now. Please try again."); }
         return;
     }
     if (rankingTab !== "friends") return;
+    list.replaceChildren();
+    list.removeAttribute("aria-busy");
     byId("lb-pro").hidden = data.pro || !data.friends.length;
     empty.hidden = data.friends.length > 0;
     empty.textContent = t("No friends yet: play someone in a private room and they'll show up here.");
@@ -4845,14 +4902,35 @@ function stayReachable() {
 }
 
 
+// The last stats the account's server answered with, kept on the phone: the
+// Stats page shows them at once and the fresh ones replace them a moment later.
+const STATS_KEY = "linotte-stats";
+function cachedStats() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(STATS_KEY) || "null");
+        return currentUser() && saved?.id === currentUser().id ? saved.stats : null;
+    } catch { return null; }
+}
+function keepStats(stats) {
+    try { localStorage.setItem(STATS_KEY, JSON.stringify({ id: currentUser().id, stats })); } catch { /* storage off */ }
+}
+
 async function showStats() {
+    const saved = currentUser() ? cachedStats() : null;
+    if (saved) renderStats(saved);
     let st;
     try {
         st = await loadStats();
     } catch (err) {
         console.error("stats not loaded:", err.message);
-        return showMessage(t("Stats"), t("Can't load your stats right now. Please try again."));
+        if (!saved) showMessage(t("Stats"), t("Can't load your stats right now. Please try again."));
+        return;
     }
+    if (currentUser()) keepStats(st);
+    renderStats(st);
+}
+
+function renderStats(st) {
     const set = (id, v) => { byId(id).textContent = v; };
     set("stats-note", st.signedIn ? t("Saved with your account.") : t("Saved on this device. Sign in to keep them on every device."));
     byId("stats-signin").hidden = st.signedIn || !ACCOUNTS_AVAILABLE;

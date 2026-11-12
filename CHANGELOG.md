@@ -12,6 +12,17 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-11-12
+
+### Added
+- Swipe left or right on the menu to go to the next or the previous page, in the order of the icons in its top bar (the page slides in from the side it came from). It ignores the sideways-scrolling lists (dice, backgrounds, pieces), form fields, short or mostly vertical swipes.
+
+### Changed
+- SAME TABLE with FLIP, not Pro: the banner stays exactly where it is, upright, while the game turns (it is outside the page that turns, so it no longer jumps or swings during the turn, and is still under every menu).
+- The level road has a discreet "How levels work" link inside its title's island, opening the same modal as the (?) in the stats.
+- Your stats opens with the last stats saved on the phone (the same idea as the home) and replaces them with the fresh ones when they arrive; an error then no longer replaces the page with a message.
+- The ranking shows grey placeholder lines that shimmer while it loads, instead of the word "Loading...".
+
 ## [2.19.2] - 2026-11-12
 
 ### Changed
