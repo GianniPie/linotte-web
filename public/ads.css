@@ -80,12 +80,17 @@
 @media all {
   /* A child of <html>, before <body> (moved there at start-up, see linotte.js):
      SAME TABLE turns the body upside down and the banner must not turn with it.
-     No z-index: before the body in the order, so under every overlay in it. */
+     Above the game (also while the page turns and swings its corners over the
+     banner's place), under the menus and sheets (45 and up). Its own layer, so
+     it doesn't flash when the page under it becomes one. */
   html.game-ad .game-ad-slot {
     position: fixed;
     left: 50%;
     bottom: env(safe-area-inset-bottom, 0px);
-    transform: translateX(-50%);
+    z-index: 3;
+    transform: translate3d(-50%, 0, 0);
+    will-change: transform;
+    backface-visibility: hidden;
     width: min(calc(100vw - 16px), 468px);
     height: 50px;
     display: grid;

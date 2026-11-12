@@ -12,6 +12,12 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.20.1] - 2026-11-12
+
+### Fixed
+- The menu swipe works anywhere on the page, on the sideways-scrolling lists too: there the list scrolls first, and the page only changes when the list was already at its end.
+- SAME TABLE with FLIP: the turn is smooth again. Making room for the notch no longer swaps the page's top and bottom padding (which made the content jump as the turn began); the page is moved by the difference of the two insets instead, with nothing to lay out again. The banner is above the turning page (the page's corners swing over its place mid-turn and covered it: the blink) and on its own layer, still under every menu.
+
 ## [2.20.0] - 2026-11-12
 
 ### Added

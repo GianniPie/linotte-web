@@ -462,25 +462,19 @@ body {
   transition: transform .6s ease;
 }
 
+/* Turned upside down, what the page keeps clear at its top (the notch) lands
+   at the bottom and the other way round: it is moved down by the difference
+   of the two (nothing to lay out again, so the turn stays smooth). */
 body.table-flipped {
-  transform: rotate(180deg);
+  transform: translateY(calc(env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))) rotate(180deg);
 }
 
 body.table-flipped .div-table {
   transform: rotate(-180deg);
 }
 
-/* Flipped in portrait, the page is upside down, so what it keeps clear at its
-   top and bottom swaps places on the screen: the notch's room (the top inset)
-   has to be at the layout's bottom to end up under the notch, and the
-   banner's place (see .game-ad-slot in ads.css) stays at the screen bottom:
-   the banner itself is outside the body and doesn't turn. */
-@media (orientation: portrait) {
-  body.table-flipped .flex-block {
-    padding-top: env(safe-area-inset-bottom, 0px);
-    padding-bottom: env(safe-area-inset-top, 0px);
-  }
-}
+/* The banner's place (see .game-ad-slot in ads.css) stays at the screen
+   bottom when flipped: the banner itself is outside the body and doesn't turn. */
 
 /* Effects drawn in screen coordinates (the fairy-trail canvas covers the
    whole page and its points come from getBoundingClientRect) would be turned

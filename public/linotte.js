@@ -1118,15 +1118,19 @@ function handleTab(page, { from = 0 } = {}) {
         .filter((el) => el.offsetParent && !el.classList.contains("disabled")).map((el) => el.dataset.page);
     optionsOverlay.addEventListener("touchstart", (e) => {
         const t0 = e.touches[0];
-        start = e.touches.length === 1 && !e.target.closest(".car-list, .car-list-wrapper, input, select, textarea, .stats-modes")
-            ? { x: t0.clientX, y: t0.clientY, at: Date.now() } : null;
+        // On a sideways-scrolling list the swipe scrolls the list first: the page only
+        // changes if the list did not move (it was already at its end).
+        const list = e.target.closest(".car-list");
+        start = e.touches.length === 1 && !e.target.closest("input, select, textarea")
+            ? { x: t0.clientX, y: t0.clientY, at: Date.now(), list, scrolled: list ? list.scrollLeft : 0 } : null;
     }, { passive: true });
     optionsOverlay.addEventListener("touchend", (e) => {
         if (!start) return;
         const t1 = e.changedTouches[0];
         const dx = t1.clientX - start.x, dy = t1.clientY - start.y, quick = Date.now() - start.at < 700;
+        const listMoved = start.list && Math.abs(start.list.scrollLeft - start.scrolled) > 2;
         start = null;
-        if (!quick || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+        if (listMoved || !quick || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
         const list = pages();
         const i = list.indexOf(currentOptionsTab);
         const next = list[i + (dx < 0 ? 1 : -1)];
