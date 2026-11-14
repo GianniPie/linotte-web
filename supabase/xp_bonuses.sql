@@ -3,7 +3,7 @@
 --
 -- xp_bonuses: one row per bonus, written by the game server only (with the
 -- secret key; server/bonuses.js):
---   daily  the first online win of the day (UTC), +2 -- one per account a day
+--   daily  the first online game of the day played to the end, win or lose, +2 -- one per account a day
 --   ad     a rewarded ad watched to the end, +1 -- the server allows 5 a day
 
 create table if not exists public.xp_bonuses (

@@ -30,10 +30,10 @@ export async function recordGame({ mode, won, points, opponentPoints, opponent, 
     if (!currentUser()) {
         writeLocal([entry, ...readLocal()]);
         // The guest's level: a bot win, or an online game played to the end
-        // (the first online win of the day brings its bonus: told back).
+        // (the first online game of the day played to the end brings its bonus: told back).
         if (mode === "bot") { if (won) noteGuest("bot"); }
         else if (!abandoned) noteGuest(won ? "online" : "finished");
-        if (mode !== "bot" && won && !guestToday().dailyDone) {
+        if (mode !== "bot" && !abandoned && !guestToday().dailyDone) {
             const g = readGuest();
             writeGuest({ ...g, daily: (Number(g.daily) || 0) + 1, dailyDay: utcDay() });
             return { daily: true };
@@ -81,7 +81,7 @@ function noteGuest(what) {
 }
 // The day is the device's own: it changes at its midnight.
 const utcDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
-// Today's bonuses for the guest: first online win of the day, ads left.
+// Today's bonuses for the guest: first online game of the day played to the end, ads left.
 export function guestToday() {
     const g = readGuest();
     const adsToday = g.adDay === utcDay() ? Number(g.adToday) || 0 : 0;

@@ -179,7 +179,8 @@ window.addEventListener('orientationchange', onViewportChange);
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
 import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces, avatarIds, avatarUrl } from "./shared/assets.js";
 import { updateGame, canRoll, callBlockedBy } from "./shared/gameEngine.js";
-import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget } from "./shared/botAI.js";
+import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget, labCandidates, setSpeedWeights, setSpeedModels, labAim, labCall, labStop, labLock } from "./shared/botAI.js";
+import { labOn, labSend, labListen } from "./botlab-client.js";
 import GameController from './shared/gameController.js';
 import { playFairyTrail } from "./shared/fairyTrail.js";
 import { initCombinationDemos } from "./demo.js";
@@ -1699,13 +1700,13 @@ function noteGameResult(winner) {
             await sleep(mode === "bot" ? 0 : 1500);
             return showGameXp();
         }
-        if (r?.daily) showToast(t("First win of the day: +{n} bonus points!", { n: 2 }), 3000);
+        if (r?.daily) showPointsGain(2, t("Daily bonus"));
         const after = guestXp();
         showHomeBadge();
         if (after === xpBefore) return;
         xpStrip = { base: xpBefore, after };
         showXpGain(xpBefore, after);
-        setTimeout(() => celebrateLevel(xpBefore, after), 1700);
+        setTimeout(() => celebrateLevel(xpBefore, after), r?.daily ? 3200 : 1700); // after the bonus has had its moment
     });
 }
 
@@ -2540,6 +2541,15 @@ try {
 
 let botTurnCounter = 0;
 
+// The bot lab (botlab-client.js): this game's id, and the weights the lab has
+// taught the speed bot, which arrive live.
+const botLabGames = new WeakMap(); // one id per game state, so the lab can tell games apart
+const botLabGameOf = (state) => {
+    if (!botLabGames.has(state)) botLabGames.set(state, Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
+    return botLabGames.get(state);
+};
+labListen((learned) => { setSpeedWeights(learned.weights); setSpeedModels(learned); });
+
 // Writes one line to the log: a JSON blob carrying everything needed to
 // analyze the decision (board state, dice, every candidate's full
 // evaluation) — this is for Claude to read back, not for a person to parse
@@ -2619,6 +2629,9 @@ async function playBotTurn() {
 
     setBotControlsDisabled(true);
     const turnNum = ++botTurnCounter;
+    const botLabGame = botLabGameOf(gameState);
+    const labId = `${botLabGame}-${turnNum}`;
+    const labSpeed = Boolean(labOn()) && botStrategy === "speed";
     botLogBlank();
     const record = {
         turn: turnNum,
@@ -2644,6 +2657,9 @@ async function playBotTurn() {
                 target: target ? { combo: target.comboKey, need: target.need, value: Math.round(target.attractiveness) } : null,
             };
             record.rolls.push(rollRecord);
+            // for the bot lab: what it could have aimed at, and later whether to call / stop
+            if (labSpeed) rollRecord.lab = { aim: labAim(gameState, 2, botStrategy) };
+            if (labSpeed) labSend({ id: labId, game: botLabGame, n: turnNum, strategy: botStrategy, boardBefore: record.board, piecesLeft: record.piecesLeft, points: record.points, rolls: record.rolls, live: true });
 
             if (gameState.dice.rollsLeft <= 0) {
                 rollRecord.rollsExhausted = true;
@@ -2651,11 +2667,17 @@ async function playBotTurn() {
             }
             const stop = shouldStopRolling(gameState, 2, botStrategy);
             rollRecord.stopRolling = stop;
-            if (stop) break;
+            if (labSpeed) rollRecord.lab.stop = labStop(gameState, 2, botStrategy);
+            if (stop) {
+                // the lab can still be told what to call and keep had it rolled again
+                if (labSpeed) { rollRecord.lab.call = labCall(gameState, 2, botStrategy); rollRecord.lab.lock = labLock(gameState, 2, botStrategy); rollRecord.lab.ifRolled = true; }
+                break;
+            }
 
             // Calling only matters for the *next* roll's combination check,
             // so it's decided here — after seeing this throw, and only
             // once we know the bot is going to roll again.
+            if (labSpeed) rollRecord.lab.call = labCall(gameState, 2, botStrategy);
             const callIndex = chooseCallToMake(gameState, 2, botStrategy);
             rollRecord.call = callIndex !== null && callIndex !== undefined ? (CALL_NAMES[callIndex] ?? callIndex) : null;
             await applyBotCall(callIndex);
@@ -2663,6 +2685,7 @@ async function playBotTurn() {
             // Give the player a moment to read the dice before the bot starts
             // choosing which ones to keep.
             await sleep(700);
+            if (labSpeed) rollRecord.lab.lock = labLock(gameState, 2, botStrategy);
             const locked = chooseDiceToLock(gameState.dice.values, gameState, 2, botStrategy);
             rollRecord.lock = locked.map((l) => (l ? 1 : 0));
             await applyBotLock(locked);
@@ -2677,7 +2700,14 @@ async function playBotTurn() {
             ranked: explanation.ranked.filter((c) => c.rc !== explanation.chosen?.rc).map(compactCandidate),
             declined: explanation.declined.map(compactCandidate),
         };
-        botLogData(record);
+        botLogData({ ...record, rolls: record.rolls.map(({ lab, ...roll }) => roll) }); // the lab's extras stay out of the log
+        if (labSpeed) {
+            labSend({
+                id: labId, game: botLabGame, n: turnNum, strategy: botStrategy, boardBefore: record.board, piecesLeft: record.piecesLeft, points: record.points,
+                rolls: record.rolls, live: false,
+                placement: { chosen: explanation.chosen ? explanation.chosen.rc : null, candidates: labCandidates(gameState, 2) },
+            });
+        }
         botLogHuman(`Turno ${turnNum} (BOT) → ${explanation.chosen ? "piazza " + explanation.chosen.rc : "nessun piazzamento"}`);
 
         const coordinates = explanation.chosen ? explanation.chosen.rc : null;
@@ -3451,10 +3481,10 @@ const onlineClient = new OnlineClient({
     onInviteDeclined: (msg) => onInviteDeclined(msg),
     // The server saved the game just played: its points are final now.
     onRecorded: () => { if (currentUser()) showGameXp(); },
-    // Today's first online win: the server added the bonus.
+    // The first online game of the day played to the end: the server added the bonus.
     onBonus: ({ kind, points }) => {
         if (kind !== "daily") return;
-        showToast(t("First win of the day: +{n} bonus points!", { n: points }), 3000);
+        showPointsGain(points, t("Daily bonus"));
         setTimeout(async () => {
             const before = lastKnownXp();
             await refreshPro({ fresh: true, celebrate: false });
@@ -4132,10 +4162,33 @@ function celebrateLevel(beforeXp, afterXp) {
     else showLevelUp(from, to);
 }
 
+//--------- points earned away from a game ---------
+// A bonus (the day's first game, a rewarded ad) gets a small celebration: a
+// gold pill at the top with a few sparkles and a soft chime. Smaller on
+// purpose than reaching a level (showLevelUp), which comes after it.
+function showPointsGain(points, label) {
+    const pop = byId("points-pop");
+    byId("pp-gain").textContent = `+${points}`;
+    byId("pp-text").textContent = label;
+    pop.classList.remove("show");
+    void pop.offsetWidth; // restart the animation if one is still playing
+    pop.classList.add("show");
+    clearTimeout(showPointsGain.timer);
+    showPointsGain.timer = setTimeout(() => pop.classList.remove("show"), 3000);
+    playChime();
+    if (typeof confetti === "function") {
+        confetti({
+            particleCount: 26, spread: 70, startVelocity: 22, gravity: 0.9, ticks: 110, scalar: 0.7,
+            colors: ["#ffd84d", "#ffffff", "#f08a24", "#7ed6a5"], zIndex: 97, disableForReducedMotion: true,
+            origin: { x: 0.5, y: Math.max(0.06, (pop.getBoundingClientRect().bottom || 60) / innerHeight) },
+        });
+    }
+}
+
 //--------- the winner card: what the game was worth ---------
 // The points earned by the game and the way to the next level, under the
 // score. xpStrip keeps where it started, so a bonus that arrives a moment
-// later (the first online win of the day) adds to the same strip.
+// later (the day's first online game) adds to the same strip.
 let xpStrip = null;
 // Asks the server for the account's points and brings the winner card, the
 // home badge and the level up to date with them. Safe to call twice for the
@@ -4413,6 +4466,28 @@ function playLevelDownTone(thud) {
 }
 
 // A short rising fanfare, made on the spot like the bell's trill.
+// Two soft notes, for points earned (the fanfare is for a level).
+function playChime() {
+    if (!isVolumeOn) return;
+    const c = audio();
+    if (!c) return;
+    if (c.state === "suspended") c.resume();
+    const start = c.currentTime + 0.03;
+    for (const [freq, at] of [[987.77, 0], [1318.5, 0.11]]) {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, start + at);
+        g.gain.exponentialRampToValueAtTime(0.1, start + at + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + at + 0.5);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(start + at);
+        osc.stop(start + at + 0.55);
+    }
+}
+
 function playFanfare() {
     if (!isVolumeOn) return;
     const c = audio();
@@ -4684,7 +4759,7 @@ function showHomeBadge() {
     badge.hidden = false;
     badge.dataset.tier = badgeTier(level);
     applyLevelLocks();
-    // ONLINE wears a "🎁 +2" tag until today's first online win.
+    // ONLINE wears a "🎁 +2" tag until today's first online game played to the end.
     document.body.classList.toggle("daily-open", !myToday().dailyDone);
     const pro = document.body.classList.contains("is-pro");
     badge.classList.toggle("is-pro", pro);
@@ -4732,8 +4807,8 @@ byId("st-level-ad").addEventListener("click", async () => {
     if (!r.ok) {
         showToast(r.adsLeft === 0 ? t("No more ads today: come back tomorrow") : t("Can't add the point right now. Please try again."));
     } else {
-        showToast(t("+1 point!"));
-        setTimeout(() => celebrateLevel(before, myXp()), 1500);
+        showPointsGain(1, t("Ad reward"));
+        setTimeout(() => celebrateLevel(before, myXp()), 3200); // after the pill has had its moment
     }
     showHomeBadge();
     fillStatsLevel();

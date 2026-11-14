@@ -14,8 +14,9 @@ export const ONLINE_WIN_POINTS = 2;
 export const ONLINE_FINISHED_POINTS = 1;
 export const BOT_WINS_PER_POINT = 5;
 export const ABANDON_PENALTY = 2;
-// Bonuses (server/bonuses.js, the xp_bonuses table): the first online win
-// of the day (UTC), and watching a whole ad, a few times a day.
+// Bonuses (server/bonuses.js, the xp_bonuses table): the first online game of
+// the day played to the end (won or lost), and watching a whole ad, a few
+// times a day.
 export const DAILY_BONUS_POINTS = 2;
 export const AD_REWARD_POINTS = 1;
 export const AD_REWARDS_PER_DAY = 5;

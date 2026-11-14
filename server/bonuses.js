@@ -2,7 +2,7 @@
 // Level points that don't come from a game (see public/shared/level.js),
 // one row each in Supabase's xp_bonuses table (supabase/xp_bonuses.sql),
 // written by the server only:
-//   daily  the first online win of the day (UTC), +2
+//   daily  the first online game of the day played to the end, won or lost, +2
 //   ad     a rewarded ad watched to the end, +1, up to 5 a day
 // And the weekly leaderboard: online points (wins, games played to the end,
 // abandons) plus bonuses since Monday 00:00 UTC, from the
@@ -88,8 +88,8 @@ export async function todayStatus(userId, options) {
   }
 }
 
-// After an online win: today's first? (The table allows one daily row per
-// account and day, so two wins at once can't both get it.)
+// After an online game played to the end: today's first? (The table allows
+// one daily row per account and day, so two games at once can't both get it.)
 export async function grantDailyBonus(userId, options) {
   const db = client(options);
   if (!db || !userId) return false;

@@ -2,4 +2,4 @@
 // service worker's cache name, and kept in step with package.json.
 // Don't edit by hand: `npm run release -- patch|minor|major` bumps it
 // everywhere and moves the "Unreleased" notes in CHANGELOG.md under it.
-export const VERSION = "2.21.0";
+export const VERSION = "2.22.0";

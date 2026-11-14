@@ -6,6 +6,84 @@
    (The rules and the numbers are in shared/level.js, the code in linotte.js.)
    ============================================ */
 
+/* ---------- points earned away from a game: a small celebration ---------- */
+/* A bonus (the day's first game, a rewarded ad) is told by a gold pill that
+   drops in at the top with a few sparkles: a party, but a small one, under
+   the full-screen level-up (98) and passing on its own. */
+.points-pop {
+  position: fixed;
+  top: calc(max(14px, env(safe-area-inset-top, 0px)) + 6px);
+  left: 50%;
+  z-index: 96;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  padding: 7px 16px 7px 12px;
+  border: 1px solid rgba(0, 0, 0, .18);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe58a, #f6bc34);
+  color: #3d240c;
+  font-family: "Changa One", sans-serif;
+  font-size: 17px;
+  line-height: 1.1;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .22), 0 0 0 4px rgba(255, 216, 77, .28);
+  overflow: hidden;
+  transform: translateX(-50%);
+}
+
+.points-pop.show {
+  display: flex;
+  animation: ppLife 2.9s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+
+.points-pop.show::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .65) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: ppShine 1.2s .35s ease-out both;
+}
+
+.pp-star {
+  font-size: 19px;
+  color: #b8720a;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .6);
+  animation: ppStar .8s .1s cubic-bezier(.2, 1.6, .4, 1) both;
+}
+
+.pp-gain {
+  font-weight: normal;
+  font-size: 22px;
+  color: #1f6b3b;
+}
+
+.pp-text {
+  font-size: 15px;
+  opacity: .85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes ppLife {
+  0% { opacity: 0; transform: translate(-50%, -140%) scale(.7); }
+  14% { opacity: 1; transform: translate(-50%, 0) scale(1.06); }
+  22% { transform: translate(-50%, 0) scale(1); }
+  84% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -60%) scale(.96); }
+}
+@keyframes ppShine { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+@keyframes ppStar { from { opacity: 0; transform: scale(.2) rotate(-140deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .points-pop.show { animation: ppLifeCalm 2.9s both; }
+  .points-pop.show::after, .pp-star { animation: none; }
+}
+@keyframes ppLifeCalm { 0%, 100% { opacity: 0; } 12%, 84% { opacity: 1; } }
+
 /* ---------- points earned, on the winner card ---------- */
 .winner-xp {
   width: 100%;

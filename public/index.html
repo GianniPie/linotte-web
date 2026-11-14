@@ -191,7 +191,7 @@
                 <div class="sheet-title" data-i18n>Looking for an opponent</div>
                 <div class="spinner" aria-hidden="true"></div>
                 <div class="sheet-text" id="searching-text" data-i18n>This usually takes a few seconds.</div>
-                <div class="sheet-daily" data-i18n>Today's first online win: +2 bonus points.</div>
+                <div class="sheet-daily" data-i18n>Today's first online game: +2 bonus points.</div>
                 <div class="button sheet-btn cancel" id="searching-cancel">
                 <div class="sheet-text sheet-small" id="searching-quitter" hidden data-i18n>You've left several games: for now you're matched with players who also leave.</div><div class="text-button" data-i18n>CANCEL</div></div>
             </div>
@@ -199,7 +199,7 @@
             <div class="sheet-view" data-view="friend">
                 <div class="sheet-title" data-i18n>Play a friend</div>
                 <div class="sheet-text" data-i18n>Create a private room and send your friend the link, or join one with a code.</div>
-                <div class="sheet-daily" data-i18n>Today's first online win: +2 bonus points.</div>
+                <div class="sheet-daily" data-i18n>Today's first online game: +2 bonus points.</div>
                 <div class="button sheet-btn go" id="friend-create"><div class="text-button" data-i18n>CREATE ROOM</div></div>
                 <div class="button sheet-btn alt" id="friend-join"><div class="text-button" data-i18n>I HAVE A CODE</div></div>
                 <div class="button sheet-btn cancel" id="friend-back"><div class="text-button" data-i18n>BACK</div></div>
@@ -305,7 +305,7 @@
                     <li data-i18n>Each online game you win, against a random opponent or a friend: +2 points.</li>
                     <li data-i18n>Each online game you lose or draw, played to the end: +1 point.</li>
                     <li data-i18n>Every 5 wins against the bot: +1 point.</li>
-                    <li data-i18n>The first online win of the day: +2 bonus points.</li>
+                    <li data-i18n>The first online game of the day: +2 bonus points.</li>
                     <li data-i18n>Watching an ad to the end: +1 point, up to 5 a day.</li>
                     <li data-i18n>Leaving an online game before the end, or not coming back within a minute after losing the connection: −2 points.</li>
                     <li data-i18n>Letting 3 turns in a row run out without rolling counts as leaving: −2 points.</li>
@@ -421,6 +421,7 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="points-pop" class="points-pop" role="status" aria-live="polite"><span class="pp-star" aria-hidden="true">★</span><b class="pp-gain" id="pp-gain"></b><span class="pp-text" id="pp-text"></span></div>
 
     <!-- the in-game banner (ads.js / ads.css): portrait, not for Pro -->
     <div class="game-ad-slot ad-banner" id="game-ad" role="button" tabindex="0" aria-label="Ad"></div>

@@ -35,7 +35,7 @@ export function normalizeCode(raw) {
 
 export class Lobby {
   // `record` saves finished games for the Stats screen (see results.js) and
-  // `grantDaily` the first win of the day (bonuses.js); the smoke test passes
+  // `grantDaily` the first game of the day played to the end (bonuses.js); the smoke test passes
   // its own.
   // `afterRecord` brings a connection's own points up to date once its game
   // is saved (server.js).
@@ -332,16 +332,19 @@ export class Lobby {
     }
   }
 
-  // The winner's first online win of the day (UTC) is worth a bonus, once
-  // the game is recorded; their app hears it ("bonus") and says so.
+  // The first online game of the day played to its end is worth a bonus, won
+  // or lost: it is there to bring players back every day, not to reward the
+  // winner. Whoever left before the end doesn't get it. Once the game is
+  // recorded, each player's app hears it ("bonus") and says so.
   async giveDailyBonus(room, recorded) {
-    const seat = room.winner;
-    const winner = room.seats[seat];
-    if (!seat || winner?.kind !== "human" || !winner.userId) return;
     await recorded;
-    const socket = this.io.sockets.sockets.get(winner.socketId);
-    if (!(await this.grantDaily(winner.userId, { tz: socket?.data?.tz }))) return;
-    socket?.emit("bonus", { kind: "daily", points: DAILY_BONUS_POINTS });
+    for (const seat of [1, 2]) {
+      const player = room.seats[seat];
+      if (player?.kind !== "human" || !player.userId || room.forfeitedBy === seat) continue;
+      const socket = this.io.sockets.sockets.get(player.socketId);
+      if (!(await this.grantDaily(player.userId, { tz: socket?.data?.tz }))) continue;
+      socket?.emit("bonus", { kind: "daily", points: DAILY_BONUS_POINTS });
+    }
   }
 
   closeRoom(room) {

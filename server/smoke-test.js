@@ -515,10 +515,17 @@ const lobby = new Lobby(io, store);
   assert.ok((await lobby6.joinByCode(l, lobby6.roomOfSocket(w).code)).ok);
   lobby6.roomOfSocket(w).forfeit(l.data.seat, "left");
   await wait(10);
-  assert.deepEqual(given, ["user-w"], "only the winner");
+  assert.deepEqual(given, ["user-w"], "the player who left the game doesn't get it");
   assert.deepEqual(find(w, "bonus").at(-1)?.payload, { kind: "daily", points: 2 }, "and their app is told");
   assert.ok(find(w, "recorded").length === 1 && find(l, "recorded").length === 1, "both signed-in apps hear the game is recorded");
   assert.deepEqual(refreshed.sort(), [l.id, w.id].sort(), "and both connections' points are read again");
+  // A game played to the end gives it to both, the loser as much as the winner.
+  const both = [];
+  const lobbyB = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async (u) => { both.push(u); return true; }, afterRecord: async () => {} });
+  const seatOf = (id, userId) => ({ kind: "human", userId, socketId: id });
+  await lobbyB.giveDailyBonus({ seats: { 1: seatOf(w.id, "user-w"), 2: seatOf(l.id, "user-l") }, forfeitedBy: null, winner: 1 }, Promise.resolve());
+  assert.deepEqual(both.sort(), ["user-l", "user-w"], "won or lost, the first game of the day brings the bonus");
+  assert.ok(find(l, "bonus").some((m) => m.payload.kind === "daily"), "and the loser's app is told too");
   console.log("ok: bonuses");
 }
 
@@ -724,6 +731,173 @@ const lobby = new Lobby(io, store);
   assert.ok(find(a, "rematch_declined").length, "the one left behind is told");
   assert.equal(lobby4.requestRematch(a).error, "opponent_left");
   console.log("ok: rematch");
+}
+
+//--------- 17. the bot lab: turns in, corrections, weights out ---------
+{
+  const { createBotLab } = await import("./botlab.js");
+  const { trainSpeedWeights } = await import("../public/shared/botLearning.js");
+  const { pickSpeedPlacement, setSpeedWeights, getSpeedWeights, explainPlacement, labCandidates, chooseBestMove } = await import("../public/shared/botAI.js");
+  const { createInitialGameState } = await import("../public/shared/utils.js");
+  const express = (await import("express")).default;
+  const os = await import("node:os");
+  const fsm = await import("node:fs");
+  const pathm = await import("node:path");
+
+  // learning: a cell the ladder passes over can be taught
+  const mk = (rc, o) => ({ rc, tile: "x", tag: "preferred", pointsGained: 0, deniedPoints: 0, rarity: 50, lineConnection: 0, clusterScore: 0, blockScore: 0, longestLineAfter: 1, wouldWinGame: false, wouldLoseGame: false, criticalBlock: false, urgentBlock: false, ...o });
+  const cands = [mk("11", { longestLineAfter: 3 }), mk("22", { longestLineAfter: 2, lineConnection: 3, clusterScore: 2 }), mk("33")];
+  assert.equal(pickSpeedPlacement(cands, null).rc, "11", "the ladder prefers the longest line");
+  const learned = trainSpeedWeights([{ id: "a", candidates: cands, correct: "22" }]);
+  assert.equal(pickSpeedPlacement(cands, learned.weights).rc, "22", "after the correction the other cell wins");
+  assert.equal(learned.report[0].status, "learned");
+  assert.equal(trainSpeedWeights([{ id: "b", candidates: [mk("11", { tag: "dead" }), mk("22")], correct: "11" }]).report[0].status, "filtered", "a cell the bot's filters drop can't be learned");
+  assert.equal(trainSpeedWeights([{ id: "c", candidates: [mk("11", { criticalBlock: true }), mk("22")], correct: "22" }]).report[0].status, "tier", "nor one that gives up a critical block");
+
+  // the real bot: weights change its placement, and none by default
+  const st = createInitialGameState();
+  st.table[1][1] = 2; st.table[3][3] = 1; // a piece each, so the cells below mean something
+  for (const [r, c] of [[0, 0], [0, 1], [1, 2], [2, 2], [3, 0], [4, 4]]) st.possibleMoves[r][c] = 1; // what this throw allows
+  const before = chooseBestMove(st, 2, "speed");
+  assert.equal(getSpeedWeights(), null, "no weights unless the lab sets them");
+  const all = labCandidates(st, 2);
+  const ranked = explainPlacement(st, 2, "speed").ranked;
+  assert.ok(all.length >= ranked.length && all.every((c) => c.rc && c.tag), "every legal cell comes with its signals");
+  assert.equal(before, "22", "the ladder takes the rarest of equal cells");
+  setSpeedWeights([10000, 1000, 4, 2, 1, 1, -50]); // what the lab would send (here: rarity counts against)
+  assert.equal(chooseBestMove(st, 2, "speed"), "01", "with weights the bot places by them");
+  assert.equal(chooseBestMove(st, 2, "points"), chooseBestMove(st, 2, "points"), "the points bot is untouched");
+  setSpeedWeights(null);
+  assert.equal(chooseBestMove(st, 2, "speed"), before, "and goes back to the ladder without the weights");
+  assert.equal(ranked.length > 1 && trainSpeedWeights([{ id: "x", candidates: all, correct: ranked[1].rc }]).report[0].status, "conflict", "a choice the signals can't explain is reported, not forced");
+
+  // roll decisions: aim, call, stop can be taught too
+  {
+    const { trainAim, trainCall, trainStop, trainAll } = await import("../public/shared/botLearning.js");
+    const { pickTarget, pickCall, setSpeedModels, getSpeedModels, shouldStopRolling, chooseCallToMake, chooseDiceToLock, labAim, labCall, labStop, labLock, aimFeatures, AIM_PRIOR } = await import("../public/shared/botAI.js");
+    const opt = (combo, value, probability) => ({ combo, comboKey: combo, need: 1, cellWeight: value, probability, value: value * probability, attractiveness: value * probability });
+    const aimOptions = [opt("brelan3", 40, 0.9), opt("full", 30, 0.5), opt("carre", 30, 0.4)];
+    assert.equal(pickTarget(aimOptions, null).comboKey, "brelan3", "built-in aim: value x chance");
+    const aim = trainAim([{ id: "a1", options: aimOptions, correct: "full" }]);
+    assert.equal(aim.report[0].status, "learned");
+    assert.equal(pickTarget(aimOptions, aim.weights).comboKey, "full", "after the correction it aims at the other combo");
+    assert.equal(trainAim([{ id: "a2", options: aimOptions, correct: "yam" }]).report[0].status, "missing", "a combo that wasn't on offer");
+    const callOptions = [{ combo: "full", eligible: true, score: 5000, probability: 0.4 }, { combo: "carre", eligible: true, score: 4000, probability: 0.3 }, { combo: "yam", eligible: false, score: 0, probability: 0.1, reason: "too far" }];
+    assert.equal(pickCall(callOptions, null), "full", "built-in call: best score");
+    assert.equal(pickCall(callOptions, trainCall([{ id: "c1", options: callOptions, correct: "carre" }]).weights), "carre", "a call can be taught");
+    assert.equal(pickCall(callOptions, trainCall([{ id: "c2", options: callOptions, correct: "none" }]).weights), null, "and so can calling nothing");
+    assert.equal(trainCall([{ id: "c3", options: callOptions, correct: "yam" }]).report[0].status, "filtered", "a call the rules rule out can't be taught");
+    // keeping dice is an aim in disguise: dice kept by a combo teach that combo
+    const lockOpts = aimOptions.map((o) => ({ ...o, mask: o.combo === "brelan3" ? "11100" : o.combo === "full" ? "11011" : "11000" }));
+    const keepFull = trainAll([{ id: "k1", kind: "lock", candidates: lockOpts, correct: "11011" }]);
+    assert.equal(keepFull.report[0].status, "learned", "a keep that some aim makes can be taught");
+    assert.equal(pickTarget(aimOptions, keepFull.aim).comboKey, "full", "and the bot then aims at that combo");
+    assert.equal(trainAll([{ id: "k2", kind: "lock", candidates: lockOpts, correct: "00101" }]).report[0].status, "unreachable", "a keep no aim makes is reported");
+    assert.equal(trainAll([{ id: "k3", kind: "lock", candidates: lockOpts, correct: "11000" }]).report[0].status, "learned", "several combos may keep the same dice: any is right");
+
+    // appel: calling the combo being chased is something only the lab can teach
+    const appelOptions = [{ combo: "full", eligible: true, soft: false, score: 3000, probability: 0.3 }, { combo: "carre", eligible: false, soft: true, score: 60000, probability: 0.5, reason: "chased" }];
+    assert.equal(pickCall(appelOptions, null), "full", "built-in: the chased combo is never called");
+    const quiet = trainCall([{ id: "q1", options: callOptions, correct: "carre" }]).weights;
+    assert.equal(pickCall(appelOptions, quiet), "full", "an unrelated correction doesn't switch it on");
+    const taught = trainCall([{ id: "p1", options: appelOptions, correct: "carre" }]);
+    assert.equal(taught.report[0].status, "learned", "calling the chased combo can be taught");
+    assert.equal(pickCall(appelOptions, taught.weights), "carre", "and then it goes for the appel tile");
+    const x = [1, 1, 2, 2, 0, 1, 0.5, 0];
+    const stop = trainStop([{ id: "s1", x, correct: "roll" }]);
+    assert.ok(stop.weights.reduce((n, w, i) => n + w * x[i], 0) < 0, "after the correction it rolls on where the rules said stop");
+    const all = trainAll([{ id: "t#aim0", kind: "aim", candidates: aimOptions, correct: "full" }, { id: "t#stop0", kind: "stop", x, correct: "roll" }]);
+    assert.ok(all.aim && all.stop && !all.call && !all.weights && all.agreement === 1, "every kind is trained on its own");
+
+    // the real bot follows what it was taught, and none by default
+    const gs = createInitialGameState();
+    gs.table[1][1] = 2; gs.table[3][3] = 1;
+    gs.dice.values = [3, 3, 3, 5, 6]; gs.dice.rollsLeft = 2;
+    for (const [r, c] of [[0, 0], [1, 2], [2, 2]]) gs.possibleMoves[r][c] = 1;
+    assert.deepEqual(getSpeedModels(), { aim: null, call: null, stop: null }, "no models unless the lab sets them");
+    const rules = shouldStopRolling(gs, 2, "speed");
+    const lock0 = chooseDiceToLock(gs.dice.values, gs, 2, "speed");
+    setSpeedModels({ stop: [0, 50, 0, 0, 0, 0, 0, 0] });
+    assert.equal(shouldStopRolling(gs, 2, "speed"), true, "taught to stop, it stops");
+    setSpeedModels({ stop: [0, -50, 0, 0, 0, 0, 0, 0] });
+    assert.equal(shouldStopRolling(gs, 2, "speed"), false, "taught to roll, it rolls");
+    assert.equal(shouldStopRolling(gs, 1, "points"), shouldStopRolling(gs, 1, "points"), "the points bot is untouched");
+    const noMove = createInitialGameState(); noMove.dice.values = [1, 2, 3, 4, 6]; noMove.dice.rollsLeft = 2;
+    assert.equal(shouldStopRolling(noMove, 2, "speed"), false, "with no cell to place it can't stop, whatever it was taught");
+    setSpeedModels({});
+    assert.equal(shouldStopRolling(gs, 2, "speed"), rules, "and goes back to the rules without models");
+    assert.deepEqual(chooseDiceToLock(gs.dice.values, gs, 2, "speed"), lock0);
+    const la = labAim(gs, 2, "speed");
+    assert.ok(la && la.options.every((o) => o.combo && Number.isFinite(o.probability)) && la.chosen === la.builtin, "the lab sees every combo on offer");
+    const ll = labLock(gs, 2, "speed");
+    assert.equal(ll.chosen, lock0.map((x) => (x ? "1" : "0")).join(""), "the lab records the dice the bot keeps");
+    assert.ok(ll.options.length === la.options.length && ll.options.every((o) => /^[01]{5}$/.test(o.mask)), "and the dice each combo would keep");
+    const ls = labStop(gs, 2, "speed");
+    assert.ok(ls.applicable && ls.x.length === 8 && (ls.chosen === "stop" || ls.chosen === "roll"), "and the stop signals");
+    assert.equal(labStop({ ...gs, dice: { ...gs.dice, rollsLeft: 0 } }, 2, "speed"), null, "no stop decision after the last roll");
+    labCall(gs, 2, "speed"); chooseCallToMake(gs, 2, "speed"); // run, whatever they say
+  }
+
+  // the HTTP side
+  const file = pathm.join(os.tmpdir(), `botlab-${process.pid}.json`);
+  const lab = createBotLab({ file, key: "", enabled: true });
+  const app = express();
+  lab.attach(app);
+  const srv = app.listen(0);
+  const base = `http://127.0.0.1:${srv.address().port}/api/botlab`;
+  const post = (p, body) => fetch(`${base}/${p}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
+  const turn = { id: "g1-1", game: "g1", n: 1, strategy: "speed", boardBefore: st.table.map((r) => r.slice()), piecesLeft: { p1: 12, p2: 12 }, points: { p1: 0, p2: 0 }, rolls: [], placement: { chosen: all[0].rc, candidates: all } };
+  assert.ok((await post("turn", { turn })).ok, "a turn is taken");
+  const info = await fetch(`${base}/info`).then((r) => r.json());
+  assert.ok(info.port > 0 && Array.isArray(info.urls) && info.addresses.every((a) => !a.startsWith("169.254.") && a !== "127.0.0.1"), "the lab says where the phone can reach it");
+  assert.equal((await fetch(`${base}/state`).then((r) => r.json())).turns.length, 1);
+  assert.equal((await post("feedback", { turnId: "g1-1", verdict: "wrong", correct: "99" })).ok, false, "a cell that wasn't legal is refused");
+  const fb = await post("feedback", { turnId: "g1-1", verdict: "valid" });
+  assert.ok(fb.ok && fb.learned.weights, "validated: weights come back");
+  assert.equal((await post("feedback", { turnId: "nope", verdict: "valid" })).ok, false, "unknown turn");
+  await post("feedback", { turnId: "g1-1", verdict: "clear" });
+  assert.equal(lab.learned.weights, null, "no reviews, no weights");
+  // a roll of the turn, with its decisions
+  const aimOpts = [{ combo: "brelan3", need: 1, probability: 0.9, cellWeight: 40, value: 36 }, { combo: "full", need: 2, probability: 0.5, cellWeight: 30, value: 15 }];
+  const rolled = { ...turn, id: "g1-2", n: 2, rolls: [{ dice: [3, 3, 3, 5, 6], rollsLeft: 2, lab: {
+    aim: { chosen: "brelan3", builtin: "brelan3", options: aimOpts },
+    call: { chosen: "none", builtin: "none", options: [{ combo: "full", eligible: true, reason: "", score: 900, probability: 0.3 }, { combo: "yam", eligible: false, reason: "too far", score: 0, probability: 0.1 }] },
+    stop: { applicable: true, builtin: "roll", chosen: "roll", x: [-1, 1, 1, 2, 0, 1, 0, 0] },
+    lock: { chosen: "11100", options: [{ combo: "brelan3", mask: "11100" }, { combo: "full", mask: "11011" }] },
+  } }] };
+  assert.ok((await post("turn", { turn: rolled })).ok);
+  assert.equal((await post("feedback", { turnId: "g1-2", kind: "aim", roll: 0, verdict: "wrong", correct: "yam" })).ok, false, "an aim that wasn't on offer is refused");
+  assert.equal((await post("feedback", { turnId: "g1-2", kind: "aim", roll: 5, verdict: "valid" })).ok, false, "a roll that doesn't exist");
+  assert.equal((await post("feedback", { turnId: "g1-2", kind: "aim", verdict: "valid" })).ok, false, "a roll review needs the roll");
+  const fa = await post("feedback", { turnId: "g1-2", kind: "aim", roll: 0, verdict: "wrong", correct: "full" });
+  assert.ok(fa.ok && fa.learned.aim, "an aim review: the aim model comes back");
+  assert.equal(fa.learned.weights, null, "the placement is not touched by it");
+  assert.equal((await post("feedback", { turnId: "g1-2", kind: "call", roll: 0, verdict: "wrong", correct: "none" })).ok, true, "no call is a valid answer");
+  assert.equal((await post("feedback", { turnId: "g1-2", kind: "stop", roll: 0, verdict: "wrong", correct: "stop" })).ok, true);
+  assert.equal((await post("feedback", { turnId: "g1-2", kind: "lock", roll: 0, verdict: "wrong", correct: "1110" })).ok, false, "a keep must be five dice");
+  const fl = await post("feedback", { turnId: "g1-2", kind: "lock", roll: 0, verdict: "wrong", correct: "11011" });
+  assert.ok(fl.ok && fl.learned.report.some((r) => r.kind === "lock" && r.status === "learned"), "a keep review is learned");
+  await post("feedback", { turnId: "g1-2", kind: "lock", roll: 0, verdict: "clear" });
+  const st1 = await fetch(`${base}/state`).then((r) => r.json());
+  assert.deepEqual(st1.cases.map((c) => c.id).sort(), ["g1-2#aim0", "g1-2#call0", "g1-2#stop0"], "one review per decision");
+  assert.ok(lab.learned.stop && lab.learned.call, "each kind is trained");
+  for (const k of ["aim", "call", "stop"]) await post("feedback", { turnId: "g1-2", kind: k, roll: 0, verdict: "clear" });
+  assert.equal(lab.learned.aim, null, "taking the reviews back takes the learning back");
+  // off: not there at all
+  const off = express();
+  createBotLab({ file, key: "", enabled: false }).attach(off);
+  const srv2 = off.listen(0);
+  assert.equal((await fetch(`http://127.0.0.1:${srv2.address().port}/api/botlab/state`)).status, 404, "off means 404");
+  // a key, when one is set
+  const keyed = express();
+  createBotLab({ file, key: "k1", enabled: true }).attach(keyed);
+  const srv3 = keyed.listen(0);
+  const kb = `http://127.0.0.1:${srv3.address().port}/api/botlab/state`;
+  assert.equal((await fetch(kb)).status, 404, "without the key");
+  assert.equal((await fetch(kb + "?key=k1")).status, 200, "with the key");
+  srv.close(); srv2.close(); srv3.close();
+  try { fsm.unlinkSync(file); } catch { /* not written */ }
+  console.log("ok: bot lab");
 }
 
 console.log("all smoke tests passed");

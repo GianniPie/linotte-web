@@ -18,6 +18,7 @@ import { markOnline, markOffline, socketsOf, isOnline, friendsOf, areFriends } f
 import { levelOf, FREE_LOOKS } from "../public/shared/level.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
 import { createStore } from "./store.js";
+import { createBotLab, BOTLAB_ENABLED } from "./botlab.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -28,6 +29,11 @@ const io = new Server(server, {
   cors: { origin: (origin, cb) => cb(null, isOriginAllowed(origin)) },
   maxHttpBufferSize: 10 * 1024, // actions are tiny; anything bigger is abuse
 });
+
+// The bot lab (a developer tool, see botlab.js): its page doesn't exist where it's off.
+app.get("/botlab.html", (req, res, next) => (BOTLAB_ENABLED ? next() : res.sendStatus(404)));
+const botlab = createBotLab();
+botlab.attach(app);
 
 // Static client (html/css/js, and shared/ so /shared/utils.js resolves both
 // here and on a static deploy).

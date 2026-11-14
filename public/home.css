@@ -599,7 +599,7 @@ body:not(.is-pro) .home-pro-owned {
   order: -1;
 }
 
-/* Today's first online win is worth a bonus: ONLINE wears a gold "+2" with a
+/* Today's first online game is worth a bonus: ONLINE wears a gold "+2" with a
    little gift box (drawn, like the tags' padlock) until it's won (see
    showHomeBadge in linotte.js). */
 body.daily-open #home-online-btn::after {

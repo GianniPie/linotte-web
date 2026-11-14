@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linotte — Bot lab</title>
+<style>
+  :root {
+    --bg: #1c140c; --paper: #241a10; --paper2: #2d2114; --ink: #f1e4cf; --ink-soft: #cbb595; --rule: #4a3822;
+    --accent: #f0a05c; --good: #7fd9a4; --warn: #ff8fbd; --amber: #f2c14e; --me: #6fb3ff; --bot: #f0a05c;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.5 var(--mono); display: flex; flex-direction: column; }
+  header { background: var(--paper); border-bottom: 1px solid var(--rule); padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 15px; color: var(--accent); font-weight: 600; }
+  .grow { flex: 1 1 auto; }
+  .pill { border: 1px solid var(--rule); border-radius: 999px; padding: 2px 10px; color: var(--ink-soft); font-size: 12px; white-space: nowrap; }
+  .pill.live { color: var(--good); border-color: var(--good); }
+  .pill.off { color: var(--warn); border-color: var(--warn); }
+  button { font: inherit; font-size: 12px; cursor: pointer; background: var(--paper2); color: var(--ink); border: 1px solid var(--rule); padding: 5px 11px; border-radius: 6px; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.on { background: var(--accent); color: #2c1c0f; border-color: var(--accent); font-weight: 600; }
+  button.good.on { background: var(--good); border-color: var(--good); }
+
+  :root { --cell: clamp(40px, calc((100vh - 430px) / 5), 76px); }
+  main { flex: 1 1 auto; min-height: 0; overflow: hidden; display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); }
+  #list { overflow-y: auto; border-right: 1px solid var(--rule); background: var(--paper); }
+  .game { position: sticky; top: 0; background: var(--bg); color: var(--ink-soft); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 6px 12px; border-bottom: 1px solid var(--rule); z-index: 1; }
+  .row { display: grid; grid-template-columns: 2.6em minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--rule); cursor: pointer; }
+  .row:hover { background: var(--paper2); }
+  .row.sel { background: #3a2a18; box-shadow: inset 3px 0 0 var(--accent); }
+  .row .n { color: var(--ink-soft); }
+  .row .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .what small { color: var(--ink-soft); }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 5px; border: 1px solid var(--rule); white-space: nowrap; }
+  .badge.valid { color: var(--good); border-color: var(--good); }
+  .badge.wrong { color: var(--amber); border-color: var(--amber); }
+  .badge.live { color: var(--accent); border-color: var(--accent); }
+  .empty { padding: 24px 16px; color: var(--ink-soft); }
+  .empty code { color: var(--accent); }
+
+  /* The stage has fixed regions, so nothing moves when another turn is picked:
+     title, rolls (room for three), the review line, the board with the
+     explanation beside it, and the review buttons pinned at the bottom. */
+  #stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #content { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 20px 14px; display: flex; flex-direction: column; gap: 12px; }
+  #content > * { flex: none; }
+  #actions { flex: none; border-top: 1px solid var(--rule); background: var(--paper); padding: 10px 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #actions button { min-width: 150px; text-align: left; }
+  #actions #vBtn { min-width: 176px; }
+  #actions button kbd { float: right; }
+  #actions .space { flex: 1 1 auto; }
+  #title { height: 24px; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
+  #rolls { height: 156px; overflow-y: auto; }
+  #status { height: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #status.ok { color: var(--good); }
+  #status.bad { color: var(--amber); }
+  .bar kbd, #actions kbd { background: var(--paper2); border: 1px solid var(--rule); border-radius: 4px; padding: 0 5px; margin-left: 4px; color: var(--ink-soft); font: inherit; font-size: 11px; }
+
+  .top { display: grid; grid-template-columns: calc(var(--cell) * 5 + 24px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 880px) { .top { grid-template-columns: 1fr; } }
+  #explain { height: calc(var(--cell) * 5 + 24px); overflow: auto; }
+  #board { display: grid; grid-template-columns: repeat(5, var(--cell)); grid-template-rows: repeat(5, var(--cell)); gap: 3px; background: #5a3a1a; padding: 6px; border-radius: 10px; width: max-content; }
+  .tabs { display: flex; gap: 6px; margin: -2px 0 10px; flex-wrap: wrap; }
+  .tabs button { padding: 2px 10px; min-width: 0; }
+  .tabs button.on { background: var(--accent); color: #2c1c0f; border-color: var(--accent); font-weight: 600; }
+  .tabs .mk { color: var(--good); margin-left: 4px; }
+  .tabs button.on .mk { color: #2c1c0f; }
+  .roll { cursor: pointer; padding: 0 6px; border-radius: 5px; }
+  .roll:hover { background: var(--paper2); }
+  .roll.sel { background: #3a2a18; box-shadow: inset 3px 0 0 var(--accent); }
+  .sec { border-top: 1px solid var(--rule); padding: 8px 0 4px; }
+  .sec:first-of-type { border-top: 0; padding-top: 0; }
+  .sec td, .sec th { padding: 2px 7px; }
+  .sec h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--ink-soft); letter-spacing: .04em; text-transform: uppercase; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .sec h4 span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .keep { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .keep .die { cursor: pointer; padding: 0; font: inherit; font-weight: 700; width: 30px; height: 30px; }
+  .keep .die.bot { border-color: var(--accent); }
+  .keep .die.kept { background: var(--amber); box-shadow: none; border-color: var(--amber); }
+  .keep .die.bot.kept { box-shadow: 0 0 0 2px var(--accent); }
+  .opts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .opt { padding: 3px 10px; min-width: 0; }
+  .opt.bot { border-color: var(--accent); color: var(--accent); }
+  .opt.you { background: var(--amber); color: #2c1c0f; border-color: var(--amber); font-weight: 600; }
+  .opt.off { opacity: .45; }
+  .opt.now { box-shadow: 0 0 0 2px var(--good); }
+  tr.pick { cursor: pointer; }
+  tr.pick:hover td { background: var(--paper2); }
+  tr.pick.you td { color: var(--amber); font-weight: 700; }
+  tr.pick.bot td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .legend { margin-top: 6px; height: 36px; overflow: hidden; font-size: 11px; line-height: 1.35; }
+  .cell { position: relative; background: rgb(228, 209, 187); color: #5a3a1a; border-radius: 4px; display: grid; place-items: center; font-weight: 700; font-size: 17px; border: 0; padding: 0; font-family: inherit; }
+  .cell .sym { position: absolute; inset: 5px; background: center / contain no-repeat; }
+  .cell.cand { cursor: default; }
+  .cell.placeable { cursor: pointer; outline: 2px dashed var(--amber); outline-offset: -3px; }
+  .cell.placeable:hover { background: #f3e4c9; }
+  .piece { position: absolute; inset: 14px; border-radius: 50%; border: 3px solid rgba(0,0,0,.35); }
+  .piece.p1 { background: var(--me); }
+  .piece.p2 { background: var(--bot); }
+  .piece.new { box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 0 7px var(--bot); }
+  .piece.human { box-shadow: 0 0 0 4px rgba(255,255,255,.9), 0 0 0 7px var(--me); }
+  .piece.fix { background: transparent; border: 3px dashed var(--amber); box-shadow: none; }
+  .rank { z-index: 2; position: absolute; top: 2px; left: 4px; font-size: 11px; color: #2c1c0f; background: rgba(255,255,255,.7); border-radius: 4px; padding: 0 4px; }
+  .rank.dead { background: rgba(120,120,120,.55); color: #eee; }
+  .rank.low { background: rgba(255,143,189,.75); }
+  .rank.skip { background: rgba(255,143,189,.4); }
+
+  .panel { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  .panel h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
+  .roll { display: flex; align-items: center; gap: 8px; height: 38px; overflow: hidden; border-top: 1px solid var(--rule); }
+  .roll:first-of-type { border-top: 0; }
+  .die { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 5px; background: #f1e4cf; color: #2c1c0f; font-weight: 700; border: 2px solid transparent; }
+  .die.kept { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+  .roll .note { color: var(--ink-soft); }
+  .chip { border: 1px solid var(--rule); border-radius: 5px; padding: 0 6px; font-size: 11px; color: var(--ink-soft); }
+  .chip.call { color: var(--amber); border-color: var(--amber); }
+  .chip.stop { color: var(--good); border-color: var(--good); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { text-align: right; padding: 3px 7px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  th { color: var(--ink-soft); font-weight: 500; }
+  th:first-child, td:first-child, td.l, th.l { text-align: left; }
+  tr.chosen td { color: var(--accent); font-weight: 700; }
+  tr.right td { color: var(--good); }
+  tr.dim td { color: #8a7660; }
+  .scroll { overflow-x: auto; }
+  .why { line-height: 1.7; }
+  .why b { color: var(--accent); font-weight: 600; }
+  .why .ok { color: var(--good); }
+  .why .bad { color: var(--warn); }
+  .muted { color: var(--ink-soft); }
+  /* the weights float over the page, so showing them moves nothing */
+  #weights { display: none; position: fixed; top: 54px; right: 16px; width: 440px; max-width: calc(100vw - 32px); z-index: 20; box-shadow: 0 10px 30px rgba(0,0,0,.5); background: var(--paper2); }
+  #weights.open { display: block; }
+  .toast { position: fixed; top: 64px; right: 20px; background: var(--accent); color: #2c1c0f; padding: 7px 14px; border-radius: 7px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bot lab · speed</h1>
+  <span class="pill off" id="conn">connecting…</span>
+  <span class="pill" id="counts"></span>
+  <span class="pill" id="addr" title="Open this on the phone (same Wi-Fi). Click to copy." style="cursor:pointer"></span>
+  <span class="pill" id="agree" title="Corrected and validated turns the bot's placement now gets right"></span>
+  <span class="grow"></span>
+  <button id="follow" class="on" title="Show each new turn as it arrives">Follow live</button>
+  <button id="weightsBtn">Weights</button>
+  <button id="clearTurns" title="Remove the turns listed (reviews and learning stay)">Clear history</button>
+  <button id="reset">Reset learning</button>
+</header>
+
+<main>
+  <div id="list" role="listbox" aria-label="Turns"></div>
+  <div id="stage"></div>
+</main>
+<div id="weights" class="panel"></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { SPEED_FEATURES, SPEED_PRIOR, speedFeatures, speedScore, hardTier, pickSpeedPlacement, AIM_COMBOS, AIM_PRIOR, aimFeatures, pickTarget, CALL_COMBOS, CALL_PRIOR, pickCall, STOP_FEATURES, STOP_PRIOR } from "/shared/botAI.js";
+import { tile } from "/shared/utils.js";
+
+const key = new URL(location.href).searchParams.get("key");
+const api = (path) => `/api/botlab/${path}` + (key ? `?key=${encodeURIComponent(key)}` : "");
+
+const state = { turns: [], cases: new Map(), learned: { weights: null, aim: null, call: null, stop: null, report: [], agreement: 1 }, sel: null, tab: "piece", follow: true, place: false, explain: false, view: "after" };
+const KINDS = ["aim", "call", "stop", "lock"];
+const draft = new Map(); // dice being picked for a keep, by turn and roll
+const caseId = (t, kind, roll) => (kind === "place" ? t.id : `${t.id}#${kind}${roll}`);
+const caseOf = (t, kind, roll) => state.cases.get(caseId(t, kind, roll));
+const dotp = (a, b) => a.reduce((n, x, i) => n + x * b[i], 0);
+
+// ---- tiles: the picture the game draws on each cell (the same files as linotte.css) ----
+const IMG = {
+  "00": "g10481", "01": "g10483", "02": "g10495", "03": "g10484", "04": "g10486",
+  "10": "g10482", "11": "g10492", "12": "g10496", "13": "g10491", "14": "g10485",
+  "20": "g10493", "21": "g10491", "22": "g10498", "23": "g10495", "24": "g10497",
+  "30": "g10486", "31": "g10496", "32": "g10497", "33": "g10493", "34": "g10481",
+  "40": "g10483", "41": "g10482", "42": "g10492", "43": "g10485", "44": "g10484",
+};
+// ---- tiles: a short label for each cell (kept for the tooltips) ----
+const LABEL = {};
+for (const [name, rc] of Object.entries(tile)) {
+  const m = /^b(\d)/.exec(name);
+  LABEL[rc] = m ? m[1] : { fu: "FU", ca: "CA", pe: "PE", su: "SU", yam: "YAM", se: "SE", ap: "AP" }[name.replace(/\d$/, "")] || name;
+}
+const NAME = Object.fromEntries(Object.entries(tile).map(([n, rc]) => [rc, n]));
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const weights = () => state.learned.weights;
+const toast = (t) => { const el = $("toast"); el.textContent = t; el.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("show"), 1800); };
+
+// ---- the ranking of a turn's cells, as the bot would do it with some weights ----
+function rank(cands, w) {
+  const usable = cands.filter((c) => c.tag !== "dead");
+  const preferred = usable.filter((c) => c.tag === "preferred");
+  const pool = (preferred.length ? preferred : usable).slice();
+  const score = (c) => (w ? speedScore(c, w) : speedScore(c, SPEED_PRIOR));
+  const tier = (c) => [c.wouldWinGame ? 0 : 1, c.wouldLoseGame ? 1 : 0, c.criticalBlock ? 0 : 1, c.urgentBlock ? 0 : 1].join("");
+  pool.sort((a, b) => (tier(a) < tier(b) ? -1 : tier(a) > tier(b) ? 1 : score(b) - score(a)));
+  const left = cands.filter((c) => !pool.includes(c));
+  return { pool, left, score };
+}
+
+// ---- turns by game, with a number inside each game ----
+function grouped() {
+  const games = new Map();
+  for (const t of state.turns) { if (!games.has(t.game)) games.set(t.game, []); games.get(t.game).push(t); }
+  return [...games.entries()].map(([id, list]) => ({ id, list: list.sort((a, b) => a.n - b.n || a.at - b.at) }));
+}
+const turnLabel = (t, i) => `T${i + 1}`;
+function afterBoard(t) {
+  const b = t.boardBefore.map((r) => r.slice());
+  const rc = t.placement?.chosen;
+  if (rc) b[+rc[0]][+rc[1]] = 2;
+  return b;
+}
+function previous(t) {
+  const g = grouped().find((x) => x.id === t.game);
+  const i = g ? g.list.findIndex((x) => x.id === t.id) : -1;
+  return i > 0 ? g.list[i - 1] : null;
+}
+function humanCell(t) {
+  const prev = previous(t);
+  const was = prev ? afterBoard(prev) : Array.from({ length: 5 }, () => Array(5).fill(0));
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (t.boardBefore[r][c] === 1 && was[r][c] !== 1) return `${r}${c}`;
+  return null;
+}
+
+// ---- list ----
+function renderList() {
+  const el = $("list");
+  const gs = grouped();
+  if (!gs.length) {
+    el.innerHTML = `<div class="empty">No turns yet.<br><br>On the phone, open the app once with <code>?botlab=1</code> at the end of its address, start a game against the bot in <b>SPEED</b>, and play. Every bot turn shows up here as it happens.</div>`;
+    return;
+  }
+  el.innerHTML = gs.map((g) => `<div class="game">Game ${esc(g.id.slice(-4))} · ${g.list.length} turn${g.list.length === 1 ? "" : "s"}</div>` +
+    g.list.map((t, i) => {
+      const c = state.cases.get(t.id);
+      const placed = t.placement?.chosen;
+      const what = t.live ? `thinking… <small>roll ${t.rolls.length}</small>` : placed ? `placed <b>${placed}</b> <small>${esc(NAME[placed] || "")}</small>` : "no placement";
+      const nRoll = [...state.cases.values()].filter((x) => x.turnId === t.id && x.kind && x.kind !== "place").length;
+      const rollBadge = nRoll ? `<span class="badge" title="reviews of the rolls of this turn">r${nRoll}</span>` : "";
+      const badge = rollBadge + (t.live ? `<span class="badge live">live</span>` : c ? (c.verdict === "valid" ? `<span class="badge valid">✓ valid</span>` : `<span class="badge wrong">✎ ${esc(c.correct)}</span>`) : "");
+      return `<div class="row${t.id === state.sel ? " sel" : ""}" data-id="${esc(t.id)}" role="option"><span class="n">${turnLabel(t, i)}</span><span class="what">${what}</span>${badge}</div>`;
+    }).join("")).join("");
+}
+
+// ---- the selected turn ----
+function render() {
+  renderList();
+  const t = state.turns.find((x) => x.id === state.sel);
+  const stage = $("stage");
+  $("counts").textContent = `${state.turns.length} turns · ${state.cases.size} reviewed`;
+  $("agree").textContent = state.cases.size ? `${Math.round(state.learned.agreement * 100)}% agree` : "no corrections yet";
+  if (!t) { stage.innerHTML = ""; $("weights").className = "panel"; return; }
+  const g = grouped().find((x) => x.id === t.game);
+  const idx = g.list.findIndex((x) => x.id === t.id);
+  const c = state.cases.get(t.id);
+  const cands = t.placement?.candidates || [];
+  const w = weights();
+  const { pool, left, score } = rank(cands, w);
+  const rankOf = new Map(pool.map((x, i) => [x.rc, i + 1]));
+  const candOf = new Map(cands.map((x) => [x.rc, x]));
+  const board = state.view === "after" ? afterBoard(t) : t.boardBefore;
+  const hum = humanCell(t);
+  const chosen = t.placement?.chosen;
+  const status = c ? state.learned.report.find((r) => r.id === t.id)?.status : null;
+
+  let cells = "";
+  for (let r = 0; r < 5; r++) for (let col = 0; col < 5; col++) {
+    const rc = `${r}${col}`, v = board[r][col], cand = candOf.get(rc);
+    const placeable = state.place && cand;
+    let inner = `<span class="sym" style="background-image:url(/resources/images/${IMG[rc]}.svg)"></span>`;
+    if (cand && !t.live) {
+      const k = rankOf.get(rc);
+      const cls = cand.tag === "dead" ? "dead" : k ? "" : "skip";
+      inner = `<span class="rank ${cls}">${k ? "#" + k : cand.tag === "dead" ? "dead" : "low"}</span>` + inner;
+    }
+    if (v) {
+      const isNew = state.view === "after" && rc === chosen;
+      inner += `<span class="piece p${v}${isNew ? " new" : ""}${rc === hum ? " human" : ""}"></span>`;
+    }
+    if (c && c.correct !== chosen && c.correct === rc) inner += `<span class="piece fix"></span>`;
+    cells += `<button class="cell${cand ? " cand" : ""}${placeable ? " placeable" : ""}" data-rc="${rc}" title="${cand ? esc(NAME[rc] + " · " + fmtCand(cand)) : ""}">${inner}</button>`;
+  }
+
+  const rolls = t.rolls.map((r, i) => {
+    const kept = r.lock || [];
+    const dice = r.dice.map((d, k) => `<span class="die${kept[k] ? " kept" : ""}">${d}</span>`).join("");
+    const bits = [];
+    if (r.target) bits.push(`<span class="chip">aims ${esc(r.target.combo)}${r.target.need != null ? ` · needs ${r.target.need}` : ""}</span>`);
+    if (r.call) bits.push(`<span class="chip call">calls ${esc(r.call)}</span>`);
+    if (r.stopRolling) bits.push(`<span class="chip stop">stops</span>`);
+    if (r.rollsExhausted) bits.push(`<span class="chip">last roll</span>`);
+    const marks = KINDS.map((k) => caseOf(t, k, i)).filter(Boolean);
+    if (marks.length) bits.push(`<span class="chip" style="color:var(--good);border-color:var(--good)" title="reviewed">${marks.every((m) => m.verdict === "valid") ? "✓" : "✎"} ${marks.length}</span>`);
+    return `<div class="roll${state.tab === i ? " sel" : ""}" data-roll="${i}" title="Review this roll"><span class="muted">roll ${i + 1}</span>${dice}${bits.join("")}</div>`;
+  }).join("");
+
+  stage.innerHTML = `
+    <div id="content">
+      <h2 id="title">${turnLabel(t, idx)} · game ${esc(t.game.slice(-4))} <span class="muted">· bot ${t.piecesLeft.p2} pieces left · points you ${t.points.p1} – bot ${t.points.p2}</span></h2>
+      <div class="panel" id="rolls"><h3>Rolls</h3>${rolls || `<span class="muted">no rolls yet</span>`}</div>
+      <div id="status" class="${c ? (c.verdict === "valid" ? "ok" : "bad") : "muted"}">${statusLine(t, c, status)}</div>
+      <div class="top">
+        <div>
+          <div id="board">${cells}</div>
+          <div class="muted legend"><span class="piece p1" style="position:static;display:inline-block;width:12px;height:12px;vertical-align:-2px"></span> you (ringed: your last piece) &nbsp; <span class="piece p2" style="position:static;display:inline-block;width:12px;height:12px;vertical-align:-2px"></span> bot (ringed: this turn) &nbsp; #n = the bot's ranking of the legal cells</div>
+        </div>
+        <div class="panel" id="explain">${tabsBar(t)}${tabIsRoll(t) ? rollPanel(t, state.tab) : state.explain && !t.live ? explainPanel(t, pool, left, score, w) : `<h3>Why this cell</h3><span class="muted">Press ? to explain the bot's choice for this turn.</span>`}</div>
+      </div>
+    </div>
+    <div id="actions">
+      <button id="vBtn" class="good${(tabIsRoll(t) ? reviewable(t, state.tab).length && reviewable(t, state.tab).every((k) => caseOf(t, k, state.tab)?.verdict === "valid") : c?.verdict === "valid") ? " on" : ""}" title="${tabIsRoll(t) ? "The bot decided this roll right" : "The bot played this turn right"}">V validate${tabIsRoll(t) ? " roll" : ""} <kbd>V</kbd></button>
+      <button id="qBtn" class="${state.explain ? "on" : ""}" title="Explain the choice">? explain <kbd>?</kbd></button>
+      <button id="pBtn" class="${state.place ? "on" : ""}" ${t.live ? "disabled" : ""} title="Click the cell where the piece should have gone">place the piece <kbd>P</kbd></button>
+      <button id="cBtn" ${hasReview(t) ? "" : "disabled"} title="Take back the review">clear review <kbd>C</kbd></button>
+      <span class="space"></span>
+      <button id="viewBtn">${state.view === "after" ? "showing: after" : "showing: before"}</button>
+    </div>`;
+  $("weights").className = "panel" + ($("weightsBtn").classList.contains("on") ? " open" : "");
+  $("weights").innerHTML = weightsPanel();
+}
+
+function statusLine(t, c, status) {
+  if (tabIsRoll(t)) {
+    const i = state.tab;
+    const part = (kind) => { const x = caseOf(t, kind, i); return `${kind} ${x ? (x.verdict === "valid" ? "✓" : "✎" + (kind === "lock" ? "" : " " + esc(x.correct))) : "—"}`; };
+    return `Roll ${i + 1} · ${part("aim")} · ${part("call")} · ${part("stop")} · ${part("lock")}`;
+  }
+  if (state.place) return "Click the cell where the bot should have put its piece (dashed cells are the legal ones).";
+  if (!c) return t.live ? "The bot is still playing this turn." : "Not reviewed yet.";
+  return c.verdict === "valid" ? `✓ validated${status ? ` · ${statusText(status)}` : ""}` : `✎ should be ${esc(c.correct)} (${esc(NAME[c.correct] || "")}), the bot chose ${esc(c.chosen || "—")}${status ? ` · ${statusText(status)}` : ""}`;
+}
+
+const fmtCand = (c) => `pts ${c.pointsGained} · denied ${c.deniedPoints} · line ${c.longestLineAfter} · conn ${c.lineConnection} · cluster ${c.clusterScore} · block ${c.blockScore} · rarity ${c.rarity}${c.criticalBlock ? " · CRITICAL BLOCK" : ""}${c.urgentBlock ? " · urgent block" : ""}${c.wouldWinGame ? " · WINS" : ""}${c.wouldLoseGame ? " · LOSES" : ""}`;
+const statusText = (s) => ({ learned: "the bot now agrees", conflict: "can't satisfy it together with the other reviews", filtered: "the bot's filters drop that cell (dead or low-priority), weights can't change that", tier: "a threat or a win comes first, weights can't change that", missing: "cell not in the turn" }[s] || s);
+
+function explainPanel(t, pool, left, score, w) {
+  const ladder = pickSpeedPlacement(t.placement.candidates, null);
+  const now = pickSpeedPlacement(t.placement.candidates, w);
+  const [a, b] = pool;
+  let why = "";
+  if (!pool.length) why = `No cell worth a piece: every legal cell is dead (it can't join one of the bot's lines and takes nothing from you).`;
+  else if (!b) why = `<b>${a.rc}</b> was the only cell in the running.`;
+  else {
+    const hardA = [a.wouldWinGame && "wins the game", a.criticalBlock && "stops a move that would hand you the game", a.urgentBlock && "blocks your four in a row"].filter(Boolean);
+    const hardB = [b.wouldWinGame && "wins the game", b.criticalBlock && "stops a move that would hand you the game", b.urgentBlock && "blocks your four in a row"].filter(Boolean);
+    if (hardA.join() !== hardB.join()) why = `<b>${a.rc}</b> ${hardA.join(", ") || "has no urgent threat to answer"}, ${b.rc} ${hardB.join(", ") || "has none"}: that decides it before any weight.`;
+    else {
+      const w2 = w || SPEED_PRIOR;
+      const fa = speedFeatures(a), fb = speedFeatures(b);
+      const parts = SPEED_FEATURES.map((n, i) => ({ n, d: (fa[i] - fb[i]) * w2[i], fa: fa[i], fb: fb[i] })).filter((p) => Math.abs(p.d) > 1e-9).sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
+      why = `<b>${a.rc}</b> beats ${b.rc} by ${Math.round(score(a) - score(b))} of weighted score` + (parts.length ? `, mostly on ` + parts.slice(0, 3).map((p) => `${LONG[p.n]} (${round(p.fa)} vs ${round(p.fb)})`).join(", ") : "") + ".";
+    }
+    if (pool.every((c) => c.tag === "low")) why += ` Every cell left is low-priority, so the least bad one is taken rather than passing the turn.`;
+  }
+  const left2 = left.length ? `<div class="muted" style="margin-top:6px">Left out before ranking: ${left.map((c) => `${c.rc} (${c.tag === "dead" ? "dead: no line of the bot's own and nothing taken from you" : "low-priority while better-behaved cells existed"})`).join(", ")}.</div>` : "";
+  const compare = `<div class="muted" style="margin-top:6px">Built-in ladder would pick <b>${ladder?.rc ?? "—"}</b>` + (w ? `, with the learned weights <b>${now?.rc ?? "—"}</b>` : "") + `.</div>`;
+  const rows = pool.concat(left).map((c) => {
+    const k = pool.indexOf(c);
+    const cls = [c.rc === t.placement.chosen ? "chosen" : "", state.cases.get(t.id)?.correct === c.rc ? "right" : "", k < 0 ? "dim" : ""].join(" ");
+    return `<tr class="${cls}"><td class="l">${k >= 0 ? "#" + (k + 1) : "—"}</td><td class="l">${c.rc} ${esc(NAME[c.rc] || "")}</td><td class="l">${c.tag}</td><td>${c.wouldWinGame ? "win" : c.wouldLoseGame ? "LOSE" : c.criticalBlock ? "crit" : c.urgentBlock ? "urg" : ""}</td><td>${c.longestLineAfter}</td><td>${c.pointsGained}</td><td>${c.deniedPoints}</td><td>${c.lineConnection}</td><td>${c.clusterScore}</td><td>${c.blockScore}</td><td>${c.rarity}</td><td>${Math.round(score(c))}</td></tr>`;
+  }).join("");
+  return `<div class="panel"><h3>Why this cell</h3><div class="why">${why}</div>${left2}${compare}
+    <div class="scroll" style="margin-top:10px"><table><thead><tr><th class="l">rank</th><th class="l">cell</th><th class="l">kind</th><th>tier</th><th>line</th><th>pts</th><th>denied</th><th>conn</th><th>cluster</th><th>block</th><th>rarity</th><th>score</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+const tabIsRoll = (t) => Number.isInteger(state.tab) && state.tab < t.rolls.length;
+function tabsBar(t) {
+  const rev = (i) => KINDS.some((k) => caseOf(t, k, i));
+  const tabs = [`<button data-tab="piece" class="${tabIsRoll(t) ? "" : "on"}">piece <kbd>0</kbd></button>`]
+    .concat(t.rolls.map((r, i) => `<button data-tab="${i}" class="${state.tab === i ? "on" : ""}">roll ${i + 1}${rev(i) ? '<span class="mk">✓</span>' : ""} <kbd>${i + 1}</kbd></button>`));
+  return `<div class="tabs">${tabs.join("")}</div>`;
+}
+
+const pct = (p) => (p >= 0.995 ? "100%" : p <= 0 ? "0%" : (p * 100).toFixed(p < 0.1 ? 1 : 0) + "%");
+function chip(label, cls, attrs, title = "") { return `<button class="opt ${cls}" ${attrs} title="${esc(title)}">${esc(label)}</button>`; }
+
+function rollPanel(t, i) {
+  const r = t.rolls[i], lab = r.lab;
+  const dice = r.dice.join(" ");
+  if (!lab) return `<h3>Roll ${i + 1}</h3><span class="muted">This turn was played before the lab recorded the decisions of each roll.</span>`;
+  const l = state.learned;
+  const sec = [];
+
+  // aim
+  if (lab.aim) {
+    const a = lab.aim, mine = caseOf(t, "aim", i);
+    const sorted = a.options.slice().sort((x, y) => y.value - x.value);
+    const now = l.aim ? pickTarget(a.options.map((o) => ({ ...o, comboKey: o.combo, attractiveness: o.value })), l.aim).comboKey : null;
+    const rows = sorted.map((o) => `<tr class="pick${o.combo === a.chosen ? " bot" : ""}${mine?.correct === o.combo ? " you" : ""}" data-kind="aim" data-value="${o.combo}"><td class="l">${o.combo}${o.viaAppel ? ' <span class="chip" title="its cells include the appel tiles (called, or its own tiles are taken)">appel</span>' : ""}</td><td>${o.need}</td><td>${pct(o.probability)}</td><td>${Math.round(o.value)}</td></tr>`).join("");
+    const why = state.explain ? `<div class="muted" style="margin:4px 0">It chases <b>${a.chosen}</b>: what its best cell is worth × the chance of landing it is the highest. Click another row to say what it should chase.${a.builtin !== a.chosen ? ` The built-in rule alone would chase ${a.builtin}.` : ""}</div>` : "";
+    sec.push(`<div class="sec"><h4>Aim <span>the bot chases <b style="color:var(--accent)">${a.chosen}</b>${now && now !== a.chosen ? ` · now it would chase <b style="color:var(--good)">${now}</b>` : ""}</span></h4>${why}<table><thead><tr><th class="l">combo</th><th>needs</th><th>chance</th><th>value</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+  } else sec.push(`<div class="sec"><h4>Aim</h4><span class="muted">nothing left to chase</span></div>`);
+
+  // call
+  if (lab.call) {
+    const c = lab.call, mine = caseOf(t, "call", i);
+    const now = l.call ? (pickCall(c.options, l.call) ?? "none") : null;
+    const byCombo = new Map(c.options.map((o) => [o.combo, o]));
+    const chips = CALL_COMBOS.map((k) => {
+      const o = byCombo.get(k);
+      const soft = Boolean(o && o.soft);
+      const off = k !== "none" && !(o && (o.eligible || soft));
+      const label = k === "none" ? "no call" : soft ? `${k} · appel` : k;
+      const title = k === "none" ? "No call" : o ? (o.eligible ? `score ${Math.round(o.score)} · chance ${pct(o.probability)}` : soft ? `Go for the appel tile: call the combo it is chasing (score ${Math.round(o.score)} · chance ${pct(o.probability)}). The bot never does this by itself; you can teach it.` : `the bot rules this out: ${o.reason}`) : "";
+      return chip(label, `${c.chosen === k ? "bot" : ""} ${mine?.correct === k ? "you" : ""} ${off ? "off" : ""} ${now === k && now !== c.chosen ? "now" : ""}`, `data-kind="call" data-value="${k}"`, title);
+    }).join("");
+    const why = state.explain ? `<div class="muted" style="margin:4px 0">${c.chosen === "none" ? `Nothing worth calling${c.options.some((o) => !o.eligible) ? ": " + c.options.filter((o) => !o.eligible).map((o) => `${o.combo} (${o.reason})`).join("; ") : ""}.` : `Calls <b>${c.chosen}</b>: it has the best score (${Math.round(byCombo.get(c.chosen)?.score ?? 0)}) at a ${pct(byCombo.get(c.chosen)?.probability ?? 0)} chance.`} Faded options are ruled out by the bot's own rules and can't be taught. <b>Appel</b> is not a combo you throw: you reach its tiles by calling a combo and landing it. To go for appel, aim at a combo and call that same combo (the "· appel" chip).</div>` : "";
+    sec.push(`<div class="sec"><h4>Call <span>the bot calls <b style="color:var(--accent)">${c.chosen === "none" ? "nothing" : c.chosen}</b>${now && now !== c.chosen ? ` · now <b style="color:var(--good)">${now === "none" ? "nothing" : now}</b>` : ""}</span></h4>${why}<div class="opts">${chips}</div></div>`);
+  } else sec.push(`<div class="sec"><h4>Call</h4><span class="muted">${r.rollsExhausted ? "last roll: nothing to call for" : r.stopRolling ? "no call possible on the next roll" : "no call possible here"}</span></div>`);
+
+  // lock: which dice to keep
+  if (lab.lock) {
+    const k = lab.lock, mine = caseOf(t, "lock", i);
+    const key = `${t.id}#${i}`;
+    const mask = draft.get(key) ?? mine?.correct ?? k.chosen;
+    const same = mask === k.chosen;
+    const report = state.learned.report.find((x) => x.id === caseId(t, "lock", i));
+    const nowCombo = l.aim && lab.aim ? pickTarget(lab.aim.options.map((o) => ({ ...o, comboKey: o.combo, attractiveness: o.value })), l.aim).comboKey : null;
+    const nowMask = nowCombo ? k.options.find((o) => o.combo === nowCombo)?.mask : null;
+    const show = (m) => (m && [...m].some((c) => c === "1") ? r.dice.filter((_, d) => m[d] === "1").join(" ") : "nothing");
+    const dice = r.dice.map((v, d) => `<button class="die${mask[d] === "1" ? " kept" : ""}${k.chosen[d] === "1" ? " bot" : ""}" data-die="${d}" title="${k.chosen[d] === "1" ? "the bot keeps this one" : "the bot rerolls this one"}">${v}</button>`).join("");
+    const note = report?.status === "unreachable" ? ` <span style="color:var(--warn)">no aim of the bot keeps exactly these dice: it can't learn this</span>` : mine && report?.status === "learned" ? ` <span style="color:var(--good)">learned</span>` : "";
+    const why = state.explain ? `<div class="muted" style="margin:4px 0">The bot keeps the dice of the combo it chases (<b>${lab.aim?.chosen ?? "—"}</b>): ${show(k.chosen)}. Click dice to choose the ones to keep, then teach it: it learns by aiming at the combo that keeps exactly those. Outlined: what the bot keeps.</div>` : "";
+    sec.push(`<div class="sec"><h4>Keep <span>the bot keeps <b style="color:var(--accent)">${show(k.chosen)}</b>${nowMask && nowMask !== k.chosen ? ` · now <b style="color:var(--good)">${show(nowMask)}</b>` : ""}${note}</span></h4>${why}<div class="keep">${dice}<button class="opt${same ? "" : " you"}" data-keep="${same ? "valid" : "teach"}">${same ? (mine ? "✓ validated" : "validate") : mine && mask === mine.correct ? "✎ taught" : "teach this keep"}</button></div></div>`);
+  } else if (!r.rollsExhausted && !r.stopRolling) sec.push(`<div class="sec"><h4>Keep</h4><span class="muted">not decided yet</span></div>`);
+  else sec.push(`<div class="sec"><h4>Keep</h4><span class="muted">${r.rollsExhausted ? "last roll: nothing to keep" : r.stopRolling ? "this turn was played before the lab recorded what the bot would keep after stopping" : "nothing kept"}</span></div>`);
+
+  // stop
+  if (lab.stop) {
+    const st = lab.stop, mine = caseOf(t, "stop", i);
+    const now = l.stop && st.applicable ? (dotp(l.stop, st.x) > 0 ? "stop" : "roll") : null;
+    const chips = ["stop", "roll"].map((k) => chip(k === "stop" ? "stop here" : "roll again", `${st.chosen === k ? "bot" : ""} ${mine?.correct === k ? "you" : ""} ${now === k && now !== st.chosen ? "now" : ""} ${st.applicable ? "" : "off"}`, `data-kind="stop" data-value="${k}"`, st.applicable ? "" : "no legal cell yet: it can't stop")).join("");
+    const sig = STOP_FEATURES.map((n, k) => `${n} ${round(st.x[k])}`).join(" · ");
+    const why = state.explain ? `<div class="muted" style="margin:4px 0">${st.applicable ? `The built-in rules say <b>${st.builtin === "stop" ? "stop" : "roll again"}</b>.` : `No cell can take a piece yet, so it has to keep rolling.`} Signals: ${sig}.</div>` : "";
+    sec.push(`<div class="sec"><h4>Stop <span>${st.applicable ? `the bot ${st.chosen === "stop" ? "stops" : "rolls again"}` : "it can't stop yet"}${now && now !== st.chosen ? ` · now <b style="color:var(--good)">${now === "stop" ? "stops" : "rolls again"}</b>` : ""}</span></h4>${why}<div class="opts">${chips}</div></div>`);
+  } else sec.push(`<div class="sec"><h4>Stop</h4><span class="muted">last roll: no more dice to throw</span></div>`);
+
+  // the two short ones first, so only the long list of combos ever scrolls
+  const stopped = lab.ifRolled ? `<div class="muted" style="margin:0 0 8px">The bot <b>stopped</b> on this roll. Call, keep and aim below are what it <b>would have done had it rolled again</b>: say them here, and say "roll again" under Stop if that is what you would have done.</div>` : "";
+  return `<h3>Roll ${i + 1} · dice ${dice} · ${r.rollsLeft} left</h3>${stopped}${[sec[3], sec[1], sec[2], sec[0]].join("")}`;
+}
+
+const LONG = { longest: "the longest line it builds", big: "points scored or denied", conn: "links to its own pieces", cluster: "neighbouring own pieces", block: "pressure on your lines", minorDeny: "a small denial", rarity: "how rare the tile is" };
+const round = (x) => Math.round(x * 100) / 100;
+
+function weightsPanel() {
+  const w = weights(), l = state.learned;
+  const rows = SPEED_FEATURES.map((n, i) => `<tr><td class="l">${LONG[n]}</td><td>${round(SPEED_PRIOR[i])}</td><td>${w ? round(w[i]) : "—"}</td><td>${w ? (w[i] - SPEED_PRIOR[i] >= 0 ? "+" : "") + round(w[i] - SPEED_PRIOR[i]) : ""}</td></tr>`).join("");
+  const block = (title, names, prior, learned, note) => {
+    const body = names.map((n, i) => `<tr><td class="l">${esc(n)}</td><td>${round(prior[i])}</td><td>${learned ? round(learned[i]) : "—"}</td><td>${learned ? (learned[i] - prior[i] >= 0 ? "+" : "") + round(learned[i] - prior[i]) : ""}</td></tr>`).join("");
+    return `<h3 style="margin-top:14px">${title}</h3><div class="muted">${learned ? note : "Not taught yet: the built-in rules."}</div><table><thead><tr><th class="l">signal</th><th>built-in</th><th>learned</th><th>change</th></tr></thead><tbody>${body}</tbody></table>`;
+  };
+  return `<h3>Weights of the speed bot's placement</h3><div class="muted">${w ? "Learned from your reviews; the phone plays with them now." : "Not learned yet: the phone plays with the built-in ladder."}</div><table><thead><tr><th class="l">signal</th><th>built-in</th><th>learned</th><th>change</th></tr></thead><tbody>${rows}</tbody></table>`
+    + block("What to aim at", ["value of the best cell", "chance of landing it", ...AIM_COMBOS.map((k) => "taste for " + k)], AIM_PRIOR, l.aim, "Learned from your aim reviews.")
+    + block("What to call", ["its score", "chance of landing it", ...CALL_COMBOS.map((k) => k === "none" ? "taste for no call" : "taste for " + k), "calling the chased combo (appel)"], CALL_PRIOR, l.call, "Learned from your call reviews.")
+    + block("When to stop", ["what the built-in rules say", "always", "dice still needed", "rolls left", "long shot", "a cell can be placed", "that cell vs the chase", "that cell scores"], STOP_PRIOR, l.stop, "Learned from your stop reviews: stop when the sum is above 0.");
+}
+
+// ---- actions ----
+async function post(path, body) {
+  const res = await fetch(api(path), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  return res.json().catch(() => ({ ok: false }));
+}
+const selTurn = () => state.turns.find((x) => x.id === state.sel);
+const reviewable = (t, i) => KINDS.filter((k) => { const d = t.rolls[i]?.lab?.[k]; return d && (k !== "stop" || d.applicable); });
+async function validate() {
+  const t = selTurn(); if (!t || t.live) return;
+  if (tabIsRoll(t)) {
+    const i = state.tab, kinds = reviewable(t, i);
+    if (!kinds.length) return;
+    const all = kinds.every((k) => caseOf(t, k, i)?.verdict === "valid");
+    for (const k of kinds) await post("feedback", { turnId: t.id, kind: k, roll: i, verdict: all ? "clear" : "valid" });
+    toast(all ? "validation removed" : `roll ${i + 1} validated`);
+    return;
+  }
+  if (!t.placement?.chosen) return;
+  const c = state.cases.get(t.id);
+  const r = c?.verdict === "valid" ? await post("feedback", { turnId: t.id, verdict: "clear" }) : await post("feedback", { turnId: t.id, verdict: "valid" });
+  toast(r.ok ? (c?.verdict === "valid" ? "validation removed" : "validated") : "could not save");
+}
+async function setChoice(kind, value) {
+  const t = selTurn(); if (!t || !tabIsRoll(t)) return;
+  const i = state.tab, d = t.rolls[i].lab?.[kind]; if (!d) return;
+  if (kind === "stop" && !d.applicable) return toast("it can't stop yet: no legal cell");
+  const r = await post("feedback", { turnId: t.id, kind, roll: i, verdict: value === d.chosen ? "valid" : "wrong", correct: value });
+  toast(r.ok ? (value === d.chosen ? `${kind}: that is what the bot did, validated` : kind === "lock" ? "keep taught (if some aim of the bot keeps exactly those dice)" : `${kind} set to ${value === "none" ? "no call" : value}: the bot learns it`) : "could not save (the bot's own rules rule that out?)");
+}
+async function setCorrect(rc) {
+  const t = selTurn(); if (!t) return;
+  const r = await post("feedback", { turnId: t.id, verdict: rc === t.placement.chosen ? "valid" : "wrong", correct: rc });
+  state.place = false;
+  toast(r.ok ? (rc === t.placement.chosen ? "that is what the bot chose: validated" : `piece set to ${rc}: the bot learns it`) : "could not save");
+  render();
+}
+async function clearReview() {
+  const t = selTurn(); if (!t) return;
+  if (tabIsRoll(t)) { for (const k of KINDS) if (caseOf(t, k, state.tab)) await post("feedback", { turnId: t.id, kind: k, roll: state.tab, verdict: "clear" }); }
+  else await post("feedback", { turnId: t.id, verdict: "clear" });
+  toast("review removed");
+}
+const hasReview = (t) => (tabIsRoll(t) ? KINDS.some((k) => caseOf(t, k, state.tab)) : Boolean(state.cases.get(t.id)));
+
+function select(id, manual = true) {
+  state.sel = id; state.place = false;
+  { const nt = state.turns.find((x) => x.id === id); if (!nt || !(Number.isInteger(state.tab) && state.tab < nt.rolls.length)) state.tab = "piece"; }
+  if (manual) { state.follow = id === state.turns[state.turns.length - 1]?.id; $("follow").classList.toggle("on", state.follow); }
+  render();
+  document.querySelector(".row.sel")?.scrollIntoView({ block: "nearest" });
+}
+function move(d) {
+  const flat = grouped().flatMap((g) => g.list);
+  const i = flat.findIndex((x) => x.id === state.sel);
+  const n = flat[Math.max(0, Math.min(flat.length - 1, (i < 0 ? flat.length : i) + d))];
+  if (n) select(n.id);
+}
+
+document.addEventListener("click", (e) => {
+  const row = e.target.closest(".row"); if (row) return select(row.dataset.id);
+  const tabBtn = e.target.closest("[data-tab]"); if (tabBtn) { state.tab = tabBtn.dataset.tab === "piece" ? "piece" : Number(tabBtn.dataset.tab); state.place = false; return render(); }
+  const rollRow = e.target.closest(".roll[data-roll]"); if (rollRow) { state.tab = Number(rollRow.dataset.roll); state.place = false; return render(); }
+  const pick = e.target.closest("[data-kind][data-value]"); if (pick) return setChoice(pick.dataset.kind, pick.dataset.value);
+  const die = e.target.closest("[data-die]");
+  if (die) {
+    const t = selTurn(); if (!t || !tabIsRoll(t)) return;
+    const i = state.tab, key = `${t.id}#${i}`, lock = t.rolls[i].lab?.lock; if (!lock) return;
+    const cur = draft.get(key) ?? caseOf(t, "lock", i)?.correct ?? lock.chosen, d = Number(die.dataset.die);
+    draft.set(key, cur.slice(0, d) + (cur[d] === "1" ? "0" : "1") + cur.slice(d + 1));
+    return render();
+  }
+  if (e.target.closest("[data-keep]")) {
+    const t = selTurn(); if (!t || !tabIsRoll(t)) return;
+    const i = state.tab, key = `${t.id}#${i}`, lock = t.rolls[i].lab?.lock; if (!lock) return;
+    const mask = draft.get(key) ?? caseOf(t, "lock", i)?.correct ?? lock.chosen;
+    draft.delete(key);
+    return setChoice("lock", mask);
+  }
+  const cell = e.target.closest(".cell.placeable"); if (cell) return setCorrect(cell.dataset.rc);
+  const id = e.target.closest("button")?.id;
+  if (id === "vBtn") validate();
+  else if (id === "qBtn") { state.explain = !state.explain; render(); }
+  else if (id === "pBtn") { state.tab = "piece"; state.place = !state.place; render(); }
+  else if (id === "cBtn") clearReview();
+  else if (id === "viewBtn") { state.view = state.view === "after" ? "before" : "after"; render(); }
+});
+$("follow").onclick = () => { state.follow = !state.follow; $("follow").classList.toggle("on", state.follow); if (state.follow && state.turns.length) select(state.turns[state.turns.length - 1].id, false); };
+$("weightsBtn").onclick = () => { $("weightsBtn").classList.toggle("on"); render(); };
+$("clearTurns").onclick = async () => { if (confirm("Remove every turn from the history? Reviews and learning stay.")) await post("clear-turns", {}); };
+$("reset").onclick = async () => { if (confirm("Forget every review and go back to the built-in ladder?")) { await post("reset", {}); toast("learning reset"); } };
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea") || e.metaKey || e.ctrlKey) return;
+  const k = e.key.toLowerCase();
+  if (k === "v") validate();
+  else if (e.key === "?") { state.explain = !state.explain; render(); }
+  else if (k === "p") { state.tab = "piece"; state.place = !state.place; render(); }
+  else if (k === "c") clearReview();
+  else if (["0", "1", "2", "3"].includes(e.key)) { const t = selTurn(); if (t) { const n = Number(e.key); state.tab = n === 0 ? "piece" : n - 1 < t.rolls.length ? n - 1 : state.tab; state.place = false; render(); } }
+  else if (e.key === "ArrowUp" || k === "k") { e.preventDefault(); move(-1); }
+  else if (e.key === "ArrowDown" || k === "j") { e.preventDefault(); move(1); }
+  else if (e.key === "Escape") { state.place = false; render(); }
+});
+
+// ---- the address the phone opens (it changes with the network, so it is looked up again) ----
+let phoneUrl = "";
+async function showAddress() {
+  const el = $("addr");
+  try {
+    const info = await fetch(api("info")).then((r) => r.json());
+    phoneUrl = info.urls?.[0] || "";
+    el.textContent = phoneUrl ? `phone ${phoneUrl.replace("http://", "").replace(/\/.*/, "")}${info.urls.length > 1 ? ` (+${info.urls.length - 1})` : ""}` : "phone: no network";
+    el.title = phoneUrl ? "Open this on the phone (same Wi-Fi). Click to copy." + (info.urls.length > 1 ? "\nOther addresses: " + info.urls.slice(1).join("  ") : "") : "The computer is not on a network: connect it to the same Wi-Fi as the phone.";
+    el.style.color = phoneUrl ? "" : "var(--warn)";
+  } catch { el.textContent = "phone: ?"; }
+}
+$("addr").onclick = async () => {
+  if (!phoneUrl) return;
+  try { await navigator.clipboard.writeText(phoneUrl); toast("address copied"); } catch { toast(phoneUrl); }
+};
+
+// ---- data: what is there now, then live ----
+function upsert(t) {
+  const i = state.turns.findIndex((x) => x.id === t.id);
+  if (i >= 0) state.turns[i] = t; else state.turns.push(t);
+  if (state.follow || !state.sel) state.sel = t.id;
+}
+async function start() {
+  try {
+    const res = await fetch(api("state"));
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    state.turns = data.turns; state.cases = new Map(data.cases.map((c) => [c.id, c])); state.learned = data.learned;
+    state.sel = state.turns[state.turns.length - 1]?.id || null;
+  } catch {
+    document.body.innerHTML = `<div class="empty">The bot lab is off here. It runs on a local server (npm start), or where BOTLAB_KEY is set (open this page with ?key=...).</div>`;
+    return;
+  }
+  render();
+  showAddress(); setInterval(showAddress, 8000);
+  const es = new EventSource(api("stream"));
+  es.onopen = () => { $("conn").textContent = "live"; $("conn").className = "pill live"; };
+  es.onerror = () => { $("conn").textContent = "reconnecting…"; $("conn").className = "pill off"; };
+  es.addEventListener("turn", (e) => { upsert(JSON.parse(e.data)); render(); });
+  es.addEventListener("feedback", (e) => {
+    const f = JSON.parse(e.data);
+    if (f.id === "*") state.cases.clear(); else if (f.verdict === "clear") state.cases.delete(f.id); else state.cases.set(f.id, f);
+    render();
+  });
+  es.addEventListener("turns-cleared", () => { state.turns = []; state.sel = null; render(); });
+  es.addEventListener("weights", (e) => { state.learned = JSON.parse(e.data); render(); });
+}
+start();
+</script>
+</body>
+</html>

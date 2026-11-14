@@ -603,6 +603,110 @@ function compareSpeed(a, b) {
   return 0;
 }
 
+// ---------- Learned weights for the "speed" placement (bot lab) ----------
+// Everything above the four hard tiers (win/lose, critical block, urgent
+// block) in compareSpeed is a fixed ladder. The bot lab (public/botlab.html)
+// lets a person correct where the bot put a piece; those corrections are
+// turned into a weight for each of the signals below (see botLearning.js)
+// and, once set here, replace the ladder's tail by a weighted sum. Nothing
+// sets them by default, and the game server never does, so the shipped bot
+// is exactly the ladder.
+export const SPEED_FEATURES = ["longest", "big", "conn", "cluster", "block", "minorDeny", "rarity"];
+// The same priorities as the ladder, as weights (the speed weights of
+// candidateWeight): a line one longer is worth 10 points, and so on.
+export const SPEED_PRIOR = [10000, 1000, 4, 2, 1, 1, 1];
+
+export function speedFeatures(c) {
+  return [
+    c.longestLineAfter,
+    bigScore(c),
+    c.lineConnection,
+    c.clusterScore,
+    c.blockScore,
+    c.deniedPoints < 2 ? c.deniedPoints : 0,
+    c.rarity / 100,
+  ];
+}
+
+let speedWeights = null;
+export function setSpeedWeights(weights) {
+  speedWeights = Array.isArray(weights) && weights.length === SPEED_FEATURES.length && weights.every(Number.isFinite) ? weights.slice() : null;
+}
+export const getSpeedWeights = () => (speedWeights ? speedWeights.slice() : null);
+
+export function speedScore(c, weights = speedWeights) {
+  const f = speedFeatures(c);
+  return f.reduce((sum, x, i) => sum + x * weights[i], 0);
+}
+
+// The four hard tiers of compareSpeed, as one comparable number: same tier,
+// same league (only then do the weights decide).
+export function hardTier(c) {
+  return `${c.wouldWinGame ? 1 : 0}${c.wouldLoseGame ? 1 : 0}${c.criticalBlock ? 1 : 0}${c.urgentBlock ? 1 : 0}`;
+}
+
+export function compareSpeedWeighted(weights) {
+  return (a, b) => {
+    if (a.wouldWinGame !== b.wouldWinGame) return a.wouldWinGame ? -1 : 1;
+    if (a.wouldLoseGame !== b.wouldLoseGame) return a.wouldLoseGame ? 1 : -1;
+    if (a.criticalBlock !== b.criticalBlock) return a.criticalBlock ? -1 : 1;
+    if (a.urgentBlock !== b.urgentBlock) return a.urgentBlock ? -1 : 1;
+    return speedScore(b, weights) - speedScore(a, weights);
+  };
+}
+
+function comparatorFor(strategy) {
+  if (strategy !== "speed") return comparePoints;
+  return speedWeights ? compareSpeedWeighted(speedWeights) : compareSpeed;
+}
+
+// ---------- Learned roll decisions (bot lab) ----------
+// Besides where the piece goes, the lab teaches three decisions taken while the
+// dice are in the air: which combination to chase (aim), which one to call, and
+// when to stop rolling. Each is a small weight vector, null (the built-in
+// rules) unless the lab has sent one. Like the placement weights, only the
+// "speed" bot ever uses them.
+const dot = (a, b) => a.reduce((sum, x, i) => sum + x * b[i], 0);
+const finiteArray = (v, n) => (Array.isArray(v) && v.length === n && v.every(Number.isFinite) ? v.slice() : null);
+const clampLog = (x, floor) => Math.log(Math.max(x, floor));
+
+// AIM: the combos chooseTarget can chase. Score = wc*ln(value of the best cell) +
+// wp*ln(chance of landing it) + a taste for the combo itself; the built-in
+// choice is the same product (value x chance), so [1, 1, 0...] changes nothing.
+export const AIM_COMBOS = ["brelan1", "brelan2", "brelan3", "brelan4", "brelan5", "brelan6", "full", "carre", "petit", "suite", "yam", "sec"];
+export const AIM_PRIOR = [1, 1, ...AIM_COMBOS.map(() => 0)];
+export function aimFeatures(o) {
+  const combo = o.comboKey ?? o.combo;
+  return [clampLog(o.cellWeight, 0.01), clampLog(o.probability, 1e-6), ...AIM_COMBOS.map((k) => (k === combo ? 1 : 0))];
+}
+
+// CALL: the five callable combos, or no call. Score = ln(1 + built-in score) +
+// wp*chance + a taste for the combo / for not calling at all.
+export const CALL_COMBOS = ["full", "carre", "petit", "suite", "yam", "none"];
+// the last signal marks a `soft` option (calling the combo being chased, to reach the appel
+// tile): the prior keeps it out of every choice until a correction asks for it.
+export const CALL_PRIOR = [1, 0, ...CALL_COMBOS.map(() => 0), -20];
+export function callFeatures(o) {
+  return [Math.log(1 + Math.max(0, o.score)), o.probability, ...CALL_COMBOS.map((k) => (k === o.combo ? 1 : 0)), o.soft ? 1 : 0];
+}
+const NO_CALL = { combo: "none", score: 0, probability: 0 };
+
+// STOP: stop when the weighted sum is above 0. The first signal is what the
+// built-in rules say (+1 stop, -1 roll) with a heavy prior, so the lab's
+// corrections only add to it.
+export const STOP_FEATURES = ["rules", "bias", "need", "rollsLeft", "longShot", "hasMove", "moveVsChase", "scores"];
+export const STOP_PRIOR = [3, 0, 0, 0, 0, 0, 0, 0];
+
+let speedModels = { aim: null, call: null, stop: null };
+export function setSpeedModels(models = {}) {
+  speedModels = {
+    aim: finiteArray(models.aim, AIM_PRIOR.length),
+    call: finiteArray(models.call, CALL_PRIOR.length),
+    stop: finiteArray(models.stop, STOP_PRIOR.length),
+  };
+}
+export const getSpeedModels = () => ({ ...speedModels });
+
 // A single scalar used only to compare *combo targets* while deciding
 // which dice to chase (see chooseTarget below) — same priorities, just
 // collapsed into weighted terms with big gaps so higher tiers dominate.
@@ -715,7 +819,7 @@ function targetCellsFor(comboKey, state) {
 // or not, so the call is better spent as a hedge on a *different*
 // plausible outcome from the same dice (e.g. locking for full but
 // calling carre, so a carre landing instead still has somewhere to go).
-export function chooseCallToMake(state, player, strategy) {
+function callOptions(state, player, strategy) {
   if (state.dice.rollsLeft === 3) return null; // only possible after the first throw
   if (state.dice.locked.every(Boolean)) return null; // not possible to fix 5 dice and call
 
@@ -760,16 +864,18 @@ export function chooseCallToMake(state, player, strategy) {
 
   const keptValues = state.dice.values.filter((_, i) => actualLock[i] || state.dice.locked[i]);
 
-  let best = null;
+  const options = [];
   // The dice that will be locked for the next roll: with all five there is
   // no roll to call for; with four, no Carré (see callBlockedBy).
   const lockedNext = actualLock.filter((l, i) => l || state.dice.locked[i]).length;
   if (lockedNext >= 5) return null;
 
   for (const comboKey of Object.keys(CALL_INDEX)) {
+    const option = { combo: comboKey, eligible: false, reason: "", score: 0, probability: 0 };
+    options.push(option);
     // Not possible to call carre if a carre is already realized this throw.
-    if (comboKey === "carre" && state.combinationsRealized[4] === 1) continue;
-    if (comboKey === "carre" && lockedNext >= 4) continue;
+    if (comboKey === "carre" && state.combinationsRealized[4] === 1) { option.reason = "a carré is already realized this throw"; continue; }
+    if (comboKey === "carre" && lockedNext >= 4) { option.reason = "four dice kept: no carré to call"; continue; }
 
     // Calling the very combo already being chased is only ever useful when
     // its own two tiles are both taken — then the call is the ONLY way it
@@ -779,7 +885,9 @@ export function chooseCallToMake(state, player, strategy) {
     // hedge on a DIFFERENT combo that might land from the same reroll —
     // e.g. chasing petit but calling full "just in case" (see below),
     // never chasing petit and then also calling petit.
-    if (comboKey === target?.comboKey && anyCellFree(state.table, COMBO_CELLS[comboKey])) continue;
+    // The bot lab can still teach it ("go for the appel tile"): such an option is
+    // `soft` — never taken by the built-in rule, but available to a learned model.
+    const callsChased = comboKey === target?.comboKey && anyCellFree(state.table, COMBO_CELLS[comboKey]);
 
     // Live chance of this combo actually landing, given the dice truly
     // still free to reroll toward it and the rolls truly left — not the
@@ -788,7 +896,8 @@ export function chooseCallToMake(state, player, strategy) {
     // count — can be judged by this same accurate, lock-aware number
     // instead of a separate, cruder estimate.
     const probability = liveProbability(comboKey, state, needed, actualLock);
-    if (probability <= 0) continue; // no realistic chance from here
+    option.probability = probability;
+    if (probability <= 0) { option.reason = "no chance from here"; continue; }
 
     // A called combo only pays off if it actually lands this turn. Petit
     // doesn't have a clean "N dice away" bar the way the others below do
@@ -796,7 +905,7 @@ export function chooseCallToMake(state, player, strategy) {
     // equivalent probability floor instead — matching the roughly 30%
     // chance a "1 die away" carre/yam/suite call has in its least
     // favorable case (see the binomial floor noted below).
-    if (comboKey === "petit" && appelPointsGained === 0 && probability < 0.3) continue;
+    if (comboKey === "petit" && appelPointsGained === 0 && probability < 0.3) { option.reason = "petit under 30% and the appel tile scores nothing"; continue; }
 
     // A call is a hedge, not a hope — it only makes sense when what's
     // actually being kept already leaves it close, e.g. carre only makes
@@ -827,6 +936,7 @@ export function chooseCallToMake(state, player, strategy) {
       proximityLimit !== undefined &&
       neededUnderLock(comboKey, keptValues) > proximityLimit
     ) {
+      option.reason = "too far from what is being kept";
       continue;
     }
 
@@ -840,6 +950,7 @@ export function chooseCallToMake(state, player, strategy) {
     // Calling only helps when appel beats (or replaces) the best own tile
     // — or scores real points outright, which always beats a plain tile.
     if (ownRarity >= 0 && !appelIsUrgentBlock && appelPointsGained === 0 && appelRarity <= ownRarity) {
+      option.reason = "its own tile is rarer than the appel tiles";
       continue;
     }
 
@@ -848,19 +959,46 @@ export function chooseCallToMake(state, player, strategy) {
     const pointsBonus = appelPointsGained * 200_000;
     const score = (urgencyBonus + noFallbackBonus + pointsBonus + appelRarity * 10) * probability;
 
-    if (!best || score > best.score) best = { callIndex: CALL_INDEX[comboKey], score };
+    option.eligible = !callsChased;
+    option.soft = callsChased;
+    option.reason = callsChased ? "it is the combo being chased and its own tile is free: the bot never calls it, only the lab can teach that (to go for the appel tile)" : "";
+    option.score = score;
   }
 
-  return best ? best.callIndex : null;
+  return { options };
 }
 
+// The call the built-in rule (best score) or the learned call model prefers: a
+// combo key, or null for no call. "none" competes only when a model is set.
+export function pickCall(options, model = null) {
+  const eligible = options.filter((o) => o.eligible || (model && o.soft));
+  if (!eligible.length) return null;
+  let best = null;
+  let bestScore = -Infinity;
+  if (model) { best = NO_CALL; bestScore = dot(model, callFeatures(NO_CALL)); }
+  for (const o of eligible) {
+    const score = model ? dot(model, callFeatures(o)) : o.score;
+    if (!best || score > bestScore) { best = o; bestScore = score; }
+  }
+  return best.combo === "none" ? null : best.combo;
+}
+
+export function chooseCallToMake(state, player, strategy) {
+  const result = callOptions(state, player, strategy);
+  if (!result) return null;
+  const combo = pickCall(result.options, strategy === "speed" ? speedModels.call : null);
+  return combo ? CALL_INDEX[combo] : null;
+}
+
+
 // ---------- Which combo to chase this roll ----------
-function chooseTarget(state, player, strategy) {
+// Every combo worth chasing right now, with what it is worth.
+function targetOptions(state, player, strategy) {
   const opponent = player === 1 ? 2 : 1;
   const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
   const needed = neededDiceEstimate(state.dice.values);
 
-  let best = null;
+  const options = [];
   for (const comboKey of Object.keys(COMBO_CELLS)) {
     if (comboKey === "appel") continue; // not chaseable via locking (needs the call mechanic)
     if (comboKey === "sec") {
@@ -901,12 +1039,25 @@ function chooseTarget(state, player, strategy) {
     // matching die, without needing a hand-tuned "yam is risky" penalty.
     const probability = liveProbability(comboKey, state, needed);
     const attractiveness = bestCellWeight * probability;
+    options.push({ comboKey, attractiveness, need, cellWeight: bestCellWeight, probability, viaAppel: cells.some((rc) => COMBO_CELLS.appel.includes(rc)) });
+  }
+  return options;
+}
 
-    if (!best || attractiveness > best.attractiveness) {
-      best = { comboKey, attractiveness, need };
-    }
+// The option the built-in rule (value x chance) or the learned aim prefers.
+export function pickTarget(options, model = null) {
+  let best = null;
+  let bestScore = -Infinity;
+  for (const o of options) {
+    const score = model ? dot(model, aimFeatures(o)) : o.attractiveness;
+    if (!best || score > bestScore) { best = o; bestScore = score; }
   }
   return best;
+}
+
+function chooseTarget(state, player, strategy) {
+  const options = targetOptions(state, player, strategy);
+  return pickTarget(options, strategy === "speed" ? speedModels.aim : null);
 }
 
 // ---------- Live achievability probability ----------
@@ -1159,7 +1310,7 @@ function nextLockWouldTouchDice(state, target) {
   return lockForTarget(state.dice.values, target.comboKey).some(Boolean);
 }
 
-export function shouldStopRolling(state, player, strategy) {
+function botShouldStop(state, player, strategy) {
   const hasAnyLegalMove = state.possibleMoves.some((row) => row.some((v) => v === 1));
   if (!hasAnyLegalMove) return false; // keep rolling, nothing to place yet
 
@@ -1259,6 +1410,84 @@ export function shouldStopRolling(state, player, strategy) {
   return target.need > state.dice.rollsLeft;
 }
 
+// The signals the stop model weighs, next to what the built-in rules decided.
+export function stopFeatures(state, player, strategy, botStops) {
+  const opponent = player === 1 ? 2 : 1;
+  const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+  const target = chooseTarget(state, player, strategy);
+  const available = bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy);
+  const availableWeight = available ? candidateWeight(available, strategy) : null;
+  const ratio = available && target
+    ? Math.max(-5, Math.min(5, clampLog(availableWeight, 1) - clampLog(target.attractiveness, 1)))
+    : 0;
+  return [
+    botStops ? 1 : -1,
+    1,
+    target ? Math.min(target.need, 5) : 0,
+    state.dice.rollsLeft,
+    target && target.need > state.dice.rollsLeft ? 1 : 0,
+    available ? 1 : 0,
+    ratio,
+    available && available.pointsGained > 0 ? 1 : 0,
+  ];
+}
+
+export function shouldStopRolling(state, player, strategy) {
+  const botStops = botShouldStop(state, player, strategy);
+  const model = strategy === "speed" ? speedModels.stop : null;
+  if (!model) return botStops;
+  // nothing to place yet: stopping isn't possible, whatever was taught
+  if (!state.possibleMoves.some((row) => row.some((v) => v === 1))) return botStops;
+  return dot(model, stopFeatures(state, player, strategy, botStops)) > 0;
+}
+
+// ---- what the bot lab records for each roll ----
+const keep = (x) => Number(Number(x).toPrecision(6));
+
+export function labAim(state, player, strategy) {
+  const options = targetOptions(state, player, strategy);
+  if (!options.length) return null;
+  return {
+    chosen: pickTarget(options, strategy === "speed" ? speedModels.aim : null).comboKey,
+    builtin: pickTarget(options, null).comboKey,
+    options: options.map((o) => ({ combo: o.comboKey, need: o.need, probability: keep(o.probability), cellWeight: keep(o.cellWeight), value: keep(o.attractiveness), viaAppel: o.viaAppel })),
+  };
+}
+
+export function labCall(state, player, strategy) {
+  const result = callOptions(state, player, strategy);
+  if (!result) return null;
+  return {
+    chosen: pickCall(result.options, strategy === "speed" ? speedModels.call : null) ?? "none",
+    builtin: pickCall(result.options, null) ?? "none",
+    options: result.options.map((o) => ({ combo: o.combo, eligible: o.eligible, soft: Boolean(o.soft), reason: o.reason, score: keep(o.score), probability: keep(o.probability) })),
+  };
+}
+
+// The dice kept: what the bot keeps now, and what each combo it could chase
+// would keep (the keep is a function of the combo being chased, so teaching a
+// keep is teaching an aim). Masks are strings of five 0/1, die by die.
+const maskOf = (locked) => locked.map((l) => (l ? "1" : "0")).join("");
+export function labLock(state, player, strategy) {
+  const options = targetOptions(state, player, strategy);
+  return {
+    chosen: maskOf(chooseDiceToLock(state.dice.values, state, player, strategy)),
+    options: options.map((o) => ({ combo: o.comboKey, mask: maskOf(lockForTarget(state.dice.values, o.comboKey)) })),
+  };
+}
+
+export function labStop(state, player, strategy) {
+  if (state.dice.rollsLeft <= 0) return null;
+  const applicable = state.possibleMoves.some((row) => row.some((v) => v === 1));
+  const botStops = botShouldStop(state, player, strategy);
+  return {
+    applicable,
+    builtin: botStops ? "stop" : "roll",
+    chosen: shouldStopRolling(state, player, strategy) ? "stop" : "roll",
+    x: stopFeatures(state, player, strategy, botStops).map(keep),
+  };
+}
+
 function allCandidates(state, player, opponent, piecesLeftAfter) {
   const candidates = [];
   for (let r = 0; r < 5; r++) {
@@ -1290,7 +1519,7 @@ function bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strate
   );
   const pool = preferred.length > 0 ? preferred : usable;
 
-  pool.sort(strategy === "speed" ? compareSpeed : comparePoints);
+  pool.sort(comparatorFor(strategy));
   return pool[0];
 }
 
@@ -1337,14 +1566,44 @@ export function explainPlacement(state, player, strategy) {
   const lowPriority = new Set(usable.filter((c) => isLowPriorityPlacement(state, c, player, opponent)));
   const preferred = usable.filter((c) => !lowPriority.has(c));
   const pool = preferred.length > 0 ? preferred : usable;
-  pool.sort(strategy === "speed" ? compareSpeed : comparePoints);
+  pool.sort(comparatorFor(strategy));
 
   const tagFor = (c) => (lowPriority.has(c) ? "low-priority" : "preferred");
   return {
     chosen: pool[0] ? annotateCandidate(pool[0], preferred.length > 0 ? tagFor(pool[0]) : "low-priority-fallback") : null,
     ranked: pool.map((c) => annotateCandidate(c, tagFor(c))),
     declined: dead.map((c) => annotateCandidate(c, "dead")),
+    // usable cells left out of the running because a better-behaved one was on offer
+    skipped: usable.filter((c) => !pool.includes(c)).map((c) => annotateCandidate(c, "low-priority-skipped")),
   };
+}
+
+// Every legal cell of this throw with all the signals the placement
+// compares, for the bot lab: `tag` is "preferred", "low" or "dead" whatever
+// the pool ended up being, so the lab can redo the choice with other weights.
+export function labCandidates(state, player) {
+  const opponent = player === 1 ? 2 : 1;
+  const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+  return allCandidates(state, player, opponent, piecesLeftAfter).map((c) => {
+    const tag = isDeadPlacement(state, c, player, opponent) ? "dead" : isLowPriorityPlacement(state, c, player, opponent) ? "low" : "preferred";
+    return {
+      rc: `${c.r}${c.c}`, tile: tileNameAt(c.r, c.c), tag,
+      pointsGained: c.pointsGained, deniedPoints: c.deniedPoints, rarity: Math.round(c.rarity * 100) / 100,
+      lineConnection: c.lineConnection, clusterScore: c.clusterScore, blockScore: c.blockScore, longestLineAfter: c.longestLineAfter,
+      wouldWinGame: c.wouldWinGame, wouldLoseGame: c.wouldLoseGame, criticalBlock: c.criticalBlock, urgentBlock: c.urgentBlock,
+    };
+  });
+}
+
+// What the bot would pick among labCandidates() with the given weights (null:
+// the ladder), exactly as bestPlaceableCandidate does with the real ones.
+export function pickSpeedPlacement(candidates, weights = null) {
+  const usable = candidates.filter((c) => c.tag !== "dead");
+  if (!usable.length) return null;
+  const preferred = usable.filter((c) => c.tag === "preferred");
+  const pool = (preferred.length ? preferred : usable).slice();
+  pool.sort(weights ? compareSpeedWeighted(weights) : compareSpeed);
+  return pool[0];
 }
 
 // What chooseTarget is chasing while dice are still in the air — the
