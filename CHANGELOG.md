@@ -12,6 +12,19 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.26.0] - 2026-11-14
+
+### Changed
+- The online bot plays and talks more like a person (server only; `server/humanBot.js`, `botChat.js`, `botSense.js`, `humanize.js`).
+  - Pace: it moves quickly when the dice are close to making a combination and slowly when they are far from one; with two placements about as good as each other it takes its time, and it places quickly right after making a combination. Locking the dice and then rolling is one quick movement.
+  - Dice and call: the dice are tapped left to right, right to left or in any order, and the call is made before, between or after the taps.
+  - It notices the board: a line it closes, a line closed on it, a point the opponent could have blocked and didn't, a big score (2 or more points, or a Yam), its own mistakes.
+  - Chat, by situation: hey at the start (and now and then by mistake); ok when it scores or isn't blocked; heart and hahah when it closes a line; grrr, nooo, mhhh or wow when blocked, when a useful cell is taken or after a slip; wow for a big score; thanks as a thank-you (a point left standing) or as a sorry (after a slip); roll and then the bell when the opponent keeps it waiting too long; wait when it steps away for a moment.
+  - It sometimes taps the wrong reaction and corrects it a moment later, answers to the point, is quieter at first and livelier when it is talked to (it cools off with time). Up to 9 reactions a game, never back to back.
+
+### Changed
+- Vibration has its own switch in Options (ON / OFF, on by default), apart from the sound: with the sound off the phone used to stay silent and still. The section is hidden where the browser can't vibrate (iOS).
+
 ## [2.25.0] - 2026-11-14
 
 ### Changed

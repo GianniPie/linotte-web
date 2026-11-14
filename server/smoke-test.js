@@ -964,5 +964,128 @@ const lobby = new Lobby(io, store);
   console.log("ok: bot lab");
 }
 
+//--------- 19. the bot: what it notices and says ---------
+{
+  const { scoringCells, newPieceCell, touches, placementMargin, nearness, TRIPLES } = await import("./botSense.js");
+  const { pickFor, replyTo: replyId, wrongOne, activity, cooledHeat, HEAT_HALF_LIFE_MS, SITUATIONS } = await import("./botChat.js");
+  const { HumanBot } = await import("./humanBot.js");
+  const { makePersona } = await import("./humanize.js");
+
+  // Reading the board.
+  const empty = () => Array.from({ length: 5 }, () => Array(5).fill(0));
+  const b = empty(); b[0][0] = 1; b[0][1] = 1; b[2][2] = 2; b[3][3] = 2;
+  assert.ok(TRIPLES.length > 40, "every scoring triple");
+  assert.deepEqual([...scoringCells(b, 1).keys()], [2], "one piece from a line: the third cell of the row");
+  assert.deepEqual([...scoringCells(b, 2).keys()].sort((x, y) => x - y), [6, 24], "two on the diagonal: either end makes a triple");
+  const after = b.map((r) => r.slice()); after[0][2] = 2;
+  assert.equal(newPieceCell(b, after, 2), 2, "the cell they filled");
+  assert.equal(scoringCells(after, 1).size, 0, "blocked: no scoring cell left");
+  assert.ok(touches(b, 1, 5, 2) && !touches(b, 1, 24, 1), "touching two of their pieces");
+  assert.equal(placementMargin([{ pointsGained: 1 }, { pointsGained: 0 }]), 1, "a point more: clear");
+  assert.equal(placementMargin([{ pointsGained: 0, longestLineAfter: 2 }, { pointsGained: 0, longestLineAfter: 2 }]), 0, "the same: unsure");
+  assert.equal(placementMargin([{ pointsGained: 0 }]), 1, "one choice: clear");
+  assert.equal(nearness({ need: 1, probability: 0.3 }, { combinationsRealized: [] }), "near");
+  assert.equal(nearness({ need: 3, probability: 0.1 }, { combinationsRealized: [] }), "far");
+  assert.equal(nearness({ need: 3, probability: 0.3 }, { combinationsRealized: [] }), "middle");
+  assert.equal(nearness(null, { combinationsRealized: [0, 0, 0, 0, 1, 0, 0, 0] }), "made", "a Carré is there");
+
+  // The chat.
+  for (const sit of Object.keys(SITUATIONS)) {
+    const ids = SITUATIONS[sit].map(([id]) => id);
+    for (let i = 0; i < 40; i++) assert.ok(ids.includes(pickFor(sit)), `${sit} picks from its own list`);
+  }
+  assert.ok(["😡", "🥺", "🫤", "😮"].includes(pickFor("blockedByOpponent")), "grrr, nooo, mhhh or wow when blocked");
+  assert.equal(pickFor("nudgeRoll"), "🎲"); assert.equal(pickFor("nudgeAwake"), "🔔"); assert.equal(pickFor("away"), "⏳");
+  for (let i = 0; i < 60; i++) assert.notEqual(wrongOne("🤣"), "🤣", "a wrong reaction is a different one");
+  assert.ok(["🎲", "🤣", "🙏🏻"].includes(replyId("🎲")), "answers to the point");
+  assert.ok(activity(0.1, 0) < activity(0.6, 0) && activity(0.3, 0) < activity(0.3, 1), "more talkative with nature and when talked to");
+  assert.ok(Math.abs(cooledHeat(1, HEAT_HALF_LIFE_MS) - 0.5) < 1e-9, "it cools off");
+
+  // A bot on a stub room: what it does with what it sees.
+  const mk = (over = {}, timeScale = 0.0005) => {
+    const log = [];
+    const room = {
+      status: "playing", turnId: 1, state: { table: empty(), currentPlayer: 1, combinationsRealized: [], dice: {}, possibleMoves: [] },
+      otherSeat: (s) => (s === 1 ? 2 : 1), timeLeftMs: () => 30000,
+      emote: (seat, id) => { log.push(id); return { ok: true }; },
+    };
+    const bot = new HumanBot({ timeScale, persona: { ...makePersona(), chatty: 0.6, emojiSlip: 0, patience: 0.5, ...over } });
+    bot.attach(room, 2);
+    return { bot, room, log };
+  };
+  {
+    // Blocked: the opponent put a piece on the cell where the bot would have scored.
+    const { bot, room } = mk();
+    const before = empty(); before[0][0] = 2; before[0][1] = 2;
+    bot.tableBefore = before;
+    room.state.table = before.map((r) => r.slice()); room.state.table[0][2] = 1;
+    const said = []; bot.speak = (sit) => said.push(sit);
+    bot.afterOpponentTurn({ 1: 0, 2: 0 });
+    assert.deepEqual(said, ["blockedByOpponent"], "its line was closed");
+    // Not blocked although it could have been.
+    const { bot: b2, room: r2 } = mk();
+    b2.tableBefore = before;
+    r2.state.table = before.map((r) => r.slice()); r2.state.table[4][4] = 1;
+    const said2 = []; b2.speak = (sit) => said2.push(sit);
+    b2.afterOpponentTurn({ 1: 0, 2: 0 });
+    assert.deepEqual(said2, ["opponentLetItBe"], "they let a point stand");
+    // A big score by the opponent.
+    const { bot: b3, room: r3 } = mk();
+    b3.tableBefore = empty(); r3.state.table = empty(); r3.state.table[1][1] = 1;
+    const said3 = []; b3.speak = (sit) => said3.push(sit);
+    b3.afterOpponentTurn({ 1: 2, 2: 0 });
+    assert.deepEqual(said3, ["opponentBigScore"]);
+    // Its own turn: it closed a line, then scored.
+    const { bot: b4, room: r4 } = mk(); r4.state.currentPlayer = 1;
+    const said4 = []; b4.speak = (sit) => said4.push(sit);
+    b4.turn.blocked = true; b4.afterOwnTurn({ 1: 0, 2: 0 });
+    b4.turn.yam = true; b4.afterOwnTurn({ 1: 0, 2: 0 });
+    b4.afterOwnTurn({ 1: 0, 2: 1 });
+    assert.deepEqual(said4.filter((x) => x !== "random"), ["botBlocked", "botBigScore", "botScored"], "it reacts to what it did");
+  }
+  {
+    // A wrong reaction is corrected a moment later.
+    const { bot, log } = mk({ emojiSlip: 1 });
+    bot.send("❤️");
+    await new Promise((r) => setTimeout(r, 40));
+    assert.equal(log.length, 2, "a wrong one, then the right one");
+    assert.notEqual(log[0], "❤️"); assert.equal(log[1], "❤️");
+    // The bell, the roll and wait are never mixed up.
+    const { bot: nb, log: nl } = mk({ emojiSlip: 1 });
+    nb.send("🔔");
+    assert.deepEqual(nl, ["🔔"]);
+  }
+  {
+    // Kept waiting, it nudges: "roll" when they haven't rolled, then the bell.
+    const { bot, room, log } = mk({ patience: 0.3 });
+    room.state.currentPlayer = 1;
+    const sent = []; const realSay = bot.say.bind(bot); bot.say = (id, o) => { sent.push(id); return realSay(id, o); };
+    const mathRandom = Math.random; Math.random = () => 0.01; // always yes
+    bot.watchOpponent(0);
+    await new Promise((r) => setTimeout(r, 150));
+    Math.random = mathRandom;
+    assert.ok(sent.includes("🎲"), "says roll when waited on");
+    assert.ok(sent.includes("🔔"), "then rings the bell");
+    // An action of theirs starts the wait over.
+    const { bot: b2, room: r2 } = mk({ patience: 0.3 }, 0.01); r2.state.currentPlayer = 1;
+    const sent2 = []; b2.say = (id) => { sent2.push(id); return true; };
+    Math.random = () => 0.01;
+    b2.watchOpponent(0);
+    for (let i = 0; i < 20; i++) { b2.noticeOpponent({ type: "LOCK_DICE" }); await new Promise((r) => setTimeout(r, 4)); }
+    Math.random = mathRandom;
+    assert.ok(!sent2.includes("🎲"), "no nudge while they are playing");
+    b2.stop();
+  }
+  {
+    // Talked to, it talks more; it cools off.
+    const { bot } = mk();
+    const calm = bot.activityNow();
+    for (let i = 0; i < 4; i++) bot.warmUp();
+    assert.ok(bot.activityNow() > calm, "more active when stimulated");
+  }
+  // A whole game through the real room still ends with bots that move, react and don't throw.
+  console.log("ok: the bot notices and says");
+}
+
 console.log("all smoke tests passed");
 process.exit(0);

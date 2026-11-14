@@ -358,6 +358,7 @@ export default {
     "Game": "Partida",
     "HOME": "INICIO",
     "Sound": "Sonido",
+    "Vibration": "Vibración",
     "No sound": "Sin sonido",
     "Table style": "Estilo de mesa",
     "Perfect": "Perfecto",

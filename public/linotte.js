@@ -1170,6 +1170,21 @@ function moveIndicator(page) {
 }
 
 
+// Vibration is its own switch (it used to follow the sound, which left a phone
+// with the sound off silent AND still). Not offered where the browser can't vibrate.
+let isVibrationOn = toBoolean(getCookie("vibrationOn", "true"));
+document.getElementById(isVibrationOn ? "vibration-on" : "vibration-off").classList.add("selected");
+if (!("vibrate" in navigator)) document.getElementById("vibration-section").hidden = true;
+for (const id of ["vibration-on", "vibration-off"]) {
+    document.getElementById(id).addEventListener("click", () => {
+        isVibrationOn = id === "vibration-on";
+        document.getElementById("vibration-on").classList.toggle("selected", isVibrationOn);
+        document.getElementById("vibration-off").classList.toggle("selected", !isVibrationOn);
+        setCookie("vibrationOn", isVibrationOn);
+        if (isVibrationOn) navigator.vibrate?.(40); // so it can be felt at once
+    });
+}
+
 const volumeOptions = document.querySelectorAll(".sound-btn");
 volumeOptions.forEach(volumeOption => {
     volumeOption.addEventListener("click", () => {
@@ -4678,10 +4693,10 @@ function playLevelDownTone(thud) {
 // A short rising fanfare, made on the spot like the bell's trill.
 // Two soft notes, for points earned (the fanfare is for a level), higher for
 // each badge that joins the stack.
-// A buzz with the sounds of a celebration: only where there is a vibrator
-// (Android browsers, not iOS) and only when the sound is on.
+// A buzz with the moments of the game: only where there is a vibrator
+// (Android browsers, not iOS) and only when Vibration is on in the options.
 function buzz(pattern) {
-    if (!isVolumeOn) return;
+    if (!isVibrationOn) return;
     try { navigator.vibrate?.(pattern); } catch { /* no vibration */ }
 }
 

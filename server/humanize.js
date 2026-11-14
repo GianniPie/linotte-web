@@ -25,6 +25,8 @@ export function makePersona() {
     skill: uniform(0.72, 0.95), // 1 = never slips
     impulsive: uniform(0, 1), // how often it changes its mind about a placement
     chatty: uniform(0.1, 0.6),
+    patience: uniform(0.45, 1.1), // how long it waits on the opponent before nudging (>1 = more patient)
+    emojiSlip: uniform(0.02, 0.1), // how often it taps the wrong reaction first
     strategy: Math.random() < 0.6 ? "points" : "speed",
   };
 }
@@ -43,8 +45,11 @@ const MEDIAN = {
   rematch: 2200, // asked for a rematch: a moment to decide
 };
 
-export function think(kind, persona, { timeLeftMs = 60000, extra = 0 } = {}) {
-  let ms = logNormal(MEDIAN[kind] ?? 800) * persona.speed;
+// `tempo` scales the pause for what the bot is looking at: under 1 when it is
+// close to making a combination (it moves quickly), over 1 when it is unsure
+// (two placements about as good as each other: it takes its time).
+export function think(kind, persona, { timeLeftMs = 60000, extra = 0, tempo = 1 } = {}) {
+  let ms = logNormal(MEDIAN[kind] ?? 800) * persona.speed * tempo;
   if (Math.random() < 0.05) ms *= uniform(2, 3.5); // distracted for a moment
   if (timeLeftMs < 15000) ms *= 0.5; // hurries when the clock is low
   ms = Math.min(ms, Math.max(400, timeLeftMs * 0.18)); // never burns the whole turn on one pause

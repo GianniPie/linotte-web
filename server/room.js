@@ -300,6 +300,8 @@ export class Room {
   relay(seat, action) {
     const seq = ++this.seq;
     this.broadcast("action", { seq, seat, action });
+    // A bot watches what the other player does (their pace, a Yam...), like a person would.
+    for (const b of this.botSeats()) if (b !== seat) this.seats[b].bot.onEvent("action", { seat, action });
     this.onChange(this);
     return { ok: true, seq };
   }
