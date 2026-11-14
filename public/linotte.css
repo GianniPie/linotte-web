@@ -244,9 +244,6 @@ html {
   font-size: 1em;
 }
 
-.textPlayer.t1.long {
-  font-size: 1.2em;
-}
 
 .pawn {
   display: block;
@@ -1160,8 +1157,19 @@ body.table-flipped .tile::before {
   grid-column: 1 / -1;
   min-height: 3em;
   max-height: 6em;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: .1em;
+}
+
+/* The opponent's roll, like the ROLL button's own count: what they have left. */
+.turn-label-roll {
+  font-family: "Changa One", sans-serif;
+  font-size: 1.05em;
+  letter-spacing: .04em;
+  color: #3d240c;
+  opacity: .75;
 }
 
 /* font-size lives on the child, not .turn-label itself -- same split as
@@ -2775,9 +2783,13 @@ body.chat-on .div-buttons > .button.done {
   grid-row: 1;
 }
 
+/* Centered on the screen, not on the two columns: the same room on both sides
+   keeps it clear of the chat button whatever the name. */
 body.chat-on .div-buttons > .turn-label {
-  grid-column: 1 / 3;
+  grid-column: 1 / -1;
   grid-row: 1;
+  padding: 0 54px;
+  box-sizing: border-box;
 }
 
 body.chat-on .chat-slot {

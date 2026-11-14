@@ -10,7 +10,8 @@ export const CHAT = [
     { id: "👋", file: "hey", label: "hey!" },
     { id: "👍", file: "ok", label: "ok!" },
     { id: "❤️", file: "heart", label: "mwah" },
-    { id: "🤣", file: "hahah", label: "hahah" },
+    // scale: its drawing has the tears outside the face, so the face came out smaller than the others'
+    { id: "🤣", file: "hahah", label: "hahah", scale: 1.1 },
     { id: "😮", file: "wow", label: "wow" },
     { id: "🫤", file: "mhhh", label: "mhhh" },
     { id: "🥺", file: "pls", label: "nooo" },
@@ -22,6 +23,7 @@ export const CHAT = [
 ];
 
 export const CHAT_IDS = CHAT.map((c) => c.id);
+export const chatScale = (id) => CHAT.find((c) => c.id === id)?.scale ?? 1;
 export const chatImage = (id) => `resources/images/chat/${CHAT.find((c) => c.id === id)?.file ?? "wow"}.svg`;
 
 // The bell is a nudge, like MSN's: the board shakes and rings for both

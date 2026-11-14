@@ -12,6 +12,20 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.27.0] - 2026-11-14
+
+### Changed
+- What a game was worth now has a screen of its own, after the winner card. The card shows only its result and its confetti. Tapping REMATCH or NEW GAME (or leaving the game any other way) opens the points screen: the badges one under the other (the game's own points, the day's first-game bonus), each with its chime and cascade, and under them the level bar filling (it used to sit on the winner card). If the points bring a new level, its screen with the rewards comes right after, and only then the rematch, the new game or the home. In order: the winner card, the points screen, the level screen. Nothing is shown when the game earned nothing.
+
+### Fixed
+- The 🤣 reaction is drawn as big as the other faces (its drawing has the tears outside the face, so the face came out about 10% smaller), in the fan and when tossed.
+- The chat fan on a screen on its side (landscape): the twelve reactions go in columns, each label right by its own icon, instead of the arc whose labels fell on the neighbouring icons (and half of it ran off the top of the screen).
+- On the opponent's turn the label that replaces ROLL and DONE ("{name} turn") is centered on the screen (in online games it was centered on two columns, off to the left of the chat button) and shows which roll they are on, as the count they have left, like ROLL does.
+- The players' names in the info boxes take the biggest size that fits (down to half), instead of two fixed sizes: a short name stays big, a wide or longer one shrinks to stay whole; before, a name of up to 5 letters could stay at the big size and end in "...".
+
+### Changed
+- The online bot talks a bit less (at most 6 reactions a game, at least 4 seconds apart) and rings the bell only for a player who has already let a turn run out, never for one who is taking their turns. The "roll" nudge stays, a little rarer. It doesn't start a reaction of its own before the other player has put a piece on the board (only the hello at the start), nor after a turn in which they placed nothing.
+
 ## [2.26.0] - 2026-11-14
 
 ### Changed

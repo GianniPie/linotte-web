@@ -170,6 +170,7 @@ export default {
     "Daily bonus": "Bonus giornaliero",
     "Ad reward": "Premio del video",
     "Victory": "Vittoria",
+    "Points earned": "Punti guadagnati",
     "Game played": "Partita giocata",
     "Bronze badge": "Badge di bronzo",
     "Silver badge": "Badge d'argento",

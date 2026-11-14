@@ -182,6 +182,7 @@ export default {
     "Daily bonus": "每日奖励",
     "Ad reward": "视频奖励",
     "Victory": "胜利",
+    "Points earned": "获得积分",
     "Game played": "完成对局",
     "Bronze badge": "铜徽章",
     "Silver badge": "银徽章",

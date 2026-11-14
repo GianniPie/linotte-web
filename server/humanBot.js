@@ -32,8 +32,8 @@ import { randomName } from "./names.js";
 import { scoringCells, newPieceCell, touches, placementMargin, nearness, indexOfRc } from "./botSense.js";
 import { pickFor, pickWeighted, replyTo, wrongOne, cooledHeat, activity, HEAT_PER_EMOTE } from "./botChat.js";
 
-const MAX_EMOTES_PER_GAME = 9;
-const MIN_GAP_BETWEEN_EMOTES_MS = 2500; // a person doesn't fire off reactions back to back
+const MAX_EMOTES_PER_GAME = 6;
+const MIN_GAP_BETWEEN_EMOTES_MS = 4000; // a person doesn't fire off reactions back to back
 
 // Like people, some bots show a country flag (most don't): picked from the
 // game's likely players (the app's languages' countries come up most).
@@ -155,8 +155,17 @@ export class HumanBot {
 
   chance(p) { return Math.random() < p * this.activityNow(); }
 
-  // Maybe say something fitting `situation`, after a pause.
+  // Has the other player put a piece on the board yet? Until they have, nothing has
+  // happened that is worth a reaction (only the hello at the start).
+  opponentHasPlaced() {
+    const opp = this.room.otherSeat(this.seat);
+    return this.room.state.table.some((row) => row.includes(opp));
+  }
+
+  // Maybe say something fitting `situation`, after a pause. Unprompted, so only
+  // once the other player has played a piece.
   speak(situation, p, [lo, hi] = [1200, 4000], extra = 0) {
+    if (situation !== "start" && !this.opponentHasPlaced()) return;
     if (!this.chance(p)) return;
     this.later(rand.uniform(lo, hi) + extra, () => this.send(pickFor(situation)));
   }
@@ -204,12 +213,18 @@ export class HumanBot {
     const idle = (fn) => () => { if (gen === this.watchGen && this.room.state.currentPlayer !== this.seat) fn(); };
     if (!this.oppFlags.rolled) {
       this.later(rand.uniform(9000, 15000) * patience + extraMs, idle(() => {
-        if (Math.random() < 0.6) this.send("🎲");
-        this.later(rand.uniform(6000, 10000) * patience, idle(() => { if (Math.random() < 0.55) this.send("🔔"); }));
+        if (Math.random() < 0.5) this.send("🎲");
+        this.later(rand.uniform(6000, 10000) * patience, idle(() => { if (this.mayRing() && Math.random() < 0.55) this.send("🔔"); }));
       }));
     } else {
-      this.later(rand.uniform(14000, 20000) * patience + extraMs, idle(() => { if (Math.random() < 0.4) this.send("🔔"); }));
+      this.later(rand.uniform(14000, 20000) * patience + extraMs, idle(() => { if (this.mayRing() && Math.random() < 0.4) this.send("🔔"); }));
     }
+  }
+
+  // The bell is for someone who has already let a turn run out: never for a
+  // player who has been taking their turns.
+  mayRing() {
+    return (this.room.idleTurns?.[this.room.otherSeat(this.seat)] || 0) >= 1;
   }
 
   // The opponent's turn is over: what did they do to our board?
@@ -227,6 +242,7 @@ export class HumanBot {
     const stillOpen = !blocked && [...mine.keys()].some((i) => scoringCells(after, seat).has(i));
     const big = (gained?.[opp] || 0) >= 2 || this.oppFlags.yam;
     this.oppFlags = { rolled: false, yam: false };
+    if (cell < 0) return; // they placed nothing: nothing to react to
     if (blocked) this.speak("blockedByOpponent", 0.75);
     else if (big) this.speak("opponentBigScore", 0.65);
     else if (stillOpen) this.speak("opponentLetItBe", 0.5);

@@ -75,5 +75,5 @@ export function cooledHeat(heat, sinceMs) {
   return heat * Math.pow(0.5, Math.max(0, sinceMs) / HEAT_HALF_LIFE_MS);
 }
 export function activity(chatty, heat) {
-  return Math.min(1.4, Math.max(0.1, 0.25 + chatty * 1.2 + heat * 0.6));
+  return Math.min(1.2, Math.max(0.1, 0.12 + chatty * 0.9 + heat * 0.5));
 }

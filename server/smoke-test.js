@@ -1044,6 +1044,26 @@ const lobby = new Lobby(io, store);
     assert.deepEqual(said4.filter((x) => x !== "random"), ["botBlocked", "botBigScore", "botScored"], "it reacts to what it did");
   }
   {
+    // Nothing to react to until the opponent has placed something.
+    const { bot, room, log } = mk({ chatty: 0.6 }); // the board is empty
+    const mathRandom = Math.random; Math.random = () => 0.01;
+    bot.speak("botScored", 1);
+    bot.speak("random", 1);
+    bot.tableBefore = empty();
+    bot.afterOpponentTurn({ 1: 0, 2: 0 }); // they placed nothing this turn
+    await new Promise((r) => setTimeout(r, 60));
+    assert.deepEqual(log, [], "no reactions on its own before they have placed a piece");
+    bot.speak("start", 1); // the hello at the start is still fine
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(log.length, 1, "the hello at the start");
+    room.state.table[0][0] = 1; // they placed a piece
+    bot.lastSayAt = 0;
+    bot.speak("botScored", 1);
+    await new Promise((r) => setTimeout(r, 60));
+    Math.random = mathRandom;
+    assert.equal(log.length, 2, "now it can react");
+  }
+  {
     // A wrong reaction is corrected a moment later.
     const { bot, log } = mk({ emojiSlip: 1 });
     bot.send("❤️");
@@ -1059,13 +1079,22 @@ const lobby = new Lobby(io, store);
     // Kept waiting, it nudges: "roll" when they haven't rolled, then the bell.
     const { bot, room, log } = mk({ patience: 0.3 });
     room.state.currentPlayer = 1;
+    room.idleTurns = { 1: 1 }; // they have let a turn run out: now the bell is allowed
     const sent = []; const realSay = bot.say.bind(bot); bot.say = (id, o) => { sent.push(id); return realSay(id, o); };
     const mathRandom = Math.random; Math.random = () => 0.01; // always yes
     bot.watchOpponent(0);
     await new Promise((r) => setTimeout(r, 150));
     Math.random = mathRandom;
     assert.ok(sent.includes("🎲"), "says roll when waited on");
-    assert.ok(sent.includes("🔔"), "then rings the bell");
+    assert.ok(sent.includes("🔔"), "then rings the bell, but only for one who has missed a turn");
+    // A player who has been taking their turns is never rung.
+    const { bot: nb2, room: nr2 } = mk({ patience: 0.3 }); nr2.state.currentPlayer = 1; nr2.idleTurns = {};
+    const sentNb = []; nb2.say = (id) => { sentNb.push(id); return true; };
+    Math.random = () => 0.01;
+    nb2.watchOpponent(0);
+    await new Promise((r) => setTimeout(r, 150));
+    Math.random = mathRandom;
+    assert.ok(sentNb.includes("🎲") && !sentNb.includes("🔔"), "no bell without a missed turn");
     // An action of theirs starts the wait over.
     const { bot: b2, room: r2 } = mk({ patience: 0.3 }, 0.01); r2.state.currentPlayer = 1;
     const sent2 = []; b2.say = (id) => { sent2.push(id); return true; };

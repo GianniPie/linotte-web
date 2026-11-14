@@ -659,6 +659,7 @@
                 <div class="chat-slot" id="chat-slot"></div>
                 <div id="turn-label" class="turn-label" style="display:none">
                     <span class="turn-label-text"></span>
+                    <span class="turn-label-roll"></span>
                 </div>
                 <div id="endGameDoneBtn" class="button end-game-done" style="display:none">
                     <div class="text-button" data-i18n>DONE</div>
@@ -1123,20 +1124,34 @@
                     </div>
                     <div class="winner-text" id="winner-text"></div>
                     <div class="winner-points" id="winner-points"></div>
-                    <!-- points earned by this game and the way to the next level (showXpGain in linotte.js) -->
-                    <div class="winner-xp" id="winner-xp" hidden>
-                        <div class="wx-row">
-                            <span class="wx-gain" id="wx-gain"></span>
-                            <span class="wx-level lv-pill" id="wx-level"></span>
-                            <span class="wx-pts" id="wx-pts"></span>
-                        </div>
-                        <div class="wx-bar"><div id="wx-fill"></div></div>
-                    </div>
                     <div class="winner-buttons">
                         <div class="winner-button rematch" id="winner-rematch"><span id="winner-rematch-text" data-i18n>REMATCH</span></div>
                         <div class="winner-button" id="winner-button" data-i18n>NEW GAME</div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- The step after the winner card, on REMATCH or NEW GAME: the points the game was
+         worth, one badge each, and the way to the next level (showPointsFlow in linotte.js).
+         A level reached comes on its own screen after this one. The dim is apart from the
+         content so the confetti (95) can fall between them. -->
+    <div id="points-dim" class="points-dim" hidden></div>
+    <div id="points-screen" class="points-screen" hidden role="dialog" aria-modal="true" aria-labelledby="ps-title">
+        <div class="ps-card">
+            <h2 class="ps-title" id="ps-title" data-i18n>Points earned</h2>
+            <div class="ps-badges" id="ps-badges"></div>
+            <div class="ps-bar-block" id="ps-bar-block">
+                <div class="ps-row">
+                    <span class="ps-gain" id="ps-gain"></span>
+                    <span class="ps-level lv-pill" id="ps-level"></span>
+                    <span class="ps-pts" id="ps-pts"></span>
+                </div>
+                <div class="ps-bar"><div id="ps-fill"></div></div>
+            </div>
+            <div class="lu-buttons ps-buttons">
+                <button class="lu-btn lu-ok" id="ps-continue" type="button" data-i18n>CONTINUE</button>
             </div>
         </div>
     </div>

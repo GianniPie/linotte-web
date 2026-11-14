@@ -184,7 +184,7 @@ import { labOn, labSend, labListen } from "./botlab-client.js";
 import GameController from './shared/gameController.js';
 import { playFairyTrail } from "./shared/fairyTrail.js";
 import { initCombinationDemos } from "./demo.js";
-import { CHAT, chatImage, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME } from "./shared/chat.js";
+import { CHAT, chatImage, chatScale, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME } from "./shared/chat.js";
 import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
 import { nameProblem, cleanPlayerName, COUNTRIES, flagOf } from "./shared/playerNames.js";
 import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
@@ -317,6 +317,7 @@ function refreshIfStale() {
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshIfStale(); });
 
 function showHomeScreen() {
+    startPointsFlowIfPending(); // left another way: the points screens come over the home
     gameXpBase = null; // the winner card is gone
     refreshIfStale();
     showBackground(ownBackground()); // an online game's table was someone else's
@@ -453,11 +454,26 @@ function renderPlayerBox(player) {
         box.dataset.badge = level === null ? "" : levelLabel(level, pro);
         box.dataset.tier = level === null ? "" : badgeTier(level);
     }
-    // Online names ("Crane36") are longer than YOU/BOT/P1: a smaller size
-    // keeps them whole instead of ending in "...".
-    textPlayerP1.classList.toggle("long", gameState.players[1].name.length > 5);
-    textPlayerP2.classList.toggle("long", gameState.players[2].name.length > 5);
+    fitPlayerNames();
 }
+
+// A name takes the biggest size that fits its box (down to half): a short one
+// stays big, a longer one ("Crane36", or a wide one like "WWWWW") shrinks to
+// stay whole instead of ending in "...". Re-fitted when the box changes size.
+function fitPlayerNames() {
+    for (const el of [textPlayerP1, textPlayerP2]) {
+        const key = `${el.textContent}|${el.parentElement.clientWidth}|${innerWidth}x${innerHeight}`;
+        if (el.dataset.fit === key) continue;
+        el.style.fontSize = "";
+        if (!el.parentElement.clientWidth) continue; // not laid out yet (the home is showing): fitted on the next tick
+        let size = parseFloat(getComputedStyle(el).fontSize);
+        const min = size * 0.5;
+        while (el.scrollWidth > el.clientWidth && size > min) { size -= 1; el.style.fontSize = `${size}px`; }
+        el.dataset.fit = key;
+    }
+}
+setInterval(fitPlayerNames, 500);
+window.addEventListener("resize", () => requestAnimationFrame(fitPlayerNames));
 
 // The same face for the player card and the account sheet: the level as the
 // badge worn in the game, Pro / Free / Guest in small under it, and the
@@ -1318,6 +1334,7 @@ botStrategyButtons.forEach(btn => {
 });
 
 function newGameVsBot(strategy, startingPlayer = 1) {
+    startPointsFlowIfPending();
     showBackground(ownBackground()); // after an online game at someone else's table
     leaveOnlineGameIfAny();
     clearSavedGame(); // a new game replaces any saved one
@@ -1358,6 +1375,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
 // P1/P2 -- see isMyTurn()'s "offline" branch, which never dims/disables
 // either side's controls since there's only one local player either way.
 function newGameOffline(startingPlayer = 1) {
+    startPointsFlowIfPending();
     showBackground(ownBackground()); // after an online game at someone else's table
     leaveOnlineGameIfAny();
     clearSavedGame(); // a new game replaces any saved one
@@ -1628,6 +1646,7 @@ function showRematchState(state) {
 document.getElementById("winner-rematch").addEventListener("click", async (e) => {
     e.stopPropagation();
     if (!(await endOfGameAd())) return;
+    await showPointsFlow(); // the points screen, then the level screen, then the rematch
     if (controller.mode === "bot") return newGameVsBot(botStrategy);
     if (controller.mode === "offline") return newGameOffline();
     showRematchState("waiting");
@@ -1639,6 +1658,7 @@ document.getElementById("winner-rematch").addEventListener("click", async (e) =>
 document.getElementById("winner-button").addEventListener("click", async (e) => {
     e.stopPropagation();
     if (!(await endOfGameAd())) return;
+    await showPointsFlow(); // the points screen, then the level screen, then the home
     leaveToHome();
 });
 
@@ -1707,6 +1727,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
     if (recordedGame === gameState) return;
     recordedGame = gameState;
     adOwed = !videoShown; // the video at the next step out (see endOfGameAd), unless the points video was it
+    if (earn) beginPointsFlow(); // what the game is worth is gathered for the points screen (showPointsFlow)
     showRematchState(lastOverReason === "normal" || controller.mode !== "online" ? "ready" : "left");
     const overReason = lastOverReason;
     lastOverReason = "normal";
@@ -1729,8 +1750,8 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
         noXp: !earn, // the points video was closed early
     });
     // What the game was worth: the points earned and the way to the next
-    // level, on the winner card, then the celebration if a level was reached.
-    recorded.then(async (r) => {
+    // level, gathered for the points screen, then the level screen if a level was reached.
+    const compute = async (r) => {
         if (!earn) { heldBonus = null; return; } // no points, no celebration
         if (currentUser()) {
             // The home's badge and the level it keeps are the server's word, asked now: right by the
@@ -1743,23 +1764,22 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
             gameXpLabel = gameBadgeLabel(winner === me);
             // What an online game pays is set by the rules; the bot's is told by the points.
             gameXpPays = mode === "bot" ? Infinity : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
-            await sleep(afterWinMs(winner)); // the points come after the win's own confetti
             await showGameXp();
-            if (heldBonus) { showPointsGain(heldBonus.points, t("Daily bonus")); heldBonus = null; } // told while the video was up
+            if (heldBonus) { queuePointsGain(heldBonus.points, t("Daily bonus")); heldBonus = null; } // told while the video was up
             return;
         }
-        showHomeBadge(); // the home's badge is right at once; the celebration waits for the card's confetti
-        await sleep(afterWinMs(winner)); // the points come after the win's own confetti
+        showHomeBadge(); // the home's badge is right at once
         const after = guestXp();
         // One badge for what the game paid and one for the day's bonus.
         const earned = after - xpBefore - (r?.daily ? DAILY_BONUS_POINTS : 0);
-        if (earned > 0) showPointsGain(earned, gameBadgeLabel(winner === me));
-        if (r?.daily) showPointsGain(DAILY_BONUS_POINTS, t("Daily bonus"));
+        if (earned > 0) queuePointsGain(earned, gameBadgeLabel(winner === me));
+        if (r?.daily) queuePointsGain(DAILY_BONUS_POINTS, t("Daily bonus"));
         if (after === xpBefore) return;
         xpStrip = { base: xpBefore, after };
-        showXpGain(xpBefore, after);
-        setTimeout(() => celebrateLevel(xpBefore, after), 1700);
-    });
+        noteXpGain(xpBefore, after);
+        celebrateLevel(xpBefore, after); // held with the points screen
+    };
+    recorded.then((r) => compute(r).finally(() => pointsFlow.resolveReady?.()));
 }
 
 function determineWinner() {
@@ -1811,15 +1831,10 @@ async function showWinnerPopup(winner) {
 // A finished game whose card isn't up yet: what the server says about its
 // points waits for the card (see noteGameResult).
 const pointsHeld = () => isGameOver && recordedGame !== gameState;
-// The winner card throws its own confetti for 3 s (half a second for a tie):
-// the badges of the points wait for it to settle instead of piling on it.
-const afterWinMs = (winner) => (winner ? 3300 : 1200);
-let cardSettledAt = 0; // when the card's own confetti is done (performance.now)
 let heldBonus = null;
 
 function renderWinnerPopup(winner, { earn, videoShown }) {
     buzz([120, 70, 220]); // the popup lands
-    cardSettledAt = performance.now() + afterWinMs(winner);
     resetXpGain();
     noteGameResult(winner, { earn, videoShown });
     const pointsEl = document.getElementById("winner-points");
@@ -3155,8 +3170,20 @@ function divsOpacity(currentPlayer) {
         doneBtn.style.display = "none";
         turnLabelEl.style.display = "flex";
         turnLabelTextEl.textContent = t("{name} turn", { name: gameState.players[currentPlayer].name });
+        refreshTurnRoll();
     }
 }
+
+// Under the opponent's name: which roll they are on, as the count they have
+// left (the same number ROLL shows for the player's own turn).
+const turnLabelRollEl = document.querySelector("#turn-label .turn-label-roll");
+function refreshTurnRoll() {
+    if (turnLabelEl.style.display === "none") return;
+    const left = gameState.dice.rollsLeft;
+    const text = Number.isInteger(left) ? t("ROLL {n}", { n: left }) : "";
+    if (turnLabelRollEl.textContent !== text) turnLabelRollEl.textContent = text;
+}
+setInterval(refreshTurnRoll, 200);
 
 
 function renderBoardFromState(table) {
@@ -3215,6 +3242,7 @@ CHAT.forEach((c, i) => {
     const img = document.createElement("img");
     img.src = chatImage(c.id);
     img.alt = "";
+    if (chatScale(c.id) !== 1) img.style.scale = chatScale(c.id);
     const label = document.createElement("span");
     label.className = "chat-fan-label";
     label.textContent = t(c.label);
@@ -3270,6 +3298,10 @@ function layoutChatFan() {
     const tilt = Math.acos(Math.min(1, Math.max(0.2, roomY / (n * step))));
     const curve = 0.75 * (1 - Math.sin(tilt)); // a tilted axis already spreads it out
     chatFan.style.setProperty("--item-size", `${item}px`);
+    // A short, wide screen (a phone on its side): the arc has no room, and its
+    // labels land on the neighbouring icons. Columns instead, each label right
+    // by its own icon with room to itself.
+    if (vh < 500 && vw > vh) { layoutChatFanColumns({ item, step, down, roomY, margin }); return; }
     const spots = CHAT.map((_, i) => {
         const k = i + 1;
         const along = k * step;
@@ -3299,6 +3331,29 @@ function layoutChatFan() {
         el.style.setProperty("--dx", `${spots[i].dx + shift}px`);
         el.style.setProperty("--dy", `${spots[i].dy}px`);
     });
+}
+
+// The fan in columns for a screen on its side: as many rows as fit above (or
+// below) the button, columns going toward the middle of the screen, every label
+// on the right of its icon and no wider than its column, so it can't be taken
+// for the next icon's.
+function layoutChatFanColumns({ item, step, down, roomY, margin }) {
+    const vw = innerWidth;
+    const { x: ax, size } = chatAnchor;
+    const els = [...chatFanItems.children];
+    const widest = Math.max(...els.map((el) => el.querySelector(".chat-fan-label").offsetWidth));
+    const dirX = ax > vw / 2 ? -1 : 1;
+    const rows = Math.max(2, Math.min(els.length, Math.floor((roomY + size / 2) / step)));
+    const colW = item + 8 + widest + 12;
+    const gap = size / 2 + item / 2 + 6; // the first column clear of the button
+    els.forEach((el, i) => {
+        const col = Math.floor(i / rows), row = i % rows;
+        // The first column's labels end at the button's edge when it opens toward the left.
+        const dx = dirX * (gap + col * colW + (dirX < 0 ? widest + 8 : 0));
+        el.style.setProperty("--dx", `${dx}px`);
+        el.style.setProperty("--dy", `${(down ? 1 : -1) * (row + 1) * step}px`);
+    });
+    chatFan.dataset.side = "right";
 }
 
 // The bell is limited like on the server (NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME).
@@ -3422,7 +3477,7 @@ function quadBezierPoint(p0, p1, p2, t) {
 function throwChatEmoji(emoji, originRect) {
     const el = document.createElement("div");
     el.className = "chat-toss-emoji";
-    el.innerHTML = `<img src="${chatImage(emoji)}" alt="">`;
+    el.innerHTML = `<img src="${chatImage(emoji)}" alt="" ${chatScale(emoji) !== 1 ? `style="scale:${chatScale(emoji)}"` : ""}>`;
 
     const startX = originRect.left + originRect.width / 2;
     const startY = originRect.top + originRect.height / 2;
@@ -3622,15 +3677,14 @@ const onlineClient = new OnlineClient({
     onBonus: ({ kind, points }) => {
         if (kind !== "daily") return;
         if (pointsHeld()) { heldBonus = { points }; return; } // after the video, with the game's points
-        const wait = Math.max(0, cardSettledAt - performance.now()); // after the card's confetti
-        setTimeout(() => showPointsGain(points, t("Daily bonus")), wait);
+        queuePointsGain(points, t("Daily bonus")); // held for the points screen while the winner card is up
         setTimeout(async () => {
             const before = lastKnownXp();
             await refreshPro({ fresh: true, celebrate: false });
             const after = lastKnownXp();
-            if (xpStrip) { xpStrip.after = after; showXpGain(xpStrip.base, after); }
+            if (xpStrip) { xpStrip.after = after; noteXpGain(xpStrip.base, after); }
             if (before !== null && after !== null) celebrateLevel(before, after);
-        }, wait + 900);
+        }, 900);
     },
     onGameOver: onRemoteGameOver,
     onPro: (pro) => setPro(pro),
@@ -4315,6 +4369,7 @@ function celebrateLevel(beforeXp, afterXp) {
     const from = levelOf(beforeXp), to = levelOf(afterXp);
     if (to === from) return;
     applyLevelLocks(); // so the new looks can be put on at once (or locked again)
+    if (flowHolding()) { pointsFlow.levels.push([beforeXp, afterXp]); return; } // its own screen, after the points screen
     // After the badges of the points that got it there have had their moment.
     afterPoints(() => (to < from ? showLevelDown(from, to, afterXp) : showLevelUp(from, to)));
 }
@@ -4329,6 +4384,88 @@ const POINTS_GAP_MS = 700; // between one badge and the next one arriving togeth
 const POINTS_LIFE_MS = 2900; // how long the stack stays after the last badge
 const pointsStack = { nextAt: 0, queued: 0, timer: 0 };
 
+//--------- the points screen: the step after the winner card ---------
+// What a game was worth doesn't come over the winner card. It is gathered
+// here (the badges, where the level bar started and ended, any level
+// reached), and shown when the player goes on (REMATCH, NEW GAME, or leaving
+// any other way) as a screen of its own: the badges one under the other and
+// the way to the next level. Then, if a level was reached, its own screen with
+// the rewards, and only then the action the player asked for. So, in order:
+// the winner card, the points screen, the level screen.
+const pointsFlow = { on: false, shown: false, promise: null, ready: null, resolveReady: null, base: null, after: null, badges: [], levels: [] };
+function beginPointsFlow() {
+    Object.assign(pointsFlow, { on: true, shown: false, promise: null, base: null, after: null, badges: [], levels: [] });
+    pointsFlow.ready = new Promise((resolve) => { pointsFlow.resolveReady = resolve; });
+}
+const flowHolding = () => pointsFlow.on && !pointsFlow.shown;
+function queuePointsGain(points, label) {
+    if (flowHolding()) pointsFlow.badges.push([points, label]);
+    else showPointsGain(points, label);
+}
+function noteXpGain(before, after) {
+    if (pointsFlow.base === null) pointsFlow.base = before;
+    pointsFlow.after = after;
+}
+// Leaving the winner card some other way (a menu, the home): the same screens, over the new one.
+function startPointsFlowIfPending() { if (flowHolding()) showPointsFlow(); }
+
+async function showPointsFlow() {
+    const f = pointsFlow;
+    if (f.promise) return f.promise;
+    if (!f.on) return;
+    f.promise = (async () => {
+        await Promise.race([f.ready, sleep(3500)]); // the game's points may still be on their way
+        f.shown = true;
+        if (f.badges.length) await openPointsScreen(f);
+        for (const [before, after] of f.levels.splice(0)) celebrateLevel(before, after);
+        await sleep(350);
+        await levelScreensDone();
+        f.on = false;
+    })();
+    return f.promise;
+}
+
+// Waits for the level screens (up or down) to be gone.
+async function levelScreensDone() {
+    for (let i = 0; i < 480; i++) {
+        if (!luOpen && !ldOpen && luQueue.length === 0) return;
+        await sleep(250);
+    }
+}
+
+function openPointsScreen(f) {
+    return new Promise((resolve) => {
+        const dim = byId("points-dim"), screen = byId("points-screen"), box = byId("ps-badges");
+        const timers = [];
+        const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+        box.replaceChildren();
+        screen.classList.remove("bar-in");
+        const hasBar = f.base !== null && f.after !== null;
+        byId("ps-bar-block").hidden = !hasBar;
+        if (hasBar) setPointsBar(f.base, f.base);
+        dim.hidden = false;
+        screen.hidden = false;
+        document.body.classList.add("ps-open");
+        // The badges one after the other, then the bar.
+        f.badges.forEach(([points, label], i) => at(500 + i * 850, () => addPointsBadge(points, label, { container: box })));
+        at(500 + f.badges.length * 850 + 250, () => {
+            if (!hasBar) return;
+            screen.classList.add("bar-in");
+            setPointsBar(f.base, f.after);
+        });
+        const button = byId("ps-continue");
+        button.focus({ preventScroll: true });
+        button.onclick = () => {
+            timers.forEach(clearTimeout);
+            dim.hidden = true;
+            screen.hidden = true;
+            document.body.classList.remove("ps-open");
+            box.replaceChildren();
+            resolve();
+        };
+    });
+}
+
 function showPointsGain(points, label) {
     const now = performance.now();
     const at = Math.max(now, pointsStack.nextAt);
@@ -4337,10 +4474,10 @@ function showPointsGain(points, label) {
     setTimeout(() => { pointsStack.queued--; addPointsBadge(points, label); }, at - now);
 }
 
-function addPointsBadge(points, label) {
-    const stack = byId("points-stack");
+function addPointsBadge(points, label, { container = null } = {}) {
+    const stack = container || byId("points-stack");
     // A new one while the others were leaving: they stay.
-    for (const old of stack.children) {
+    if (!container) for (const old of stack.children) {
         if (!old.classList.contains("leaving")) continue;
         clearTimeout(old.leaveTimer);
         old.classList.remove("leaving");
@@ -4355,6 +4492,7 @@ function addPointsBadge(points, label) {
     stack.appendChild(badge);
     playChime(stack.children.length - 1);
     burstConfetti(badge);
+    if (container) return; // on the points screen the badges stay until CONTINUE
     clearTimeout(pointsStack.timer);
     pointsStack.timer = setTimeout(leavePointsStack, POINTS_LIFE_MS);
 }
@@ -4417,11 +4555,11 @@ async function showGameXp() {
     if (after === shown) return;
     const first = !xpStrip;
     xpStrip = { base: gameXpBase, after };
-    showXpGain(gameXpBase, after);
+    noteXpGain(gameXpBase, after);
     // The game's own points get a badge too (the bonus has its own, see onBonus).
     const earned = Math.min(gameXpPays, after - gameXpBase);
-    if (first && earned > 0) showPointsGain(earned, gameXpLabel);
-    setTimeout(() => celebrateLevel(shown, after), 1700);
+    if (first && earned > 0) queuePointsGain(earned, gameXpLabel);
+    celebrateLevel(shown, after); // held with the points screen
 }
 
 const gameBadgeLabel = (won) => (won ? t("Victory") : t("Game played"));
@@ -4429,8 +4567,6 @@ const gameBadgeLabel = (won) => (won ? t("Victory") : t("Game played"));
 function resetXpGain() {
     xpStrip = null;
     gameXpBase = null;
-    byId("winner-xp").hidden = true;
-    byId("winner-container").classList.remove("has-xp");
 }
 
 function levelProgress(xp) {
@@ -4440,26 +4576,24 @@ function levelProgress(xp) {
     return { level, from, to, share: Math.max(0, Math.min(1, (xp - from) / (to - from))) };
 }
 
-function showXpGain(before, after) {
-    const box = byId("winner-xp");
+// The level bar on the points screen: from where the game started to where it ended.
+function setPointsBar(before, after) {
     const gain = after - before;
     const now = levelProgress(after), was = levelProgress(before);
     // Ticks that quicken with the bar filling; one heavy one for points lost.
     if (gain !== 0) buzz(gain > 0 ? [30, 60, 34, 60, 40, 60, 48, 60, 60] : 180);
-    byId("winner-container").classList.add("has-xp");
-    box.hidden = false;
-    const gainEl = byId("wx-gain");
+    const gainEl = byId("ps-gain");
     gainEl.textContent = gain >= 0 ? `+${gain}` : `\u2212${-gain}`;
     gainEl.classList.toggle("is-negative", gain < 0);
     gainEl.style.animation = "none";
     void gainEl.offsetWidth;
     gainEl.style.animation = "";
-    byId("wx-level").textContent = levelLabel(now.level, isMyPro());
-    byId("wx-level").classList.toggle("is-pro", isMyPro());
-    byId("wx-level").dataset.tier = badgeTier(now.level);
-    byId("wx-pts").textContent = `${after - now.from} / ${now.to - now.from}`;
+    byId("ps-level").textContent = levelLabel(now.level, isMyPro());
+    byId("ps-level").classList.toggle("is-pro", isMyPro());
+    byId("ps-level").dataset.tier = badgeTier(now.level);
+    byId("ps-pts").textContent = `${after - now.from} / ${now.to - now.from}`;
     // The bar starts where it was (from empty after a level change) and fills.
-    const fill = byId("wx-fill");
+    const fill = byId("ps-fill");
     fill.style.transition = "none";
     fill.style.width = `${(was.level === now.level ? was.share : 0) * 100}%`;
     void fill.offsetWidth;
@@ -5440,6 +5574,7 @@ function withReplay(fn) {
 }
 
 async function beginOnlineGame(snap) {
+    startPointsFlowIfPending(); // a rematch started: the points screens of the game just played
     searchingRandom = false; // matched: no more queueing on reconnect
     setOnlineSession(true);
     remoteGen++;
@@ -5813,3 +5948,4 @@ if (new URLSearchParams(location.search).get("pointsdemo") === "1") {
         showPointsGain(1, t("Ad reward"));
     });
 }
+
