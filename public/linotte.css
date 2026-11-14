@@ -1809,7 +1809,13 @@ html.is-resizing *::after {
   max-height: none;
   overflow: visible;
   margin: 0 .8em 1.5em;
-  background: rgba(255, 255, 255, .82);
+  /* The same island as Options', the help's and the road's: border, corners,
+     background and padding (the .sheet of the dialogs has a thicker border and
+     rounder corners). */
+  padding: .75em .9em .9em;
+  border: .125em solid rgba(0, 0, 0, .18);
+  border-radius: .9em;
+  background: rgba(255, 255, 255, .88);
   box-shadow: none;
   font-size: 16px;
 }

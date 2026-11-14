@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.23.3] - 2026-11-14
+
+### Fixed
+- Ranking and Stats are the same kind of island as Options, How to play and the Level road: same border (thin, black at low opacity), same corners (.9em), same background and padding. They had the thicker border and rounder corners of the dialogs' sheet.
+
 ## [2.23.2] - 2026-11-14
 
 ### Fixed
