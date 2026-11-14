@@ -196,6 +196,7 @@ io.on("connection", (socket) => {
     if (!PLAYER_ID.test(String(p.playerId || ""))) return { ok: false, error: "bad_player_id" };
     socket.data.playerId = p.playerId;
     socket.data.tz = clampTz(p.tz); // minutes behind UTC: the player's own midnight (bonuses.js)
+    socket.data.claims = p.claims === true; // an app that plays the points video and asks for the points (Lobby#heldSeats)
     // Signed in: the account (not the device) gives the name, so it's the
     // same on every phone. Guests: the device's own id.
     await setAccount(socket, p.accessToken);
@@ -245,6 +246,10 @@ io.on("connection", (socket) => {
   });
 
   on("rejoin", {}, () => lobby.rejoin(socket));
+
+  // The video before the winner card was watched (the game's points count) or closed (they don't).
+  on("claim_points", {}, () => lobby.claimPoints(socket));
+  on("skip_points", {}, () => lobby.skipPoints(socket));
 
   on("queue_join", { needsConsent: true }, () => lobby.joinQueue(socket));
   on("queue_leave", {}, () => ({ ok: lobby.leaveQueue(socket.data.playerId) }));

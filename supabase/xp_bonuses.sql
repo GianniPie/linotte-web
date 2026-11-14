@@ -37,7 +37,7 @@ as $$
   with games as (
     select g.user_id, sum(case when g.abandoned then -2 when g.won then 2 else 1 end) as pts
     from public.game_results g
-    where g.source = 'server' and g.played_at >= since
+    where g.source = 'server' and g.earns_xp and g.played_at >= since
     group by g.user_id
   ), bonuses as (
     select b.user_id, sum(b.points) as pts

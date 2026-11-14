@@ -164,6 +164,7 @@ export default {
     "Learn more": "了解更多",
     "Sample ad": "示例广告",
     "Close the video? You won't get the point.": "关闭视频？你将拿不到这 1 分。",
+    "Close the video? You won't get the points.": "关闭视频？你将拿不到这些积分。",
     "KEEP WATCHING": "继续观看",
     "CLOSE": "关闭",
     "Reward in {n}s": "{n} 秒后获得奖励",

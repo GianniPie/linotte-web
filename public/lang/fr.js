@@ -152,6 +152,7 @@ export default {
     "Learn more": "En savoir plus",
     "Sample ad": "Pub d'exemple",
     "Close the video? You won't get the point.": "Fermer la vidéo ? Vous n'aurez pas le point.",
+    "Close the video? You won't get the points.": "Fermer la vidéo ? Vous n'aurez pas les points.",
     "KEEP WATCHING": "CONTINUER",
     "CLOSE": "FERMER",
     "Reward in {n}s": "Récompense dans {n}s",

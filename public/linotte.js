@@ -678,6 +678,8 @@ function curvedPath(start, end, exitDir, segments = 8) {
 // takes -- independent of tunables.travelMsPerSegment, which is tuned for
 // board-tile-sized gaps, not a much longer dash across the whole UI.
 const POINTS_HOP_MS = 500;
+// The ticks felt while it flies: closer and stronger as it nears the counter.
+const POINTS_HOP_BUZZ = [26, 44, 28, 38, 32, 32, 36, 26, 42, 20, 48, 14, 56];
 
 // Called once every fairy trail line for this turn has actually finished
 // playing (see performEndTurn/playEndGameSequence) -- `lines` is exactly
@@ -704,9 +706,11 @@ function celebratePoints(lines, before, onAllArrived) {
         const rect = el.getBoundingClientRect();
         const target = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: Math.max(rect.width, rect.height) };
         const path = curvedPath(startPos, target, exit.dir);
+        buzz(POINTS_HOP_BUZZ); // fine ticks that quicken while the trail flies to the counter
         playFairyTrail(path, {
             travelMs: POINTS_HOP_MS,
             onDone: () => {
+                buzz(delta >= 8 ? [80, 40, 80] : 65); // the exact moment the number changes
                 el.textContent = gameState.players[p].points;
                 popStat(el);
                 showPlusPopup(el, delta);
@@ -1667,10 +1671,10 @@ let forcedWinner = null;
 // Stats: each finished game is recorded once (the winner popup can be shown
 // again with DONE). gameState is a new object for every game.
 let recordedGame = null;
-function noteGameResult(winner) {
+function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
     if (recordedGame === gameState) return;
     recordedGame = gameState;
-    adOwed = true; // the video at the next step out (see endOfGameAd)
+    adOwed = !videoShown; // the video at the next step out (see endOfGameAd), unless the points video was it
     showRematchState(lastOverReason === "normal" || controller.mode !== "online" ? "ready" : "left");
     const overReason = lastOverReason;
     lastOverReason = "normal";
@@ -1690,10 +1694,12 @@ function noteGameResult(winner) {
         points: gameState.players[me].points,
         opponentPoints: gameState.players[other].points,
         opponent: controller.mode === "bot" ? "Bot" : gameState.players[other].name,
+        noXp: !earn, // the points video was closed early
     });
     // What the game was worth: the points earned and the way to the next
     // level, on the winner card, then the celebration if a level was reached.
     recorded.then(async (r) => {
+        if (!earn) { heldBonus = null; return; } // no points, no celebration
         if (currentUser()) {
             if (mode === "bot" && winner !== me) return; // a lost bot game earns nothing
             // The account's points are the server's: asked now, and again when
@@ -1702,9 +1708,12 @@ function noteGameResult(winner) {
             gameXpLabel = gameBadgeLabel(winner === me);
             // What an online game pays is set by the rules; the bot's is told by the points.
             gameXpPays = mode === "bot" ? Infinity : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
-            await sleep(mode === "bot" ? 0 : 1500);
-            return showGameXp();
+            await sleep(afterWinMs(winner)); // the points come after the win's own confetti
+            await showGameXp();
+            if (heldBonus) { showPointsGain(heldBonus.points, t("Daily bonus")); heldBonus = null; } // told while the video was up
+            return;
         }
+        await sleep(afterWinMs(winner)); // the points come after the win's own confetti
         const after = guestXp();
         showHomeBadge();
         // One badge for what the game paid and one for the day's bonus.
@@ -1726,9 +1735,58 @@ function determineWinner() {
 }
 
 
-function showWinnerPopup(winner) {
+// Whether this finished game can earn points: a game online played to the
+// end (not one this phone let run out), or a win against the bot.
+function gamePaysPoints(winner) {
+    if (controller.mode === "online") return !(lastOverReason === "idle" && winner !== LOCAL_PLAYER);
+    return controller.mode === "bot" && winner === 1;
+}
+
+// The game's points come after a video, played by itself right when the
+// game's last animation (the board's shake) ends, before the winner card:
+// watched to the end the card shows the points, closed early the game is
+// still recorded but earns nothing. Pro has no video: the points come at once.
+// Until then the server's word that the game is in its books, and the
+// daily bonus, are held back (see pointsHeld).
+let pointsVideoFor = null; // the game whose video has been shown
+async function showWinnerPopup(winner) {
+    const first = recordedGame !== gameState;
+    if (first && pointsVideoFor !== gameState && gamePaysPoints(winner) && !document.body.classList.contains("is-pro")) {
+        pointsVideoFor = gameState;
+        adOwed = false; // this one is the game's video: none at the next step out
+        adPlaying = true;
+        const watched = await rewarded(t("Close the video? You won't get the points."));
+        adPlaying = false;
+        // An online game of an account: the server has the game recorded and
+        // holds its points until told the video was watched (or closed).
+        if (controller.mode === "online" && currentUser()) {
+            if (watched) {
+                const res = await onlineClient.claimPoints();
+                if (res?.daily) heldBonus = { points: res.points || DAILY_BONUS_POINTS };
+            } else {
+                onlineClient.skipPoints();
+            }
+        }
+        return renderWinnerPopup(winner, { earn: watched, videoShown: true });
+    }
+    if (first && pointsVideoFor === gameState) return; // the video is still playing
+    renderWinnerPopup(winner, { earn: true, videoShown: false });
+}
+
+// A finished game whose card isn't up yet: what the server says about its
+// points waits for the card (see noteGameResult).
+const pointsHeld = () => isGameOver && recordedGame !== gameState;
+// The winner card throws its own confetti for 3 s (half a second for a tie):
+// the badges of the points wait for it to settle instead of piling on it.
+const afterWinMs = (winner) => (winner ? 3300 : 1200);
+let cardSettledAt = 0; // when the card's own confetti is done (performance.now)
+let heldBonus = null;
+
+function renderWinnerPopup(winner, { earn, videoShown }) {
+    buzz([120, 70, 220]); // the popup lands
+    cardSettledAt = performance.now() + afterWinMs(winner);
     resetXpGain();
-    noteGameResult(winner);
+    noteGameResult(winner, { earn, videoShown });
     const pointsEl = document.getElementById("winner-points");
     if (winner) { // both player 1 or 2
         document.getElementsByClassName("piece-popup-container")[0].classList.add("pulse");
@@ -2146,7 +2204,7 @@ function playLinesSequentially(lines, onAllDone) {
         // continuation, breaking what's meant to read as one movement.
         const isLast = i >= lines.length;
         playFairyTrail(cells, {
-            onWaypoint: ([wr, wc]) => jumpPiece(wr, wc),
+            onWaypoint: ([wr, wc]) => { jumpPiece(wr, wc); buzz(32); }, // a tick for every hop
             onDone: isLast ? next : () => setTimeout(next, LINE_SEQUENCE_GAP_MS),
         });
     })();
@@ -2189,6 +2247,7 @@ function placePiece(pieceId) {
 
     applyTidyness(piece);
     selectedTileId = pieceId;
+    buzz(45); // the piece lands
 
     if (prewPiece !== null) {
         if (prewPiece !== piece) {
@@ -2422,6 +2481,7 @@ function shakeBoard(onDone) {
     board.classList.remove("quake");
     void board.offsetWidth; // restart the animation if it's still running
     board.classList.add("quake");
+    buzz([32, 50, 40, 50, 50, 50, 64, 50, 95]); // builds up like the shake
     board.addEventListener("animationend", onEnd);
     setTimeout(finish, 1200); // safety net if animationend never arrives
 }
@@ -3488,18 +3548,20 @@ const onlineClient = new OnlineClient({
     onFriendInvite: (msg) => onFriendInvite(msg),
     onInviteDeclined: (msg) => onInviteDeclined(msg),
     // The server saved the game just played: its points are final now.
-    onRecorded: () => { if (currentUser()) showGameXp(); },
+    onRecorded: () => { if (currentUser() && !pointsHeld()) showGameXp(); }, // before the card: noteGameResult asks
     // The first online game of the day played to the end: the server added the bonus.
     onBonus: ({ kind, points }) => {
         if (kind !== "daily") return;
-        showPointsGain(points, t("Daily bonus"));
+        if (pointsHeld()) { heldBonus = { points }; return; } // after the video, with the game's points
+        const wait = Math.max(0, cardSettledAt - performance.now()); // after the card's confetti
+        setTimeout(() => showPointsGain(points, t("Daily bonus")), wait);
         setTimeout(async () => {
             const before = lastKnownXp();
             await refreshPro({ fresh: true, celebrate: false });
             const after = lastKnownXp();
             if (xpStrip) { xpStrip.after = after; showXpGain(xpStrip.base, after); }
             if (before !== null && after !== null) celebrateLevel(before, after);
-        }, 900);
+        }, wait + 900);
     },
     onGameOver: onRemoteGameOver,
     onPro: (pro) => setPro(pro),
@@ -3871,6 +3933,10 @@ function fillAccountSheet() {
     byId("account-getpro").hidden = pro;
 }
 byId("account-getpro").addEventListener("click", () => showProSheet());
+// The level badge on the account leads to the stats, where the level is explained.
+const openStatsFromBadge = () => { hideOnlineOverlay(); openMenuPage("stats"); };
+byId("ac-badge").addEventListener("click", openStatsFromBadge);
+byId("ac-badge").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openStatsFromBadge(); } });
 
 // The (?) by the level in the stats: how levels work, then back to the stats
 // (still filled in).
@@ -4295,6 +4361,8 @@ function showXpGain(before, after) {
     const box = byId("winner-xp");
     const gain = after - before;
     const now = levelProgress(after), was = levelProgress(before);
+    // Ticks that quicken with the bar filling; one heavy one for points lost.
+    if (gain !== 0) buzz(gain > 0 ? [30, 60, 34, 60, 40, 60, 48, 60, 60] : 180);
     byId("winner-container").classList.add("has-xp");
     box.hidden = false;
     const gainEl = byId("wx-gain");
@@ -4487,7 +4555,8 @@ function showLevelDown(from, to, xp) {
     at(700, () => {
         stage.classList.add("is-cracked", "is-shaking");
         overlay.classList.add("is-hit");
-        navigator.vibrate?.(70);
+        // A heavy blow, then a heart giving out: each beat shorter and further apart.
+        buzz([380, 160, 240, 220, 150, 300, 90, 420]);
         playLevelDownTone(true);
     });
     // 2. the number drops out, the new one falls in; the badge sinks and sheds
@@ -4550,7 +4619,7 @@ function buzz(pattern) {
 
 function playChime(step = 0) {
     if (!isVolumeOn) return;
-    buzz(40);
+    buzz(90); // a tick under 30 ms is hardly felt in the hand
     const c = audio();
     if (!c) return;
     if (c.state === "suspended") c.resume();
@@ -4562,7 +4631,7 @@ function playChime(step = 0) {
         osc.type = "sine";
         osc.frequency.value = freq;
         g.gain.setValueAtTime(0.0001, start + at);
-        g.gain.exponentialRampToValueAtTime(0.1, start + at + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.32, start + at + 0.02); // as loud as the fanfare (0.1 was lost under the game's sounds)
         g.gain.exponentialRampToValueAtTime(0.0001, start + at + 0.5);
         osc.connect(g);
         g.connect(c.destination);
@@ -5521,11 +5590,11 @@ function onRemoteGameOver({ winner, reason }) {
     turnLabelEl.style.display = "none";
     endGameDoneBtn.style.display = "flex";
 
-    showWinnerPopup(winner);
+    const shown = showWinnerPopup(winner); // after the points video, if there is one
     if (winner === LOCAL_PLAYER) {
-        setWinnerText(reason === "disconnect" ? t("Your opponent disconnected. You win!")
+        shown.then(() => setWinnerText(reason === "disconnect" ? t("Your opponent disconnected. You win!")
             : reason === "idle" ? t("Your opponent stopped playing. You win!")
-            : t("Your opponent left. You win!"));
+            : t("Your opponent left. You win!")));
     } else if (reason === "idle") {
         // This phone's player let their turns run out: abandoned.
         showToast(t("You missed {n} turns in a row: the game counts as abandoned (−2 level points).", { n: IDLE_LIMIT_SHOWN }), 6000);

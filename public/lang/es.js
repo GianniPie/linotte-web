@@ -163,6 +163,7 @@ export default {
     "Learn more": "Más información",
     "Sample ad": "Anuncio de ejemplo",
     "Close the video? You won't get the point.": "¿Cerrar el vídeo? No conseguirás el punto.",
+    "Close the video? You won't get the points.": "¿Cerrar el vídeo? No conseguirás los puntos.",
     "KEEP WATCHING": "SEGUIR VIENDO",
     "CLOSE": "CERRAR",
     "Reward in {n}s": "Premio en {n}s",

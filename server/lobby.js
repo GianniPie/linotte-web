@@ -7,7 +7,7 @@
 import { Room } from "./room.js";
 import { HumanBot } from "./humanBot.js";
 import { noStore } from "./store.js";
-import { resultRows, recordResults } from "./results.js";
+import { resultRows, recordResults, claimGameXp } from "./results.js";
 import { grantDailyBonus } from "./bonuses.js";
 import { noteFriends } from "./friends.js";
 import { DAILY_BONUS_POINTS, canMeet } from "../public/shared/level.js";
@@ -39,13 +39,15 @@ export class Lobby {
   // its own.
   // `afterRecord` brings a connection's own points up to date once its game
   // is saved (server.js).
-  constructor(io, store = noStore, { record = recordResults, grantDaily = grantDailyBonus, befriend = noteFriends, afterRecord = async () => {} } = {}) {
+  constructor(io, store = noStore, { record = recordResults, grantDaily = grantDailyBonus, befriend = noteFriends, afterRecord = async () => {}, claim = claimGameXp } = {}) {
     this.io = io;
     this.store = store;
     this.record = record;
     this.grantDaily = grantDaily;
     this.befriend = befriend;
     this.afterRecord = afterRecord;
+    this.claim = claim;
+    this.pending = new Map(); // userId -> a finished game whose points wait for the video
     this.queue = new Map(); // playerId -> { socket, timer }
     this.rooms = new Map(); // roomId -> Room
     this.byCode = new Map(); // code -> Room
@@ -305,8 +307,9 @@ export class Lobby {
   onRoomClose(room, why) {
     if (why === "over") {
       this.store.deleteRoom(room); // nothing left to resume
-      const recorded = this.record(resultRows(room));
-      this.giveDailyBonus(room, recorded);
+      const held = this.heldSeats(room);
+      const recorded = this.record(resultRows(room, held));
+      this.giveDailyBonus(room, recorded, held);
       this.tellRecorded(room, recorded);
       // Two accounts that played a private room are friends (friends.js).
       const [a, b] = [room.seats[1], room.seats[2]];
@@ -336,15 +339,53 @@ export class Lobby {
   // or lost: it is there to bring players back every day, not to reward the
   // winner. Whoever left before the end doesn't get it. Once the game is
   // recorded, each player's app hears it ("bonus") and says so.
-  async giveDailyBonus(room, recorded) {
+  async giveDailyBonus(room, recorded, held = new Set()) {
     await recorded;
     for (const seat of [1, 2]) {
       const player = room.seats[seat];
-      if (player?.kind !== "human" || !player.userId || room.forfeitedBy === seat) continue;
+      if (player?.kind !== "human" || !player.userId || room.forfeitedBy === seat || held.has(seat)) continue;
       const socket = this.io.sockets.sockets.get(player.socketId);
       if (!(await this.grantDaily(player.userId, { tz: socket?.data?.tz }))) continue;
       socket?.emit("bonus", { kind: "daily", points: DAILY_BONUS_POINTS });
     }
+  }
+
+  // The points of a game wait for the video the app plays before its winner
+  // card -- not Pro (no video), not a game left or let run out (it costs
+  // points, which a closed video can't avoid), and only for an app that knows
+  // to ask for them ("claims" in its hello): an older one gets them at once.
+  // The game is recorded either way; its points count when the video has been
+  // watched (claimPoints), and never if it is closed (skipPoints).
+  heldSeats(room) {
+    const held = new Set();
+    for (const seat of [1, 2]) {
+      const p = room.seats[seat];
+      if (p?.kind !== "human" || !p.userId || p.pro || room.forfeitedBy === seat) continue;
+      const socket = this.io.sockets.sockets.get(p.socketId);
+      if (!socket?.data?.claims) continue;
+      held.add(seat);
+      this.pending.set(p.userId, { since: Date.now() - 30000 }); // 30 s of margin for the clocks of the server and the database
+    }
+    return held;
+  }
+
+  // The app watched the video: the game's points count, and the day's first
+  // game brings its bonus. { ok, claimed, daily }.
+  async claimPoints(socket) {
+    const userId = socket.data.userId;
+    const waiting = userId && this.pending.get(userId);
+    if (!waiting) return { ok: true, claimed: false };
+    this.pending.delete(userId);
+    if (!(await this.claim(userId, waiting.since))) return { ok: false };
+    const daily = await this.grantDaily(userId, { tz: socket.data.tz });
+    try { await this.afterRecord(socket); } catch (err) { console.error("stats not refreshed:", err.message); }
+    return { ok: true, claimed: true, daily: Boolean(daily), points: daily ? DAILY_BONUS_POINTS : 0 };
+  }
+
+  // The video was closed: the game earns nothing.
+  skipPoints(socket) {
+    this.pending.delete(socket.data.userId);
+    return { ok: true };
   }
 
   closeRoom(room) {

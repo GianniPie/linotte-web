@@ -390,11 +390,12 @@ const lobby = new Lobby(io, store);
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 94, "experience is counted, bonuses included");
   const stats = await accountStats("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts });
   assert.deepEqual(stats.record, { played: 52, won: 42 }, "the online record: 42 won of 52 (42 + 7 finished + 3 abandoned)");
-  const asked = sent.slice(-6).map(([u]) => u);
+  const asked = sent.slice(-8).map(([u]) => u);
   assert.ok(asked.some((u) => u.includes("source=eq.server&won=is.true")), "online wins from the server");
   assert.ok(asked.some((u) => u.includes("won=is.false&abandoned=is.false")), "online games finished without winning");
   assert.ok(asked.some((u) => u.includes("mode=eq.bot") && u.includes("from_guest=is.false")), "bot wins, not the guest's");
   assert.ok(asked.some((u) => u.includes("source=eq.server&abandoned=is.true")), "abandoned games");
+  assert.ok(asked.filter((u) => u.includes("earns_xp=is.true")).length === 3, "points only from games whose video was watched (wins, finished, bot)");
   const none = async () => ({ ok: true, headers: { get: () => "*/0" } });
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");
   assert.equal(await experience(null, { key: "k" }), 0, "a guest has none");
@@ -527,6 +528,44 @@ const lobby = new Lobby(io, store);
   assert.deepEqual(both.sort(), ["user-l", "user-w"], "won or lost, the first game of the day brings the bonus");
   assert.ok(find(l, "bonus").some((m) => m.payload.kind === "daily"), "and the loser's app is told too");
   console.log("ok: bonuses");
+
+  // The points wait for the video: held for a signed-in non-Pro player whose app
+  // asks to claim them, then counted (and the daily bonus given) once claimed.
+  const claimed = [], daily = [], refreshedNow = [];
+  const lobbyC = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async (u) => { daily.push(u); return true; }, afterRecord: async (sock) => { refreshedNow.push(sock.id); }, claim: async (u, since) => { claimed.push([u, since]); return true; } });
+  w.data.claims = true; w.data.userId = "user-w"; l.data.userId = "user-l"; // l's app doesn't know claims
+  const room = { forfeitedBy: null, winner: 1, seats: { 1: { ...seatOf(w.id, "user-w"), pro: false }, 2: { ...seatOf(l.id, "user-l"), pro: false } } };
+  assert.deepEqual([...lobbyC.heldSeats(room)], [1], "held for the app that claims, not for an older one");
+  room.seats[1].pro = true;
+  lobbyC.pending.clear();
+  assert.deepEqual([...lobbyC.heldSeats(room)], [], "Pro has no video: nothing held");
+  room.seats[1].pro = false;
+  room.forfeitedBy = 1;
+  assert.deepEqual([...lobbyC.heldSeats(room)], [], "a game left costs points whatever the video: not held");
+  room.forfeitedBy = null;
+  lobbyC.pending.clear();
+  const held = lobbyC.heldSeats(room);
+  await lobbyC.giveDailyBonus(room, Promise.resolve(), held);
+  assert.deepEqual(daily, ["user-l"], "the held player's bonus waits for the video");
+  const res = await lobbyC.claimPoints(w);
+  assert.deepEqual([res.ok, res.claimed, res.daily, res.points], [true, true, true, 2], "watched: the points count and the bonus comes");
+  assert.equal(claimed.length, 1, "the game's rows are claimed");
+  assert.ok(daily.includes("user-w"), "the bonus is given when claimed");
+  assert.ok(refreshedNow.includes(w.id), "and the connection's points are read again");
+  assert.equal((await lobbyC.claimPoints(w)).claimed, false, "nothing to claim twice");
+  lobbyC.heldSeats(room);
+  assert.equal(lobbyC.skipPoints(w).ok, true);
+  assert.equal((await lobbyC.claimPoints(w)).claimed, false, "closed: the game never earns its points");
+  // The rows carry it.
+  const rowsHeld = resultRows({ kind: "random", winner: 1, forfeitedBy: null,
+    seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: { kind: "human", userId: "b", name: "B" } },
+    state: { players: { 1: { points: 3 }, 2: { points: 5 } } } }, new Set([1]));
+  assert.deepEqual(rowsHeld.map((r) => [r.user_id, r.earns_xp]), [["a", false], ["b", true]], "the held game is recorded without its points");
+  const { claimGameXp } = await import("./results.js");
+  const patches = [];
+  assert.equal(await claimGameXp("user-w", Date.now(), { key: "k", url: "https://example.supabase.co", fetch: async (u, o) => { patches.push([u, o]); return { ok: true }; } }), true);
+  assert.ok(patches[0][0].includes("user_id=eq.user-w") && patches[0][0].includes("earns_xp=is.false") && patches[0][1].method === "PATCH", "only that player's waiting games");
+  console.log("ok: points wait for the video");
 }
 
 //--------- 15. friends: private games between accounts, who's online ---------

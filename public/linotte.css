@@ -3023,6 +3023,8 @@ label {
   display: none;
 }
 
+#ac-badge { cursor: pointer; } /* it leads to the stats */
+
 .pc-badge {
   font-size: 1.9em;
   padding: .05em .7em;

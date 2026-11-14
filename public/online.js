@@ -210,6 +210,7 @@ export class OnlineClient {
                     background: this.h.getBackground?.(),
                     accessToken: await accessToken(),
                     tz: tzMinutes(),
+                    claims: true, // this app plays the points video and asks for the points
                 }, (res) => {
                     // (A hello the server took for a guest while the app has an account says
                     // "not Pro": not to be believed, the saved answer stays.)
@@ -256,6 +257,15 @@ export class OnlineClient {
     // until they say yes (a "game_start" follows), or { ok: false, error }.
     rematch() {
         return this.call("rematch");
+    }
+
+    // The video before the winner card: watched (the game's points count, and
+    // the day's first game's bonus comes back: { claimed, daily, points }) or closed.
+    claimPoints() {
+        return this.call("claim_points");
+    }
+    skipPoints() {
+        return this.call("skip_points");
     }
 
     // The favorite piece changed in the options: used from the next game.

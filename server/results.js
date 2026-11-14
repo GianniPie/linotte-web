@@ -11,8 +11,11 @@ import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WINS_PER_POINT, ABANDON_
 
 const SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 
-// The rows for one finished room: one per signed-in human seat.
-export function resultRows(room) {
+// The rows for one finished room: one per signed-in human seat. `held` are
+// the seats whose game's points wait for the video the app plays first (see
+// Lobby#claimPoints): the game is recorded, the points are counted once the
+// video has been watched (earns_xp).
+export function resultRows(room, held = new Set()) {
   const rows = [];
   const mode = room.kind === "private" ? "friend" : "random";
   for (const seat of [1, 2]) {
@@ -28,6 +31,7 @@ export function resultRows(room) {
       opponent: String(other?.name || "").slice(0, 24) || null,
       // Left or gone for good before the end: costs level points.
       abandoned: room.forfeitedBy === seat,
+      earns_xp: !held.has(seat),
       source: "server",
     });
   }
@@ -60,10 +64,30 @@ export async function recordResults(rows, { key = SECRET_KEY, url = SUPABASE_URL
   }
 }
 
+// The video was watched: the account's games recorded since `since` that were
+// waiting for it now count for its points. Never throws.
+export async function claimGameXp(userId, since, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
+  if (!userId || !key || !url) return false;
+  try {
+    const query = `user_id=eq.${encodeURIComponent(userId)}&source=eq.server&earns_xp=is.false&played_at=gte.${encodeURIComponent(new Date(since).toISOString())}`;
+    const res = await fetchImpl(`${url}/rest/v1/game_results?${query}`, {
+      method: "PATCH",
+      headers: { apikey: key, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ earns_xp: true }),
+    });
+    if (!res.ok) console.error("points not claimed: Supabase answered", res.status);
+    return res.ok;
+  } catch (err) {
+    console.error("points not claimed:", err.message);
+    return false;
+  }
+}
+
 // The account's experience points (see public/shared/level.js): its online
 // games (only those recorded by the server, so they can't be raised by
-// tampering with the app) -- 2 per win, 1 per loss or draw played to the end,
-// minus 2 per game abandoned -- one for every 5 wins against the bot played
+// tampering with the app) -- 2 per win, 1 per loss or draw played to the end
+// (once the video that pays them has been watched: earns_xp), minus 2 per
+// game abandoned -- one for every 5 wins against the bot played
 // while signed in (not the guest games moved in at sign-in), and its bonuses
 // (bonuses.js). With it, the online record that goes on the player card:
 // games played (abandoned ones count, as losses) and won. Zeros without the
@@ -85,15 +109,17 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
     return Number.isFinite(total) ? total : 0;
   };
   try {
-    const [wins, finished, bot, abandoned, bonus] = await Promise.all([
+    const [wins, finished, winsXp, finishedXp, bot, abandoned, bonus] = await Promise.all([
       count("source=eq.server&won=is.true"),
       count("source=eq.server&won=is.false&abandoned=is.false"),
-      count("source=eq.app&mode=eq.bot&won=is.true&from_guest=is.false"),
+      count("source=eq.server&won=is.true&earns_xp=is.true"),
+      count("source=eq.server&won=is.false&abandoned=is.false&earns_xp=is.true"),
+      count("source=eq.app&mode=eq.bot&won=is.true&from_guest=is.false&earns_xp=is.true"),
       count("source=eq.server&abandoned=is.true"),
       bonusPoints(userId, { key, url, fetch: fetchImpl }),
     ]);
     return {
-      xp: ONLINE_WIN_POINTS * wins + ONLINE_FINISHED_POINTS * finished
+      xp: ONLINE_WIN_POINTS * winsXp + ONLINE_FINISHED_POINTS * finishedXp
         + Math.floor(bot / BOT_WINS_PER_POINT) - ABANDON_PENALTY * abandoned + bonus,
       record: { played: wins + finished + abandoned, won: wins },
     };

@@ -6,8 +6,10 @@
 //                     (50px, portrait)
 //   interstitial()    a full-screen video at a natural break (the end of a
 //                     game), skippable after a few seconds; resolves when gone
-//   rewarded()        a full-screen video the player chose to watch for a
-//                     reward; resolves true only if watched to the end
+//   rewarded(msg)     a full-screen video watched for a reward (a rewarded ad
+//                     the player chose, or the points of a finished game);
+//                     resolves true only if watched to the end. msg is what
+//                     closing it early is said to cost
 // Until a network is connected these are sample ads, clearly labelled, from
 // made-up advertisers. Pro players see none: the callers check (linotte.js).
 
@@ -51,7 +53,7 @@ export function renderBanner(el, onRemoveAds) {
 const VIDEO_SECONDS = 15;
 const SKIP_AFTER = 5;
 
-function playVideo({ rewarded }) {
+function playVideo({ rewarded, closeMessage }) {
     return new Promise((resolve) => {
         const ad = pick();
         const box = document.createElement("div");
@@ -86,7 +88,7 @@ function playVideo({ rewarded }) {
         $(".ad-video-line").textContent = ad.line;
         $(".ad-video-cta").textContent = t("Learn more");
         $(".ad-label").textContent = t("Sample ad");
-        $(".ad-video-confirm p").textContent = t("Close the video? You won't get the point.");
+        $(".ad-video-confirm p").textContent = closeMessage || t("Close the video? You won't get the point.");
         $(".ad-keep").textContent = t("KEEP WATCHING");
         $(".ad-quit").textContent = t("CLOSE");
         document.body.appendChild(box);
@@ -150,6 +152,6 @@ export function interstitial() {
     return playVideo({ rewarded: false });
 }
 
-export function rewarded() {
-    return playVideo({ rewarded: true });
+export function rewarded(closeMessage) {
+    return playVideo({ rewarded: true, closeMessage });
 }

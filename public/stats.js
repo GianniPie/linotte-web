@@ -22,15 +22,19 @@ function writeLocal(list) {
 }
 
 // A game just ended on this screen.
-export async function recordGame({ mode, won, points, opponentPoints, opponent, abandoned = false }) {
+// noXp: the game is kept in the record but earns no points (the video that
+// pays them was closed early, see showWinnerPopup in linotte.js).
+export async function recordGame({ mode, won, points, opponentPoints, opponent, abandoned = false, noXp = false }) {
     const entry = {
         mode, won: Boolean(won), points: points | 0, opponent_points: opponentPoints | 0,
         opponent: String(opponent || "").slice(0, 24) || null, played_at: new Date().toISOString(),
+        earns_xp: !noXp, // see supabase/game_results_xp.sql
     };
     if (!currentUser()) {
         writeLocal([entry, ...readLocal()]);
         // The guest's level: a bot win, or an online game played to the end
         // (the first online game of the day played to the end brings its bonus: told back).
+        if (noXp) return {};
         if (mode === "bot") { if (won) noteGuest("bot"); }
         else if (!abandoned) noteGuest(won ? "online" : "finished");
         if (mode !== "bot" && !abandoned && !guestToday().dailyDone) {
