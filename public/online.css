@@ -142,6 +142,8 @@
 #online-overlay[data-view="pro"] .sheet-view[data-view="pro"],
 #online-overlay[data-view="leave"] .sheet-view[data-view="leave"],
 #online-overlay[data-view="endgame"] .sheet-view[data-view="endgame"],
+#online-overlay[data-view="play-warning"] .sheet-view[data-view="play-warning"],
+#online-overlay[data-view="rematch-offer"] .sheet-view[data-view="rematch-offer"],
 #online-overlay[data-view="restart"] .sheet-view[data-view="restart"] {
   display: flex;
 }

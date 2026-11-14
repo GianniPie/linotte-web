@@ -12,7 +12,7 @@ import { grantDailyBonus } from "./bonuses.js";
 import { noteFriends } from "./friends.js";
 import { DAILY_BONUS_POINTS, canMeet } from "../public/shared/level.js";
 import {
-  QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS, BOT_REMATCH_DECLINE,
+  QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS,
 } from "./config.js";
 
 // No 0/O/1/I: a code read out loud or typed from a screenshot can't be misread.
@@ -249,14 +249,24 @@ export class Lobby {
     if (!them || them.left || (them.kind === "human" && !them.connected)) return { ok: false, error: "opponent_left" };
     room.rematch = { ...room.rematch, [seat]: true };
     if (them.kind === "bot") {
-      const wait = 1200 + Math.random() * 2500;
-      if (Math.random() < BOT_REMATCH_DECLINE) setTimeout(() => room.emitToSeat(seat, "rematch_declined", {}), wait);
-      else setTimeout(() => this.startRematch(room), wait);
+      // The bot answers like a person (see humanize.js): usually yes, after a moment.
+      const { accept, waitMs } = them.bot.answerRematch({ won: room.winner === other });
+      setTimeout(() => (accept ? this.startRematch(room) : room.emitToSeat(seat, "rematch_declined", {})), waitMs);
       return { ok: true, waiting: true };
     }
     if (room.rematch[other]) return this.startRematch(room) ? { ok: true } : { ok: false, error: "opponent_left" };
     room.emitToSeat(other, "rematch_offer", {});
     return { ok: true, waiting: true };
+  }
+
+  // The player who was asked for a rematch says no: the one who asked is told.
+  declineRematch(socket) {
+    const room = this.roomOfSocket(socket);
+    if (!room || room.status !== "over") return { ok: false, error: "no_game" };
+    const other = room.otherSeat(socket.data.seat);
+    if (room.rematch?.[other]) room.emitToSeat(other, "rematch_declined", {});
+    room.rematch = {};
+    return { ok: true };
   }
 
   // Both said yes: a new game with the same two players (and the same bot).

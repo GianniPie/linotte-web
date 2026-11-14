@@ -258,6 +258,10 @@ export class OnlineClient {
     rematch() {
         return this.call("rematch");
     }
+    // The other player asked for one and this one says no.
+    declineRematch() {
+        return this.call("rematch_decline");
+    }
 
     // The video before the winner card: watched (the game's points count, and
     // the day's first game's bonus comes back: { claimed, daily, points }) or closed.

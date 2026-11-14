@@ -13,7 +13,7 @@ import {
   chooseCallToMake, chooseDiceToLock, shouldStopRolling, explainPlacement,
 } from "../public/shared/botAI.js";
 import { BOT_TIME_SCALE } from "./config.js";
-import { makePersona, think, slips, replyTo, rand } from "./humanize.js";
+import { makePersona, think, slips, replyTo, rand, rematchAnswer } from "./humanize.js";
 import { randomName } from "./names.js";
 
 const MAX_EMOTES_PER_GAME = 4;
@@ -108,6 +108,13 @@ export class HumanBot {
 
   pause(kind, extra = 0) {
     return this.sleep(think(kind, this.persona, { timeLeftMs: this.room.timeLeftMs(), extra }));
+  }
+
+  // Asked for a rematch: whether it wants one, and after how long (the lobby
+  // waits that long, then starts the game or says no).
+  answerRematch({ won }) {
+    const { accept, waitMs } = rematchAnswer(this.persona, { botWon: won });
+    return { accept, waitMs: waitMs * this.timeScale };
   }
 
   say(id) {

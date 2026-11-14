@@ -40,6 +40,7 @@ const MEDIAN = {
   tentativeRedo: 1300,
   afterPlace: 850,
   beforeRoll: 600,
+  rematch: 2200, // asked for a rematch: a moment to decide
 };
 
 export function think(kind, persona, { timeLeftMs = 60000, extra = 0 } = {}) {
@@ -52,6 +53,14 @@ export function think(kind, persona, { timeLeftMs = 60000, extra = 0 } = {}) {
 
 // --- slips: each returns true when this decision should go wrong ---
 const sloppy = (persona) => 1 - persona.skill; // 0.05 .. 0.28
+
+// Asked for a rematch by the person it just played: whether it wants one and
+// after how long, like a person would. More likely when it lost (a revenge),
+// and when chatty; now and then it is simply done for the day.
+export function rematchAnswer(persona, { botWon }) {
+  const p = Math.min(0.97, Math.max(0.6, 0.82 + (botWon ? 0 : 0.07) + (persona.chatty - 0.35) * 0.25));
+  return { accept: Math.random() < p, waitMs: think("rematch", persona) };
+}
 
 export const slips = {
   // Takes the 2nd/3rd best placement instead of the best.

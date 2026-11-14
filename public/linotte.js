@@ -207,7 +207,7 @@ let controller;
 // screen is up; with this false there is no game: no turn timer, no bot, no
 // keyboard shortcuts, nothing highlighted as the running mode.
 let gameInProgress = false;
-let botStrategy = "points";
+let botStrategy = "speed"; // POINTS is not ready yet (SOON on its button)
 startBot(botStrategy); // default to player-vs-bot, ready to play on open --
 // silently discarded the moment a real mode is chosen on the home screen
 // below (newGameVsBot/newGameOffline fully reset gameState), so it never
@@ -344,7 +344,7 @@ function startOnline() {
     markActiveMode();
 }
 
-function startBot(strategy = "points") {
+function startBot(strategy = "speed") {
     botStrategy = strategy;
     LOCAL_PLAYER = 1;
     controller = new GameController("bot");
@@ -1289,6 +1289,7 @@ document.getElementById("home-play-btn").addEventListener("click", () => {
 const botStrategyButtons = document.querySelectorAll(".bot-strategy");
 botStrategyButtons.forEach(btn => {
     btn.addEventListener("click", () => {
+        if (btn.hasAttribute("data-soon")) { showToast(t("The bot that plays for points is coming soon.")); return; }
         botStrategyButtons.forEach(b => b.classList.remove("selected"));
         btn.classList.add("selected");
 
@@ -1581,6 +1582,22 @@ document.getElementById("piece-popup").addEventListener("click", (e) => {
 // the bot or at the same table it starts at once; online the other player
 // has to say yes (the server's bot answers like a person would).
 let lastOverReason = "normal";
+
+// The opponent asks for a rematch: a sheet to accept or decline, over the winner card.
+function showRematchOffer() {
+    const other = gameState.players[LOCAL_PLAYER === 1 ? 2 : 1];
+    byId("rematch-offer-text").textContent = t("{name} wants to play again.", { name: other?.name || t("Your opponent") });
+    showOnlineView("rematch-offer");
+}
+document.getElementById("rematch-accept").addEventListener("click", () => {
+    hideOnlineOverlay();
+    byId("winner-rematch").click(); // the same as pressing REMATCH: both said yes, the game starts
+});
+document.getElementById("rematch-decline").addEventListener("click", () => {
+    hideOnlineOverlay();
+    onlineClient.declineRematch();
+    showRematchState("ready");
+});
 
 function showRematchState(state) {
     const btn = document.getElementById("winner-rematch");
@@ -3602,9 +3619,20 @@ const onlineClient = new OnlineClient({
     },
     onGameOver: onRemoteGameOver,
     onPro: (pro) => setPro(pro),
-    onRematchOffer: () => { if (controller.mode === "online" && isGameOver) showRematchState("offered"); },
+    onRematchOffer: () => {
+        if (controller.mode !== "online" || !isGameOver) return;
+        showRematchState("offered");
+        // The sheet waits for the winner card (still shaking or in the points video, it would be in the way).
+        const game = gameState;
+        (function whenCardIsUp() {
+            if (gameState !== game || !isGameOver) return;
+            if (recordedGame === game) showRematchOffer();
+            else setTimeout(whenCardIsUp, 400);
+        })();
+    },
     onRematchDeclined: ({ left }) => {
         if (controller.mode !== "online" || !isGameOver) return;
+        if (onlineOverlay.dataset.view === "rematch-offer") hideOnlineOverlay(); // they changed their mind or left
         showRematchState(left ? "left" : "declined");
         if (left) showToast(t("Your opponent has left."));
     },
@@ -3750,6 +3778,9 @@ let searchingRandom = false;
 // after a reload counts as a random one).
 let onlineKind = "random";
 
+document.getElementById("warn-back").addEventListener("click", closeOnlineOverlay);
+document.getElementById("warn-go").addEventListener("click", () => startRandomOnline());
+
 async function startRandomOnline() {
     onlineKind = "random";
     // Below zero: matched with others below zero (see canMeet), and told so.
@@ -3834,7 +3865,7 @@ const onlineEnabled = (() => {
 document.body.classList.toggle("online-enabled", onlineEnabled);
 
 document.getElementById("home-online-btn").addEventListener("click", () => {
-    if (onlineEnabled) startRandomOnline();
+    if (onlineEnabled) showOnlineView("play-warning"); // a game started has to be played: said first
     else showToast(t("Online play is coming soon."));
 });
 document.getElementById("home-friend-btn").addEventListener("click", () => {
@@ -5703,6 +5734,7 @@ initCombinationDemos({
 // its entry off again, and the "popstate" that causes is not a back.
 (function backButton() {
     const SHEET_BACK = {
+        "play-warning": "warn-back", "rematch-offer": "rematch-decline",
         searching: "searching-cancel", friend: "friend-back", waiting: "room-cancel", joincode: "code-back",
         message: "message-ok", "login-email": "login-email-back", "login-code": "login-code-back", invite: "invite-decline",
         "level-help": "level-help-back", profile: "profile-cancel", "account-signout": "account-signout-back",

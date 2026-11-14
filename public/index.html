@@ -217,7 +217,7 @@
                 <div class="sheet-title" data-i18n>Vs Bot</div>
                 <div class="sheet-text" data-i18n>Choose how the bot plays.</div>
                 <div class="sheet-row">
-                    <div class="button sheet-btn bot bot-strategy" data-strategy="points"><div class="text-button" data-i18n>POINTS</div></div>
+                    <div class="button sheet-btn bot bot-strategy has-soon" data-strategy="points" data-soon><div class="text-button" data-i18n>POINTS</div><span class="soon-badge" data-i18n>SOON</span></div>
                     <div class="button sheet-btn bot bot-strategy" data-strategy="speed"><div class="text-button" data-i18n>SPEED</div></div>
                 </div>
                 <div class="button sheet-btn cancel" data-sheet-close><div class="text-button" data-i18n>BACK</div></div>
@@ -273,6 +273,20 @@
                 <div class="button sheet-btn bot" id="account-edit"><div class="text-button" data-i18n>EDIT PROFILE</div></div>
                 <div class="button sheet-btn cancel" id="account-signout"><div class="text-button" data-i18n>SIGN OUT</div></div>
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
+            </div>
+            <!-- before looking for a random opponent: a game started has to be played -->
+            <div class="sheet-view" data-view="play-warning">
+                <div class="sheet-title" data-i18n>Ready to play?</div>
+                <div class="sheet-text" data-i18n>Once the game starts, play it to the end. If you leave or stop playing, you lose 2 points.</div>
+                <div class="button sheet-btn go" id="warn-go"><div class="text-button" data-i18n>PLAY</div></div>
+                <div class="button sheet-btn cancel" id="warn-back"><div class="text-button" data-i18n>BACK</div></div>
+            </div>
+            <!-- the opponent asks for a rematch: accept or decline -->
+            <div class="sheet-view" data-view="rematch-offer">
+                <div class="sheet-title" data-i18n>Rematch?</div>
+                <div class="sheet-text" id="rematch-offer-text"></div>
+                <div class="button sheet-btn go" id="rematch-accept"><div class="text-button" data-i18n>ACCEPT</div></div>
+                <div class="button sheet-btn cancel" id="rematch-decline"><div class="text-button" data-i18n>DECLINE</div></div>
             </div>
             <!-- a Pro friend's invite (see friends.js on the server) -->
             <div class="sheet-view" data-view="invite">

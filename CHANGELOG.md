@@ -12,6 +12,13 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-11-14
+
+### Changed
+- VS BOT: the POINTS bot is not ready, so its button wears the SOON tag and only says so (the bot starts as SPEED).
+- ONLINE: before looking for an opponent a sheet says that a game started has to be played to the end, or you lose 2 points, with PLAY and BACK.
+- Rematch is always with the same player (and the same bot), and the one who is asked now gets a sheet to ACCEPT or DECLINE (declining tells the other player). The server's bot answers through the humanizer: its persona decides (usually yes, more eager after a loss and when chatty, sometimes no), after a human-like pause.
+
 ## [2.24.0] - 2026-11-14
 
 ### Changed

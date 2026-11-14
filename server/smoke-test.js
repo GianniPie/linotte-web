@@ -769,6 +769,31 @@ const lobby = new Lobby(io, store);
   lobby4.leaveRoom(b);
   assert.ok(find(a, "rematch_declined").length, "the one left behind is told");
   assert.equal(lobby4.requestRematch(a).error, "opponent_left");
+
+  // The one who was asked can say no: the one who asked is told, nothing starts.
+  const lobbyR = new Lobby(io, createMemoryStore(), { record: async () => {} });
+  const c = fakeSocket("player-rematchcc3", "Fox3");
+  const d = fakeSocket("player-rematchdd4", "Elk4");
+  assert.ok(lobbyR.createPrivate(c).ok);
+  assert.ok((await lobbyR.joinByCode(d, lobbyR.roomOfSocket(c).code)).ok);
+  const roomR = lobbyR.roomOfSocket(c);
+  roomR.forfeit(d.data.seat, "left");
+  assert.ok(lobbyR.requestRematch(c).waiting);
+  assert.ok(find(d, "rematch_offer").length, "asked");
+  assert.ok(lobbyR.declineRematch(d).ok);
+  assert.ok(find(c, "rematch_declined").length, "the one who asked is told no");
+  assert.equal(lobbyR.roomOfSocket(c), roomR, "no new game");
+  assert.equal(lobbyR.declineRematch(d).ok, true, "declining twice is harmless");
+
+  // The bot answers like a person: through its persona, usually yes, after a moment.
+  const { rematchAnswer, makePersona } = await import("./humanize.js");
+  let yes = 0, waits = [];
+  for (let i = 0; i < 400; i++) { const r = rematchAnswer(makePersona(), { botWon: i % 2 === 0 }); if (r.accept) yes++; waits.push(r.waitMs); }
+  assert.ok(yes > 280 && yes < 395, `usually yes, sometimes no (${yes}/400)`);
+  assert.ok(waits.every((w) => w > 500 && w < 12000), "after a moment, never instantly");
+  const lost = Array.from({ length: 600 }, () => rematchAnswer({ chatty: 0.35 }, { botWon: false }).accept).filter(Boolean).length;
+  const won = Array.from({ length: 600 }, () => rematchAnswer({ chatty: 0.35, speed: 1 }, { botWon: true }).accept).filter(Boolean).length;
+  assert.ok(lost > won, "more eager for a revenge when it lost");
   console.log("ok: rematch");
 }
 
