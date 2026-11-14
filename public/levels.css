@@ -432,7 +432,9 @@
 .road-panel {
   width: min(100%, 32em);
   margin: 0 auto;
-  padding: .6em 1em 3em;
+  /* Starts at the same height and with the same side margins as the islands of
+     the other pages (.opt-stack: .8em at the sides). */
+  padding: 0 .8em 3em;
   box-sizing: border-box;
   font-size: 16px;
   color: #3d240c;
@@ -440,7 +442,7 @@
 }
 
 .road-list {
-  margin: 0;
+  margin: 11.2px 0 0; /* the gap every island has to the next (.7em of 16px) */
   padding: 0;
   list-style: none;
 }
@@ -450,7 +452,7 @@
   display: grid;
   grid-template-columns: 3.8em minmax(0, 1fr);
   gap: .8em;
-  padding-bottom: 1.1em;
+  padding-bottom: 11.2px; /* the same gap between two cards */
 }
 
 /* The road itself: a line from each node down to the next. */

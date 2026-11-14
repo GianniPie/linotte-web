@@ -83,7 +83,7 @@ export default {
     "Play Linotte with me! Code: {code}": "Gioca a Linotte con me! Codice: {code}",
     "Link copied": "Link copiato",
     "Sign in": "Accedi",
-    "Keep your progress, Pro and your collection, and get them back on a new phone. You can keep playing as a guest.": "Conserva i tuoi progressi, il Pro e la tua collezione, e ritrovali su un nuovo telefono. Puoi continuare a giocare come ospite.",
+    "Keep everything you've earned, even on a new phone.": "Conserva tutto ciò che hai guadagnato, anche su un nuovo telefono.",
     "SIGN IN WITH APPLE": "ACCEDI CON APPLE",
     "SIGN IN WITH GOOGLE": "ACCEDI CON GOOGLE",
     "SIGN IN WITH EMAIL": "ACCEDI CON EMAIL",

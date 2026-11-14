@@ -1765,9 +1765,11 @@ html.is-resizing *::after {
   color: #3d240c;
 }
 
-/* A page title in its own island, like the level road's and Options'. */
+/* A page title in its own island, like the level road's and Options'. It has no
+   margin: the space to the next island is the stack's own gap (.7em of the
+   page, 11.2px), the same between every two islands of every page. */
 .page-heading {
-  margin: 0 0 .2em;
+  margin: 0;
   padding: .3em .6em .35em;
   text-align: center;
   font: 1.7em/1.1 "Changa One", sans-serif;

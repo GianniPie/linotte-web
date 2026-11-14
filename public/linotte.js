@@ -1701,6 +1701,9 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
     recorded.then(async (r) => {
         if (!earn) { heldBonus = null; return; } // no points, no celebration
         if (currentUser()) {
+            // The home's badge and the level it keeps are the server's word, asked now: right by the
+            // time the player leaves, whatever the celebration (which waits for the card's confetti) is doing.
+            if (!(mode === "bot" && winner !== me)) refreshPro({ fresh: true, celebrate: false });
             if (mode === "bot" && winner !== me) return; // a lost bot game earns nothing
             // The account's points are the server's: asked now, and again when
             // the server says the game is in its books ("recorded", see onRecorded).
@@ -1713,9 +1716,9 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
             if (heldBonus) { showPointsGain(heldBonus.points, t("Daily bonus")); heldBonus = null; } // told while the video was up
             return;
         }
+        showHomeBadge(); // the home's badge is right at once; the celebration waits for the card's confetti
         await sleep(afterWinMs(winner)); // the points come after the win's own confetti
         const after = guestXp();
-        showHomeBadge();
         // One badge for what the game paid and one for the day's bonus.
         const earned = after - xpBefore - (r?.daily ? DAILY_BONUS_POINTS : 0);
         if (earned > 0) showPointsGain(earned, gameBadgeLabel(winner === me));

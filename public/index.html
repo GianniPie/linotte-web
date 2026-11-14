@@ -5,31 +5,15 @@
     <meta charset="utf-8" />
     <title>linotte-web</title>
 
-    <!-- In a language other than English the page stays invisible until
-         i18n.js has translated it (no flash of English), and after a
-         language change until the options are open again; shown anyway after
-         3 seconds if something goes wrong. Same language choice as i18n.js. -->
+    <!-- The page stays invisible until the app has run and filled the home in (no
+         flash of English, of SOON tags that are about to go, of a level badge that
+         arrives late), and after a language change until the options are open again;
+         shown anyway after 3 seconds if something goes wrong. Same language choice
+         as i18n.js. -->
     <style>.i18n-pending body, .i18n-pending body * { visibility: hidden !important; }</style>
     <script>
-        (function () {
-            var supported = ["en", "it", "fr", "es", "pt", "zh"], lang = "en";
-            try { lang = localStorage.getItem("linotte-lang") || ""; } catch (e) { lang = ""; }
-            if (supported.indexOf(lang) < 0) {
-                lang = "en";
-                var tags = navigator.languages || [navigator.language || "en"];
-                for (var i = 0; i < tags.length; i++) {
-                    var b = String(tags[i]).slice(0, 2).toLowerCase();
-                    if (supported.indexOf(b) >= 0) { lang = b; break; }
-                }
-            }
-            // Also hidden when coming back from a language change, until the
-            // options menu has been opened again (see reopenAfterReload).
-            var reopen = false;
-            try { reopen = !!sessionStorage.getItem("linotte-reopen"); } catch (e) { }
-            if (lang === "en" && !reopen) return;
-            document.documentElement.classList.add("i18n-pending");
-            setTimeout(function () { document.documentElement.classList.remove("i18n-pending"); }, 3000);
-        })();
+        document.documentElement.classList.add("i18n-pending");
+        setTimeout(function () { document.documentElement.classList.remove("i18n-pending"); }, 3000);
     </script>
 
     <!-- Force light theme and prevent color scheme adjustments -->
@@ -243,7 +227,7 @@
                  "coming soon" and none of this opens. -->
             <div class="sheet-view" data-view="login">
                 <div class="sheet-title" data-i18n>Sign in</div>
-                <div class="sheet-text" data-i18n>Keep your progress, Pro and your collection, and get them back on a new phone. You can keep playing as a guest.</div>
+                <div class="sheet-text" data-i18n>Keep everything you've earned, even on a new phone.</div>
                 <div class="sheet-text login-nopass" data-i18n>No new password needed: use an account you already have, or a code we email you.</div>
                 <div class="button sheet-btn apple" id="login-apple"><div class="text-button" data-i18n>SIGN IN WITH APPLE</div></div>
                 <div class="button sheet-btn google" id="login-google"><div class="text-button" data-i18n>SIGN IN WITH GOOGLE</div></div>

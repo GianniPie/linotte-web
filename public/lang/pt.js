@@ -90,7 +90,7 @@ export default {
 
     // sign in and account
     "Sign in": "Entrar",
-    "Keep your progress, Pro and your collection, and get them back on a new phone. You can keep playing as a guest.": "Guarde seu progresso, o Pro e sua coleção, e recupere tudo em um celular novo. Você pode continuar jogando como convidado.",
+    "Keep everything you've earned, even on a new phone.": "Guarde tudo o que você conquistou, mesmo em um celular novo.",
     "SIGN IN WITH APPLE": "ENTRAR COM APPLE",
     "SIGN IN WITH GOOGLE": "ENTRAR COM GOOGLE",
     "SIGN IN WITH EMAIL": "ENTRAR COM E-MAIL",

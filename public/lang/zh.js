@@ -91,7 +91,7 @@ export default {
 
     // sign in and account
     "Sign in": "登录",
-    "Keep your progress, Pro and your collection, and get them back on a new phone. You can keep playing as a guest.": "保存你的进度、Pro 和收藏，换新手机也能找回。你也可以继续以游客身份游玩。",
+    "Keep everything you've earned, even on a new phone.": "保留你获得的所有内容，换新手机也能找回。",
     "SIGN IN WITH APPLE": "通过 APPLE 登录",
     "SIGN IN WITH GOOGLE": "通过 GOOGLE 登录",
     "SIGN IN WITH EMAIL": "通过邮箱登录",

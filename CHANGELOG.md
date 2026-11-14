@@ -12,6 +12,13 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.23.2] - 2026-11-14
+
+### Fixed
+- The app opens on one clean page. Until the app has run and filled the home in, the page stays hidden (it already was for the languages other than English): before, the first paint showed the SOON tags on ONLINE, FRIEND and the profile, no level badge and no banner, and a moment later all of that changed. The home's level badge is right at once, also after a game (the badge of an account is asked of the server as soon as the game's points count, not when the celebration ends).
+- The menu's islands: the first island of every page starts at the same height (the Level road's started 10 px lower and narrower), and the space between two islands is the same everywhere (11 px): the title island of Options and the Level road had a different space to the next one.
+- The sign-in sentence is shorter and clearer: "Keep everything you've earned, even on a new phone." (the NOT NOW button already says you can play as a guest).
+
 ## [2.23.1] - 2026-11-14
 
 ### Changed
