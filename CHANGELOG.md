@@ -12,6 +12,12 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-11-14
+
+### Changed
+- The DONE button nudges you: when the next thing to do is DONE (a piece is placed, or the third roll is done) and nothing has been touched for 5 seconds, it shakes a little in a loop, with a small buzz each time, until you touch anything (not while a menu, the home or the winner card covers it).
+- The how-to videos use dice values that can't be mistaken for a count: the Brelan is made of 4s (not 3s), the Full of three 5s and a pair of 6s (not 2s), the Appel of 6s (not 3s). The captions are translated in every language.
+
 ## [2.23.3] - 2026-11-14
 
 ### Fixed

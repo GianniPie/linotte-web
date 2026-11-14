@@ -2304,11 +2304,45 @@ doneBtn.addEventListener("click", () => {
     doneButton();
 });
 
+//------------------ NUDGING THE DONE BUTTON ----------------------
+// When the next thing to do is DONE (a piece is placed, or the third roll is
+// done) and nothing has been touched for 5 seconds, DONE shakes a little, in a
+// loop with a small buzz each time, until the player touches anything.
+const DONE_NUDGE_AFTER_MS = 5000;
+let lastTouchAt = performance.now();
+let doneReadySince = 0;
+const doneIsTheNextStep = () => {
+    if (!gameInProgress || isGameOver || !isMyTurn() || doneBtn.classList.contains("is-inactive")) return false;
+    if (selectedTileId === null && rollsShown > 0) return false; // neither placed nor out of rolls
+    // Not covered by anything (the home, a menu, a sheet, the winner card).
+    const r = doneBtn.getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return Boolean(top && doneBtn.contains(top));
+};
+function setDoneNudge(on) {
+    if (on === doneBtn.classList.contains("nudge")) return;
+    doneBtn.classList.toggle("nudge", on);
+    if (on) buzz(DONE_NUDGE_BUZZ);
+}
+const DONE_NUDGE_BUZZ = [26, 60, 26]; // small, like the shake
+doneBtn.addEventListener("animationiteration", () => buzz(DONE_NUDGE_BUZZ));
+for (const type of ["pointerdown", "keydown"]) {
+    document.addEventListener(type, () => { lastTouchAt = performance.now(); setDoneNudge(false); }, { capture: true, passive: true });
+}
+setInterval(() => {
+    if (!doneIsTheNextStep()) { doneReadySince = 0; setDoneNudge(false); return; }
+    const now = performance.now();
+    if (!doneReadySince) doneReadySince = now;
+    if (now - Math.max(lastTouchAt, doneReadySince) >= DONE_NUDGE_AFTER_MS) setDoneNudge(true);
+}, 500);
+
 // The ROLL label and the inactive look of ROLL/DONE (see .button.is-inactive
 // in linotte.css) always change together: ROLL with no rolls left, DONE
 // before the turn's first roll. Online, `n` is the count the player is about
 // to have (the server's dice are still on their way).
+let rollsShown = 3; // the count the ROLL label shows
 function setRollsLeftUI(n) {
+    rollsShown = n;
     rollBtnText.innerText = t("ROLL {n}", { n });
     rollBtn.classList.toggle("is-inactive", n < 1 || gameState.dice.locked.every(Boolean));
     doneBtn.classList.toggle("is-inactive", n >= 3);

@@ -25,19 +25,21 @@ export const DEMOS = {
   brelan: {
     name: "Brelan",
     steps: [
-      { say: "Roll the five dice.", roll: [3, 5, 3, 1, 6], then: "Two 3s." },
-      { say: "Keep the two 3s.", keep: [0, 2] },
-      { say: "Roll the other three dice.", roll: [3, 2, 3, 3, 4], then: "Three 3s make a Brelan." },
-      { say: "A Brelan of 3s goes on a 3 tile.", place: tile.b31 },
+      // No 3s: "three 3s" would blur the dice value with the count that makes a Brelan.
+      { say: "Roll the five dice.", roll: [4, 5, 4, 1, 6], then: "Two 4s." },
+      { say: "Keep the two 4s.", keep: [0, 2] },
+      { say: "Roll the other three dice.", roll: [4, 2, 4, 4, 6], then: "Three 4s make a Brelan." },
+      { say: "A Brelan of 4s goes on a 4 tile.", place: tile.b41 },
       DONE,
     ],
   },
   full: {
     name: "Full",
     steps: [
-      { say: "Roll the five dice.", roll: [5, 2, 5, 1, 5], then: "Three 5s already." },
+      // No 2s or 3s: "a pair of 2s" would blur the dice value with the count.
+      { say: "Roll the five dice.", roll: [5, 6, 5, 1, 5], then: "Three 5s already." },
       { say: "Keep the three 5s.", keep: [0, 2, 4] },
-      { say: "Roll the other two dice.", roll: [5, 2, 5, 2, 5], then: "Three 5s and a pair of 2s make a Full." },
+      { say: "Roll the other two dice.", roll: [5, 6, 5, 6, 5], then: "Three 5s and a pair of 6s make a Full." },
       { say: "Put a piece on a Full tile.", place: tile.fu1 },
       DONE,
     ],
@@ -99,11 +101,12 @@ export const DEMOS = {
   appel: {
     name: "Appel",
     steps: [
-      { say: "Roll the five dice.", roll: [3, 3, 5, 2, 3], then: "Three 3s make a Brelan." },
+      // No 3s: "three 3s" would blur the dice value with the count.
+      { say: "Roll the five dice.", roll: [6, 6, 5, 2, 6], then: "Three 6s make a Brelan." },
       { say: "Call Full: tap it in the strip.", call: COMBO_INDEX.full },
-      { say: "Keep the three 3s.", keep: [0, 1, 4] },
-      { say: "Roll the other two dice.", roll: [3, 3, 3, 6, 3], then: ["Four 3s make a Carré.", "You called Full, not Carré, so the Appel tiles stay off."] },
-      { say: "Roll the same two dice again.", roll: [3, 3, 5, 5, 3], then: ["Three 3s and a pair of 5s make a Full.", "You called it, so the Appel tiles light up."] },
+      { say: "Keep the three 6s.", keep: [0, 1, 4] },
+      { say: "Roll the other two dice.", roll: [6, 6, 6, 4, 6], then: ["Four 6s make a Carré.", "You called Full, not Carré, so the Appel tiles stay off."] },
+      { say: "Roll the same two dice again.", roll: [6, 6, 5, 5, 6], then: ["Three 6s and a pair of 5s make a Full.", "You called it, so the Appel tiles light up."] },
       { say: "Put a piece on an Appel tile.", place: tile.ap1 },
       DONE,
     ],

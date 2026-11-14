@@ -1132,6 +1132,27 @@ body.table-flipped .tile::before {
   background-color: rgb(250, 59, 151);
 }
 
+/* DONE, when it is the next thing to do and nothing was touched for a while
+   (see "NUDGING THE DONE BUTTON" in linotte.js): a small shake, then a rest, in
+   a loop. */
+.button.done.nudge {
+  animation: doneNudge 2.6s ease-in-out infinite;
+}
+
+@keyframes doneNudge {
+  0%, 22%, 100% { transform: none; }
+  3% { transform: translateX(-3px) rotate(-2deg); }
+  6% { transform: translateX(3px) rotate(2deg); }
+  9% { transform: translateX(-2.5px) rotate(-1.6deg); }
+  12% { transform: translateX(2.5px) rotate(1.6deg); }
+  15% { transform: translateX(-1.5px) rotate(-1deg); }
+  18% { transform: translateX(1.5px) rotate(1deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button.done.nudge { animation: none; }
+}
+
 /* Vs-bot only: swapped in for ROLL+DONE while it's the bot's turn (see
    divsOpacity() in linotte.js), spanning both grid columns so it reads as
    one centered status line instead of sitting in a single button slot. */
