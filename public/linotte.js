@@ -192,7 +192,7 @@ import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAband
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
 import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
-import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY } from "./shared/level.js";
+import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, DAILY_BONUS_POINTS } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
 gameState.players[2].name = "BOT";
@@ -308,6 +308,8 @@ function refreshContinueCard() {
 let lastRefreshAt = 0;
 // The account's points when the game on the winner card ended (null: no card).
 let gameXpBase = null;
+let gameXpLabel = ""; // what the game's badge says: Victory or Game played
+let gameXpPays = 0; // the most the game itself can have paid (the rest is a bonus)
 function refreshIfStale() {
     if (!currentUser() || Date.now() - lastRefreshAt < 15000) return;
     refreshPro();
@@ -1697,16 +1699,22 @@ function noteGameResult(winner) {
             // The account's points are the server's: asked now, and again when
             // the server says the game is in its books ("recorded", see onRecorded).
             gameXpBase = xpBefore;
+            gameXpLabel = gameBadgeLabel(winner === me);
+            // What an online game pays is set by the rules; the bot's is told by the points.
+            gameXpPays = mode === "bot" ? Infinity : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
             await sleep(mode === "bot" ? 0 : 1500);
             return showGameXp();
         }
-        if (r?.daily) showPointsGain(2, t("Daily bonus"));
         const after = guestXp();
         showHomeBadge();
+        // One badge for what the game paid and one for the day's bonus.
+        const earned = after - xpBefore - (r?.daily ? DAILY_BONUS_POINTS : 0);
+        if (earned > 0) showPointsGain(earned, gameBadgeLabel(winner === me));
+        if (r?.daily) showPointsGain(DAILY_BONUS_POINTS, t("Daily bonus"));
         if (after === xpBefore) return;
         xpStrip = { base: xpBefore, after };
         showXpGain(xpBefore, after);
-        setTimeout(() => celebrateLevel(xpBefore, after), r?.daily ? 3200 : 1700); // after the bonus has had its moment
+        setTimeout(() => celebrateLevel(xpBefore, after), 1700);
     });
 }
 
@@ -3491,7 +3499,7 @@ const onlineClient = new OnlineClient({
             const after = lastKnownXp();
             if (xpStrip) { xpStrip.after = after; showXpGain(xpStrip.base, after); }
             if (before !== null && after !== null) celebrateLevel(before, after);
-        }, 3200);
+        }, 900);
     },
     onGameOver: onRemoteGameOver,
     onPro: (pro) => setPro(pro),
@@ -4158,31 +4166,90 @@ function celebrateLevel(beforeXp, afterXp) {
     const from = levelOf(beforeXp), to = levelOf(afterXp);
     if (to === from) return;
     applyLevelLocks(); // so the new looks can be put on at once (or locked again)
-    if (to < from) showLevelDown(from, to, afterXp);
-    else showLevelUp(from, to);
+    // After the badges of the points that got it there have had their moment.
+    afterPoints(() => (to < from ? showLevelDown(from, to, afterXp) : showLevelUp(from, to)));
 }
 
-//--------- points earned away from a game ---------
-// A bonus (the day's first game, a rewarded ad) gets a small celebration: a
-// gold pill at the top with a few sparkles and a soft chime. Smaller on
-// purpose than reaching a level (showLevelUp), which comes after it.
+//--------- points earned: a stack of badges ---------
+// Every source of points gets its own gold badge at the top with a burst of
+// a cascade of confetti and a chime, one below the other as they come: the game's own
+// points, the day's first game, a rewarded ad. They leave together a moment
+// after the last one. Smaller on purpose than reaching a level
+// (showLevelUp), which waits for the stack to be gone (afterPoints).
+const POINTS_GAP_MS = 700; // between one badge and the next one arriving together
+const POINTS_LIFE_MS = 2900; // how long the stack stays after the last badge
+const pointsStack = { nextAt: 0, queued: 0, timer: 0 };
+
 function showPointsGain(points, label) {
-    const pop = byId("points-pop");
-    byId("pp-gain").textContent = `+${points}`;
-    byId("pp-text").textContent = label;
-    pop.classList.remove("show");
-    void pop.offsetWidth; // restart the animation if one is still playing
-    pop.classList.add("show");
-    clearTimeout(showPointsGain.timer);
-    showPointsGain.timer = setTimeout(() => pop.classList.remove("show"), 3000);
-    playChime();
-    if (typeof confetti === "function") {
-        confetti({
-            particleCount: 26, spread: 70, startVelocity: 22, gravity: 0.9, ticks: 110, scalar: 0.7,
-            colors: ["#ffd84d", "#ffffff", "#f08a24", "#7ed6a5"], zIndex: 97, disableForReducedMotion: true,
-            origin: { x: 0.5, y: Math.max(0.06, (pop.getBoundingClientRect().bottom || 60) / innerHeight) },
-        });
+    const now = performance.now();
+    const at = Math.max(now, pointsStack.nextAt);
+    pointsStack.nextAt = at + POINTS_GAP_MS;
+    pointsStack.queued++;
+    setTimeout(() => { pointsStack.queued--; addPointsBadge(points, label); }, at - now);
+}
+
+function addPointsBadge(points, label) {
+    const stack = byId("points-stack");
+    // A new one while the others were leaving: they stay.
+    for (const old of stack.children) {
+        if (!old.classList.contains("leaving")) continue;
+        clearTimeout(old.leaveTimer);
+        old.classList.remove("leaving");
+        old.style.animation = "none";
     }
+    const badge = document.createElement("div");
+    badge.className = "points-badge";
+    badge.append(
+        Object.assign(document.createElement("b"), { className: "pp-gain", textContent: `+${points}` }),
+        Object.assign(document.createElement("span"), { className: "pp-text", textContent: label }),
+    );
+    stack.appendChild(badge);
+    playChime(stack.children.length - 1);
+    burstConfetti(badge);
+    clearTimeout(pointsStack.timer);
+    pointsStack.timer = setTimeout(leavePointsStack, POINTS_LIFE_MS);
+}
+
+// The cascade: a big fountain of confetti thrown up from under the badge, and
+// a rain of it falling from the top of the screen for a moment. Behind the
+// badges, no stars (the star means Pro).
+function burstConfetti(badge) {
+    if (typeof confetti !== "function") return;
+    // Where the badge settles (not where its drop-in animation has it now).
+    const bottom = badge.parentElement.getBoundingClientRect().top + badge.offsetTop + badge.offsetHeight;
+    const base = {
+        colors: ["#ffd84d", "#f6bc34", "#ffe9a0", "#e8a317", "#fff3c4", "#d4900f"], // all gold
+        zIndex: 95, // behind the badges (96), above the game
+        disableForReducedMotion: true,
+    };
+    const y = Math.min(0.9, bottom / innerHeight);
+    confetti({ ...base, particleCount: 130, spread: 110, startVelocity: 38, gravity: 0.85, ticks: 260, scalar: 1.25, origin: { x: 0.5, y } });
+    confetti({ ...base, particleCount: 50, angle: 60, spread: 55, startVelocity: 42, gravity: 0.9, ticks: 240, scalar: 1.1, origin: { x: 0.05, y: 0.45 } });
+    confetti({ ...base, particleCount: 50, angle: 120, spread: 55, startVelocity: 42, gravity: 0.9, ticks: 240, scalar: 1.1, origin: { x: 0.95, y: 0.45 } });
+    // The rain: small handfuls dropped along the top, over about a second.
+    for (let i = 0; i < 9; i++) {
+        setTimeout(() => confetti({
+            ...base, particleCount: 14, angle: 270, spread: 50, startVelocity: 14, gravity: 0.75, ticks: 300, scalar: 1.15,
+            origin: { x: 0.08 + Math.random() * 0.84, y: -0.04 },
+        }), i * 110);
+    }
+}
+
+function leavePointsStack() {
+    const stack = byId("points-stack");
+    [...stack.children].forEach((badge, i) => {
+        badge.style.animation = "";
+        badge.style.animationDelay = `${i * 120}ms`;
+        badge.classList.add("leaving");
+        badge.leaveTimer = setTimeout(() => badge.remove(), i * 120 + 500);
+    });
+}
+
+// Something that has to wait until the badges are gone (a level reached).
+function afterPoints(fn) {
+    const busy = pointsStack.queued > 0 || byId("points-stack").children.length > 0;
+    if (!busy) { fn(); return; }
+    setTimeout(() => afterPoints(fn), 250);
 }
 
 //--------- the winner card: what the game was worth ---------
@@ -4199,10 +4266,16 @@ async function showGameXp() {
     if (after === null || gameXpBase === null) return;
     const shown = xpStrip ? xpStrip.after : gameXpBase;
     if (after === shown) return;
+    const first = !xpStrip;
     xpStrip = { base: gameXpBase, after };
     showXpGain(gameXpBase, after);
+    // The game's own points get a badge too (the bonus has its own, see onBonus).
+    const earned = Math.min(gameXpPays, after - gameXpBase);
+    if (first && earned > 0) showPointsGain(earned, gameXpLabel);
     setTimeout(() => celebrateLevel(shown, after), 1700);
 }
+
+const gameBadgeLabel = (won) => (won ? t("Victory") : t("Game played"));
 
 function resetXpGain() {
     xpStrip = null;
@@ -4466,14 +4539,24 @@ function playLevelDownTone(thud) {
 }
 
 // A short rising fanfare, made on the spot like the bell's trill.
-// Two soft notes, for points earned (the fanfare is for a level).
-function playChime() {
+// Two soft notes, for points earned (the fanfare is for a level), higher for
+// each badge that joins the stack.
+// A buzz with the sounds of a celebration: only where there is a vibrator
+// (Android browsers, not iOS) and only when the sound is on.
+function buzz(pattern) {
     if (!isVolumeOn) return;
+    try { navigator.vibrate?.(pattern); } catch { /* no vibration */ }
+}
+
+function playChime(step = 0) {
+    if (!isVolumeOn) return;
+    buzz(40);
     const c = audio();
     if (!c) return;
     if (c.state === "suspended") c.resume();
     const start = c.currentTime + 0.03;
-    for (const [freq, at] of [[987.77, 0], [1318.5, 0.11]]) {
+    const lift = 2 ** (Math.min(step, 4) * 2 / 12); // each badge in the stack a tone higher
+    for (const [freq, at] of [[987.77 * lift, 0], [1318.5 * lift, 0.11]]) {
         const osc = c.createOscillator();
         const g = c.createGain();
         osc.type = "sine";
@@ -4490,6 +4573,7 @@ function playChime() {
 
 function playFanfare() {
     if (!isVolumeOn) return;
+    buzz([60, 50, 60, 50, 140]);
     const c = audio();
     if (!c) return;
     if (c.state === "suspended") c.resume();
@@ -4808,7 +4892,7 @@ byId("st-level-ad").addEventListener("click", async () => {
         showToast(r.adsLeft === 0 ? t("No more ads today: come back tomorrow") : t("Can't add the point right now. Please try again."));
     } else {
         showPointsGain(1, t("Ad reward"));
-        setTimeout(() => celebrateLevel(before, myXp()), 3200); // after the pill has had its moment
+        celebrateLevel(before, myXp()); // waits for the badge to be gone
     }
     showHomeBadge();
     fillStatsLevel();
@@ -5566,3 +5650,13 @@ initCombinationDemos({
     watch.observe(byId("leveldown-overlay"), { attributes: true, attributeFilter: ["hidden"] });
     try { history.replaceState(null, ""); } catch { /* no history */ }
 })();
+
+// Developer: open the app with ?pointsdemo=1 and tap anywhere to see the stack
+// of points badges (a win, the daily bonus, an ad) as many times as you like.
+if (new URLSearchParams(location.search).get("pointsdemo") === "1") {
+    document.addEventListener("pointerdown", () => {
+        showPointsGain(2, t("Victory"));
+        showPointsGain(2, t("Daily bonus"));
+        showPointsGain(1, t("Ad reward"));
+    });
+}

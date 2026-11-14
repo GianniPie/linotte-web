@@ -172,6 +172,8 @@ export default {
     "This is a sample ad.": "Este é um anúncio de exemplo.",
     "Daily bonus": "Bônus do dia",
     "Ad reward": "Prêmio do vídeo",
+    "Victory": "Vitória",
+    "Game played": "Partida jogada",
     "Bronze badge": "Selo de bronze",
     "Silver badge": "Selo de prata",
     "Gold badge": "Selo de ouro",

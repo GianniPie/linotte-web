@@ -6,83 +6,103 @@
    (The rules and the numbers are in shared/level.js, the code in linotte.js.)
    ============================================ */
 
-/* ---------- points earned away from a game: a small celebration ---------- */
-/* A bonus (the day's first game, a rewarded ad) is told by a gold pill that
-   drops in at the top with a few sparkles: a party, but a small one, under
-   the full-screen level-up (98) and passing on its own. */
-.points-pop {
+/* ---------- points earned: one gold badge per thing that paid ---------- */
+/* The game's own points, the day's first game, a rewarded ad: each is a gold
+   badge that drops in at the top with a cascade of confetti, one below the
+   other as they come, so every source of points gets its moment. A party, but
+   under the full-screen level-up (98), and passing on its own. */
+.points-stack {
   position: fixed;
   top: calc(max(14px, env(safe-area-inset-top, 0px)) + 6px);
   left: 50%;
   z-index: 96;
-  display: none;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  width: max-content;
   max-width: calc(100vw - 32px);
-  padding: 7px 16px 7px 12px;
-  border: 1px solid rgba(0, 0, 0, .18);
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ffe58a, #f6bc34);
-  color: #3d240c;
-  font-family: "Changa One", sans-serif;
-  font-size: 17px;
-  line-height: 1.1;
-  white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .22), 0 0 0 4px rgba(255, 216, 77, .28);
-  overflow: hidden;
   transform: translateX(-50%);
 }
 
-.points-pop.show {
+.points-badge {
+  position: relative;
   display: flex;
-  animation: ppLife 2.9s cubic-bezier(.2, 1.4, .4, 1) both;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 9px 22px;
+  border: 1px solid rgba(0, 0, 0, .2);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff0a8, #f6bc34 70%, #ee9f1c);
+  color: #3d240c;
+  font-family: "Changa One", sans-serif;
+  font-size: 20px;
+  line-height: 1.1;
+  white-space: nowrap;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .26), 0 0 0 5px rgba(255, 216, 77, .38), 0 0 34px 8px rgba(255, 196, 40, .55);
+  animation: ppIn .7s cubic-bezier(.2, 1.5, .4, 1) both;
 }
 
-.points-pop.show::after {
+/* The shine sweeping over the badge, and a ring spreading from it. */
+.points-badge::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .65) 50%, transparent 70%);
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .75) 50%, transparent 70%);
   background-size: 250% 100%;
-  animation: ppShine 1.2s .35s ease-out both;
+  animation: ppShine 1.3s .3s ease-out both;
 }
 
-.pp-star {
-  font-size: 19px;
-  color: #b8720a;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .6);
-  animation: ppStar .8s .1s cubic-bezier(.2, 1.6, .4, 1) both;
+.points-badge::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 3px solid rgba(255, 224, 110, .9);
+  border-radius: inherit;
+  animation: ppRing .9s .15s ease-out both;
+}
+
+.points-badge.leaving {
+  animation: ppOut .45s cubic-bezier(.5, 0, .9, .4) both;
 }
 
 .pp-gain {
   font-weight: normal;
-  font-size: 22px;
+  font-size: 30px;
   color: #1f6b3b;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .55);
+  animation: ppGain .6s .2s cubic-bezier(.2, 1.8, .4, 1) both;
 }
 
 .pp-text {
-  font-size: 15px;
-  opacity: .85;
+  font-size: 17px;
+  opacity: .9;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-@keyframes ppLife {
-  0% { opacity: 0; transform: translate(-50%, -140%) scale(.7); }
-  14% { opacity: 1; transform: translate(-50%, 0) scale(1.06); }
-  22% { transform: translate(-50%, 0) scale(1); }
-  84% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -60%) scale(.96); }
+@keyframes ppIn {
+  0% { opacity: 0; transform: translateY(-160%) scale(.6); }
+  45% { opacity: 1; transform: translateY(8%) scale(1.12); }
+  70% { transform: translateY(0) scale(.97); }
+  100% { opacity: 1; transform: none; }
 }
+@keyframes ppOut { to { opacity: 0; transform: translateY(-70%) scale(.9); } }
 @keyframes ppShine { from { background-position: 150% 0; } to { background-position: -50% 0; } }
-@keyframes ppStar { from { opacity: 0; transform: scale(.2) rotate(-140deg); } }
+@keyframes ppRing { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.5, 2.1); } }
+@keyframes ppGain { from { opacity: 0; transform: scale(.3); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .points-pop.show { animation: ppLifeCalm 2.9s both; }
-  .points-pop.show::after, .pp-star { animation: none; }
+  .points-badge { animation: ppCalm .4s both; }
+  .points-badge.leaving { animation: ppCalmOut .3s both; }
+  .points-badge::after, .points-badge::before, .pp-gain { animation: none; }
+  .points-badge::before { display: none; }
 }
-@keyframes ppLifeCalm { 0%, 100% { opacity: 0; } 12%, 84% { opacity: 1; } }
+@keyframes ppCalm { from { opacity: 0; } }
+@keyframes ppCalmOut { to { opacity: 0; } }
 
 /* ---------- points earned, on the winner card ---------- */
 .winner-xp {

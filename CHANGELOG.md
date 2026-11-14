@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-11-14
+
+### Changed
+- The points celebration is bolder and now a stack: every source of points gets its own gold badge, one below the other as they come, each with its own chime (a tone higher each time) and cascade. The badge is bigger, with a spreading ring and a shine (no star: the star means Pro), and the confetti cascade is much fuller: a fountain from under each badge, a cannon at each side and a rain from the top of the screen, all gold and behind the badges. The game's own points ("+2 Victory", "+1 Game played", for a bot win too) now have a badge, before the day's first-game bonus ("+2 Daily bonus") or an ad's point ("+1 Ad reward"). The stack leaves together a moment after the last badge, and a level reached waits for it to be gone. The phone gives a short buzz with each badge's chime and a longer one with the level-up fanfare (when the sound is on; Android only, iOS browsers have no vibration). Developers can replay it by opening the app with `?pointsdemo=1` and tapping.
+
 ## [2.22.0] - 2026-11-14
 
 ### Added

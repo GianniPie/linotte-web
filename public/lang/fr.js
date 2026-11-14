@@ -161,6 +161,8 @@ export default {
     "This is a sample ad.": "Ceci est une pub d'exemple.",
     "Daily bonus": "Bonus du jour",
     "Ad reward": "Récompense de la vidéo",
+    "Victory": "Victoire",
+    "Game played": "Partie jouée",
     "Bronze badge": "Badge bronze",
     "Silver badge": "Badge argent",
     "Gold badge": "Badge or",
