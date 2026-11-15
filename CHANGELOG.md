@@ -12,6 +12,17 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.28.0] - 2026-11-15
+
+### Added
+- A speed bonus for wins against the bot in speed mode: the faster you win, the more it pays on top of the win's 1 point, counted in your own turns: up to 8 turns +3, 9 to 11 +2, 12 to 14 +1, 15 or more nothing (the bot's own games last about 15 turns a side; measured on 600 bot-vs-bot games). It comes as its own "Speed bonus" badge on the points screen, in every language, and "How levels work" says so. Not paid if the video was closed. The app saves each game's turns (`game_results.turns`) so the steps can be set again from real games; the bonus is saved with the game (`game_results.bonus_xp`) and counted in the level by the server: run `supabase/game_results_bonus.sql` in Supabase BEFORE deploying.
+
+### Changed
+- A win against the bot is worth 1 level point (it was 1 point for every 5 wins, so a win never seemed to move anything). The points screen now shows "+1 Victory" after each win, the level road and "How levels work" say so in every language, and an account's or guest's bot wins already played count one point each (so some levels may rise on their own).
+
+### Fixed
+- A bad connection in an online game no longer leaves the dice tumbling and the clock running until it comes back. With no connection, ROLL says so and does nothing (before, the dice tumbled for a roll that had never left). If the server's dice don't come back within 3.5 seconds the dice stop tumbling and show what they showed, and after 9 seconds the connection is made again, which redraws the game from the server's (a roll that never arrived is simply not counted). While the connection is down the countdown stops, with the pause symbol over it, and goes on when it is back; the server holds the clock of the player on turn who disconnects too (at most 20 seconds a time, so a game can't be stalled), and tells the opponent, whose countdown stops and resumes the same way. Games against the bot and on the same phone roll their dice on the phone, so they were never affected.
+
 ## [2.27.1] - 2026-11-15
 
 ### Fixed

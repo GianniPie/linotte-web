@@ -378,24 +378,27 @@ const lobby = new Lobby(io, store);
   assert.deepEqual(quit.map((r) => [r.user_id, r.won, r.abandoned]), [["a", true, false], ["b", false, true]], "the one who left abandoned");
   // The host stayed: no penalty; the guest left (no account, so no row).
   assert.equal(recorded[0].abandoned, false, "the one who stayed didn't abandon");
-  // Online wins +2, lost or drawn to the end +1, bot wins +1 for every 5,
+  // Online wins +2, lost or drawn to the end +1, bot wins +1 each,
   // abandoned games -2, 2 daily bonuses +2 each, 3 ads +1 each
-  // (here 2*42 + 7 + 13/5 - 2*3 + 2*2 + 3 = 94).
+  // and the speed bonus of the bot wins (4 of +1, 3 of +2, 2 of +3 = 16)
+  // (here 2*42 + 7 + 13 + 16 - 2*3 + 2*2 + 3 = 121).
   const counts = async (u, o) => {
     sent.push([u, o]);
-    const n = u.includes("kind=eq.daily") ? 2 : u.includes("kind=eq.ad") ? 3
+    const n = u.includes("bonus_xp=eq.1") ? 4 : u.includes("bonus_xp=eq.2") ? 3 : u.includes("bonus_xp=eq.3") ? 2
+      : u.includes("kind=eq.daily") ? 2 : u.includes("kind=eq.ad") ? 3
       : u.includes("abandoned=is.true") ? 3 : u.includes("mode=eq.bot") ? 13 : u.includes("won=is.false") ? 7 : 42;
     return { ok: true, headers: { get: () => `0-0/${n}` } };
   };
-  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 94, "experience is counted, bonuses included");
+  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 121, "experience is counted, bonuses and the speed bonus included");
   const stats = await accountStats("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts });
   assert.deepEqual(stats.record, { played: 52, won: 42 }, "the online record: 42 won of 52 (42 + 7 finished + 3 abandoned)");
-  const asked = sent.slice(-8).map(([u]) => u);
+  const asked = sent.slice(-11).map(([u]) => u);
   assert.ok(asked.some((u) => u.includes("source=eq.server&won=is.true")), "online wins from the server");
   assert.ok(asked.some((u) => u.includes("won=is.false&abandoned=is.false")), "online games finished without winning");
   assert.ok(asked.some((u) => u.includes("mode=eq.bot") && u.includes("from_guest=is.false")), "bot wins, not the guest's");
   assert.ok(asked.some((u) => u.includes("source=eq.server&abandoned=is.true")), "abandoned games");
-  assert.ok(asked.filter((u) => u.includes("earns_xp=is.true")).length === 3, "points only from games whose video was watched (wins, finished, bot)");
+  assert.ok(asked.filter((u) => u.includes("earns_xp=is.true")).length === 6, "points only from games whose video was watched (wins, finished, bot, and the three steps of the speed bonus)");
+  assert.ok(asked.filter((u) => u.includes("mode=eq.bot") && u.includes("bonus_xp=eq.")).length === 3, "the speed bonus is counted by step");
   const none = async () => ({ ok: true, headers: { get: () => "*/0" } });
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");
   assert.equal(await experience(null, { key: "k" }), 0, "a guest has none");
@@ -408,6 +411,9 @@ const lobby = new Lobby(io, store);
     [-2, -1, -1, 0, 0, 0, 1, 1, 2, 3, 9, 10, 10, 11, 20, 30], "levels: 5 points more each, then 50 each from level 10");
   assert.deepEqual([-2, -1, 0, 1, 3, 10, 11, 20].map(levelStart), [-29, -14, -4, 5, 30, 275, 325, 775], "where levels start");
   assert.ok(!Object.is(levelOf(-1), -0), "never -0");
+  const { speedBonus, SPEED_BONUS_TIERS } = await import("../public/shared/level.js");
+  assert.deepEqual([0, 5, 8, 9, 11, 12, 14, 15, 30].map(speedBonus), [0, 3, 3, 2, 2, 1, 1, 0, 0], "the faster the win, the bigger the bonus; none from 15 turns");
+  assert.equal(SPEED_BONUS_TIERS.length, 3);
   console.log("ok: online results are recorded");
 }
 
@@ -1114,6 +1120,47 @@ const lobby = new Lobby(io, store);
   }
   // A whole game through the real room still ends with bots that move, react and don't throw.
   console.log("ok: the bot notices and says");
+}
+
+//--------- 20. a bad connection doesn't eat the turn ---------
+{
+  const { Room } = await import("./room.js");
+  const lobbyF = new Lobby(io, createMemoryStore(), { record: async () => {} });
+  const p = fakeSocket("player-freezeaa11", "Owl5");
+  const q = fakeSocket("player-freezebb22", "Yak5");
+  assert.ok(lobbyF.createPrivate(p).ok);
+  assert.ok((await lobbyF.joinByCode(q, lobbyF.roomOfSocket(p).code)).ok);
+  const room = lobbyF.roomOfSocket(p);
+  const onTurn = room.state.currentPlayer;
+  const mover = onTurn === p.data.seat ? p : q;
+  const other = mover === p ? q : p;
+  room.turnEndsAt = Date.now() + 20000; // 20 s left
+  let timedOut = 0;
+  room.onTurnTimeout = () => { timedOut++; };
+  // The player on turn drops: the clock is held.
+  room.onDisconnect(mover.data.seat);
+  assert.ok(room.frozen && room.frozen.seat === mover.data.seat, "the clock is held while the player on turn is away");
+  assert.ok(room.clockLeftMs() > 19000 && room.clockLeftMs() <= 20000, "with its time kept");
+  await wait(120);
+  assert.ok(room.clockLeftMs() > 19000, "and it does not run down");
+  assert.ok(room.snapshotForResync().timeLeftMs > 19000, "a snapshot says so");
+  // Back: the clock runs again from there.
+  room.onReconnect(mover.data.seat, mover);
+  assert.equal(room.frozen, null, "released on return");
+  assert.ok(find(other, "opponent_status").some((m) => m.payload.connected === true && m.payload.timeLeftMs > 19000), "the opponent is told, with the clock");
+  assert.ok(room.clockLeftMs() > 18500 && room.clockLeftMs() <= 20000, "from where it was");
+  // The one NOT on turn dropping holds nothing.
+  room.onDisconnect(other.data.seat);
+  assert.equal(room.frozen, null, "only the player on turn's clock is held");
+  room.onReconnect(other.data.seat, other);
+  // Held only so long: it runs again by itself.
+  room.onDisconnect(mover.data.seat);
+  assert.ok(room.frozen, "held again");
+  clearTimeout(room.frozen.cap);
+  room.thawTurn();
+  assert.equal(room.frozen, null, "after the cap it runs on");
+  room.dispose();
+  console.log("ok: the turn clock is held for a bad connection");
 }
 
 console.log("all smoke tests passed");

@@ -3,7 +3,7 @@
 // Online (random or friend, games recorded by the server): +2 for a win, +1
 // for a loss or draw played to the end, -2 for a game abandoned before its
 // end (left, gone for good after a disconnection, or 3 idle turns). Against
-// the bot (recorded by the app, so worth less): +1 for every 5 wins. Points
+// the bot (recorded by the app, so worth less): +1 for every win. Points
 // and level can go below zero. Counted by the server for an account
 // (results.js); a guest's level lives on its phone only and is never moved
 // to an account.
@@ -12,7 +12,19 @@
 // played to the end moves the player on, and staying beats leaving.
 export const ONLINE_WIN_POINTS = 2;
 export const ONLINE_FINISHED_POINTS = 1;
-export const BOT_WINS_PER_POINT = 5;
+export const BOT_WIN_POINTS = 1; // a win against the bot (it used to be 1 point for 5 wins: no progress to see)
+
+// Speed mode against the bot: the faster the game is won, the more it pays on top of
+// BOT_WIN_POINTS. Counted in the winner's own turns. The bot's own games last about 15
+// turns a side (median 15, a quarter of wins in 11 or fewer, one in ten in 8 or fewer):
+// from there up it pays nothing. (Calibrated on bot-vs-bot games; the app saves each
+// game's turns, so these can be set again from real ones: see game_results.turns.)
+export const SPEED_BONUS_TIERS = [{ upTo: 8, bonus: 3 }, { upTo: 11, bonus: 2 }, { upTo: 14, bonus: 1 }];
+export function speedBonus(turns) {
+    if (!(turns > 0)) return 0;
+    for (const tier of SPEED_BONUS_TIERS) if (turns <= tier.upTo) return tier.bonus;
+    return 0;
+}
 export const ABANDON_PENALTY = 2;
 // Bonuses (server/bonuses.js, the xp_bonuses table): the first online game of
 // the day played to the end (won or lost), and watching a whole ad, a few

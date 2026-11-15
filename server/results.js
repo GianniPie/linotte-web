@@ -7,7 +7,7 @@
 
 import { SUPABASE_URL } from "../public/shared/accounts.js";
 import { bonusPoints } from "./bonuses.js";
-import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WINS_PER_POINT, ABANDON_PENALTY } from "../public/shared/level.js";
+import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY } from "../public/shared/level.js";
 
 const SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 
@@ -109,7 +109,8 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
     return Number.isFinite(total) ? total : 0;
   };
   try {
-    const [wins, finished, winsXp, finishedXp, bot, abandoned, bonus] = await Promise.all([
+    const botWon = "source=eq.app&mode=eq.bot&won=is.true&from_guest=is.false&earns_xp=is.true";
+    const [wins, finished, winsXp, finishedXp, bot, abandoned, bonus, speed1, speed2, speed3] = await Promise.all([
       count("source=eq.server&won=is.true"),
       count("source=eq.server&won=is.false&abandoned=is.false"),
       count("source=eq.server&won=is.true&earns_xp=is.true"),
@@ -117,10 +118,14 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
       count("source=eq.app&mode=eq.bot&won=is.true&from_guest=is.false&earns_xp=is.true"),
       count("source=eq.server&abandoned=is.true"),
       bonusPoints(userId, { key, url, fetch: fetchImpl }),
+      // The speed bonus of wins against the bot (1 to 3 each), counted by step.
+      count(`${botWon}&bonus_xp=eq.1`),
+      count(`${botWon}&bonus_xp=eq.2`),
+      count(`${botWon}&bonus_xp=eq.3`),
     ]);
     return {
       xp: ONLINE_WIN_POINTS * winsXp + ONLINE_FINISHED_POINTS * finishedXp
-        + Math.floor(bot / BOT_WINS_PER_POINT) - ABANDON_PENALTY * abandoned + bonus,
+        + BOT_WIN_POINTS * bot + speed1 + 2 * speed2 + 3 * speed3 - ABANDON_PENALTY * abandoned + bonus,
       record: { played: wins + finished + abandoned, won: wins },
     };
   } catch (err) {

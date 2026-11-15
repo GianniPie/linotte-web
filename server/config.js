@@ -32,6 +32,10 @@ export const COIN_FLIP_MS = 4500;
 // share an invite, flaky network) before the game is forfeited.
 export const RECONNECT_GRACE_MS = 60 * 1000;
 
+// A player on turn who loses the connection keeps their clock for a while
+// (see public/shared/turn.js).
+export { TURN_FREEZE_CAP_MS } from "../public/shared/turn.js";
+
 // A private room nobody joined is dropped after this.
 export const ROOM_WAIT_TTL_MS = 15 * 60 * 1000;
 // Finished rooms are kept briefly so a refresh can still show the result.

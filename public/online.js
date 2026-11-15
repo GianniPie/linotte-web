@@ -314,10 +314,22 @@ export class OnlineClient {
     // Fire-and-forget with a rejection handler: a refused action means this
     // screen drifted from the server, which sends the truth back to redraw.
     sendAction(action) {
-        if (!this.socket?.connected) return;
+        if (!this.socket?.connected) return false;
         this.socket.emit("action", action, (res) => {
             if (res && !res.ok && res.snapshot) this.h.onSnapshot?.(res.snapshot);
         });
+        return true;
+    }
+    // Is there a connection to the server right now?
+    isConnected() {
+        return Boolean(this.socket?.connected);
+    }
+    // A connection that looks stuck (no answer to what was sent): drop it and make
+    // a new one, which asks for the game again (rejoin) and redraws it from the server's.
+    reconnect() {
+        if (!this.socket) return;
+        this.socket.disconnect();
+        this.socket.connect();
     }
     sendEmote(id) {
         return this.call("emote", { id });

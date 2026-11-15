@@ -21,13 +21,18 @@ create table if not exists public.game_results (
   -- a guest game moved in at sign-in: in the stats, not in the level
   from_guest boolean not null default false,
   -- the game's points count for the level (false while the video that pays them waits: game_results_xp.sql)
-  earns_xp boolean not null default true
+  earns_xp boolean not null default true,
+  -- a win against the bot in speed mode: the bonus for being quick (0 to 3), and the turns it took (game_results_bonus.sql)
+  bonus_xp smallint not null default 0 check (bonus_xp between 0 and 3),
+  turns smallint check (turns is null or turns between 0 and 999)
 );
 
 -- Added in 2.16 (a table created before needs them):
 alter table public.game_results add column if not exists abandoned boolean not null default false;
 alter table public.game_results add column if not exists from_guest boolean not null default false;
 alter table public.game_results add column if not exists earns_xp boolean not null default true; -- 2.23.1
+alter table public.game_results add column if not exists bonus_xp smallint not null default 0 check (bonus_xp between 0 and 3); -- 2.28
+alter table public.game_results add column if not exists turns smallint check (turns is null or turns between 0 and 999); -- 2.28
 
 create index if not exists game_results_user_played on public.game_results (user_id, played_at desc);
 
@@ -44,5 +49,5 @@ create policy "add own app results" on public.game_results
 
 revoke all on public.game_results from anon, authenticated;
 grant select on public.game_results to authenticated;
-grant insert (user_id, played_at, mode, won, points, opponent_points, opponent, source, from_guest, earns_xp) on public.game_results to authenticated;
+grant insert (user_id, played_at, mode, won, points, opponent_points, opponent, source, from_guest, earns_xp, bonus_xp, turns) on public.game_results to authenticated;
 grant all on public.game_results to service_role;

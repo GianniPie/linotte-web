@@ -17,7 +17,7 @@ import { tableSeat, ownsBackground, FREE_LOOKS } from "../public/shared/level.js
 import { NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME } from "../public/shared/chat.js";
 import {
   TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS, IDLE_TURNS_LIMIT,
-  RECONNECT_GRACE_MS, EMOTES,
+  RECONNECT_GRACE_MS, TURN_FREEZE_CAP_MS, EMOTES,
 } from "./config.js";
 import { HumanBot } from "./humanBot.js";
 
@@ -49,6 +49,7 @@ export class Room {
     this.endedAt = 0;
     this.turnEndsAt = 0;
     this.turnTimer = null;
+    this.frozen = null; // { seat, left, cap }: the clock held while the player on turn is away
     this.rollGuard = null;
     this.graceTimers = {};
     this.idleTurns = {}; // seat -> turns in a row ended without a roll
@@ -159,15 +160,40 @@ export class Room {
       seq: this.seq,
       state: this.state,
       rolling: this.rolling,
-      timeLeftMs: Math.max(0, this.turnEndsAt - Date.now()),
+      timeLeftMs: this.clockLeftMs(),
       opponentConnected: this.seats[this.otherSeat(seat)]?.connected ?? false,
     };
   }
 
-  timeLeftMs() { return Math.max(0, this.turnEndsAt - Date.now() - TURN_GRACE_MS); }
+  timeLeftMs() { return Math.max(0, this.clockLeftMs() - TURN_GRACE_MS); }
+
+  // The turn clock's time left (held while the player on turn is away).
+  clockLeftMs() { return this.frozen ? this.frozen.left : Math.max(0, this.turnEndsAt - Date.now()); }
+
+  // The player on turn lost the connection: their clock is held, for at most
+  // TURN_FREEZE_CAP_MS, so a bad connection doesn't eat their turn.
+  freezeTurn(seat) {
+    if (this.status !== "playing" || this.frozen || this.state.currentPlayer !== seat) return;
+    this.frozen = { seat, left: Math.max(0, this.turnEndsAt - Date.now()) };
+    clearTimeout(this.turnTimer);
+    this.frozen.cap = setTimeout(() => this.thawTurn(), TURN_FREEZE_CAP_MS);
+  }
+
+  // Back (or out of patience): the clock runs again from where it was left.
+  thawTurn() {
+    if (!this.frozen) return;
+    clearTimeout(this.frozen.cap);
+    const { left } = this.frozen;
+    this.frozen = null;
+    if (this.status !== "playing") return;
+    this.turnEndsAt = Date.now() + left;
+    clearTimeout(this.turnTimer);
+    this.turnTimer = setTimeout(() => this.onTurnTimeout(), left);
+  }
 
   armTurnTimer(extraMs = 0) {
     clearTimeout(this.turnTimer);
+    if (this.frozen) { clearTimeout(this.frozen.cap); this.frozen = null; } // a new turn: a fresh clock
     const ms = extraMs + TURN_SECONDS * 1000 + TURN_SLACK_MS + TURN_GRACE_MS;
     this.turnEndsAt = Date.now() + ms;
     this.turnTimer = setTimeout(() => this.onTurnTimeout(), ms);
@@ -313,7 +339,7 @@ export class Room {
   // Per-seat fields (seat, opponentConnected) are filled in by the caller's
   // socket via roomSnapshot(); a rejection just needs the shared part.
   snapshotForResync() {
-    return { roomId: this.id, seq: this.seq, state: this.state, rolling: this.rolling, starter: this.starter, timeLeftMs: Math.max(0, this.turnEndsAt - Date.now()) };
+    return { roomId: this.id, seq: this.seq, state: this.state, rolling: this.rolling, starter: this.starter, timeLeftMs: this.clockLeftMs() };
   }
 
   //--------- emotes ---------
@@ -342,14 +368,16 @@ export class Room {
     s.connected = false;
     if (this.status !== "playing") return; // a waiting host may be off sharing the invite link
     this.emitToSeat(this.otherSeat(seat), "opponent_status", { connected: false });
+    this.freezeTurn(seat);
     clearTimeout(this.graceTimers[seat]);
     this.graceTimers[seat] = setTimeout(() => this.forfeit(seat, "disconnect"), RECONNECT_GRACE_MS);
   }
 
   onReconnect(seat, socket) {
     clearTimeout(this.graceTimers[seat]);
+    if (this.frozen?.seat === seat) this.thawTurn();
     this.bindSocket(seat, socket);
-    this.emitToSeat(this.otherSeat(seat), "opponent_status", { connected: true });
+    this.emitToSeat(this.otherSeat(seat), "opponent_status", { connected: true, timeLeftMs: this.clockLeftMs() }); // the clock, if it was held
   }
 
   // Counts a seat's idle turns in a row (see IDLE_TURNS_LIMIT) and tells
@@ -381,6 +409,7 @@ export class Room {
     this.endedAt = Date.now();
     clearTimeout(this.turnTimer);
     clearTimeout(this.rollGuard);
+    if (this.frozen) { clearTimeout(this.frozen.cap); this.frozen = null; }
     Object.values(this.graceTimers).forEach(clearTimeout);
     this.broadcast("game_over", { winner, reason });
     for (const b of this.botSeats()) this.seats[b].bot.onEvent("gameOver", { winner });
@@ -402,7 +431,7 @@ export class Room {
       id: this.id, kind: this.kind, code: this.code, status: this.status,
       state: this.state, seq: this.seq, turnId: this.turnId, rolling: this.rolling,
       starter: this.starter, winner: this.winner, forfeitedBy: this.forfeitedBy || 0, idleTurns: this.idleTurns,
-      createdAt: this.createdAt, endedAt: this.endedAt, turnEndsAt: this.turnEndsAt,
+      createdAt: this.createdAt, endedAt: this.endedAt, turnEndsAt: this.frozen ? Date.now() + this.frozen.left : this.turnEndsAt,
       seats: { 1: seat(1), 2: seat(2) },
     };
   }
@@ -451,6 +480,7 @@ export class Room {
   dispose() {
     clearTimeout(this.turnTimer);
     clearTimeout(this.rollGuard);
+    if (this.frozen) clearTimeout(this.frozen.cap);
     Object.values(this.graceTimers).forEach(clearTimeout);
     for (const b of this.botSeats()) this.seats[b].bot.stop();
     this.io.in(this.channel).socketsLeave(this.channel);

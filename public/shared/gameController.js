@@ -38,10 +38,12 @@ export default class GameController {
             if (action.type === "ROLL_DICE") {
                 // Only the server rolls. The faces come back in the relayed
                 // action (see applyOwnRoll in linotte.js), so nothing changes
-                // locally until then.
+                // locally until then. With no connection the request can't go:
+                // false, and nothing starts (no dice tumbling for nothing).
+                if (!this.socket.isConnected?.()) return false;
                 this.rollArrived = false;
                 this.socket.sendAction({ type: "ROLL_DICE" });
-                return;
+                return true;
             }
             // Everything else is deterministic: apply it right away so the UI
             // answers instantly, and tell the server, which re-checks it.

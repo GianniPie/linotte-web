@@ -185,6 +185,7 @@ import GameController from './shared/gameController.js';
 import { playFairyTrail } from "./shared/fairyTrail.js";
 import { initCombinationDemos } from "./demo.js";
 import { CHAT, chatImage, chatScale, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME } from "./shared/chat.js";
+import { TURN_FREEZE_CAP_MS } from "./shared/turn.js";
 import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
 import { nameProblem, cleanPlayerName, COUNTRIES, flagOf } from "./shared/playerNames.js";
 import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
@@ -192,7 +193,7 @@ import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAband
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
 import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
-import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, DAILY_BONUS_POINTS } from "./shared/level.js";
+import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, speedBonus, DAILY_BONUS_POINTS } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
 gameState.players[2].name = "BOT";
@@ -245,7 +246,7 @@ function saveOfflineGame() {
     if (!gameInProgress || isGameOver || !controller || controller.mode === "online") return;
     try {
         localStorage.setItem(SAVED_GAME_KEY, JSON.stringify({
-            v: 1, mode: controller.mode, strategy: botStrategy, state: gameState, savedAt: Date.now(),
+            v: 1, mode: controller.mode, strategy: botStrategy, state: gameState, savedAt: Date.now(), myTurns,
         }));
     } catch { /* storage off: the game only lives while the app is open */ }
 }
@@ -271,6 +272,7 @@ function resumeSavedGame() {
     const g = savedGame();
     if (!g) return false;
     gameState = g.state;
+    myTurns = Number(g.myTurns) || 0;
     if (g.mode === "bot") startBot(g.strategy || "points");
     else startOffline();
     gameInProgress = true;
@@ -310,6 +312,7 @@ let lastRefreshAt = 0;
 let gameXpBase = null;
 let gameXpLabel = ""; // what the game's badge says: Victory or Game played
 let gameXpPays = 0; // the most the game itself can have paid (the rest is a bonus)
+let gameXpBonus = 0; // of it, the speed bonus (its own badge)
 function refreshIfStale() {
     if (!currentUser() || Date.now() - lastRefreshAt < 15000) return;
     refreshPro();
@@ -920,6 +923,28 @@ function tick() {
     timerId = setTimeout(tick, 1000);
 }
 
+// The countdown held while somebody on turn is away with a bad connection (the
+// server holds its own, up to TURN_FREEZE_CAP_MS): it stops, with the pause symbol
+// over it, and goes on from where it was, or from the server's time when it knows it.
+let clockHeld = false;
+let clockHeldWasRunning = false;
+let clockHeldCap = null;
+function holdClock(on, resumeMs = null) {
+    const wrap = document.getElementById("clock-wrap");
+    clearTimeout(clockHeldCap);
+    if (on) {
+        if (!clockHeld) { clockHeld = true; clockHeldWasRunning = timerId !== null; stopTimer(); }
+        wrap.classList.add("paused");
+        clockHeldCap = setTimeout(() => holdClock(false), TURN_FREEZE_CAP_MS); // after that the server's clock runs on
+        return;
+    }
+    if (!clockHeld) return;
+    clockHeld = false;
+    if (!isPaused) wrap.classList.remove("paused");
+    if (resumeMs !== null) resumeTurnTimer(Math.ceil(resumeMs / 1000));
+    else if (clockHeldWasRunning && timerId === null) timerId = setTimeout(tick, 1000);
+}
+
 function startTurnTimer() {
     value = MAX_TIMER;
     if (timerId !== null) {
@@ -1338,6 +1363,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
     showBackground(ownBackground()); // after an online game at someone else's table
     leaveOnlineGameIfAny();
     clearSavedGame(); // a new game replaces any saved one
+    myTurns = 0;
     gameInProgress = true;
     turnHandoverPending = false;
     setPaused(false);
@@ -1739,9 +1765,13 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
     // level: asked again once the game is recorded (by the server for an
     // online game, by recordGame for one against the bot).
     const xpBefore = myXp();
+    // Speed mode against the bot: a win closed in few turns pays a bonus (not if the video was closed).
+    const bonus = mode === "bot" && winner === me && earn && botStrategy === "speed" ? speedBonus(myTurns) : 0;
     const recorded = recordGame({
         mode,
         won: winner === me,
+        bonus,
+        turns: mode === "bot" ? myTurns : null,
         // This phone's player let 3 turns run out: abandoned, not finished.
         abandoned: controller.mode === "online" && overReason === "idle" && winner !== me,
         points: gameState.players[me].points,
@@ -1762,8 +1792,9 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
             // the server says the game is in its books ("recorded", see onRecorded).
             gameXpBase = xpBefore;
             gameXpLabel = gameBadgeLabel(winner === me);
-            // What an online game pays is set by the rules; the bot's is told by the points.
-            gameXpPays = mode === "bot" ? Infinity : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
+            // What a game pays is set by the rules (a win against the bot, an online win or finish).
+            gameXpPays = mode === "bot" ? BOT_WIN_POINTS + bonus : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
+            gameXpBonus = bonus;
             await showGameXp();
             if (heldBonus) { queuePointsGain(heldBonus.points, t("Daily bonus")); heldBonus = null; } // told while the video was up
             return;
@@ -1772,7 +1803,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
         const after = guestXp();
         // One badge for what the game paid and one for the day's bonus.
         const earned = after - xpBefore - (r?.daily ? DAILY_BONUS_POINTS : 0);
-        if (earned > 0) queuePointsGain(earned, gameBadgeLabel(winner === me));
+        queueGameBadges(earned, bonus, gameBadgeLabel(winner === me));
         if (r?.daily) queuePointsGain(DAILY_BONUS_POINTS, t("Daily bonus"));
         if (after === xpBefore) return;
         xpStrip = { base: xpBefore, after };
@@ -1988,16 +2019,48 @@ rollBtn.addEventListener("click", function () {
     removePiece(selectedTileId);
 
     const rollsBefore = gameState.dice.rollsLeft;
-    controller.dispatch({ type: "ROLL_DICE" });
+    if (controller.dispatch({ type: "ROLL_DICE" }) === false) {
+        // Online with no connection: the roll never left. Nothing starts.
+        rollBtnEnabled = true;
+        doneBtnEnabled = true;
+        showToast(t("Connection lost, reconnecting..."), 3000);
+        return;
+    }
     showCalls(); // a call made before this roll is now fixed
     rollAnimationID = setInterval(rollAnimation, 100);
     stopRollID = setInterval(stopRoll, 1200);
+    // Online, the dice are the server's: if they don't come back in a few seconds the
+    // connection is poor. The dice stop tumbling (they are not rolling), and the roll
+    // lands when the connection is back.
+    clearTimeout(rollWatch);
+    clearTimeout(rollGiveUp);
+    if (controller.mode === "online") {
+        rollWatch = setTimeout(() => {
+            if (controller.mode === "online" && !controller.rollArrived) {
+                stopTumbling();
+                showToast(t("Connection lost, reconnecting..."), 4000);
+            }
+        }, ROLL_WAIT_MS);
+        rollGiveUp = setTimeout(() => {
+            if (controller.mode === "online" && !controller.rollArrived) onlineClient.reconnect();
+        }, ROLL_GIVE_UP_MS);
+    }
 
     // Online, the roll only lands when the server's dice come back, so the
     // counter can't be read from the state yet.
     setRollsLeftUI(controller.mode === "online" ? rollsBefore - 1 : gameState.dice.rollsLeft);
 });
 
+
+const ROLL_WAIT_MS = 3500; // how long the server's dice may take before the tumbling stops
+const ROLL_GIVE_UP_MS = 9000; // and before the connection is made again (it may be dead without knowing)
+let rollWatch = null;
+let rollGiveUp = null;
+// The dice stop tumbling and show what they showed before (the roll lands when it arrives).
+function stopTumbling() {
+    clearInterval(rollAnimationID);
+    renderDice(gameState.dice.values);
+}
 
 function rollAnimation() {
     let rndValues = [0, 0, 0, 0, 0];
@@ -2037,6 +2100,8 @@ function stopRoll() {
     // Online: keep the dice tumbling until the server's numbers have arrived
     // (this interval simply fires again 1.2s later).
     if (controller.mode === "online" && !controller.rollArrived) return;
+    clearTimeout(rollWatch);
+    clearTimeout(rollGiveUp);
     clearInterval(rollAnimationID);
     clearInterval(stopRollID);
     renderDice(gameState.dice.values);
@@ -2463,6 +2528,7 @@ function performEndTurn() {
     // moves, so the log still shows whose turn it was and where the piece
     // landed for every turn, not just the bot's.
     if (controller.mode === "bot" && gameState.currentPlayer === 1) {
+        myTurns++; // this player's own turns, for the speed bonus
         botLogBlank();
         botLogHuman(`Turno ${++botTurnCounter} (TU) → ${gameState.currentPosition ? "piazza " + gameState.currentPosition : "nessun piazzamento"}`);
     }
@@ -2692,6 +2758,7 @@ try {
 }
 
 let botTurnCounter = 0;
+let myTurns = 0; // this player's own turns in the game against the bot (see speedBonus in shared/level.js)
 
 // The bot lab (botlab-client.js): this game's id, and the weights the lab has
 // taught the speed bot, which arrive live.
@@ -3652,6 +3719,12 @@ const onlineClient = new OnlineClient({
         }
         if (!gameInProgress || controller.mode !== "online" || isGameOver) return;
         showToast(connected ? t("Back online") : t("Connection lost, reconnecting..."), connected ? 1800 : 5000);
+        if (!connected) {
+            holdClock(true); // the server holds this player's clock too (see Room#freezeTurn)
+            if (!controller.rollArrived) stopTumbling();
+        } else {
+            holdClock(false); // the snapshot the app now asks for sets the clock
+        }
     },
     onGameStart: (snap) => beginOnlineGame(snap),
     onSnapshot: (snap) => beginOnlineGame({ ...snap, fresh: false }),
@@ -3663,9 +3736,14 @@ const onlineClient = new OnlineClient({
         throwChatEmoji(id, box.getBoundingClientRect());
         if (id === NUDGE) nudgeBoard();
     },
-    onOpponentStatus: ({ connected }) => {
+    onOpponentStatus: ({ connected, timeLeftMs }) => {
         if (controller.mode !== "online" || isGameOver) return;
         opponentGone = !connected;
+        // Their turn: the server holds their clock while they are away, so does this screen's.
+        if (gameState.currentPlayer !== LOCAL_PLAYER) {
+            if (!connected) holdClock(true);
+            else holdClock(false, Number.isFinite(timeLeftMs) ? timeLeftMs : null);
+        }
         showToast(connected ? t("Your opponent is back") : t("Your opponent disconnected, waiting for them..."), connected ? 2000 : 6000);
     },
     onIdle: onRemoteIdle,
@@ -4402,6 +4480,13 @@ function queuePointsGain(points, label) {
     if (flowHolding()) pointsFlow.badges.push([points, label]);
     else showPointsGain(points, label);
 }
+// The game's own points as a badge, and its speed bonus (if it paid one) as another.
+function queueGameBadges(earned, bonus, label) {
+    const bonusPart = Math.min(bonus || 0, Math.max(0, earned - BOT_WIN_POINTS));
+    if (earned - bonusPart > 0) queuePointsGain(earned - bonusPart, label);
+    if (bonusPart > 0) queuePointsGain(bonusPart, t("Speed bonus"));
+}
+
 function noteXpGain(before, after) {
     if (pointsFlow.base === null) pointsFlow.base = before;
     pointsFlow.after = after;
@@ -4558,7 +4643,7 @@ async function showGameXp() {
     noteXpGain(gameXpBase, after);
     // The game's own points get a badge too (the bonus has its own, see onBonus).
     const earned = Math.min(gameXpPays, after - gameXpBase);
-    if (first && earned > 0) queuePointsGain(earned, gameXpLabel);
+    if (first) queueGameBadges(earned, gameXpBonus, gameXpLabel);
     celebrateLevel(shown, after); // held with the points screen
 }
 
@@ -5588,6 +5673,11 @@ async function beginOnlineGame(snap) {
     gameInProgress = true;
     turnHandoverPending = false;
     setPaused(false);
+    clockHeld = false; // the snapshot sets the clock
+    clearTimeout(clockHeldCap);
+    clearTimeout(rollWatch);
+    clearTimeout(rollGiveUp);
+    document.getElementById("clock-wrap").classList.remove("paused");
     isGameOver = false;
     endGameSequenceStarted = false;
     clearInterval(rollAnimationID);
