@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.27.1] - 2026-11-15
+
+### Fixed
+- On a short screen (a phone with the browser's bars, like 375x624) the in-game banner covered ROLL and DONE and the players' boxes were squashed. The player row, the strip, the dice and their gaps are now sized off the game's height (the screen minus the banner's place), not the whole screen's; the board, the players' row, the strip, the dice and ROLL/DONE all have the same width (the board's), the dice are a little lower, and the player row has room for its boxes and for the level badge above them, which no longer touches the screen's edge. Everything ends above the banner with about 11 px to spare on every portrait size I tried (375x553 to 390x844); the menu button sits flush with the board's left edge and the countdown flush with its right edge (the countdown stuck out of the row by 14 px on a narrow board: the sides were 12% each, too narrow for it); the dice are centered between the strip's little bars and ROLL/DONE (the same 7 px above and below: the dice tray was shorter than the dice and they ran into ROLL, and the strip's empty bottom counted as space above them), the row of dice staying a little narrower than the board on purpose; in landscape the menu button is smaller (32 px, not the 44 px of a touch target, which made it as tall as a player's box) and it is centered in height on the players' boxes, as the countdown is; the Pro layout (no banner) is as before.
+
 ## [2.27.0] - 2026-11-14
 
 ### Changed
