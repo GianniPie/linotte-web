@@ -3345,6 +3345,34 @@ setInterval(syncChat, 400);
 window.addEventListener("resize", syncChat);
 window.addEventListener("orientationchange", () => setTimeout(syncChat, 200));
 
+// ROLL/DONE centered in height between the dice and the banner (or the bottom
+// of the game when there is no banner). The page's layout isn't touched: the
+// room above and below them is measured and the row is only nudged by half the
+// difference (--btn-shift, see .div-buttons in linotte.css), so the rows above
+// stay where they are. Not while the table is turned (the row is upside down).
+let buttonsShift = 0;
+function centerButtons() {
+    const row = document.getElementById("div-buttons");
+    const dice = document.querySelector(".div-dice");
+    if (!row || !dice) return;
+    let shift = 0;
+    const box = row.getBoundingClientRect(), diceBox = dice.getBoundingClientRect();
+    if (box.height > 0 && diceBox.height > 0 && !document.body.classList.contains("table-flipped")) {
+        const ad = document.getElementById("game-ad");
+        const adBox = ad && getComputedStyle(ad).display !== "none" ? ad.getBoundingClientRect() : null;
+        const floor = adBox && adBox.height > 0 ? adBox.top : document.querySelector(".flex-block").getBoundingClientRect().bottom;
+        const top = box.top - buttonsShift, bottom = box.bottom - buttonsShift; // where the row is without the shift
+        shift = Math.max(-40, Math.min(40, Math.round(((floor - bottom) - (top - diceBox.bottom))) / 2));
+    }
+    if (shift !== buttonsShift) {
+        buttonsShift = shift;
+        row.style.setProperty("--btn-shift", `${shift}px`);
+    }
+}
+setInterval(centerButtons, 300);
+window.addEventListener("resize", centerButtons);
+window.addEventListener("orientationchange", () => setTimeout(centerButtons, 200));
+
 // The button follows its slot beside DONE (see .chat-slot in linotte.css).
 function placeChatFab() {
     const r = document.getElementById("chat-slot").getBoundingClientRect();

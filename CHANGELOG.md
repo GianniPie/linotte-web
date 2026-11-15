@@ -12,6 +12,13 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### Fixed
+- The top row of the game (menu button, players, VS, countdown) is back as it looked before 2.27.1: the menu button and the countdown each in a side column of the same width (12% of the row), so the VS is in the middle of the row and the countdown is the narrow one it was (18.8 px digits on a 355 px phone, not 28); the players' boxes are a tenth of the screen's height again. Measured against the old rules on the same game, every box matches to the tenth of a pixel. Kept from 2.27.1: the row as wide as the board, the 32 px menu button in landscape, and, on short portrait screens only (under 700 px), a little room above the level badge.
+- The vertical spaces of the game are as they were before 2.27.1: the room left over in the column is shared in equal parts below each row again (2.27.1 had given some rows fixed gaps, so the gaps between info, board, calls, dice and buttons came out at random: 38 and 40 px around the board, 8 px between the calls and the dice). The dice tray is taller than the die again (37% of it), but only while the screen has room: it goes down to nothing on short screens, so everything still fits above the banner. Checked on portrait 320×568, 360×640, 375×667, 360×780, 390×844, 430×932, 768×1024 and landscape 568×320, 667×375, 740×360, 844×390, 932×430, 1024×768, 1366×1024.
+- ROLL and DONE are centered again. In online games they sat to the left of the chat button's column (about 27 px off center): there is now an empty column of the same width on the left too, so the two buttons are centered on the screen (a little narrower while the chat button is there). They are also centered in height between the dice and the banner, in portrait and in landscape: the room above and below them is measured and the row is only nudged by half the difference (`centerButtons`), without touching the layout, so the options button, player boxes, VS and clock stay where they were.
+
 ## [2.29.0] - 2026-11-15
 
 ### Added

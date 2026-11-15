@@ -162,6 +162,15 @@ html {
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
+/* A short portrait screen has no room left over above the players: the level badge
+   that overhangs their boxes would touch the screen's edge, so it gets a little room
+   (a notch's inset, when there is one, is already more than that). */
+@media (orientation: portrait) and (max-height: 700px) {
+  .flex-block {
+    padding-top: max(env(safe-area-inset-top, 0px), .6em);
+  }
+}
+
 /* Groups info/results/dice/buttons for wider/landscape layouts below.
    display:contents makes the wrapper invisible to the flex layout, so on
    mobile portrait its children act as direct .flex-block flex items
@@ -181,19 +190,15 @@ html {
 .div-info {
   display: grid;
   grid-template-rows: auto;
-  /* The menu button and the countdown take what they need and sit flush with the
-     board's edges (the row is as wide as the board); the players share the rest.
-     (12% auto 12% made the sides too narrow for the countdown on a narrow board, and the
-     row spilled out of it.) */
-  grid-template-columns: 2.5em minmax(0, 1fr) 4.4em;
+  /* The menu button and the countdown each get the same side column (12% of the
+     row, never less than the button), so the players and the VS sit in the middle
+     of the row, which is as wide as the board. */
+  grid-template-columns: max(12%, 2.5em) minmax(0, 1fr) max(12%, 2.5em);
   grid-auto-columns: 0;
   align-self: flex-start;
-  /* A share of the game's height (the screen minus the banner's place), not of the
-     screen's: with the banner the rows kept the screen's shares and ran into it. */
-  /* Room for the players' boxes and, above them, the level badge that overhangs them
-     (the .6em keeps it off the screen's edge). */
-  height: calc(min(var(--game-h) * .12, var(--board-w) * .22) + .6em);
-  padding-top: .6em;
+  /* A tenth of the screen's height, as it always was, but never taller than the board's
+     width allows (on a wide, short window the row stays in proportion). */
+  height: min(10dvh, calc(var(--board-w) * .24));
   width: var(--board-w);
   margin: auto;
   user-select: none;
@@ -203,7 +208,7 @@ html {
 .players {
   flex-flow: row;
   grid-template-rows: auto;
-  grid-template-columns: minmax(0, 1fr) 2.2em minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 10% minmax(0, 1fr);
   grid-auto-flow: row;
   justify-content: stretch;
   place-items: center;
@@ -287,7 +292,7 @@ html {
 .div-info-left {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .options {
@@ -303,7 +308,7 @@ html {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 /* While paused (see setPaused in linotte.js) the countdown fades and a pause
@@ -345,7 +350,7 @@ html {
 .clock {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 0.2em;
   width: 100%;
   height: 90%;
@@ -937,24 +942,22 @@ body.table-flipped .tile::before {
 }
 
 /* Portrait: a die is 17% of the tray's width (each in its own fifth, so the row is a
-   little narrower than the board, on purpose), or as tall as the height allows; the tray
-   is exactly one die tall, with the same gap above (the strip's little bars) and below
-   (ROLL/DONE), so the dice sit centered between them. The strip's own empty bottom is
-   taken off the gap above. (The landscape layout sizes all of this its own way, below.) */
+   little narrower than the board, on purpose), or as tall as the height allows. The tray
+   is a little taller than the die (as it always was: a tenth of the screen), the die
+   centered in it. The room left over in the column is shared in equal parts below each
+   row (auto margins, see the rows' margins), so the spaces between rows are alike.
+   (The landscape layout sizes all of this its own way, below.) */
 @media (orientation: portrait) {
   .div-dice {
     --die: min(calc(var(--board-w) * .17), calc(var(--game-h) * .095));
-    height: var(--die);
+    /* The air around the die is 37% of it on a phone of today's size, and goes down to
+       nothing as the screen gets shorter, so the column still fits above the banner. */
+    height: calc(var(--die) + clamp(0px, calc((var(--game-h) - 560px) * .15), calc(var(--die) * .37)));
     max-height: none;
-    margin: var(--gap) auto 0;
   }
 
   .div-dice .wrapDie {
     width: var(--die);
-  }
-
-  .div-resultsAndCalls {
-    margin-bottom: calc(var(--game-h) * .01 - var(--board-w) / 5.45 * .245);
   }
 }
 
@@ -1053,10 +1056,14 @@ body.table-flipped .tile::before {
   user-select: none;
   order: 5;
   width: var(--board-w);
+  /* Nudged to the middle of the room between the dice and the banner, without
+     moving anything else (see centerButtons in linotte.js). */
+  position: relative;
+  top: var(--btn-shift, 0px);
 }
 
 .flex-block {
-  --gap: calc(var(--game-h) * .012); /* between the strip, the dice and ROLL/DONE */
+  --gap: calc(var(--game-h) * .01); /* a row's fixed top margin (the room left over is shared by auto margins) */
 }
 
 .button {
@@ -2805,17 +2812,19 @@ button,
 }
 
 body.chat-on .div-buttons {
-  grid-template-columns: 1fr 1fr 44px;
-  grid-column-gap: 10px;
+  /* An empty column as wide as the chat button's on the left, so the two
+     buttons stay centered on the screen like in the other modes. */
+  grid-template-columns: 44px 1fr 1fr 44px;
+  grid-column-gap: 8px;
 }
 
 body.chat-on .div-buttons > .button.roll {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
 }
 
 body.chat-on .div-buttons > .button.done {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
 }
 
@@ -2830,7 +2839,7 @@ body.chat-on .div-buttons > .turn-label {
 
 body.chat-on .chat-slot {
   display: block;
-  grid-column: 3;
+  grid-column: 4;
   grid-row: 1;
   width: 44px;
   height: 44px;
