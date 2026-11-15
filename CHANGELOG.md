@@ -12,6 +12,14 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.29.2] - 2026-11-15
+
+### Fixed
+- A tap on a tile that takes a piece needed to be firmer than one on ROLL. The piece was placed on the `click` a phone makes up after the touch, and a phone drops that click when the finger moves a little or lifts very fast; ROLL and the other buttons only seemed better because they sink at once. The tap is now taken from the finger's own down and up (it can wander up to 14 px and still be a tap, as before a slide off the tile cancels it), and a tap that arrives while the piece before it is still landing or leaving (half a second) is no longer thrown away: it waits for it and lands. A quick double tap on the same tile still doesn't put the piece down and take it off again. `click` stays for a keyboard or a mouse.
+
+### Changed
+- The points bot plays for its own points, not to get in the way: it no longer blocks the opponent's lines to stop them, it only stops a five that would win them the game on the spot (as much as two points of its own) or takes away 2 or more points at once (0.4 of each, so one point of its own always counts more); one point denied, a four that would not win them the game and "block pressure" don't matter any more, nor does a call to block. It uses all its pieces: it puts one down even where nothing scores (before, it passed on such a turn), and it no longer closes the game early: it holds a winning five back until its last piece (before, from 4 pieces left or with a lead of 4), or until five turns running without a piece down. From 1000-game simulations against the speed bot: its choice differs from the pure-points one in about 5% of its decisions (7% before), games it closes itself 4% (17% before), it scores more (3.7 points a game against 3.5) and wins a little less (36% against 40%).
+
 ## [2.29.1] - 2026-11-15
 
 ### Fixed

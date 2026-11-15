@@ -369,10 +369,12 @@ function isTooFarFromAssembly(table, r, c, player, opponent) {
 // no alignment potential of our own, and no blocking/denial/score value
 // either. The only reason chooseBestMove should ever place nothing when
 // a legal cell exists — everything else below is a preference, not a ban.
-function isDeadPlacement(state, candidate, player, opponent) {
+function isDeadPlacement(state, candidate, player, opponent, strategy = null) {
   if (candidate.wouldWinGame) return false; // an outright win is never dead weight
   if (candidate.pointsGained > 0) return false;
-  if (candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
+  // The points bot plays to score, not to get in the way: only a block that stops the
+  // opponent winning on the spot keeps a cell with nothing for the bot alive.
+  if (strategy === "points" ? candidate.criticalBlock : candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
   return !hasFutureLinePotential(state.table, candidate.r, candidate.c, player, opponent);
 }
 
@@ -385,13 +387,14 @@ function isDeadPlacement(state, candidate, player, opponent) {
 // bot's main cluster with no real room to start fresh, one that pairs
 // into an already-dead row, or one that's common and scarcely worth it
 // while pieces are scarce.
-function isLowPriorityPlacement(state, candidate, player, opponent) {
+function isLowPriorityPlacement(state, candidate, player, opponent, strategy = null) {
   if (candidate.wouldWinGame) return false; // an outright win is never low priority
   if (candidate.pointsGained > 0) return false; // always take a scoring placement
 
   // A cell we can never build our own alignment on is still worth a piece
-  // when it takes a point (or the game) away from the opponent.
-  if (candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
+  // when it takes a point (or the game) away from the opponent (the points bot
+  // only for a block that stops the opponent winning on the spot).
+  if (strategy === "points" ? candidate.criticalBlock : candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
 
   // The flip side of wouldWinGame: completing our own five here would end
   // the game with FEWER points than the opponent already has — a
@@ -562,19 +565,30 @@ function bigScore(c) {
   return c.pointsGained + (c.deniedPoints >= 2 ? c.deniedPoints * DENIAL_DISCOUNT : 0);
 }
 
+// The points bot's own scale: what a move is worth to it, in points. It plays for
+// its own points; stopping the opponent is the exception, not the aim. A block only
+// counts when the opponent would win the game on the spot (a five worth at least the
+// bot's own points: as much as two points of its own), or when it takes away a lot
+// (2 or more points: 0.4 of each, so a single point of its own is always worth more).
+// A single point denied, a four that would lose them the game anyway and the "block
+// pressure" of a cell are not looked at at all. (From 1000-game simulations: the bot's
+// choice differs from the one it would make thinking only of its own points in about
+// 4% of its decisions, 7% before; it wins 38% against the speed bot, 45% before.)
+const CRITICAL_BLOCK_VALUE = 2;
+const BIG_DENIAL_VALUE = 0.4;
+function pointsValue(c) {
+  return c.pointsGained + (c.criticalBlock ? CRITICAL_BLOCK_VALUE : 0) + (c.deniedPoints >= 2 ? c.deniedPoints * BIG_DENIAL_VALUE : 0);
+}
+
 function comparePoints(a, b) {
   if (a.wouldWinGame !== b.wouldWinGame) return a.wouldWinGame ? -1 : 1;
   if (a.wouldLoseGame !== b.wouldLoseGame) return a.wouldLoseGame ? 1 : -1;
-  if (a.criticalBlock !== b.criticalBlock) return a.criticalBlock ? -1 : 1;
-  if (a.urgentBlock !== b.urgentBlock) return a.urgentBlock ? -1 : 1;
 
-  const aScore = bigScore(a);
-  const bScore = bigScore(b);
+  const aScore = pointsValue(a);
+  const bScore = pointsValue(b);
   if (bScore !== aScore) return bScore - aScore;
   if (b.lineConnection !== a.lineConnection) return b.lineConnection - a.lineConnection;
   if (b.clusterScore !== a.clusterScore) return b.clusterScore - a.clusterScore;
-  if (b.blockScore !== a.blockScore) return b.blockScore - a.blockScore;
-  if (b.deniedPoints !== a.deniedPoints) return b.deniedPoints - a.deniedPoints; // minor (<2) denial, still concrete
   if (b.rarity !== a.rarity) return b.rarity - a.rarity;
   return 0;
 }
@@ -744,16 +758,13 @@ function candidateWeight(cand, strategy) {
       cand.rarity * 0.01
     );
   }
+  // "points": its own points (see pointsValue), then how well the cell is connected.
   return (
     winBonus -
     losePenalty +
-    (cand.criticalBlock ? 900_000 : 0) +
-    (cand.urgentBlock ? 400_000 : 0) +
-    bigScore(cand) * 100_000 +
+    pointsValue(cand) * 100_000 +
     cand.lineConnection * 8 +
     cand.clusterScore * 4 +
-    cand.blockScore * 2 +
-    minorDenial +
     cand.rarity * 0.01
   );
 }
@@ -845,7 +856,8 @@ function callOptions(state, player, strategy) {
   const appelRarity = Math.max(
     ...freeAppelCells.map((rc) => 100 - probabilityAt(Number(rc[0]), Number(rc[1])))
   );
-  const appelIsUrgentBlock = freeAppelCells.some((rc) =>
+  // (the points bot doesn't call to block)
+  const appelIsUrgentBlock = strategy !== "points" && freeAppelCells.some((rc) =>
     blocksOpponentFour(state.table, Number(rc[0]), Number(rc[1]), opponent)
   );
   // Would placing on the best free appel tile complete a real alignment
@@ -1490,17 +1502,14 @@ export function labStop(state, player, strategy) {
   };
 }
 
-// "points" plays for the biggest final margin, so a five that would win the game
-// right now is not always the move: closing ends the game on today's lead, while
-// playing on can still add to it (the five stays on the board: whoever is ahead
-// can close it later, and whoever is behind loses by closing). The bot closes when
-// the game is nearly over anyway (few pieces left) or the lead is already big;
-// until then it holds the five back and builds points elsewhere. "speed" is the
-// opposite: it closes at once (see compareSpeed). Set from 1000-game simulations
-// against the speed bot: the strength is the same (win 42% against 45%, mean margin
-// +0.14 against +0.11) but only 43% of the games end on a five (53% when it always
-// closes) and they last a turn longer: it plays on, as a mode about points should.
-export const POINTS_CLOSING = { piecesLeft: 4, lead: 4 };
+// "points" plays for as many points as it can with ALL its pieces, so it never closes a
+// five early: the five stays on the board (whoever is ahead can close it later, whoever
+// is behind loses by closing) and the bot builds points elsewhere, until its last piece
+// (or five turns in a row without a piece down, see `passStreak`, so a game can't stall).
+// "speed" is the opposite: it closes at once (see compareSpeed).
+export const POINTS_CLOSING = { piecesLeft: 0, lead: Infinity };
+// Turns in a row without a piece down after which the points bot takes a closing five anyway.
+export const POINTS_PASS_LIMIT = 5;
 
 function holdsOffClosing(candidate) {
   if (!candidate.wouldWinGame) return false;
@@ -1519,9 +1528,10 @@ function allCandidates(state, player, opponent, piecesLeftAfter, strategy = null
     }
   }
   // The points bot holds back a winning five (if it has nothing else worth a piece it
-  // keeps the piece and plays on), but never two turns running without a piece down:
+  // keeps the piece and plays on), but not for ever: after POINTS_PASS_LIMIT turns running without a piece down
+  // (`passStreak`) it closes, which keeps a game from stalling.
   // `passStreak`, how many turns in a row it placed nothing, keeps a game from stalling.
-  if (strategy === "points" && passStreak < 2) return candidates.filter((c) => !holdsOffClosing(c));
+  if (strategy === "points" && passStreak < POINTS_PASS_LIMIT) return candidates.filter((c) => !holdsOffClosing(c));
   return candidates;
 }
 
@@ -1536,11 +1546,13 @@ function allCandidates(state, player, opponent, piecesLeftAfter, strategy = null
 // next time.
 function bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy, passStreak = 0) {
   const all = allCandidates(state, player, opponent, piecesLeftAfter, strategy, passStreak);
-  const usable = all.filter((candidate) => !isDeadPlacement(state, candidate, player, opponent));
+  const alive = all.filter((candidate) => !isDeadPlacement(state, candidate, player, opponent, strategy));
+  // The points bot uses all its pieces: with nothing but dead cells it still puts one down.
+  const usable = alive.length === 0 && strategy === "points" ? all : alive;
   if (usable.length === 0) return null;
 
   const preferred = usable.filter(
-    (candidate) => !isLowPriorityPlacement(state, candidate, player, opponent)
+    (candidate) => !isLowPriorityPlacement(state, candidate, player, opponent, strategy)
   );
   const pool = preferred.length > 0 ? preferred : usable;
 
@@ -1586,9 +1598,10 @@ export function explainPlacement(state, player, strategy, { passStreak = 0 } = {
   const opponent = player === 1 ? 2 : 1;
   const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
   const all = allCandidates(state, player, opponent, piecesLeftAfter, strategy, passStreak);
-  const dead = all.filter((c) => isDeadPlacement(state, c, player, opponent));
-  const usable = all.filter((c) => !isDeadPlacement(state, c, player, opponent));
-  const lowPriority = new Set(usable.filter((c) => isLowPriorityPlacement(state, c, player, opponent)));
+  const alive = all.filter((c) => !isDeadPlacement(state, c, player, opponent, strategy));
+  const usable = alive.length === 0 && strategy === "points" ? all : alive;
+  const dead = all.filter((c) => !usable.includes(c));
+  const lowPriority = new Set(usable.filter((c) => isLowPriorityPlacement(state, c, player, opponent, strategy)));
   const preferred = usable.filter((c) => !lowPriority.has(c));
   const pool = preferred.length > 0 ? preferred : usable;
   pool.sort(comparatorFor(strategy));

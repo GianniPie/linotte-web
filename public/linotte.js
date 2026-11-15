@@ -2161,14 +2161,51 @@ function renderTableHighlight() {
 // A tap that can place/remove a piece does that, on release (a finger that
 // slides off cancels it). Any other touch on an occupied tile (either
 // player's, any time) makes its piece bounce right away, as the finger lands.
+//
+// The tap is taken from the pointer's own down/up, not from the `click` a phone
+// makes up afterwards: a phone drops that click when the finger moves a little or
+// lifts very fast, which made a light tap on a tile count for nothing (ROLL and the
+// other buttons feel better only because they sink at once). TILE_TAP_SLOP is how far
+// the finger may wander and still be a tap. `click` stays for a keyboard or a mouse
+// that sends no pointer events, unless the pointer already handled the tap.
+const TILE_TAP_SLOP = 14; // px
+const TILE_TAP_WAIT_MS = 700; // how long a tap waits for the piece before it to land or leave
 const tileCanAct = (el) => isMyTurn() && pieceEnabled &&
     matrixCheck(idToCoo(el.id), possibleMovesLocal) !== 0;
 
+let tileDown = null; // the finger now down on a tile: { el, x, y, pointerId }
+let tileTapAt = 0; // when the pointer last handled a tap (its `click` is then ignored)
+let tileTapTimer = null;
+let lastActedTile = null; // { id, at }: the tile a tap last placed on or removed from
+
+// A tap on a tile that can take a piece. The previous piece may still be landing or
+// leaving (half a second): the tap isn't lost then, it waits for it, unless it is on
+// the very tile just acted on (a quick double tap must not put the piece down and
+// take it off again).
+function tapTile(el) {
+    if (!isMyTurn() || matrixCheck(idToCoo(el.id), possibleMovesLocal) === 0) return;
+    clearTimeout(tileTapTimer);
+    const act = () => {
+        lastActedTile = { id: el.id, at: performance.now() };
+        handleTile(el.id);
+    };
+    if (pieceEnabled) { act(); return; }
+    if (lastActedTile && lastActedTile.id === el.id && performance.now() - lastActedTile.at < TILE_TAP_WAIT_MS) return;
+    const until = performance.now() + TILE_TAP_WAIT_MS;
+    const wait = () => {
+        if (pieceEnabled) { if (tileCanAct(el)) act(); }
+        else if (performance.now() < until) tileTapTimer = setTimeout(wait, 30);
+    };
+    tileTapTimer = setTimeout(wait, 30);
+}
+
 document.querySelectorAll(".tile").forEach(el => {
     el.addEventListener("click", function () {
-        if (tileCanAct(el)) handleTile(el.id);
+        if (performance.now() - tileTapAt < 600) return; // the pointer took this tap already
+        tapTile(el);
     });
-    el.addEventListener("pointerdown", function () {
+    el.addEventListener("pointerdown", function (e) {
+        tileDown = { el, x: e.clientX, y: e.clientY, pointerId: e.pointerId };
         if (tileCanAct(el)) return;
         const piece = document.getElementById("p" + idToCoo(el.id));
         if (piece && piece.style.backgroundImage &&
@@ -2176,6 +2213,15 @@ document.querySelectorAll(".tile").forEach(el => {
             jumpPiece(...idToCoo(el.id), true);
         }
     });
+    el.addEventListener("pointerup", function (e) {
+        const down = tileDown;
+        tileDown = null;
+        if (!down || down.el !== el || down.pointerId !== e.pointerId) return;
+        if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > TILE_TAP_SLOP) return;
+        tileTapAt = performance.now();
+        tapTile(el);
+    });
+    el.addEventListener("pointercancel", function () { tileDown = null; });
 });
 
 
