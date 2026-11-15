@@ -380,25 +380,25 @@ const lobby = new Lobby(io, store);
   assert.equal(recorded[0].abandoned, false, "the one who stayed didn't abandon");
   // Online wins +2, lost or drawn to the end +1, bot wins +1 each,
   // abandoned games -2, 2 daily bonuses +2 each, 3 ads +1 each
-  // and the speed bonus of the bot wins (4 of +1, 3 of +2, 2 of +3 = 16)
+  // and the bonus points of the bot wins (speed bonus, or the margin beyond the first point: 16)
   // (here 2*42 + 7 + 13 + 16 - 2*3 + 2*2 + 3 = 121).
   const counts = async (u, o) => {
     sent.push([u, o]);
-    const n = u.includes("bonus_xp=eq.1") ? 4 : u.includes("bonus_xp=eq.2") ? 3 : u.includes("bonus_xp=eq.3") ? 2
-      : u.includes("kind=eq.daily") ? 2 : u.includes("kind=eq.ad") ? 3
+    if (u.includes("/rpc/bot_bonus_xp")) return { ok: true, json: async () => 16 }; // the bonus points of the bot wins, summed by the database
+    const n = u.includes("kind=eq.daily") ? 2 : u.includes("kind=eq.ad") ? 3
       : u.includes("abandoned=is.true") ? 3 : u.includes("mode=eq.bot") ? 13 : u.includes("won=is.false") ? 7 : 42;
     return { ok: true, headers: { get: () => `0-0/${n}` } };
   };
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 121, "experience is counted, bonuses and the speed bonus included");
   const stats = await accountStats("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts });
   assert.deepEqual(stats.record, { played: 52, won: 42 }, "the online record: 42 won of 52 (42 + 7 finished + 3 abandoned)");
-  const asked = sent.slice(-11).map(([u]) => u);
+  const asked = sent.slice(-9).map(([u]) => u);
   assert.ok(asked.some((u) => u.includes("source=eq.server&won=is.true")), "online wins from the server");
   assert.ok(asked.some((u) => u.includes("won=is.false&abandoned=is.false")), "online games finished without winning");
   assert.ok(asked.some((u) => u.includes("mode=eq.bot") && u.includes("from_guest=is.false")), "bot wins, not the guest's");
   assert.ok(asked.some((u) => u.includes("source=eq.server&abandoned=is.true")), "abandoned games");
-  assert.ok(asked.filter((u) => u.includes("earns_xp=is.true")).length === 6, "points only from games whose video was watched (wins, finished, bot, and the three steps of the speed bonus)");
-  assert.ok(asked.filter((u) => u.includes("mode=eq.bot") && u.includes("bonus_xp=eq.")).length === 3, "the speed bonus is counted by step");
+  assert.ok(asked.filter((u) => u.includes("earns_xp=is.true")).length === 3, "points only from games whose video was watched (wins, finished, bot)");
+  assert.ok(asked.some((u) => u.includes("/rpc/bot_bonus_xp")), "the bonus of the bot wins is summed by the database");
   const none = async () => ({ ok: true, headers: { get: () => "*/0" } });
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");
   assert.equal(await experience(null, { key: "k" }), 0, "a guest has none");
@@ -412,7 +412,12 @@ const lobby = new Lobby(io, store);
   assert.deepEqual([-2, -1, 0, 1, 3, 10, 11, 20].map(levelStart), [-29, -14, -4, 5, 30, 275, 325, 775], "where levels start");
   assert.ok(!Object.is(levelOf(-1), -0), "never -0");
   const { speedBonus, SPEED_BONUS_TIERS } = await import("../public/shared/level.js");
-  assert.deepEqual([0, 5, 8, 9, 11, 12, 14, 15, 30].map(speedBonus), [0, 3, 3, 2, 2, 1, 1, 0, 0], "the faster the win, the bigger the bonus; none from 15 turns");
+  assert.deepEqual([0, 5, 8, 9, 11, 12, 14, 15, 30].map(speedBonus), [0, 4, 4, 3, 3, 2, 2, 0, 0], "the faster the win, the bigger the bonus; none from 15 turns");
+  const { botWinPayout } = await import("../public/shared/level.js");
+  assert.equal(botWinPayout({ strategy: "points", turns: 7, margin: 6 }), 6, "points mode pays the pure winning margin");
+  assert.equal(botWinPayout({ strategy: "points", turns: 7, margin: 0 }), 1, "at least the win's 1 point");
+  assert.equal(botWinPayout({ strategy: "speed", turns: 7, margin: 6 }), 5, "speed mode pays 1 and the speed bonus");
+  assert.equal(botWinPayout({ strategy: "speed", turns: 20, margin: 6 }), 1, "a slow speed win pays its 1 point");
   assert.equal(SPEED_BONUS_TIERS.length, 3);
   console.log("ok: online results are recorded");
 }

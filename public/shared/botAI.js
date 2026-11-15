@@ -465,6 +465,7 @@ function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
   // not" case once wouldBeFive is true.
   const opponentPoints = totalPoints(state.table, opponent);
   const wouldWinGame = wouldBeFive && after >= opponentPoints;
+  const leadAfter = after - opponentPoints; // our lead once this piece is down (before the opponent's reply)
   const wouldLoseGame = wouldBeFive && after < opponentPoints;
   const longestLineAfter = longestLineThrough(cloneTable(state.table), r, c, player);
   const rarity = 100 - probabilityAt(r, c);
@@ -501,6 +502,7 @@ function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
     wouldBeFive,
     wouldWinGame,
     wouldLoseGame,
+    leadAfter,
     longestLineAfter,
     rarity,
     blockScore,
@@ -1488,7 +1490,26 @@ export function labStop(state, player, strategy) {
   };
 }
 
-function allCandidates(state, player, opponent, piecesLeftAfter) {
+// "points" plays for the biggest final margin, so a five that would win the game
+// right now is not always the move: closing ends the game on today's lead, while
+// playing on can still add to it (the five stays on the board: whoever is ahead
+// can close it later, and whoever is behind loses by closing). The bot closes when
+// the game is nearly over anyway (few pieces left) or the lead is already big;
+// until then it holds the five back and builds points elsewhere. "speed" is the
+// opposite: it closes at once (see compareSpeed). Set from 1000-game simulations
+// against the speed bot: the strength is the same (win 42% against 45%, mean margin
+// +0.14 against +0.11) but only 43% of the games end on a five (53% when it always
+// closes) and they last a turn longer: it plays on, as a mode about points should.
+export const POINTS_CLOSING = { piecesLeft: 4, lead: 4 };
+
+function holdsOffClosing(candidate) {
+  if (!candidate.wouldWinGame) return false;
+  if (candidate.piecesLeftAfter <= POINTS_CLOSING.piecesLeft) return false;
+  if (candidate.leadAfter >= POINTS_CLOSING.lead) return false;
+  return true;
+}
+
+function allCandidates(state, player, opponent, piecesLeftAfter, strategy = null, passStreak = 0) {
   const candidates = [];
   for (let r = 0; r < 5; r++) {
     for (let c = 0; c < 5; c++) {
@@ -1497,6 +1518,10 @@ function allCandidates(state, player, opponent, piecesLeftAfter) {
       }
     }
   }
+  // The points bot holds back a winning five (if it has nothing else worth a piece it
+  // keeps the piece and plays on), but never two turns running without a piece down:
+  // `passStreak`, how many turns in a row it placed nothing, keeps a game from stalling.
+  if (strategy === "points" && passStreak < 2) return candidates.filter((c) => !holdsOffClosing(c));
   return candidates;
 }
 
@@ -1509,8 +1534,8 @@ function allCandidates(state, player, opponent, piecesLeftAfter) {
 // offer — if every survivor is low-priority, the least-bad one still
 // beats passing the whole turn, since nothing guarantees a better throw
 // next time.
-function bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy) {
-  const all = allCandidates(state, player, opponent, piecesLeftAfter);
+function bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy, passStreak = 0) {
+  const all = allCandidates(state, player, opponent, piecesLeftAfter, strategy, passStreak);
   const usable = all.filter((candidate) => !isDeadPlacement(state, candidate, player, opponent));
   if (usable.length === 0) return null;
 
@@ -1526,10 +1551,10 @@ function bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strate
 // ---------- Which tile to place a piece on ----------
 // Returns a "rc" coordinate string (matching the app's existing format,
 // e.g. "23"), or null if no legal placement exists.
-export function chooseBestMove(state, player, strategy) {
+export function chooseBestMove(state, player, strategy, { passStreak = 0 } = {}) {
   const opponent = player === 1 ? 2 : 1;
   const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
-  const best = bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy);
+  const best = bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy, passStreak);
   if (!best) return null;
 
   return `${best.r}${best.c}`;
@@ -1557,10 +1582,10 @@ function annotateCandidate(candidate, tag) {
 // throw, tagged and ranked exactly like the real decision, plus which one
 // was actually chosen and why (preferred vs. a low-priority fallback vs.
 // dead weight that was never even in the running).
-export function explainPlacement(state, player, strategy) {
+export function explainPlacement(state, player, strategy, { passStreak = 0 } = {}) {
   const opponent = player === 1 ? 2 : 1;
   const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
-  const all = allCandidates(state, player, opponent, piecesLeftAfter);
+  const all = allCandidates(state, player, opponent, piecesLeftAfter, strategy, passStreak);
   const dead = all.filter((c) => isDeadPlacement(state, c, player, opponent));
   const usable = all.filter((c) => !isDeadPlacement(state, c, player, opponent));
   const lowPriority = new Set(usable.filter((c) => isLowPriorityPlacement(state, c, player, opponent)));

@@ -95,6 +95,18 @@ export async function claimGameXp(userId, since, { key = SECRET_KEY, url = SUPAB
 // keeps the level it had instead of showing level 0.
 const NONE = { xp: 0, record: { played: 0, won: 0 } };
 const UNKNOWN = { xp: null, record: null };
+// The sum of bonus_xp over the account's recorded wins against the bot.
+async function botBonusXp(userId, { key, url, fetch: fetchImpl }) {
+  const res = await fetchImpl(`${url}/rest/v1/rpc/bot_bonus_xp`, {
+    method: "POST",
+    headers: { apikey: key, "Content-Type": "application/json" },
+    body: JSON.stringify({ uid: userId }),
+  });
+  if (res.ok === false) throw new Error(`Supabase answered ${res.status}`);
+  const total = Number(await res.json());
+  return Number.isFinite(total) ? total : 0;
+}
+
 export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
   if (!userId || !key || !url) return NONE;
   const count = async (filter) => {
@@ -109,8 +121,7 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
     return Number.isFinite(total) ? total : 0;
   };
   try {
-    const botWon = "source=eq.app&mode=eq.bot&won=is.true&from_guest=is.false&earns_xp=is.true";
-    const [wins, finished, winsXp, finishedXp, bot, abandoned, bonus, speed1, speed2, speed3] = await Promise.all([
+    const [wins, finished, winsXp, finishedXp, bot, abandoned, bonus, botBonus] = await Promise.all([
       count("source=eq.server&won=is.true"),
       count("source=eq.server&won=is.false&abandoned=is.false"),
       count("source=eq.server&won=is.true&earns_xp=is.true"),
@@ -118,14 +129,13 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
       count("source=eq.app&mode=eq.bot&won=is.true&from_guest=is.false&earns_xp=is.true"),
       count("source=eq.server&abandoned=is.true"),
       bonusPoints(userId, { key, url, fetch: fetchImpl }),
-      // The speed bonus of wins against the bot (1 to 3 each), counted by step.
-      count(`${botWon}&bonus_xp=eq.1`),
-      count(`${botWon}&bonus_xp=eq.2`),
-      count(`${botWon}&bonus_xp=eq.3`),
+      // What the wins against the bot paid on top of their 1 point: the speed bonus, or the rest
+      // of the winning margin in points mode (summed by the database, see game_results_points.sql).
+      botBonusXp(userId, { key, url, fetch: fetchImpl }),
     ]);
     return {
       xp: ONLINE_WIN_POINTS * winsXp + ONLINE_FINISHED_POINTS * finishedXp
-        + BOT_WIN_POINTS * bot + speed1 + 2 * speed2 + 3 * speed3 - ABANDON_PENALTY * abandoned + bonus,
+        + BOT_WIN_POINTS * bot + botBonus - ABANDON_PENALTY * abandoned + bonus,
       record: { played: wins + finished + abandoned, won: wins },
     };
   } catch (err) {

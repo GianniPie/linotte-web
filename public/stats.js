@@ -26,13 +26,18 @@ function writeLocal(list) {
 // pays them was closed early, see showWinnerPopup in linotte.js).
 // bonus: the speed bonus of a win against the bot (see speedBonus); turns: the player's own
 // turns in a game against the bot, kept to set the bonus's steps from real games.
-export async function recordGame({ mode, won, points, opponentPoints, opponent, abandoned = false, noXp = false, bonus = 0, turns = null }) {
+export async function recordGame({ mode, won, points, opponentPoints, opponent, abandoned = false, noXp = false, bonus = 0, turns = null, strategy = null }) {
     const entry = {
         mode, won: Boolean(won), points: points | 0, opponent_points: opponentPoints | 0,
         opponent: String(opponent || "").slice(0, 24) || null, played_at: new Date().toISOString(),
         earns_xp: !noXp, // see supabase/game_results_xp.sql
     };
-    if (mode === "bot") { entry.bonus_xp = noXp ? 0 : bonus | 0; entry.turns = Number.isInteger(turns) ? turns : null; } // see supabase/game_results_bonus.sql
+    if (mode === "bot") {
+        // The points a win paid on top of its 1 (see botWinPayout), the turns it took, the mode: see supabase/game_results_bonus.sql, game_results_points.sql
+        entry.bonus_xp = noXp ? 0 : Math.min(40, Math.max(0, bonus | 0));
+        entry.turns = Number.isInteger(turns) ? turns : null;
+        entry.strategy = strategy === "points" || strategy === "speed" ? strategy : null;
+    }
     if (!currentUser()) {
         writeLocal([entry, ...readLocal()]);
         // The guest's level: a bot win, or an online game played to the end

@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.29.0] - 2026-11-15
+
+### Added
+- The POINTS mode against the bot is on (it wore the SOON tag). The bot plays for points: it no longer closes the game with a five the moment it is winning; it holds the five back while there are more than 4 pieces left and its lead is under 4 (and never two turns running without a piece down, so a game can't stall), and plays on to add points. Against the speed bot it is as strong (win 42% against 44% when it always closes, 1000 games) but only 48% of its games end on a five against 50%, and when two points bots meet 41% against 48%, with games a turn and a half longer. A win in points mode pays the pure winning margin (the difference in points, at least 1), a loss or a draw nothing; its badge on the points screen is "Winning margin". To keep the two modes balanced the speed bonus goes up: 9 to 11 turns +3, 12 to 14 +2, 8 or fewer +4 (15 or more still nothing), so a player as good as the bot makes about 1.15 a game in speed mode and about 1.65 in points mode, which has the risk of the margin and a loss pays nothing. The app saves each game's mode and turns to set both from real games. For accounts the bonus is now summed by the database (`bot_bonus_xp`): run `supabase/game_results_points.sql` in Supabase BEFORE deploying.
+
 ## [2.28.0] - 2026-11-15
 
 ### Added

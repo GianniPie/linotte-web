@@ -70,6 +70,7 @@ export class HumanBot {
     this.watchGen = 0; // the opponent-is-slow watch: bumped on every opponent action
     this.tableBefore = null; // the board as it was when the opponent's turn began
     this.turn = this.freshTurn();
+    this.passStreak = 0; // turns in a row it put no piece down
     this.oppFlags = { rolled: false, yam: false };
   }
 
@@ -433,8 +434,9 @@ export class HumanBot {
 
   async placePhase(turnId) {
     const { room, seat } = this;
-    const explanation = explainPlacement(room.state, seat, this.persona.strategy);
+    const explanation = explainPlacement(room.state, seat, this.persona.strategy, { passStreak: this.passStreak });
     const ranked = explanation.ranked;
+    this.passStreak = explanation.chosen && ranked.length ? 0 : this.passStreak + 1; // the points bot holds a five back, but not for ever
     if (!explanation.chosen || ranked.length === 0) return; // nothing worth placing
 
     let pick = explanation.chosen;

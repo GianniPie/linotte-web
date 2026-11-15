@@ -19,11 +19,21 @@ export const BOT_WIN_POINTS = 1; // a win against the bot (it used to be 1 point
 // turns a side (median 15, a quarter of wins in 11 or fewer, one in ten in 8 or fewer):
 // from there up it pays nothing. (Calibrated on bot-vs-bot games; the app saves each
 // game's turns, so these can be set again from real ones: see game_results.turns.)
-export const SPEED_BONUS_TIERS = [{ upTo: 8, bonus: 3 }, { upTo: 11, bonus: 2 }, { upTo: 14, bonus: 1 }];
+// Points mode pays the winning margin and nothing for a loss, about 1.65 a game for a
+// player as good as the bot against 1.15 here (and 0.5 a game without the bonus): the
+// bonus makes up part of the difference, the rest is the risk of the margin.
+export const SPEED_BONUS_TIERS = [{ upTo: 8, bonus: 4 }, { upTo: 11, bonus: 3 }, { upTo: 14, bonus: 2 }];
 export function speedBonus(turns) {
     if (!(turns > 0)) return 0;
     for (const tier of SPEED_BONUS_TIERS) if (turns <= tier.upTo) return tier.bonus;
     return 0;
+}
+
+// What a win against the bot pays: speed, 1 point and the speed bonus; points, the pure
+// winning margin (the points you are ahead by: at least 1 for a win). A loss or a draw: 0.
+export function botWinPayout({ strategy, turns, margin }) {
+    if (strategy === "points") return Math.max(BOT_WIN_POINTS, margin | 0);
+    return BOT_WIN_POINTS + speedBonus(turns);
 }
 export const ABANDON_PENALTY = 2;
 // Bonuses (server/bonuses.js, the xp_bonuses table): the first online game of

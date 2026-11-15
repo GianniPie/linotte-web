@@ -193,7 +193,7 @@ import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAband
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
 import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
-import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, speedBonus, DAILY_BONUS_POINTS } from "./shared/level.js";
+import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
 gameState.players[2].name = "BOT";
@@ -208,7 +208,7 @@ let controller;
 // screen is up; with this false there is no game: no turn timer, no bot, no
 // keyboard shortcuts, nothing highlighted as the running mode.
 let gameInProgress = false;
-let botStrategy = "speed"; // POINTS is not ready yet (SOON on its button)
+let botStrategy = "speed";
 startBot(botStrategy); // default to player-vs-bot, ready to play on open --
 // silently discarded the moment a real mode is chosen on the home screen
 // below (newGameVsBot/newGameOffline fully reset gameState), so it never
@@ -312,7 +312,8 @@ let lastRefreshAt = 0;
 let gameXpBase = null;
 let gameXpLabel = ""; // what the game's badge says: Victory or Game played
 let gameXpPays = 0; // the most the game itself can have paid (the rest is a bonus)
-let gameXpBonus = 0; // of it, the speed bonus (its own badge)
+let gameXpBonus = 0; // of it, what came on top of a win's 1 point (the speed bonus, or the rest of the margin)
+let gameBotStrategy = "speed"; // the mode of the game just played against the bot (its badges differ)
 function refreshIfStale() {
     if (!currentUser() || Date.now() - lastRefreshAt < 15000) return;
     refreshPro();
@@ -1345,7 +1346,6 @@ document.getElementById("home-play-btn").addEventListener("click", () => {
 const botStrategyButtons = document.querySelectorAll(".bot-strategy");
 botStrategyButtons.forEach(btn => {
     btn.addEventListener("click", () => {
-        if (btn.hasAttribute("data-soon")) { showToast(t("The bot that plays for points is coming soon.")); return; }
         botStrategyButtons.forEach(b => b.classList.remove("selected"));
         btn.classList.add("selected");
 
@@ -1765,13 +1765,18 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
     // level: asked again once the game is recorded (by the server for an
     // online game, by recordGame for one against the bot).
     const xpBefore = myXp();
-    // Speed mode against the bot: a win closed in few turns pays a bonus (not if the video was closed).
-    const bonus = mode === "bot" && winner === me && earn && botStrategy === "speed" ? speedBonus(myTurns) : 0;
+    // A win against the bot pays by the mode: speed, 1 and a bonus for being quick; points, the
+    // winning margin (not if the video was closed). `bonus` is what comes on top of the 1 point.
+    const botMargin = gameState.players[1].points - gameState.players[2].points;
+    const bonus = mode === "bot" && winner === me && earn
+        ? botWinPayout({ strategy: botStrategy, turns: myTurns, margin: botMargin }) - BOT_WIN_POINTS
+        : 0;
     const recorded = recordGame({
         mode,
         won: winner === me,
         bonus,
         turns: mode === "bot" ? myTurns : null,
+        strategy: mode === "bot" ? botStrategy : null,
         // This phone's player let 3 turns run out: abandoned, not finished.
         abandoned: controller.mode === "online" && overReason === "idle" && winner !== me,
         points: gameState.players[me].points,
@@ -1795,6 +1800,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
             // What a game pays is set by the rules (a win against the bot, an online win or finish).
             gameXpPays = mode === "bot" ? BOT_WIN_POINTS + bonus : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
             gameXpBonus = bonus;
+            gameBotStrategy = botStrategy;
             await showGameXp();
             if (heldBonus) { queuePointsGain(heldBonus.points, t("Daily bonus")); heldBonus = null; } // told while the video was up
             return;
@@ -1803,6 +1809,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
         const after = guestXp();
         // One badge for what the game paid and one for the day's bonus.
         const earned = after - xpBefore - (r?.daily ? DAILY_BONUS_POINTS : 0);
+        gameBotStrategy = botStrategy;
         queueGameBadges(earned, bonus, gameBadgeLabel(winner === me));
         if (r?.daily) queuePointsGain(DAILY_BONUS_POINTS, t("Daily bonus"));
         if (after === xpBefore) return;
@@ -2758,6 +2765,7 @@ try {
 }
 
 let botTurnCounter = 0;
+let botPassStreak = 0;
 let myTurns = 0; // this player's own turns in the game against the bot (see speedBonus in shared/level.js)
 
 // The bot lab (botlab-client.js): this game's id, and the weights the lab has
@@ -2913,7 +2921,8 @@ async function playBotTurn() {
         }
 
         await sleep(600);
-        const explanation = explainPlacement(gameState, 2, botStrategy);
+        const explanation = explainPlacement(gameState, 2, botStrategy, { passStreak: botPassStreak });
+        botPassStreak = explanation.chosen ? 0 : botPassStreak + 1; // turns in a row without a piece down (the points bot may hold a five back, but not for ever)
         record.placement = {
             chosen: compactCandidate(explanation.chosen),
             ranked: explanation.ranked.filter((c) => c.rc !== explanation.chosen?.rc).map(compactCandidate),
@@ -4480,8 +4489,11 @@ function queuePointsGain(points, label) {
     if (flowHolding()) pointsFlow.badges.push([points, label]);
     else showPointsGain(points, label);
 }
-// The game's own points as a badge, and its speed bonus (if it paid one) as another.
+// The game's own points as a badge, and what came on top of the 1 point of a win against the
+// bot as another: the speed bonus, or in points mode the rest of the winning margin (one
+// badge, "Winning margin", for all of it).
 function queueGameBadges(earned, bonus, label) {
+    if (earned > 0 && bonus > 0 && gameBotStrategy === "points") { queuePointsGain(earned, t("Winning margin")); return; }
     const bonusPart = Math.min(bonus || 0, Math.max(0, earned - BOT_WIN_POINTS));
     if (earned - bonusPart > 0) queuePointsGain(earned - bonusPart, label);
     if (bonusPart > 0) queuePointsGain(bonusPart, t("Speed bonus"));
