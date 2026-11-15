@@ -12,7 +12,7 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
-## [Unreleased]
+## [2.29.1] - 2026-11-15
 
 ### Fixed
 - The top row of the game (menu button, players, VS, countdown) is back as it looked before 2.27.1: the menu button and the countdown each in a side column of the same width (12% of the row), so the VS is in the middle of the row and the countdown is the narrow one it was (18.8 px digits on a 355 px phone, not 28); the players' boxes are a tenth of the screen's height again. Measured against the old rules on the same game, every box matches to the tenth of a pixel. Kept from 2.27.1: the row as wide as the board, the 32 px menu button in landscape, and, on short portrait screens only (under 700 px), a little room above the level badge.
