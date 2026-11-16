@@ -652,8 +652,9 @@
 .lb-list li,
 .lb-me li {
   display: grid;
-  grid-template-columns: 2.2em minmax(0, 1fr) auto;
-  gap: .5em;
+  /* the place, the flag (a column of its own, empty without a country, so the names line up), the name, the points */
+  grid-template-columns: 1.6em 1.3em minmax(0, 1fr) auto;
+  gap: .4em;
   align-items: center;
   padding: .35em .3em;
   border-bottom: 1px solid rgba(0, 0, 0, .1);
@@ -665,9 +666,13 @@
 }
 
 .lb-rank {
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums;
   opacity: .8;
+}
+
+.lb-flag {
+  text-align: center;
 }
 
 .lb-name {

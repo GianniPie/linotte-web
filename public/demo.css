@@ -112,6 +112,10 @@
   height: auto;
   max-height: none;
   padding-block: 4px;
+  /* In portrait the game's dice are sized off --board-w and --game-h, which only the game's own
+     column defines (.flex-block): without a size here the dice came out 0 by 0 and vanished.
+     A die is 17% of the board's width there, so of --S here. */
+  --die: calc(var(--S) * .17);
 }
 
 .demo-head {

@@ -5499,7 +5499,7 @@ function skeletonRows(n) {
         li.className = "lb-skel";
         li.setAttribute("aria-hidden", "true");
         li.style.setProperty("--i", i);
-        li.append(span("sk sk-rank"), span("sk sk-name"), span("sk sk-pts"));
+        li.append(span("sk sk-rank"), span("lb-flag"), span("sk sk-name"), span("sk sk-pts"));
         return li;
     });
 }
@@ -5514,8 +5514,8 @@ async function showRanking(tab) {
     byId("lb-pro").hidden = true;
     empty.hidden = true;
     byId("lb-note").textContent = {
-        week: t("Online points and bonuses since Monday. A new week starts every Monday."),
-        all: t("Online points and bonuses since the beginning."),
+        week: t("Points earned since Monday. A new week starts every Monday."),
+        all: t("Everyone's points (their level) since the beginning."),
         friends: t("The people you've played in a private room."),
     }[tab];
     byId("lb-signin").hidden = Boolean(currentUser()) || !ACCOUNTS_AVAILABLE;
@@ -5531,7 +5531,7 @@ async function showRanking(tab) {
     if (rankingTab !== tab) return; // another tab was picked meanwhile
     list.replaceChildren();
     list.removeAttribute("aria-busy");
-    const row = (r) => rankingRow([span("lb-rank", `${r.rank}`), span("lb-name", nameWithFlag(r)), span("lb-points", t("{n} pts", { n: r.points }))], { me: r.me });
+    const row = (r) => rankingRow([span("lb-rank", `${r.rank}`), span("lb-flag", r.country ? flagOf(r.country) : ""), span("lb-name", r.name), span("lb-points", t("{n} pts", { n: r.points }))], { me: r.me });
     board.rows.forEach((r) => list.appendChild(row(r)));
     empty.hidden = board.rows.length > 0;
     empty.textContent = tab === "week" ? t("No points yet this week: be the first!") : t("No points yet: be the first!");

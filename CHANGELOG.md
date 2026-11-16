@@ -12,6 +12,15 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.29.6] - 2026-11-16
+
+### Fixed
+- The dice were gone from the how-to videos (on a portrait phone; landscape was fine). Since 2.27.1 the game's dice are sized off `--board-w`, which only the game's own column defines: the videos reuse the dice's classes without that column, so each die came out 0 by 0. The videos now give their dice a size of their own, 17% of their board's width, as in the game.
+
+### Fixed
+- The ranking started with an empty column: the place was right-aligned in a column wider than its number, leaving about 26 px of blank before the first digit; and the flag was part of the name, so a player without a country started further left than the others. Now the place is on the left, the flag has its own column (empty without a country) and every name starts at the same place.
+- The ranking's notes said "Online points and bonuses", from when only online games counted. They now say what the lists show: the points earned since Monday, and everyone's points (their level) since the beginning.
+
 ## [2.29.5] - 2026-11-16
 
 ### Changed
