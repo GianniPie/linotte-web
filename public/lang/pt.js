@@ -182,6 +182,8 @@ export default {
     "Victory": "Vitória",
     "Points earned": "Pontos ganhos",
     "Game played": "Partida jogada",
+    "Points lost": "Pontos perdidos",
+    "Game abandoned": "Partida abandonada",
     "Bronze badge": "Selo de bronze",
     "Silver badge": "Selo de prata",
     "Gold badge": "Selo de ouro",

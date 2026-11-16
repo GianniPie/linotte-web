@@ -12,6 +12,17 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.29.3] - 2026-11-16
+
+### Changed
+- The points badges on the points screen are flat, as the rest of the app: two bands of colour (light on top, gold below) instead of a gradient, a small flat drop and two flat rings stepping out instead of the blurred glow, and the shine that sweeps over the badge is a flat light band instead of a gradient.
+
+### Fixed
+- The dice sound was too loud: it now plays at 35% of its volume (about 9 dB less), for the player's rolls, the bot's and an online opponent's. It goes through the audio context instead of an `<audio>` element, because the volume of that one is ignored on iOS (it would have played at full there whatever was set); the sound is fetched at the first touch, and until it's loaded the element is used, with the volume set.
+
+### Added
+- Points lost now have their own badge, a red one (same flat pill): it falls fast, hits with a thud, shakes itself still, with a heavy buzz and a sound that small speakers can play (a thump with its octave, a dull click, then two falling notes: the low note of a level lost was too deep for a phone to make), and no confetti. The points screen opens for it too (before, it opened only for points earned), titled "Points lost", with the level bar going down. It shows for an abandoned game by turns let run out (−2, "Game abandoned") and, in the stack at the top, for leaving an online game before its end, ahead of the level screen when a level goes with it. The two new texts are in all six languages.
+
 ## [2.29.2] - 2026-11-15
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "name": "linotte-web",
-  "version": "2.29.2",
+  "version": "2.29.3",
   "type": "module",
   "description": "Linotte web",
   "main": "index.js",

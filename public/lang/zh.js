@@ -183,6 +183,8 @@ export default {
     "Victory": "胜利",
     "Points earned": "获得积分",
     "Game played": "完成对局",
+    "Points lost": "扣除积分",
+    "Game abandoned": "放弃对局",
     "Bronze badge": "铜徽章",
     "Silver badge": "银徽章",
     "Gold badge": "金徽章",

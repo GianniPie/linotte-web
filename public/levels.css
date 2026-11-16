@@ -35,23 +35,25 @@
   padding: 9px 22px;
   border: 1px solid rgba(0, 0, 0, .2);
   border-radius: 999px;
-  background: linear-gradient(180deg, #fff0a8, #f6bc34 70%, #ee9f1c);
+  /* Flat, like the rest of the app: two bands of colour instead of a gradient. */
+  background: linear-gradient(180deg, #ffe27a 0 46%, #f2b02a 46% 100%);
   color: #3d240c;
   font-family: "Changa One", sans-serif;
   font-size: 20px;
   line-height: 1.1;
   white-space: nowrap;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, .26), 0 0 0 5px rgba(255, 216, 77, .38), 0 0 34px 8px rgba(255, 196, 40, .55);
+  /* A small flat drop and two flat rings stepping out, in place of a blurred glow. */
+  box-shadow: 0 6px 0 rgba(0, 0, 0, .22), 0 0 0 5px rgba(255, 216, 77, .38), 0 0 0 11px rgba(255, 196, 40, .2);
   animation: ppIn .7s cubic-bezier(.2, 1.5, .4, 1) both;
 }
 
-/* The shine sweeping over the badge, and a ring spreading from it. */
+/* A flat light band sweeping over the badge, and a ring spreading from it. */
 .points-badge::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .75) 50%, transparent 70%);
+  background: linear-gradient(100deg, transparent 0 42%, rgba(255, 255, 255, .55) 42% 58%, transparent 58% 100%);
   background-size: 250% 100%;
   animation: ppShine 1.3s .3s ease-out both;
 }
@@ -84,6 +86,41 @@
   text-overflow: ellipsis;
 }
 
+/* Points lost (an abandoned game): the same flat pill, in red. It doesn't drop in with a
+   bounce and shine: it falls fast, hits with a thud (squashed for a moment) and shakes
+   itself still, red bits of it fall away (see addPointsBadge), no ring, no shine. */
+.points-badge.is-loss {
+  background: linear-gradient(180deg, #ff9d92 0 46%, #e4584b 46% 100%);
+  color: #4a120c;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, .22), 0 0 0 5px rgba(255, 120, 104, .36), 0 0 0 11px rgba(228, 88, 75, .18);
+  animation: ppFall .42s cubic-bezier(.55, 0, .9, .5) both, ppThud .65s .42s ease-out both;
+}
+
+.points-badge.is-loss::before,
+.points-badge.is-loss::after {
+  display: none;
+}
+
+.points-badge.is-loss .pp-gain {
+  color: #6e1710;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .4);
+  animation: ppGainLoss .5s .42s cubic-bezier(.3, 0, .3, 1) both;
+}
+
+@keyframes ppFall {
+  0% { opacity: 0; transform: translateY(-190%); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes ppThud {
+  0% { transform: scale(1.07, .86); }
+  20% { transform: translateX(-8px) rotate(-1.6deg); }
+  42% { transform: translateX(7px) rotate(1.2deg); }
+  64% { transform: translateX(-4px) rotate(-.6deg); }
+  82% { transform: translateX(2px); }
+  100% { transform: none; }
+}
+@keyframes ppGainLoss { from { opacity: 0; transform: scale(1.9); } }
+
 @keyframes ppIn {
   0% { opacity: 0; transform: translateY(-160%) scale(.6); }
   45% { opacity: 1; transform: translateY(8%) scale(1.12); }
@@ -98,6 +135,7 @@
 @media (prefers-reduced-motion: reduce) {
   .points-badge { animation: ppCalm .4s both; }
   .points-badge.leaving { animation: ppCalmOut .3s both; }
+  .points-badge.is-loss { animation: ppCalm .4s both; }
   .points-badge::after, .points-badge::before, .pp-gain { animation: none; }
   .points-badge::before { display: none; }
 }

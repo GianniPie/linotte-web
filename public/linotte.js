@@ -193,7 +193,7 @@ import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAband
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
 import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
-import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS } from "./shared/level.js";
+import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
 gameState.players[2].name = "BOT";
@@ -2014,9 +2014,7 @@ rollBtn.addEventListener("click", function () {
     doneBtnEnabled = false;
 
     //startTurnTimer();
-    if (isVolumeOn) {
-        new Audio("resources/sounds/roll.mp3").play();
-    }
+    playRollSound();
     // Take back a tentative piece BEFORE rolling: online the moves reach
     // the server in this order, and while the dice roll it refused the
     // cancel, then redrew the screen with the piece still placed and no
@@ -2998,9 +2996,7 @@ async function playBotTurn() {
 
 
 async function botRoll() {
-    if (isVolumeOn) {
-        new Audio("resources/sounds/roll.mp3").play();
-    }
+    playRollSound();
     controller.dispatch({ type: "ROLL_DICE" });
     showCalls(); // the bot's call, if any, is now fixed
     setRollsLeftUI(gameState.dice.rollsLeft);
@@ -3587,7 +3583,43 @@ function audio() {
 document.addEventListener("pointerdown", () => {
     const c = audio();
     if (c && c.state === "suspended") c.resume();
+    if (c) loadRollSound(c); // ready before the first roll
 }, { passive: true });
+
+// The dice sound, played through the audio context so that its volume can be set on every
+// phone: the volume of an <audio> element is ignored on iOS, where it always plays at full.
+// (The element is still the way out while the sound is being loaded.)
+const ROLL_VOLUME = 0.35;
+let rollBuffer = null;
+let rollLoading = null;
+function loadRollSound(c) {
+    if (rollBuffer || rollLoading) return rollLoading;
+    rollLoading = fetch("resources/sounds/roll.mp3")
+        .then((r) => r.arrayBuffer())
+        .then((data) => c.decodeAudioData(data))
+        .then((buffer) => { rollBuffer = buffer; })
+        .catch(() => { rollLoading = null; });
+    return rollLoading;
+}
+function playRollSound() {
+    if (!isVolumeOn) return;
+    const c = audio();
+    if (c && rollBuffer) {
+        if (c.state === "suspended") c.resume();
+        const source = c.createBufferSource();
+        source.buffer = rollBuffer;
+        const gain = c.createGain();
+        gain.gain.value = ROLL_VOLUME;
+        source.connect(gain);
+        gain.connect(c.destination);
+        source.start();
+        return;
+    }
+    const a = new Audio("resources/sounds/roll.mp3");
+    a.volume = ROLL_VOLUME;
+    a.play().catch(() => { /* the browser wouldn't play it yet */ });
+    if (c) loadRollSound(c);
+}
 
 function playNudgeSound() {
     if (!isVolumeOn) return;
@@ -4567,6 +4599,7 @@ function queuePointsGain(points, label) {
 // bot as another: the speed bonus, or in points mode the rest of the winning margin (one
 // badge, "Winning margin", for all of it).
 function queueGameBadges(earned, bonus, label) {
+    if (earned < 0) { queuePointsGain(earned, t("Game abandoned")); return; } // the points lost by leaving a game
     if (earned > 0 && bonus > 0 && gameBotStrategy === "points") { queuePointsGain(earned, t("Winning margin")); return; }
     const bonusPart = Math.min(bonus || 0, Math.max(0, earned - BOT_WIN_POINTS));
     if (earned - bonusPart > 0) queuePointsGain(earned - bonusPart, label);
@@ -4611,6 +4644,7 @@ function openPointsScreen(f) {
         const at = (ms, fn) => timers.push(setTimeout(fn, ms));
         box.replaceChildren();
         screen.classList.remove("bar-in");
+        byId("ps-title").textContent = t(f.badges.every(([points]) => points < 0) ? "Points lost" : "Points earned");
         const hasBar = f.base !== null && f.after !== null;
         byId("ps-bar-block").hidden = !hasBar;
         if (hasBar) setPointsBar(f.base, f.base);
@@ -4654,15 +4688,21 @@ function addPointsBadge(points, label, { container = null } = {}) {
         old.classList.remove("leaving");
         old.style.animation = "none";
     }
+    const loss = points < 0; // points lost (an abandoned game): a red badge that falls, no party
     const badge = document.createElement("div");
-    badge.className = "points-badge";
+    badge.className = "points-badge" + (loss ? " is-loss" : "");
     badge.append(
-        Object.assign(document.createElement("b"), { className: "pp-gain", textContent: `+${points}` }),
+        Object.assign(document.createElement("b"), { className: "pp-gain", textContent: loss ? `\u2212${-points}` : `+${points}` }),
         Object.assign(document.createElement("span"), { className: "pp-text", textContent: label }),
     );
     stack.appendChild(badge);
-    playChime(stack.children.length - 1);
-    burstConfetti(badge);
+    if (loss) {
+        // The blow lands as the badge hits (see ppFall in levels.css).
+        setTimeout(() => { buzz(180); playLossSound(); }, 420);
+    } else {
+        playChime(stack.children.length - 1);
+        burstConfetti(badge);
+    }
     if (container) return; // on the points screen the badges stay until CONTINUE
     clearTimeout(pointsStack.timer);
     pointsStack.timer = setTimeout(leavePointsStack, POINTS_LIFE_MS);
@@ -4993,6 +5033,53 @@ function playLevelDownTone(thud) {
         osc.start(start + at);
         osc.stop(start + at + len + 0.1);
     }
+}
+
+// The sound of points lost, as the red badge hits: a thump that small speakers can play
+// (a click of noise and a note sliding down from 220 Hz, with its octave above, not the
+// 96 Hz of the level lost, which a phone can't make), then two falling notes, a sigh.
+function playLossSound() {
+    if (!isVolumeOn) return;
+    const c = audio();
+    if (!c) return;
+    if (c.state === "suspended") c.resume();
+    const start = c.currentTime + 0.02;
+    const tone = (type, from, to, at, len, vol) => {
+        const osc = c.createOscillator();
+        osc.type = type;
+        osc.frequency.setValueAtTime(from, start + at);
+        if (to !== from) osc.frequency.exponentialRampToValueAtTime(to, start + at + len);
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, start + at);
+        g.gain.exponentialRampToValueAtTime(vol, start + at + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + at + len);
+        osc.connect(g);
+        g.connect(c.destination);
+        osc.start(start + at);
+        osc.stop(start + at + len + 0.05);
+    };
+    // The thump: the fundamental and its octave (the octave is what a small speaker plays).
+    tone("sine", 220, 70, 0, 0.32, 0.7);
+    tone("triangle", 440, 140, 0, 0.22, 0.35);
+    // The click of the hit: a burst of noise, dull.
+    const n = Math.floor(c.sampleRate * 0.07);
+    const buf = c.createBuffer(1, n, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 2;
+    const noise = c.createBufferSource();
+    noise.buffer = buf;
+    const low = c.createBiquadFilter();
+    low.type = "lowpass";
+    low.frequency.value = 1400;
+    const ng = c.createGain();
+    ng.gain.value = 0.5;
+    noise.connect(low);
+    low.connect(ng);
+    ng.connect(c.destination);
+    noise.start(start);
+    // The sigh: two notes falling, loud enough to be heard over the game.
+    tone("triangle", 392, 370, 0.22, 0.34, 0.3);
+    tone("triangle", 311.13, 277, 0.5, 0.5, 0.3);
 }
 
 // A short rising fanfare, made on the spot like the bell's trill.
@@ -5865,8 +5952,16 @@ function leaveOnlineGameIfAny() {
     if (gameInProgress && !isGameOver && !excused) {
         const xpBefore = myXp();
         noteGuestAbandon();
-        if (currentUser()) setTimeout(() => refreshPro({ fresh: true }), 1500);
-        else setTimeout(() => celebrateLevel(xpBefore, myXp()), 800);
+        // The points lost get their badge, then the level screen if a level went with them.
+        if (currentUser()) setTimeout(async () => {
+            await refreshPro({ fresh: true });
+            const after = lastKnownXp();
+            if (after !== null && after < xpBefore) showPointsGain(after - xpBefore, t("Game abandoned"));
+        }, 1500);
+        else setTimeout(() => {
+            showPointsGain(-ABANDON_PENALTY, t("Game abandoned"));
+            celebrateLevel(xpBefore, myXp());
+        }, 800);
     }
     setOnlineSession(false);
     onlineClient.leaveRoom();
@@ -5918,7 +6013,7 @@ async function pumpRemote() {
 async function replayRemote(action, gen) {
     switch (action.type) {
         case "ROLL_DICE":
-            if (isVolumeOn) new Audio("resources/sounds/roll.mp3").play();
+            playRollSound();
             withReplay(() => controller.dispatch(action));
             setRollsLeftUI(gameState.dice.rollsLeft);
             showCalls(); // the call made before this roll is now fixed
@@ -6124,4 +6219,3 @@ if (new URLSearchParams(location.search).get("pointsdemo") === "1") {
         showPointsGain(1, t("Ad reward"));
     });
 }
-
