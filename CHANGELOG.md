@@ -12,6 +12,12 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.29.4] - 2026-11-16
+
+### Fixed
+- The ranking lists every registered player, by their level points. It listed only accounts with a positive total from online games, so a player who had signed in but not played online (or not this week), or had played the bot, wasn't there, while the weekly list showed a random-animal name nobody knew. Now every account is listed (with 0 points, at the bottom, tied), and the points are the account's level points counted as the game server counts them: online games, wins against the bot with their bonus, and the daily and ad bonuses. Run `supabase/leaderboard_everyone.sql` in Supabase (SQL editor); the server needs no change.
+- A player who signs in with Google now gets the Google name's first word as the profile's name at the first sign-in (3 to 12 characters, nothing offensive, else the whole name if it fits), so they are in the ranking and in games by a name people know and not by a random animal (they can change it in the profile). Email accounts have no name to take: the player picks one. Accounts already made without a name need the one-off SQL given with this release.
+
 ## [2.29.3] - 2026-11-16
 
 ### Changed

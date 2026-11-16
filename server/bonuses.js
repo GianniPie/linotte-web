@@ -112,8 +112,9 @@ export async function grantAdReward(userId, options) {
   return { ok, adsLeft: ok ? adsLeft - 1 : adsLeft };
 }
 
-// The top players and the asking player's own place: this week's
-// ("week", since Monday) or of all time ("all").
+// Every registered player by their level points and the asking player's own place: this
+// week's ("week", since Monday) or of all time ("all"). The points are counted by the
+// database (supabase/leaderboard_everyone.sql) as accountStats counts them.
 export async function weeklyLeaderboard(userId, { top = 50, range = "week", ...options } = {}) {
   const db = client(options);
   const since = range === "all" ? new Date(0) : weekStart();

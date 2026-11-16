@@ -4391,12 +4391,35 @@ async function syncProfile(userId) {
             const was = localStorage.getItem(PREFS_SEEN_KEY);
             if (was !== JSON.stringify(saved)) applyPrefs(saved);
             rememberPrefs(saved);
-        } else await saveProfile({ prefs: currentPrefs() });
+        } else {
+            // The first sign-in: the profile is created, with the name the account came with (Google's
+            // first name) so the player is in the ranking by a name people know, not a random animal.
+            const name = nameFromAccount();
+            await saveProfile(name ? { prefs: currentPrefs(), name } : { prefs: currentPrefs() });
+            if (name) {
+                profile = { ...profile, name };
+                keepProfile(userId, profile);
+                showHomeProfile();
+                onlineClient.reauth(); // the game server picks up the name
+            }
+        }
         syncReady = true;
         moveLocalGamesToAccount();
     } catch (err) {
         console.error("profile not loaded:", err.message);
     }
+}
+
+// A Google account comes with the name it was made with: its first word, when it's usable as a
+// player name (3 to 12 characters, nothing offensive: see cleanPlayerName), else the whole of it.
+// An email account has none ("" then: the player picks one, or plays as a random animal name).
+function nameFromAccount() {
+    const user = currentUser();
+    if (!user || user.provider === "email") return "";
+    const words = String(user.name || "").trim().split(/\s+/).filter(Boolean);
+    // A name typed in capitals ("MARCO") is shown as "Marco".
+    const tidy = (w) => (w.length > 1 && w === w.toUpperCase() ? w[0] + w.slice(1).toLowerCase() : w);
+    return cleanPlayerName(tidy(words[0] || "")) || cleanPlayerName(words.map(tidy).join(" "));
 }
 
 // Called by setCookie for every option; only the ones above are saved, a
@@ -5444,7 +5467,7 @@ byId("st-level-ad").addEventListener("click", async () => {
 
 //--------- ranking ---------
 // The rankings section (the home's Ranking tile, or from the stats): this
-// week's and all-time leaderboards (online points and bonuses), and friends
+// week's and all-time leaderboards (every registered player, by their level points), and friends
 // -- the people played in private rooms; Pro to Pro, who's online and a tap
 // to invite them (server/friends.js).
 let rankingTab = "week";
