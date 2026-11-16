@@ -12,6 +12,17 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.29.5] - 2026-11-16
+
+### Changed
+- A new account has to choose a nickname before going on. The first sign-in (and any account with no nickname) opens the profile sheet by itself, titled "Choose your nickname", with no CANCEL and no way out with the phone's back gesture until a valid one (3 to 12 characters, nothing offensive) is saved; the picture and the country stay optional, and "Delete account" is still there for who would rather not. The game no longer shows the Google (or email) name anywhere: the home button, the account sheet and the games use the nickname, and "Player" until it's chosen. This replaces the 2.29.4 rule of taking Google's first name, which published real names without asking.
+
+### Fixed
+- The account sheet kept the old name after the name was changed in "Edit profile": it was filled in when opened, and saving went back to it without filling it in again.
+
+### Added
+- The server writes down what becomes of every points video, to find out why some players' points never arrive (two players had all of their 13 online games without points): when it is shown, and then `watched` (after how long), `closed`, `claim_failed` (the database refused the claim), `nothing_waiting` (a claim or a close with nothing waiting: late, or the server restarted) or `no_answer` (the next game's video came with this one never answered). It goes to the server's log at once (Render's) and to a `video_events` table when it exists: run `supabase/video_events.sql` in Supabase. Without the table nothing breaks, the server just says so in its log (at most every 10 minutes).
+
 ## [2.29.4] - 2026-11-16
 
 ### Fixed

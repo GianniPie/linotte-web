@@ -333,6 +333,7 @@ function showHomeScreen() {
     if (canContinueGame()) setPaused(true);
     refreshContinueCard();
     homeOverlay.style.display = "";
+    askNickname(); // an account that signed in during a game is asked at the home
 }
 
 function markActiveMode() {}
@@ -4253,7 +4254,7 @@ byId("account-delete-back").addEventListener("click", () => showOnlineView("acco
 function fillAccountSheet() {
     const pro = document.body.classList.contains("is-pro");
     const user = currentUser();
-    byId("ac-name").textContent = profile?.name || user?.name || user?.email?.split("@")[0] || t("Player");
+    byId("ac-name").textContent = profile?.name || t("Player"); // never the account's own name (Google's): the nickname is the only one shown
     const country = profile?.country;
     let countryName = country;
     try { countryName = new Intl.DisplayNames([LANG, "en"], { type: "region" }).of(country); } catch { /* the code */ }
@@ -4339,7 +4340,7 @@ var prefsTimer = 0;
 // the Google/Apple ones, then the email.
 function showHomeProfile() {
     const user = currentUser();
-    const name = user ? (profile?.name || user.name || user.email.split("@")[0] || t("Player")) : t("Guest");
+    const name = user ? (profile?.name || t("Player")) : t("Guest"); // the nickname, never the Google name
     byId("home-pname").textContent = name;
     // The country's flag before "Signed in", not in the name.
     const flag = flagOf(profile?.country);
@@ -4391,35 +4392,13 @@ async function syncProfile(userId) {
             const was = localStorage.getItem(PREFS_SEEN_KEY);
             if (was !== JSON.stringify(saved)) applyPrefs(saved);
             rememberPrefs(saved);
-        } else {
-            // The first sign-in: the profile is created, with the name the account came with (Google's
-            // first name) so the player is in the ranking by a name people know, not a random animal.
-            const name = nameFromAccount();
-            await saveProfile(name ? { prefs: currentPrefs(), name } : { prefs: currentPrefs() });
-            if (name) {
-                profile = { ...profile, name };
-                keepProfile(userId, profile);
-                showHomeProfile();
-                onlineClient.reauth(); // the game server picks up the name
-            }
-        }
+        } else await saveProfile({ prefs: currentPrefs() });
+        askNickname(); // an account with no nickname (a first sign-in) must choose one
         syncReady = true;
         moveLocalGamesToAccount();
     } catch (err) {
         console.error("profile not loaded:", err.message);
     }
-}
-
-// A Google account comes with the name it was made with: its first word, when it's usable as a
-// player name (3 to 12 characters, nothing offensive: see cleanPlayerName), else the whole of it.
-// An email account has none ("" then: the player picks one, or plays as a random animal name).
-function nameFromAccount() {
-    const user = currentUser();
-    if (!user || user.provider === "email") return "";
-    const words = String(user.name || "").trim().split(/\s+/).filter(Boolean);
-    // A name typed in capitals ("MARCO") is shown as "Marco".
-    const tidy = (w) => (w.length > 1 && w === w.toUpperCase() ? w[0] + w.slice(1).toLowerCase() : w);
-    return cleanPlayerName(tidy(words[0] || "")) || cleanPlayerName(words.map(tidy).join(" "));
 }
 
 // Called by setCookie for every option; only the ones above are saved, a
@@ -4470,26 +4449,46 @@ function nameHint() {
     const raw = byId("profile-name").value;
     byId("profile-name-hint").textContent = raw.trim()
         ? t(nameProblem(raw) || "This is the name your opponents see.")
+        : nicknameRequired
+            ? t("This is the name everyone sees in games and in the ranking. It isn't your real name.")
         : !profile?.name && onlineClient.name
             ? t("Leave it empty to play as a random animal name (now {name}).", { name: onlineClient.name })
             : t("Leave it empty to play as a random animal name.");
 }
 
-byId("account-edit").addEventListener("click", () => {
+// The nickname is the only name the game shows (never the Google or email one), so an account
+// with none has to choose one before going on: the profile sheet opens by itself with no way out
+// (no CANCEL, and the phone's back gesture does nothing) until a valid one is saved.
+let nicknameRequired = false;
+function askNickname() {
+    if (nicknameRequired || !currentUser() || !profile || profile.name) return;
+    if (gameInProgress && !isGameOver) return; // asked again at the home (see showHomeScreen)
+    nicknameRequired = true;
+    openProfileSheet();
+}
+
+function openProfileSheet() {
     buildProfileSheet();
     byId("profile-name").value = profile?.name || "";
     byId("profile-country").value = profile?.country || "";
     selectAvatar(profile?.avatar || "");
     byId("profile-error").textContent = "";
+    byId("profile-title").textContent = t(nicknameRequired ? "Choose your nickname" : "Your profile");
+    byId("profile-cancel").hidden = nicknameRequired;
+    byId("profile-save").style.flex = nicknameRequired ? "1 1 100%" : ""; // alone in its row: all of it
     showOnlineView("profile");
     byId("profile-avatars").querySelector('[aria-checked="true"]')?.scrollIntoView({ block: "nearest" });
     nameHint();
-});
-byId("profile-name").addEventListener("input", nameHint);
-byId("profile-cancel").addEventListener("click", () => showOnlineView("account"));
+    if (nicknameRequired) byId("profile-name").focus({ preventScroll: true });
+}
+
+byId("account-edit").addEventListener("click", openProfileSheet);
+byId("profile-name").addEventListener("input", () => { byId("profile-error").textContent = ""; nameHint(); });
+byId("profile-cancel").addEventListener("click", () => { if (!nicknameRequired) showOnlineView("account"); });
 
 byId("profile-save").addEventListener("click", (e) => {
     const raw = byId("profile-name").value;
+    if (nicknameRequired && !raw.trim()) { byId("profile-error").textContent = t("Choose a nickname to go on."); return; }
     if (raw.trim() && nameProblem(raw)) { nameHint(); return; }
     const fields = { name: cleanPlayerName(raw) || null, avatar: chosenAvatar || null, country: byId("profile-country").value || null };
     loginStep(e.currentTarget, byId("profile-error"), async () => {
@@ -4498,8 +4497,15 @@ byId("profile-save").addEventListener("click", (e) => {
         keepProfile(currentUser()?.id, profile);
         showHomeProfile();
         onlineClient.reauth(); // the game server picks up the new name and flag
-        showOnlineView("account");
-        showToast(t("Profile saved."));
+        if (nicknameRequired) {
+            nicknameRequired = false;
+            hideOnlineOverlay();
+            showToast(t("Welcome, {name}!", { name: profile.name }));
+        } else {
+            fillAccountSheet(); // the account sheet shows the name just saved, not the one it was opened with
+            showOnlineView("account");
+            showToast(t("Profile saved."));
+        }
     });
 });
 

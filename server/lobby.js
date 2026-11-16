@@ -8,6 +8,7 @@ import { Room } from "./room.js";
 import { HumanBot } from "./humanBot.js";
 import { noStore } from "./store.js";
 import { resultRows, recordResults, claimGameXp } from "./results.js";
+import { logVideo } from "./videoLog.js";
 import { grantDailyBonus } from "./bonuses.js";
 import { noteFriends } from "./friends.js";
 import { DAILY_BONUS_POINTS, canMeet } from "../public/shared/level.js";
@@ -39,7 +40,7 @@ export class Lobby {
   // its own.
   // `afterRecord` brings a connection's own points up to date once its game
   // is saved (server.js).
-  constructor(io, store = noStore, { record = recordResults, grantDaily = grantDailyBonus, befriend = noteFriends, afterRecord = async () => {}, claim = claimGameXp } = {}) {
+  constructor(io, store = noStore, { record = recordResults, grantDaily = grantDailyBonus, befriend = noteFriends, afterRecord = async () => {}, claim = claimGameXp, video = logVideo } = {}) {
     this.io = io;
     this.store = store;
     this.record = record;
@@ -47,6 +48,7 @@ export class Lobby {
     this.befriend = befriend;
     this.afterRecord = afterRecord;
     this.claim = claim;
+    this.video = video; // what became of each points video (videoLog.js)
     this.pending = new Map(); // userId -> a finished game whose points wait for the video
     this.queue = new Map(); // playerId -> { socket, timer }
     this.rooms = new Map(); // roomId -> Room
@@ -374,7 +376,10 @@ export class Lobby {
       const socket = this.io.sockets.sockets.get(p.socketId);
       if (!socket?.data?.claims) continue;
       held.add(seat);
-      this.pending.set(p.userId, { since: Date.now() - 30000 }); // 30 s of margin for the clocks of the server and the database
+      const before = this.pending.get(p.userId);
+      if (before) this.video(p.userId, "no_answer", { ms: Date.now() - before.shownAt }); // the last video was never answered
+      this.pending.set(p.userId, { since: Date.now() - 30000, shownAt: Date.now() }); // 30 s of margin for the clocks of the server and the database
+      this.video(p.userId, "shown");
     }
     return held;
   }
@@ -384,9 +389,17 @@ export class Lobby {
   async claimPoints(socket) {
     const userId = socket.data.userId;
     const waiting = userId && this.pending.get(userId);
-    if (!waiting) return { ok: true, claimed: false };
+    if (!waiting) {
+      if (userId) this.video(userId, "nothing_waiting");
+      return { ok: true, claimed: false };
+    }
     this.pending.delete(userId);
-    if (!(await this.claim(userId, waiting.since))) return { ok: false };
+    const ms = Date.now() - waiting.shownAt;
+    if (!(await this.claim(userId, waiting.since))) {
+      this.video(userId, "claim_failed", { ms });
+      return { ok: false };
+    }
+    this.video(userId, "watched", { ms });
     const daily = await this.grantDaily(userId, { tz: socket.data.tz });
     try { await this.afterRecord(socket); } catch (err) { console.error("stats not refreshed:", err.message); }
     return { ok: true, claimed: true, daily: Boolean(daily), points: daily ? DAILY_BONUS_POINTS : 0 };
@@ -394,7 +407,10 @@ export class Lobby {
 
   // The video was closed: the game earns nothing.
   skipPoints(socket) {
-    this.pending.delete(socket.data.userId);
+    const userId = socket.data.userId;
+    const waiting = userId && this.pending.get(userId);
+    this.pending.delete(userId);
+    if (userId) this.video(userId, waiting ? "closed" : "skip_nothing_waiting", waiting ? { ms: Date.now() - waiting.shownAt } : {});
     return { ok: true };
   }
 

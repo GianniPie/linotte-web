@@ -542,8 +542,8 @@ const lobby = new Lobby(io, store);
 
   // The points wait for the video: held for a signed-in non-Pro player whose app
   // asks to claim them, then counted (and the daily bonus given) once claimed.
-  const claimed = [], daily = [], refreshedNow = [];
-  const lobbyC = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async (u) => { daily.push(u); return true; }, afterRecord: async (sock) => { refreshedNow.push(sock.id); }, claim: async (u, since) => { claimed.push([u, since]); return true; } });
+  const claimed = [], daily = [], refreshedNow = [], videoLog = [];
+  const lobbyC = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async (u) => { daily.push(u); return true; }, afterRecord: async (sock) => { refreshedNow.push(sock.id); }, claim: async (u, since) => { claimed.push([u, since]); return true; }, video: (u, event, d = {}) => videoLog.push([u, event, d.ms ?? null]) });
   w.data.claims = true; w.data.userId = "user-w"; l.data.userId = "user-l"; // l's app doesn't know claims
   const room = { forfeitedBy: null, winner: 1, seats: { 1: { ...seatOf(w.id, "user-w"), pro: false }, 2: { ...seatOf(l.id, "user-l"), pro: false } } };
   assert.deepEqual([...lobbyC.heldSeats(room)], [1], "held for the app that claims, not for an older one");
@@ -567,6 +567,19 @@ const lobby = new Lobby(io, store);
   lobbyC.heldSeats(room);
   assert.equal(lobbyC.skipPoints(w).ok, true);
   assert.equal((await lobbyC.claimPoints(w)).claimed, false, "closed: the game never earns its points");
+  // And what became of each video was written down, in order.
+  assert.deepEqual(videoLog.filter(([u]) => u === "user-w").map(([, e]) => e),
+    ["shown", "shown", "watched", "nothing_waiting", "shown", "closed", "nothing_waiting"], "every video's outcome is logged");
+  assert.ok(videoLog.find(([, e]) => e === "watched")[2] >= 0, "with the time it took");
+  lobbyC.pending.clear();
+  lobbyC.heldSeats(room);
+  lobbyC.heldSeats(room);
+  assert.ok(videoLog.some(([u, e]) => u === "user-w" && e === "no_answer"), "a video never answered is logged when the next one comes");
+  const { logVideo } = await import("./videoLog.js");
+  const posted = [];
+  assert.equal(await logVideo("user-x", "closed", { ms: 3210.4 }, { key: "k", url: "https://example.supabase.co", fetch: async (u, o) => { posted.push([u, JSON.parse(o.body)]); return { ok: true }; } }), true);
+  assert.deepEqual(posted[0], ["https://example.supabase.co/rest/v1/video_events", { user_id: "user-x", event: "closed", ms: 3210 }]);
+  assert.equal(await logVideo("user-x", "closed", {}, { key: "k", url: "https://example.supabase.co", fetch: async () => { throw new Error("down"); } }), false, "a failure is never thrown");
   // The rows carry it.
   const rowsHeld = resultRows({ kind: "random", winner: 1, forfeitedBy: null,
     seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: { kind: "human", userId: "b", name: "B" } },
