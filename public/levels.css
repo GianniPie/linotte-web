@@ -101,6 +101,24 @@
   display: none;
 }
 
+/* A game worth nothing: the same flat pill in grey, it settles without shine or ring. */
+.points-badge.is-zero {
+  background: linear-gradient(180deg, #e3e6ea 0 46%, #bcc2ca 46% 100%);
+  color: #343a42;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, .2), 0 0 0 5px rgba(160, 168, 178, .3), 0 0 0 11px rgba(160, 168, 178, .15);
+  animation: ppCalm .4s both;
+}
+.points-badge.is-zero::before,
+.points-badge.is-zero::after {
+  display: none;
+}
+
+.points-badge.is-zero .pp-gain {
+  color: #4a525c;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+  animation: none;
+}
+
 .points-badge.is-loss .pp-gain {
   color: #6e1710;
   text-shadow: 0 1px 0 rgba(255, 255, 255, .4);
@@ -465,8 +483,8 @@ body.ps-open #winner-overlay {
 
 .lu-use {
   padding: .35em .8em;
-  border: .12em solid rgba(0, 0, 0, .35);
-  border-radius: .8em;
+  border: var(--btn-border);
+  border-radius: .5625em;
   background: rgb(232, 185, 35);
   color: #5f4604;
   font: 1em "Changa One", sans-serif;
@@ -499,23 +517,34 @@ body.ps-open #winner-overlay {
   animation: luRise .6s 1.3s both;
 }
 
+/* The same buttons as the rest of the app (see .button and .sheet-btn): the shared
+   border, corner, height and colours, the white heading-face text. */
 .lu-btn {
-  padding: .6em 1em;
-  border-radius: .9em;
-  border: .15em solid rgba(0, 0, 0, .4);
-  font: 1.25em "Changa One", sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+  /* The sheets' buttons measure their border, corner and height in a 16px em, with the text
+     1.35 times larger: the same numbers here, since this button's em is the text's. */
+  min-height: 44.8px;
+  padding: 0 1em;
+  border-radius: 9px;
+  border: 3px solid var(--btn-border-color);
+  color: #fff;
+  font: 21.6px/1 "Changa One", sans-serif;
   cursor: pointer;
+}
+
+.lu-btn:focus {
+  outline: none;
 }
 
 .lu-ok {
   background: rgb(46, 160, 90);
-  color: #fff;
 }
 
 .lu-road {
-  background: rgba(255, 255, 255, .85);
-  color: #3d240c;
-  font-size: 1.05em;
+  background: rgb(70, 94, 228);
 }
 
 @keyframes luFade { from { opacity: 0; } }
@@ -796,10 +825,10 @@ body.ps-open #winner-overlay {
 .level-road-btn {
   align-self: center;
   padding: .35em .9em;
-  border: .125em solid rgba(0, 0, 0, .25);
-  border-radius: .8em;
-  background: rgba(255, 255, 255, .8);
-  color: #3d240c;
+  border: var(--btn-border);
+  border-radius: .5625em;
+  background: rgb(70, 94, 228); /* as LEVEL ROAD on the level screens (.lu-road) */
+  color: #fff;
   font: .95em "Changa One", sans-serif;
   cursor: pointer;
 }

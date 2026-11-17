@@ -367,6 +367,13 @@ function tick(now) {
 // tunables.travelMsPerSegment) -- meant for exactly that off-board case,
 // where "number of board tiles crossed" no longer means anything and the
 // caller knows better how long that hop should visually take.
+// Stops every trail and spark at once, without calling anyone back: the player skipped the
+// celebration (the end-of-game DONE). The next frame of the loop finds nothing and clears the canvas.
+export function cancelFairyTrails() {
+  heads = [];
+  particles = [];
+}
+
 export function playFairyTrail(cells, options) {
   if (!Array.isArray(cells) || cells.length < 2) return;
   const { onDone, onWaypoint, travelMs } = options || {};

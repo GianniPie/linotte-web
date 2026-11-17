@@ -9,7 +9,7 @@
 // no telling which of the two players is the owner of the phone.
 
 import { currentUser, addGameResults, loadGameResults } from "./auth.js";
-import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY, DAILY_BONUS_POINTS, AD_REWARD_POINTS, AD_REWARDS_PER_DAY } from "./shared/level.js";
+import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY, LEGACY_ONLINE, DAILY_BONUS_POINTS, AD_REWARD_POINTS, AD_REWARDS_PER_DAY } from "./shared/level.js";
 
 const LOCAL_KEY = "linotte-results";
 const LOCAL_MAX = 500;
@@ -44,7 +44,7 @@ export async function recordGame({ mode, won, points, opponentPoints, opponent, 
         // (the first online game of the day played to the end brings its bonus: told back).
         if (noXp) return {};
         if (mode === "bot") { if (won) { noteGuest("bot"); if (bonus > 0) noteGuest("bonus", bonus | 0); } }
-        else if (!abandoned) noteGuest(won ? "online" : "finished");
+        else if (!abandoned) noteGuest(won ? "online2" : "finished2");
         if (mode !== "bot" && !abandoned && !guestToday().dailyDone) {
             const g = readGuest();
             writeGuest({ ...g, daily: (Number(g.daily) || 0) + 1, dailyDay: utcDay() });
@@ -111,13 +111,16 @@ export function guestAdReward() {
 export function guestXp() {
     const g = readGuest();
     const n = (k) => Number(g[k]) || 0;
-    return ONLINE_WIN_POINTS * n("online") + ONLINE_FINISHED_POINTS * n("finished")
-        + BOT_WIN_POINTS * n("bot") - ABANDON_PENALTY * n("abandoned")
+    // "online", "finished" and "abandoned" are the games played before the rates went up
+    // (LEGACY_ONLINE: they keep what they paid); the "...2" ones are played since.
+    return LEGACY_ONLINE.win * n("online") + LEGACY_ONLINE.finished * n("finished") - LEGACY_ONLINE.abandon * n("abandoned")
+        + ONLINE_WIN_POINTS * n("online2") + ONLINE_FINISHED_POINTS * n("finished2") - ABANDON_PENALTY * n("abandoned2")
+        + BOT_WIN_POINTS * n("bot")
         + n("bonus") + DAILY_BONUS_POINTS * n("daily") + AD_REWARD_POINTS * n("ad");
 }
 // A guest left an online game before its end (signed in, the server counts it).
 export function noteGuestAbandon() {
-    if (!currentUser()) noteGuest("abandoned");
+    if (!currentUser()) noteGuest("abandoned2");
 }
 
 // Everything the Stats screen shows.

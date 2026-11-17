@@ -291,11 +291,13 @@ body.is-pro .home-ad {
   margin: 0 0 .4em;
 }
 
+/* The app's own buttons (see .button and .sheet-btn): the shared border and corner, green to
+   keep watching and the sheets' brown to close. */
 .ad-video-confirm-box button {
-  padding: .7em;
-  border: 0;
-  border-radius: .7em;
-  font: 1em "Changa One", sans-serif;
+  padding: .6em;
+  border: var(--btn-border);
+  border-radius: .5625em;
+  font: 1.1em "Changa One", sans-serif;
   cursor: pointer;
 }
 
@@ -305,8 +307,8 @@ body.is-pro .home-ad {
 }
 
 .ad-quit {
-  background: rgba(0, 0, 0, .1);
-  color: #333;
+  background: rgb(150, 130, 110);
+  color: white;
 }
 
 .ad-video-note {

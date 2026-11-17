@@ -12,6 +12,20 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.30.0] - 2026-11-17
+
+### Changed
+- Online games pay twice as much, to be worth at least as much as the bot (a game between equals: 3 points online, 1.7 against the bot in points mode): +4 a win (was +2), +2 a game lost or drawn and played to the end (was +1), and −3 for abandoning (was −2). The level thresholds are unchanged, and so is everyone's history: games played before 2026-11-17 04:33 UTC keep what they paid (the server counts them by date, a guest's phone keeps its old counters apart), and only the games since pay the new amounts. The rules text, the abandon warnings and the ranking (`supabase/leaderboard_everyone.sql`, to be run again in the SQL Editor) say the new numbers. The bot's points and the bonuses don't change.
+- CONTINUE (and LEVEL ROAD) on the points, level-up and level-down screens are the same buttons as everywhere else in the app: the same border, corner, height and colours (green, and blue for LEVEL ROAD), the same press, and no golden outline.
+- The winner card's second button says EXIT, not NEW GAME: it goes back to the home, it doesn't start a game (ESCI, SORTIR, SALIR, SAIR, 退出).
+- All the app's own buttons now share one look (the border, corner and colours of the sheets' buttons): the ones that had their own, thinner borders and rounder corners, the small PLAY in the friends list, GET PRO in the ranking, USE on the level screen, the ad button and LEVEL ROAD in the account (now blue, as on the level screens), and the "Close the video?" dialog's two buttons (green and the sheets' brown). The round icon buttons, the option chips, the ranking tabs and the ads' own buttons keep their style.
+- The ▶ circle on the "Watch an ad" button (in the stats) was squeezed into an oval when its text was long enough to wrap, as in Italian; it now keeps its round shape at any width.
+- The buttons of the in-game options (Game: pause, FLIP, RESTART) now size to their word: RICOMINCIA came out of its 80 px pill. They keep 80 px as the least, as the sound and vibration ones, and grow when the word needs it.
+- Vs Bot: the sheet now says "Choose a game mode." (it said how the bot plays, but it is the way you play), POINTS and SPEED no longer light up yellow once picked (the glow made no sense on a choice that starts a game), and a folded "What's the difference?" under them tells the two modes apart: points, a longer game for the most points, a win paying the points you finish ahead by (win 12 to 9 and you earn 3); speed, a race to five in a row that ends the game at once, a win in 14 turns or fewer paying up to +4 bonus points.
+- The green DONE at the end of a game now skips what comes before the winner card (the trail of lines, the points flying to the counters, the shake) and opens the card at once, with the scores already in place.
+- Every finished game now ends with the points screen, even when it earned nothing: a lost game against the bot, a tie, or a points video closed early. It shows a quiet grey "0" badge ("Game lost", "Draw", "Video closed"), the title "No points this time" and the level bar where it stays. Before, such games went straight on without one. (Not for "Same table", which has no points at all.)
+- ROLL and DONE in online games now use all the width the chat button leaves. They were squeezed by an empty column kept on the left only to center them, so ROLL broke onto two lines in Italian; the buttons are about 20% wider on a phone, and the "Opponent's turn" label centres over the same room.
+
 ## [2.29.6] - 2026-11-16
 
 ### Fixed

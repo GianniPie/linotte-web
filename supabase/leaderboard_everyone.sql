@@ -8,9 +8,9 @@
 -- week, wasn't there. Now:
 --   * everyone who has an account is listed, even with 0 points (at the bottom, tied);
 --   * the points are the account's level points, counted as the game server counts them
---     (server/results.js, accountStats): online games (+2 a win, +1 a game played to the
---     end, only when the points video was watched or the player is Pro: earns_xp; -2 an
---     abandon), wins against the bot (+1 and the bonus the game paid on top, from the app,
+--     (server/results.js, accountStats): online games (+4 a win, +2 a game played to the
+--     end since 2026-11-17 04:33 UTC, before that +2 and +1; only when the points video was watched or the player is Pro: earns_xp; -3 an
+--     abandon, -2 before), wins against the bot (+1 and the bonus the game paid on top, from the app,
 --     not a guest's games moved in at sign-in) and the bonuses (the daily one, the ads);
 --   * the week's list counts the same, from `since` (Monday 00:00 UTC); "all time" is
 --     since 1970. The top `max_rows`, and `me` wherever it is.
@@ -25,9 +25,9 @@ as $$
   with games as (
     select g.user_id,
            sum(case
-                 when g.source = 'server' and g.abandoned then -2
-                 when g.source = 'server' and g.earns_xp and g.won then 2
-                 when g.source = 'server' and g.earns_xp then 1
+                 when g.source = 'server' and g.abandoned then case when g.played_at >= timestamptz '2026-11-17T04:33:00Z' then -3 else -2 end
+                 when g.source = 'server' and g.earns_xp and g.won then case when g.played_at >= timestamptz '2026-11-17T04:33:00Z' then 4 else 2 end
+                 when g.source = 'server' and g.earns_xp then case when g.played_at >= timestamptz '2026-11-17T04:33:00Z' then 2 else 1 end
                  when g.source = 'app' and g.mode = 'bot' and g.won and not g.from_guest and g.earns_xp
                    then 1 + coalesce(g.bonus_xp, 0)
                  else 0

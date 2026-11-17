@@ -67,7 +67,7 @@
 <body id="body" class="body" style="color-scheme: only light; filter: none !important;">
 
     <!-- home screen: shown on load and whenever a player leaves a game
-         (HOME in the Game tab, NEW GAME on the winner screen) -->
+         (HOME in the Game tab, EXIT on the winner screen) -->
     <div id="home-overlay" class="home-overlay">
         <div class="opt-bg"></div>
 
@@ -215,11 +215,18 @@
             <!-- vs bot: how the bot plays -->
             <div class="sheet-view" data-view="bot">
                 <div class="sheet-title" data-i18n>Vs Bot</div>
-                <div class="sheet-text" data-i18n>Choose how the bot plays.</div>
+                <div class="sheet-text" data-i18n>Choose a game mode.</div>
                 <div class="sheet-row">
                     <div class="button sheet-btn bot bot-strategy" data-strategy="points"><div class="text-button" data-i18n>POINTS</div></div>
                     <div class="button sheet-btn bot bot-strategy" data-strategy="speed"><div class="text-button" data-i18n>SPEED</div></div>
                 </div>
+                <details class="bot-help">
+                    <summary data-i18n>What's the difference?</summary>
+                    <div class="bot-help-body">
+                        <p><b data-i18n>POINTS</b> <span data-i18n>A longer game, played for the most points. If you win, you earn as many level points as you finish ahead by: win 12 to 9 and you earn 3.</span></p>
+                        <p><b data-i18n>SPEED</b> <span data-i18n>A race to five in a row, which ends the game at once. If you win in 14 turns or fewer, you earn up to +4 bonus points.</span></p>
+                    </div>
+                </details>
                 <div class="button sheet-btn cancel" data-sheet-close><div class="text-button" data-i18n>BACK</div></div>
             </div>
             <!-- sign in (public/auth.js). With accounts switched off (see
@@ -277,7 +284,7 @@
             <!-- before looking for a random opponent: a game started has to be played -->
             <div class="sheet-view" data-view="play-warning">
                 <div class="sheet-title" data-i18n>Ready to play?</div>
-                <div class="sheet-text" data-i18n>Once the game starts, play it to the end. If you leave or stop playing, you lose 2 points.</div>
+                <div class="sheet-text" data-i18n>Once the game starts, play it to the end. If you leave or stop playing, you lose 3 points.</div>
                 <div class="button sheet-btn go" id="warn-go"><div class="text-button" data-i18n>PLAY</div></div>
                 <div class="button sheet-btn cancel" id="warn-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
@@ -300,15 +307,15 @@
                 <div class="sheet-title" data-i18n>How levels work</div>
                 <div class="sheet-text sheet-small level-note" data-i18n>Everyone sees your level. Pro adds a star.</div>
                 <ul class="sheet-list level-rules">
-                    <li data-i18n>Each online game you win, against a random opponent or a friend: +2 points.</li>
-                    <li data-i18n>Each online game you lose or draw, played to the end: +1 point.</li>
+                    <li data-i18n>Each online game you win, against a random opponent or a friend: +4 points.</li>
+                    <li data-i18n>Each online game you lose or draw, played to the end: +2 points.</li>
                     <li data-i18n>Each win against the bot: +1 point.</li>
                     <li data-i18n>A win against the bot in speed mode in 14 turns or fewer: up to +4 bonus points, the faster the more.</li>
                     <li data-i18n>A win against the bot in points mode: as many points as your winning margin.</li>
                     <li data-i18n>The first online game of the day: +2 bonus points.</li>
                     <li data-i18n>Watching an ad to the end: +1 point, up to 5 a day.</li>
-                    <li data-i18n>Leaving an online game before the end, or not coming back within a minute after losing the connection: −2 points.</li>
-                    <li data-i18n>Letting 3 turns in a row run out without rolling counts as leaving: −2 points.</li>
+                    <li data-i18n>Leaving an online game before the end, or not coming back within a minute after losing the connection: −3 points.</li>
+                    <li data-i18n>Letting 3 turns in a row run out without rolling counts as leaving: −3 points.</li>
                     <li data-i18n>If your opponent stops playing or disconnects, you can leave at no cost.</li>
                     <li data-i18n>Up to level 10, each level takes 5 points more than the one before (level 1 at 5 points, 2 at 15, 3 at 30, 10 at 275); after that, every level takes 50 points.</li>
                     <li data-i18n>Rewards: only the FLAT dice and the green background are free. A new background at levels 1, 3, 5, 7, 9, 12, 16 and 20, new dice at 2, 4, 6, 10 and 15.</li>
@@ -1128,7 +1135,7 @@
                     <div class="winner-points" id="winner-points"></div>
                     <div class="winner-buttons">
                         <div class="winner-button rematch" id="winner-rematch"><span id="winner-rematch-text" data-i18n>REMATCH</span></div>
-                        <div class="winner-button" id="winner-button" data-i18n>NEW GAME</div>
+                        <div class="winner-button" id="winner-button" data-i18n>EXIT</div>
                     </div>
                 </div>
             </div>

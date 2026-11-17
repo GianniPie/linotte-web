@@ -1,8 +1,12 @@
 //----------- EXPERIENCE AND LEVEL ---------------
 // The number on a player's badge is a level, from their experience points.
-// Online (random or friend, games recorded by the server): +2 for a win, +1
-// for a loss or draw played to the end, -2 for a game abandoned before its
-// end (left, gone for good after a disconnection, or 3 idle turns). Against
+// Online (random or friend, games recorded by the server): +4 for a win, +2
+// for a loss or draw played to the end, -3 for a game abandoned before its
+// end (left, gone for good after a disconnection, or 3 idle turns). Online
+// pays about twice what the bot does (a game between equals: 3 points online,
+// 1.7 against the bot in points mode), as it takes longer and is what keeps the
+// game alive. Games played before ONLINE_RATES_FROM keep what they paid then
+// (LEGACY_ONLINE, 2 / 1 / -2): nobody's history changes. Against
 // the bot (recorded by the app, so worth less): +1 for every win. Points
 // and level can go below zero. Counted by the server for an account
 // (results.js); a guest's level lives on its phone only and is never moved
@@ -10,8 +14,8 @@
 //
 // Finishing a game is worth something even when it's lost: every game
 // played to the end moves the player on, and staying beats leaving.
-export const ONLINE_WIN_POINTS = 2;
-export const ONLINE_FINISHED_POINTS = 1;
+export const ONLINE_WIN_POINTS = 4;
+export const ONLINE_FINISHED_POINTS = 2;
 export const BOT_WIN_POINTS = 1; // a win against the bot (it used to be 1 point for 5 wins: no progress to see)
 
 // Speed mode against the bot: the faster the game is won, the more it pays on top of
@@ -35,7 +39,11 @@ export function botWinPayout({ strategy, turns, margin }) {
     if (strategy === "points") return Math.max(BOT_WIN_POINTS, margin | 0);
     return BOT_WIN_POINTS + speedBonus(turns);
 }
-export const ABANDON_PENALTY = 2;
+export const ABANDON_PENALTY = 3;
+// From this moment online games pay the rates above; the ones before it paid the old ones.
+// The same moment is in supabase/leaderboard_everyone.sql: change both together.
+export const ONLINE_RATES_FROM = "2026-11-17T04:33:00Z";
+export const LEGACY_ONLINE = { win: 2, finished: 1, abandon: 2 };
 // Bonuses (server/bonuses.js, the xp_bonuses table): the first online game of
 // the day played to the end (won or lost), and watching a whole ad, a few
 // times a day.

@@ -196,6 +196,38 @@
   margin: 0;
 }
 
+/* Vs Bot: what tells the two modes apart, folded under the buttons. */
+.bot-help summary {
+  cursor: pointer;
+  list-style: none;
+  padding: .2em;
+  font: .9em sans-serif;
+  font-weight: 700;
+  opacity: .8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.bot-help summary::-webkit-details-marker {
+  display: none;
+}
+
+.bot-help-body {
+  margin-top: .6em;
+  text-align: left;
+  font-family: sans-serif;
+  font-size: .85em;
+  line-height: 1.45;
+}
+
+.bot-help-body p {
+  margin: .5em 0;
+}
+
+.bot-help-body b::after {
+  content: ":";
+}
+
 /* the consent button stays dead until the box is ticked (the inactive
    look is shared with ROLL/DONE, see .button.is-inactive in linotte.css) */
 
@@ -600,8 +632,8 @@
   gap: .5em;
   margin-top: .25em;
   padding: .5em .8em;
-  border: .125em solid rgba(0, 0, 0, .25);
-  border-radius: .7em;
+  border: var(--btn-border);
+  border-radius: .5625em;
   background: rgb(232, 185, 35);
   color: #5f4604;
   font: 1em "Changa One", sans-serif;
@@ -619,6 +651,8 @@
 }
 
 .level-ad-play {
+  flex: none; /* a long text beside it wraps, the circle never squeezes */
+  aspect-ratio: 1;
   display: grid;
   place-items: center;
   width: 1.4em;
@@ -786,8 +820,8 @@
 
 .lb-play {
   padding: .3em .7em;
-  border: .1em solid rgba(0, 0, 0, .3);
-  border-radius: .8em;
+  border: var(--btn-border);
+  border-radius: .5625em;
   background: rgb(46, 160, 90);
   color: white;
   font: .85em "Changa One", sans-serif;
@@ -817,8 +851,8 @@
 .lb-pro-btn {
   flex: none;
   padding: .35em .7em;
-  border: .1em solid rgba(0, 0, 0, .3);
-  border-radius: .8em;
+  border: var(--btn-border);
+  border-radius: .5625em;
   background: rgb(232, 185, 35);
   color: #5f4604;
   font: .9em "Changa One", sans-serif;

@@ -182,7 +182,7 @@ import { updateGame, canRoll, callBlockedBy } from "./shared/gameEngine.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget, labCandidates, setSpeedWeights, setSpeedModels, labAim, labCall, labStop, labLock } from "./shared/botAI.js";
 import { labOn, labSend, labListen } from "./botlab-client.js";
 import GameController from './shared/gameController.js';
-import { playFairyTrail } from "./shared/fairyTrail.js";
+import { playFairyTrail, cancelFairyTrails } from "./shared/fairyTrail.js";
 import { initCombinationDemos } from "./demo.js";
 import { CHAT, chatImage, chatScale, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME } from "./shared/chat.js";
 import { TURN_FREEZE_CAP_MS } from "./shared/turn.js";
@@ -216,7 +216,7 @@ startBot(botStrategy); // default to player-vs-bot, ready to play on open --
 // top of it (z-index 60, covers the whole viewport).
 
 // The home screen (see index.html and home.css): shown on load, and again
-// whenever a player leaves a game (HOME in the Game tab, NEW GAME on the
+// whenever a player leaves a game (HOME in the Game tab, EXIT on the
 // winner screen). Shown/hidden with an inline display, so no ".hidden"
 // cascade-order issues (see .flip-coin-overlay.hidden in linotte.css).
 const homeOverlay = document.getElementById("home-overlay");
@@ -278,7 +278,7 @@ function resumeSavedGame() {
     gameInProgress = true;
     turnHandoverPending = false;
     isGameOver = false;
-    endGameSequenceStarted = false;
+    endGameSequenceStarted = false; endSkipped = false;
     rollBtnEnabled = true;
     doneBtnEnabled = true;
     clearForNextTurn();
@@ -1347,9 +1347,6 @@ document.getElementById("home-play-btn").addEventListener("click", () => {
 const botStrategyButtons = document.querySelectorAll(".bot-strategy");
 botStrategyButtons.forEach(btn => {
     btn.addEventListener("click", () => {
-        botStrategyButtons.forEach(b => b.classList.remove("selected"));
-        btn.classList.add("selected");
-
         closeOnlineOverlay();
         flipCoin(t("YOU"), "BOT").then((startingPlayer) => {
             newGameVsBot(btn.dataset.strategy, startingPlayer);
@@ -1378,7 +1375,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
     rollBtnEnabled = true;
     doneBtnEnabled = true;
     isGameOver = false;
-    endGameSequenceStarted = false;
+    endGameSequenceStarted = false; endSkipped = false;
     document.getElementById("winner-overlay").style.display = "none";
 
     clearBoardVisuals();
@@ -1419,7 +1416,7 @@ function newGameOffline(startingPlayer = 1) {
     rollBtnEnabled = true;
     doneBtnEnabled = true;
     isGameOver = false;
-    endGameSequenceStarted = false;
+    endGameSequenceStarted = false; endSkipped = false;
     document.getElementById("winner-overlay").style.display = "none";
 
     clearBoardVisuals();
@@ -1635,7 +1632,7 @@ document.getElementById("piece-popup").addEventListener("click", (e) => {
     restartAnimation();
 });
 
-// NEW GAME: back to the home screen, to pick the next mode (it used to
+// EXIT: back to the home screen, to pick the next mode (it used to
 // reload the whole page).
 //----------- REMATCH ---------------
 // Another game against the same opponent, from the winner screen. Against
@@ -1691,7 +1688,7 @@ document.getElementById("winner-button").addEventListener("click", async (e) => 
 
 // The full-screen video after every finished game (see ads.js), any mode:
 // the game owes one when it ends (noteGameResult), played at the player's
-// first step out of it -- REMATCH, NEW GAME, or HOME / RESTART from the
+// first step out of it -- REMATCH, EXIT, or HOME / RESTART from the
 // menu -- never over the celebration. Not for Pro. False while one is
 // already playing (a second tap), so that tap is ignored.
 let adOwed = false;
@@ -1754,12 +1751,15 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
     if (recordedGame === gameState) return;
     recordedGame = gameState;
     adOwed = !videoShown; // the video at the next step out (see endOfGameAd), unless the points video was it
-    if (earn) beginPointsFlow(); // what the game is worth is gathered for the points screen (showPointsFlow)
     showRematchState(lastOverReason === "normal" || controller.mode !== "online" ? "ready" : "left");
     const overReason = lastOverReason;
     lastOverReason = "normal";
     const mode = controller.mode === "bot" ? "bot" : controller.mode === "online" ? onlineKind : null;
     if (!mode) return; // "Same table": nobody's own game
+    // What the game is worth is gathered for the points screen (showPointsFlow), which every game
+    // ends with: with 0 points too (a lost bot game, a points video closed, a tie).
+    beginPointsFlow();
+    pointsFlow.zeroLabel = !earn ? t("Video closed") : winner === 0 ? t("Draw") : winner !== (controller.mode === "online" ? LOCAL_PLAYER : 1) ? t("Game lost") : t("Victory");
     const me = controller.mode === "online" ? LOCAL_PLAYER : 1;
     const other = me === 1 ? 2 : 1;
     // Any finished online game, and a win against the bot, may raise the
@@ -2357,6 +2357,7 @@ const LINE_SEQUENCE_GAP_MS = 200;
 function playLinesSequentially(lines, onAllDone) {
     let i = 0;
     (function next() {
+        if (endSkipped) return; // the end-of-game celebration was skipped (skipEndCelebration)
         if (i >= lines.length) {
             if (onAllDone) onAllDone();
             return;
@@ -2534,7 +2535,7 @@ function showCalls() {
 //----------- PRESS FEEDBACK -----------------
 // Every button sinks while it's held (.is-pressed in linotte.css). The class
 // stays on for at least PRESS_MIN_MS so a quick tap still shows it.
-const PRESSABLE = ".button, .winner-button, .chat-fab, .options, #icon-back, #winner-icon-back, .rules-play, .demo-icon-btn, .home-profile, .home-pro, .home-settings, .home-extra, .home-ad";
+const PRESSABLE = ".button, .lu-btn, .winner-button, .chat-fab, .options, #icon-back, #winner-icon-back, .rules-play, .demo-icon-btn, .home-profile, .home-pro, .home-settings, .home-extra, .home-ad";
 const PRESS_MIN_MS = 90;
 
 document.addEventListener("pointerdown", (e) => {
@@ -2569,7 +2570,9 @@ function doneButton(e) {
 // "bring the winner popup back" behavior as DONE's own isGameOver branch
 // above, just reachable from the button that's actually visible by then.
 endGameDoneBtn.addEventListener("click", () => {
-    showWinnerPopup(determineWinner());
+    // Still in the celebration before the card (lines, points, shake): skip it, the card now.
+    if (endCelebrationRunning()) skipEndCelebration();
+    else showWinnerPopup(determineWinner());
 });
 
 function performEndTurn() {
@@ -2694,6 +2697,26 @@ function shakeBoard(onDone) {
 // a time, never overlapping (see playLinesSequentially) -- and only then
 // shows the winner popup. Showing the popup immediately would cover the
 // board with the overlay before there's anything left to watch.
+// The celebration before the winner card can be skipped with the end-of-game DONE (see
+// skipEndCelebration): everything it still has to do is dropped, and the card comes at once.
+let endCardFor = null; // the game whose card the celebration has brought
+let endSkipped = false;
+const endCelebrationRunning = () => endGameSequenceStarted && endCardFor !== gameState && !endSkipped;
+function showEndCard(winner) {
+    if (endSkipped || endCardFor === gameState) return;
+    endCardFor = gameState;
+    showWinnerPopup(winner);
+}
+function skipEndCelebration() {
+    endSkipped = true;
+    cancelFairyTrails();
+    document.querySelector(".div-table")?.classList.remove("quake");
+    // The points that were still on their way to the counters are there now.
+    coinP1Text.textContent = gameState.players[1].points;
+    coinP2Text.textContent = gameState.players[2].points;
+    endCardFor = gameState;
+    showWinnerPopup(determineWinner());
+}
 function playEndGameSequence(lastMoveLines, before) {
     // checkGameOver() (this function's only caller) can end up asked to run
     // more than once for the very same game over event -- e.g. the bot's
@@ -2736,13 +2759,14 @@ function playEndGameSequence(lastMoveLines, before) {
             // purely as a victory lap -- no further point changes, those
             // already happened in earlier turns.
             // A beat after the points land and before the victory lap starts.
-            setTimeout(() => playLinesSequentially(sweepLines, () => {
+            setTimeout(() => !endSkipped && playLinesSequentially(sweepLines, () => {
                 // A beat between the celebration and the popup, so the last
                 // line doesn't feel cut off by the overlay appearing the
                 // instant it finishes: the board shakes, building up, and the
                 // popup lands the moment the shake ends (the shake is .5s, so
                 // starting it 500ms in keeps the usual 1s beat overall).
-                setTimeout(() => shakeBoard(() => showWinnerPopup(winner)), 500);
+                if (endSkipped) return;
+                setTimeout(() => shakeBoard(() => showEndCard(winner)), 500);
             }), sweepLines.length > 0 ? TURN_HANDOVER_BEAT_MS : 0);
         });
     });
@@ -4609,14 +4633,14 @@ const pointsStack = { nextAt: 0, queued: 0, timer: 0 };
 //--------- the points screen: the step after the winner card ---------
 // What a game was worth doesn't come over the winner card. It is gathered
 // here (the badges, where the level bar started and ended, any level
-// reached), and shown when the player goes on (REMATCH, NEW GAME, or leaving
+// reached), and shown when the player goes on (REMATCH, EXIT, or leaving
 // any other way) as a screen of its own: the badges one under the other and
 // the way to the next level. Then, if a level was reached, its own screen with
 // the rewards, and only then the action the player asked for. So, in order:
 // the winner card, the points screen, the level screen.
-const pointsFlow = { on: false, shown: false, promise: null, ready: null, resolveReady: null, base: null, after: null, badges: [], levels: [] };
+const pointsFlow = { on: false, shown: false, promise: null, ready: null, resolveReady: null, base: null, after: null, badges: [], levels: [], zeroLabel: "" };
 function beginPointsFlow() {
-    Object.assign(pointsFlow, { on: true, shown: false, promise: null, base: null, after: null, badges: [], levels: [] });
+    Object.assign(pointsFlow, { on: true, shown: false, promise: null, base: null, after: null, badges: [], levels: [], zeroLabel: "" });
     pointsFlow.ready = new Promise((resolve) => { pointsFlow.resolveReady = resolve; });
 }
 const flowHolding = () => pointsFlow.on && !pointsFlow.shown;
@@ -4649,7 +4673,12 @@ async function showPointsFlow() {
     f.promise = (async () => {
         await Promise.race([f.ready, sleep(3500)]); // the game's points may still be on their way
         f.shown = true;
-        if (f.badges.length) await openPointsScreen(f);
+        if (!f.badges.length) { // a game worth nothing still gets its screen: a grey 0 and the level it stays at
+            f.badges.push([0, f.zeroLabel || t("Game played")]);
+            const known = currentUser() ? lastKnownXp() : guestXp();
+            if (f.base === null && known !== null) f.base = f.after = known;
+        }
+        await openPointsScreen(f);
         for (const [before, after] of f.levels.splice(0)) celebrateLevel(before, after);
         await sleep(350);
         await levelScreensDone();
@@ -4673,7 +4702,7 @@ function openPointsScreen(f) {
         const at = (ms, fn) => timers.push(setTimeout(fn, ms));
         box.replaceChildren();
         screen.classList.remove("bar-in");
-        byId("ps-title").textContent = t(f.badges.every(([points]) => points < 0) ? "Points lost" : "Points earned");
+        byId("ps-title").textContent = t(f.badges.every(([points]) => points === 0) ? "No points this time" : f.badges.every(([points]) => points < 0) ? "Points lost" : "Points earned");
         const hasBar = f.base !== null && f.after !== null;
         byId("ps-bar-block").hidden = !hasBar;
         if (hasBar) setPointsBar(f.base, f.base);
@@ -4718,14 +4747,17 @@ function addPointsBadge(points, label, { container = null } = {}) {
         old.style.animation = "none";
     }
     const loss = points < 0; // points lost (an abandoned game): a red badge that falls, no party
+    const zero = points === 0; // a game worth nothing: a quiet grey badge
     const badge = document.createElement("div");
-    badge.className = "points-badge" + (loss ? " is-loss" : "");
+    badge.className = "points-badge" + (loss ? " is-loss" : zero ? " is-zero" : "");
     badge.append(
-        Object.assign(document.createElement("b"), { className: "pp-gain", textContent: loss ? `\u2212${-points}` : `+${points}` }),
+        Object.assign(document.createElement("b"), { className: "pp-gain", textContent: loss ? `\u2212${-points}` : zero ? "0" : `+${points}` }),
         Object.assign(document.createElement("span"), { className: "pp-text", textContent: label }),
     );
     stack.appendChild(badge);
-    if (loss) {
+    if (zero) {
+        // nothing to celebrate: no chime, no confetti
+    } else if (loss) {
         // The blow lands as the badge hits (see ppFall in levels.css).
         setTimeout(() => { buzz(180); playLossSound(); }, 420);
     } else {
@@ -4823,7 +4855,7 @@ function setPointsBar(before, after) {
     // Ticks that quicken with the bar filling; one heavy one for points lost.
     if (gain !== 0) buzz(gain > 0 ? [30, 60, 34, 60, 40, 60, 48, 60, 60] : 180);
     const gainEl = byId("ps-gain");
-    gainEl.textContent = gain >= 0 ? `+${gain}` : `\u2212${-gain}`;
+    gainEl.textContent = gain === 0 ? "" : gain > 0 ? `+${gain}` : `\u2212${-gain}`;
     gainEl.classList.toggle("is-negative", gain < 0);
     gainEl.style.animation = "none";
     void gainEl.offsetWidth;
@@ -5881,7 +5913,7 @@ async function beginOnlineGame(snap) {
     clearTimeout(rollGiveUp);
     document.getElementById("clock-wrap").classList.remove("paused");
     isGameOver = false;
-    endGameSequenceStarted = false;
+    endGameSequenceStarted = false; endSkipped = false;
     clearInterval(rollAnimationID);
     clearInterval(stopRollID);
     rollBtnEnabled = true;
@@ -6115,7 +6147,7 @@ function onRemoteGameOver({ winner, reason }) {
             : t("Your opponent left. You win!")));
     } else if (reason === "idle") {
         // This phone's player let their turns run out: abandoned.
-        showToast(t("You missed {n} turns in a row: the game counts as abandoned (−2 level points).", { n: IDLE_LIMIT_SHOWN }), 6000);
+        showToast(t("You missed {n} turns in a row: the game counts as abandoned (−3 level points).", { n: IDLE_LIMIT_SHOWN }), 6000);
         noteGuestAbandon();
         if (currentUser()) setTimeout(() => refreshPro({ fresh: true }), 1500);
     }

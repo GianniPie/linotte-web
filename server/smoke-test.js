@@ -378,26 +378,29 @@ const lobby = new Lobby(io, store);
   assert.deepEqual(quit.map((r) => [r.user_id, r.won, r.abandoned]), [["a", true, false], ["b", false, true]], "the one who left abandoned");
   // The host stayed: no penalty; the guest left (no account, so no row).
   assert.equal(recorded[0].abandoned, false, "the one who stayed didn't abandon");
-  // Online wins +2, lost or drawn to the end +1, bot wins +1 each,
-  // abandoned games -2, 2 daily bonuses +2 each, 3 ads +1 each
-  // and the bonus points of the bot wins (speed bonus, or the margin beyond the first point: 16)
-  // (here 2*42 + 7 + 13 + 16 - 2*3 + 2*2 + 3 = 121).
+  // Online games played before ONLINE_RATES_FROM: wins +2, lost or drawn to the end +1, abandoned -2
+  // (here 40 wins, 6 finished, 2 abandoned = 82); since: +4, +2, -3 (2 wins, 1 finished, 1 abandoned = 7).
+  // Bot wins +1 each (13), 2 daily bonuses +2 each, 3 ads +1 each, and the bonus points of the
+  // bot wins (speed bonus, or the margin beyond the first point: 16): 82 + 7 + 13 + 16 + 4 + 3 = 125.
   const counts = async (u, o) => {
     sent.push([u, o]);
     if (u.includes("/rpc/bot_bonus_xp")) return { ok: true, json: async () => 16 }; // the bonus points of the bot wins, summed by the database
+    const era = u.includes("played_at=lt.") ? "old" : u.includes("played_at=gte.") ? "new" : "all";
+    const pick = (o, w, a) => ({ old: o, new: w, all: a })[era];
     const n = u.includes("kind=eq.daily") ? 2 : u.includes("kind=eq.ad") ? 3
-      : u.includes("abandoned=is.true") ? 3 : u.includes("mode=eq.bot") ? 13 : u.includes("won=is.false") ? 7 : 42;
+      : u.includes("abandoned=is.true") ? pick(2, 1, 3) : u.includes("mode=eq.bot") ? 13
+      : u.includes("won=is.false") ? pick(6, 1, 7) : pick(40, 2, 42);
     return { ok: true, headers: { get: () => `0-0/${n}` } };
   };
-  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 121, "experience is counted, bonuses and the speed bonus included");
+  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 125, "experience is counted, bonuses and the speed bonus included");
   const stats = await accountStats("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts });
   assert.deepEqual(stats.record, { played: 52, won: 42 }, "the online record: 42 won of 52 (42 + 7 finished + 3 abandoned)");
-  const asked = sent.slice(-9).map(([u]) => u);
+  const asked = sent.slice(-14).map(([u]) => u);
   assert.ok(asked.some((u) => u.includes("source=eq.server&won=is.true")), "online wins from the server");
   assert.ok(asked.some((u) => u.includes("won=is.false&abandoned=is.false")), "online games finished without winning");
   assert.ok(asked.some((u) => u.includes("mode=eq.bot") && u.includes("from_guest=is.false")), "bot wins, not the guest's");
   assert.ok(asked.some((u) => u.includes("source=eq.server&abandoned=is.true")), "abandoned games");
-  assert.ok(asked.filter((u) => u.includes("earns_xp=is.true")).length === 3, "points only from games whose video was watched (wins, finished, bot)");
+  assert.ok(asked.filter((u) => u.includes("earns_xp=is.true")).length === 5, "points only from games whose video was watched (wins, finished, bot)");
   assert.ok(asked.some((u) => u.includes("/rpc/bot_bonus_xp")), "the bonus of the bot wins is summed by the database");
   const none = async () => ({ ok: true, headers: { get: () => "*/0" } });
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");

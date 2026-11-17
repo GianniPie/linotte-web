@@ -7,7 +7,7 @@
 
 import { SUPABASE_URL } from "../public/shared/accounts.js";
 import { bonusPoints } from "./bonuses.js";
-import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY } from "../public/shared/level.js";
+import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY, ONLINE_RATES_FROM, LEGACY_ONLINE } from "../public/shared/level.js";
 
 const SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 
@@ -85,9 +85,9 @@ export async function claimGameXp(userId, since, { key = SECRET_KEY, url = SUPAB
 
 // The account's experience points (see public/shared/level.js): its online
 // games (only those recorded by the server, so they can't be raised by
-// tampering with the app) -- 2 per win, 1 per loss or draw played to the end
-// (once the video that pays them has been watched: earns_xp), minus 2 per
-// game abandoned -- one for every 5 wins against the bot played
+// tampering with the app) -- 4 per win, 2 per loss or draw played to the end
+// (once the video that pays them has been watched: earns_xp), minus 3 per
+// game abandoned (games played before ONLINE_RATES_FROM keep the old 2 / 1 / -2) -- one for every 5 wins against the bot played
 // while signed in (not the guest games moved in at sign-in), and its bonuses
 // (bonuses.js). With it, the online record that goes on the player card:
 // games played (abandoned ones count, as losses) and won. Zeros without the
@@ -121,21 +121,28 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
     return Number.isFinite(total) ? total : 0;
   };
   try {
-    const [wins, finished, winsXp, finishedXp, bot, abandoned, bonus, botBonus] = await Promise.all([
+    const since = encodeURIComponent(ONLINE_RATES_FROM);
+    const old = `played_at=lt.${since}`, now = `played_at=gte.${since}`; // before / since the rates went up
+    const [wins, finished, winsOld, finishedOld, abandonedOld, winsNew, finishedNew, abandonedNew, bot, bonus, botBonus] = await Promise.all([
       count("source=eq.server&won=is.true"),
       count("source=eq.server&won=is.false&abandoned=is.false"),
-      count("source=eq.server&won=is.true&earns_xp=is.true"),
-      count("source=eq.server&won=is.false&abandoned=is.false&earns_xp=is.true"),
+      count(`source=eq.server&won=is.true&earns_xp=is.true&${old}`),
+      count(`source=eq.server&won=is.false&abandoned=is.false&earns_xp=is.true&${old}`),
+      count(`source=eq.server&abandoned=is.true&${old}`),
+      count(`source=eq.server&won=is.true&earns_xp=is.true&${now}`),
+      count(`source=eq.server&won=is.false&abandoned=is.false&earns_xp=is.true&${now}`),
+      count(`source=eq.server&abandoned=is.true&${now}`),
       count("source=eq.app&mode=eq.bot&won=is.true&from_guest=is.false&earns_xp=is.true"),
-      count("source=eq.server&abandoned=is.true"),
       bonusPoints(userId, { key, url, fetch: fetchImpl }),
       // What the wins against the bot paid on top of their 1 point: the speed bonus, or the rest
       // of the winning margin in points mode (summed by the database, see game_results_points.sql).
       botBonusXp(userId, { key, url, fetch: fetchImpl }),
     ]);
+    const abandoned = abandonedOld + abandonedNew;
     return {
-      xp: ONLINE_WIN_POINTS * winsXp + ONLINE_FINISHED_POINTS * finishedXp
-        + BOT_WIN_POINTS * bot + botBonus - ABANDON_PENALTY * abandoned + bonus,
+      xp: LEGACY_ONLINE.win * winsOld + LEGACY_ONLINE.finished * finishedOld - LEGACY_ONLINE.abandon * abandonedOld
+        + ONLINE_WIN_POINTS * winsNew + ONLINE_FINISHED_POINTS * finishedNew - ABANDON_PENALTY * abandonedNew
+        + BOT_WIN_POINTS * bot + botBonus + bonus,
       record: { played: wins + finished + abandoned, won: wins },
     };
   } catch (err) {
