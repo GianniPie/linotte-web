@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.31.2] - 2026-11-18
+
+### Fixed
+- A friend code shared as a link (`/f/CODE`) gave "This page doesn't exist" on the Vercel site: only the room links (`/j/CODE`) were redirected there, the friend links existed only on the game server. Now both redirect, so the link opens the app asking "Add …?".
+
 ## [2.31.1] - 2026-11-18
 
 ### Changed

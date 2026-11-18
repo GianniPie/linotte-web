@@ -1,5 +1,14 @@
 {
   "redirects": [
-    { "source": "/j/:code", "destination": "/?join=:code", "permanent": false }
+    {
+      "source": "/j/:code",
+      "destination": "/?join=:code",
+      "permanent": false
+    },
+    {
+      "source": "/f/:code",
+      "destination": "/?friend=:code",
+      "permanent": false
+    }
   ]
 }
