@@ -2268,33 +2268,44 @@ section {
   overflow: hidden;
 }
 
-.car-button {
+button.car-button {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   z-index: 10;
 
-  width: 2em;
+  width: 36px;
   aspect-ratio: 1/1;
+  box-sizing: border-box;
 
-  background-color: transparent; 
-  border: none;                   
+  /* The round buttons' recipe (see .rules-play): the shared border, translucent white, a dark
+     chevron drawn with the same weight as the border. */
+  background-color: rgba(255, 255, 255, .7);
+  border: 3px solid var(--btn-border-color);
+  border-radius: 50%;
   padding: 0;
   cursor: pointer;
 
   background-repeat: no-repeat;
   background-position: center;
-  background-size: contain;
+  background-size: 52%;
 }
 
-.car-button.previous {
+/* A bigger area to tap than the drawn circle. */
+button.car-button::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+button.car-button.previous {
   left: -6px;
-  background-image: url("resources/images/arl.svg");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-opacity='.75' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 4.5 7.5 12 15 19.5'/%3E%3C/svg%3E");
 }
 
-.car-button.next {
+button.car-button.next {
   right: -6px;
-  background-image: url("resources/images/arr.svg");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-opacity='.75' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 4.5 16.5 12 9 19.5'/%3E%3C/svg%3E");
 }
 
 .flipped {

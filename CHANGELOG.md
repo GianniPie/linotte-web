@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.31.1] - 2026-11-18
+
+### Changed
+- The < > buttons of the carousels in the options (pieces, dice, backgrounds) now look like the other round buttons: the same 3 px border at 50% black, translucent white and a dark chevron, instead of the flat grey disc. A little larger too (36 px, with a wider area to tap).
+
 ## [2.31.0] - 2026-11-18
 
 ### Changed
