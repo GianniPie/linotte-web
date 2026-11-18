@@ -303,6 +303,28 @@ const lobby = new Lobby(io, store);
   const grants = (rows) => async (u) => ({ ok: true, json: async () => (u.includes("/rest/v1/pro_grants") ? rows : {}) });
   assert.equal(await isPro({ userId: "user-granted" }, { key: "", grantKey: "sb_secret_x", url: "https://example.supabase.co", fetch: grants([{ user_id: "user-granted" }]) }), true, "a granted account is Pro");
   assert.equal(await isPro({ userId: "user-plain" }, { key: "", grantKey: "sb_secret_x", url: "https://example.supabase.co", fetch: grants([]) }), false, "no grant, no purchase: not Pro");
+  // Roles: the ones given by hand (account_roles), above a purchase; the star only for a purchase.
+  const { accessFor, accessOf, atLeast, ROLES } = await import("./entitlements.js");
+  const roleRows = (map) => async (u) => ({ ok: true, json: async () => { const id = decodeURIComponent((u.match(/user_id=eq\.([^&]+)/) || [])[1] || ""); return u.includes("/account_roles") ? (map[id] ? [{ role: map[id] }] : []) : u.includes("/pro_grants") ? [] : {}; } });
+  const withRoles = (map, extra = {}) => ({ key: "", grantKey: "sb_secret_x", url: "https://example.supabase.co", fetch: roleRows(map), ...extra });
+  const a1 = await accessFor({ userId: "user-t" }, withRoles({ "user-t": "tester" }));
+  assert.deepEqual([a1.role, a1.pro, a1.star], ["tester", true, false], "a tester has Pro and no star");
+  const a2 = await accessFor({ userId: "user-s" }, withRoles({ "user-s": "special" }));
+  assert.ok(a2.pro && !a2.star && a2.special && !a2.staff && !a2.admin, "the close circle: special, not staff");
+  const a3 = await accessFor({ userId: "user-c" }, withRoles({ "user-c": "collaborator" }));
+  assert.ok(a3.pro && a3.special && a3.staff && !a3.admin, "a collaborator is staff, not admin");
+  const a4 = await accessFor({ userId: "user-a" }, withRoles({ "user-a": "admin" }));
+  assert.ok(a4.pro && a4.special && a4.staff && a4.admin && !a4.star, "the admin has it all, no star");
+  const a5 = await accessFor({ userId: "user-p" }, { ...withRoles({}), key: "sk_test", fetch: async (u) => (u.includes("revenuecat") ? { ok: true, json: async () => ({ subscriber: { entitlements: { pro: { expires_date: null } } } }) } : roleRows({})(u)) });
+  assert.deepEqual([a5.role, a5.pro, a5.star], ["pro", true, true], "a purchase is Pro with the star");
+  const a6 = await accessFor({ userId: "user-m" }, withRoles({}));
+  assert.deepEqual([a6.role, a6.pro, a6.star], ["member", false, false], "signed in, nothing else: a member");
+  const a7 = await accessFor({ userId: null }, withRoles({}));
+  assert.deepEqual([a7.role, a7.pro], ["guest", false], "no account: a guest");
+  const a8 = await accessFor({ userId: "user-old" }, { key: "", grantKey: "sb_secret_x", url: "https://example.supabase.co", fetch: async (u) => (u.includes("/account_roles") ? { ok: false, status: 404, json: async () => ({}) } : { ok: true, json: async () => (u.includes("/pro_grants") ? [{ user_id: "user-old" }] : {}) }) });
+  assert.deepEqual([a8.role, a8.pro, a8.star], ["tester", true, false], "the older grants still count, as a tester, even before account_roles exists");
+  assert.ok(ROLES.indexOf("tester") > ROLES.indexOf("pro") && atLeast("admin", "collaborator") && !atLeast("pro", "tester"), "the order of the roles");
+  assert.equal(accessOf("pro").star, true);
   console.log("ok: Pro comes from the account");
 }
 

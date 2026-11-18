@@ -12,6 +12,14 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.32.0] - 2026-11-18
+
+### Changed
+- Your points are shown wherever your level is: on the home, in the profile button next to the level badge and the flag ("83 pt"); on your account sheet and your own player card, after Pro/Free ("Pro · 83 pt"); and in the Stats, the total comes first and then the way through the level ("83 pt · 33 / 50"). Before, only the progress inside the level was shown, so the total was nowhere. Below zero it shows a minus. Guests keep "Tap to sign in" in the profile button.
+
+### Added
+- Roles above a player, none of them for sale (docs/ROLES.md): from the bottom guest, member (signed in), pro (bought, with the star), tester (given Pro: no ads and everything Pro has, but no star, so opponents don't see it), special (the close circle), collaborator and admin. The last four are given by hand in the new `account_roles` table (`supabase/roles.sql`, to be run in the SQL Editor); whoever was in `pro_grants` becomes a tester, so their Pro stays, without the star. The server tells the app the role's parts apart: Pro's things (`pro`) and the star (`star`), and the star is what the badge and the opponents show. No exclusive things for special, collaborators or the admin yet: the places to hang them are in place.
+
 ## [2.31.3] - 2026-11-18
 
 ### Changed

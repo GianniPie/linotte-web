@@ -11,7 +11,7 @@ import { Server } from "socket.io";
 import { PORT, CONSENT_VERSION, EMOTES, ROOMS_NEED_PRO, isOriginAllowed } from "./config.js";
 import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
-import { isPro, forgetPro } from "./entitlements.js";
+import { isPro, forgetPro, accessFor } from "./entitlements.js";
 import { accountStats } from "./results.js";
 import { todayStatus, grantAdReward, weeklyLeaderboard, clampTz } from "./bonuses.js";
 import { markOnline, markOffline, socketsOf, isOnline, friendsOf, areFriends, setActivity, presenceOf } from "./friends.js";
@@ -78,9 +78,10 @@ app.get("/api/me", async (req, res) => {
   const userId = await accountOf(req);
   if (userId && req.query.fresh === "1") forgetPro(userId);
   const devToken = req.get("X-Linotte-Dev") || ""; // ?devpro=1, see online.js
-  const [pro, stats, today] = await Promise.all([isPro({ userId, devToken }), accountStats(userId), todayStatus(userId, { tz: req.query.tz })]);
+  const [access, stats, today] = await Promise.all([accessFor({ userId, devToken }), accountStats(userId), todayStatus(userId, { tz: req.query.tz })]);
+  const pro = access.pro;
   // xp null: Supabase couldn't be read just now, the app keeps what it had.
-  res.json({ signedIn: Boolean(userId), pro, xp: stats.xp, level: stats.xp === null ? null : levelOf(stats.xp), record: stats.record, ...today });
+  res.json({ signedIn: Boolean(userId), pro, star: access.star, role: access.role, xp: stats.xp, level: stats.xp === null ? null : levelOf(stats.xp), record: stats.record, ...today });
 });
 
 // A rewarded ad watched to the end (see ads.js): +1 level point, a few times
@@ -212,6 +213,13 @@ async function setStats(socket) {
   d.record = stats.record ?? { played: 0, won: 0 }; // games played and won online, for the player card
 }
 
+// What this connection's account has (entitlements.js): Pro's things, the star, its role.
+async function refreshAccess(socket) {
+  const access = await accessFor(socket.data);
+  Object.assign(socket.data, { pro: access.pro, star: access.star, role: access.role });
+  return access;
+}
+
 async function setAccount(socket, token) {
   const d = socket.data;
   d.userId = await userIdFromToken(token);
@@ -255,7 +263,7 @@ io.on("connection", (socket) => {
     socket.data.devToken = typeof p.entitlement?.devToken === "string" ? p.entitlement.devToken : "";
     socket.data.piece = Number.isInteger(p.piece) ? p.piece : -1; // favorite piece, see shared/pieces.js
     socket.data.background = Number.isInteger(p.background) ? p.background : FREE_LOOKS.background; // see tableSeat
-    socket.data.pro = await isPro(socket.data);
+    await refreshAccess(socket);
     return {
       ok: true,
       name: socket.data.name,
@@ -264,6 +272,8 @@ io.on("connection", (socket) => {
       emotes: EMOTES,
       signedIn: Boolean(socket.data.userId),
       pro: socket.data.pro,
+      star: socket.data.star,
+      role: socket.data.role,
       level: socket.data.level,
     };
   });
@@ -275,8 +285,8 @@ io.on("connection", (socket) => {
     const keep = lobby.roomOfSocket(socket) ? { name: socket.data.name, country: socket.data.country, level: socket.data.level } : null;
     await setAccount(socket, p.accessToken);
     if (keep) Object.assign(socket.data, keep);
-    socket.data.pro = await isPro(socket.data);
-    return { ok: true, signedIn: Boolean(socket.data.userId), name: socket.data.name, pro: socket.data.pro, level: socket.data.level };
+    await refreshAccess(socket);
+    return { ok: true, signedIn: Boolean(socket.data.userId), name: socket.data.name, pro: socket.data.pro, star: socket.data.star, role: socket.data.role, level: socket.data.level };
   });
 
   // The favorite piece changed in the options (used from the next game).
@@ -308,7 +318,7 @@ io.on("connection", (socket) => {
   // Creating a friend room is meant to be the paid feature (joining is
   // always free); free for everyone until ROOMS_NEED_PRO is switched on.
   on("room_create", { needsConsent: true }, async () => {
-    if (ROOMS_NEED_PRO && !(socket.data.pro = await isPro(socket.data))) return { ok: false, error: "pro_required" };
+    if (ROOMS_NEED_PRO && !(await refreshAccess(socket)).pro) return { ok: false, error: "pro_required" };
     return lobby.createPrivate(socket);
   });
   on("room_join", { needsConsent: true }, (p) => lobby.joinByCode(socket, p.code));

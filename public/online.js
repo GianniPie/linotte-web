@@ -75,11 +75,22 @@ function entitlement() {
 // at start-up and after signing in; `fresh` right after a purchase. The last
 // answer is kept so the badge shows at once next time, even offline.
 const PRO_KEY = "linotte-pro";
+const STAR_KEY = "linotte-star"; // the mark of a bought Pro (a gifted one has Pro's things and no star)
 const XP_KEY = "linotte-xp";
 const RECORD_KEY = "linotte-record"; // { played, won } online, for the player card
 const TODAY_KEY = "linotte-today"; // { day, dailyDone, adsLeft } for the account
 export function lastKnownPro() {
     return read(PRO_KEY) === "1";
+}
+// Pro's star, on the badge: only for a Pro that was bought. Without a saved answer, as Pro.
+export function lastKnownStar() {
+    const saved = read(STAR_KEY);
+    return saved === null || saved === "" ? lastKnownPro() : saved === "1";
+}
+// What the server said about the account (hello, auth, /api/me): kept for the next launch.
+function rememberAccess(me) {
+    write(PRO_KEY, me.pro ? "1" : "");
+    write(STAR_KEY, me.pro && me.star !== false ? "1" : "0");
 }
 // The account's experience points (its level is the number on its badge,
 // see shared/level.js); null as a guest.
@@ -111,7 +122,7 @@ export async function fetchPro({ fresh = false } = {}) {
         // the token just now. Keep what is saved rather than show a guest.
         if (!me.signedIn && currentUser() && !dev) return lastKnownPro();
         const pro = Boolean(me.pro);
-        write(PRO_KEY, pro ? "1" : "");
+        rememberAccess(me);
         // xp null: the server couldn't read the points just now; keep the last ones.
         if (!me.signedIn) { write(XP_KEY, ""); write(RECORD_KEY, ""); }
         else if (me.xp !== null && me.xp !== undefined) {
@@ -214,7 +225,7 @@ export class OnlineClient {
                 }, (res) => {
                     // (A hello the server took for a guest while the app has an account says
                     // "not Pro": not to be believed, the saved answer stays.)
-                    if (res?.ok) { this.name = res.name; if (res.signedIn || !currentUser()) this.h.onPro?.(Boolean(res.pro)); }
+                    if (res?.ok) { this.name = res.name; if (res.signedIn || !currentUser()) { rememberAccess(res); this.h.onPro?.(Boolean(res.pro)); } }
                     this.h.onConnection?.(true, res);
                     resolve(res);
                     // Back after a drop (or a backgrounded app): ask for our room.
@@ -254,7 +265,7 @@ export class OnlineClient {
     async reauth() {
         if (!this.socket?.connected) return; // the next hello carries it
         const res = await this.call("auth", { accessToken: await accessToken() });
-        if (res?.ok) { this.name = res.name; if (res.signedIn || !currentUser()) this.h.onPro?.(Boolean(res.pro)); }
+        if (res?.ok) { this.name = res.name; if (res.signedIn || !currentUser()) { rememberAccess(res); this.h.onPro?.(Boolean(res.pro)); } }
     }
 
     // Another game against the same opponent: { ok, waiting } -- waiting
