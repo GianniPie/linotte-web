@@ -217,6 +217,8 @@ export default {
     "You asked {name}. Waiting for their answer.": "Hai chiesto a {name}. Aspetta la risposta.",
     "Done.": "Fatto.",
     "Request declined.": "Richiesta rifiutata.",
+    "FRIEND OPTIONS": "OPZIONI AMICO",
+    "Can't load this player right now. Please try again.": "Non si riesce a caricare questo giocatore. Riprova.",
     "Add me on Linotte! My code: {code}": "Aggiungimi su Linotte! Il mio codice: {code}",
     "Friend code": "Codice amico",
     "Sign in first, then open the link again.": "Accedi prima, poi apri di nuovo il link.",

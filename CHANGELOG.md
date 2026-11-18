@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.33.0] - 2026-11-18
+
+### Added
+- Every player you see has a card. A tap on a row of the ranking (this week, all time and the friends tab) or on a friend or request in the Friends sheet opens the same card as a tap on a player's box in a game: name, country, level badge (with the star if they are Pro), points and the online record (played, won, win rate). In the ranking the card offers ADD FRIEND; from the Friends sheet it offers FRIEND OPTIONS (remove, block). OK goes back to where you were. The server gives out only what a game already shows an opponent, by account id (`/api/player/:id`, remembered a minute), and the ranking now carries the ids.
+
 ## [2.32.2] - 2026-11-18
 
 ### Changed

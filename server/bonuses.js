@@ -122,6 +122,7 @@ export async function weeklyLeaderboard(userId, { top = 50, range = "week", ...o
   const rows = await db.rpc("weekly_leaderboard", { since: since.toISOString(), max_rows: top, me: userId || null });
   const list = rows.map((r) => ({
     rank: Number(r.rank),
+    id: r.user_id, // for the card a tap on the row opens (/api/player/:id)
     name: r.name || nameFromId(r.user_id),
     country: r.country || "",
     points: Number(r.points),

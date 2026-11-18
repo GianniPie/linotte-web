@@ -177,6 +177,14 @@ export async function fetchLeaderboard(range = "week") {
     return res.json();
 }
 
+// Anyone's card (name, country, level, points, star, record) by account id: null if it can't be had.
+export async function fetchPlayer(id) {
+    try {
+        const res = await fetch(`${SERVER_URL}/api/player/${encodeURIComponent(id)}`, { cache: "no-store" });
+        return res.ok ? await res.json() : null;
+    } catch { return null; }
+}
+
 // The account's friends (server/friends.js): people played in private
 // rooms, their points this week and, Pro to Pro, whether they're online.
 export async function fetchFriends() {

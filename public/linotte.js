@@ -146,6 +146,7 @@ let chatSync = () => {}; // set once the chat is built (see syncChat)
 // see its own comment for why that could otherwise happen and cut the
 // celebration short.
 let endGameSequenceStarted = false;
+let playerCardReturn = null; // where OK goes from a player's card opened from the ranking or the friends (openPlayerInfo)
 
 function setRealVh() {
     const vh = window.innerHeight * 0.01;
@@ -192,7 +193,7 @@ import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces
 import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAbandon, guestToday, guestAdReward } from "./stats.js";
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
-import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
+import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer } from "./online.js";
 import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
@@ -507,6 +508,9 @@ function paintIdentity(prefix, { level, pro, plan, rec }) {
 function showPlayerCard(seat) {
     const p = gameState.players[seat];
     if (!p || !gameInProgress) return;
+    playerCardReturn = null;
+    byId("pc-manage").hidden = true;
+    delete byId("pc-add-friend").dataset.id;
     const mine = controller.mode !== "offline" && seat === (controller.mode === "online" ? LOCAL_PLAYER : 1);
     const isBot = controller.mode === "bot" && seat === 2;
     byId("pc-name").textContent = mine ? (profile?.name || p.name) : p.name;
@@ -540,10 +544,21 @@ function showPlayerCard(seat) {
     addFriend.dataset.name = p.name;
     showOnlineView("player");
 }
-document.getElementById("pc-add-friend").addEventListener("click", (e) => {
+document.getElementById("pc-add-friend").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     btn.hidden = true;
-    askOpponentToBeFriend(btn.dataset.name);
+    const id = btn.dataset.id;
+    delete btn.dataset.id; // an in-game card has no id: the server knows the opponent
+    if (!id) return askOpponentToBeFriend(btn.dataset.name);
+    if (friendsDemo) return showToast(t("Request sent to {name}.", { name: btn.dataset.name }));
+    const res = await onlineClient.friendRequest(id);
+    showToast(!res.ok ? t("Can't add friends right now.") : {
+        sent: t("Request sent to {name}.", { name: btn.dataset.name }),
+        accepted: t("You are friends now."),
+        already: t("You are already friends."),
+        waiting: t("You already asked."),
+        full: t("Your list of friends is full."),
+    }[res.result] || t("Request sent to {name}.", { name: btn.dataset.name }));
 });
 boxPlayer1.addEventListener("click", () => showPlayerCard(1));
 boxPlayer2.addEventListener("click", () => showPlayerCard(2));
@@ -3979,6 +3994,13 @@ function hideOnlineOverlay() {
 // home: otherwise a failed join from an invite link, or a cancelled room,
 // left the player on an empty board with nothing to tap.
 function closeOnlineOverlay() {
+    // A player's card opened from the ranking or the friends goes back to where it came from.
+    if (onlineOverlay.dataset.view === "player" && playerCardReturn) {
+        const back = playerCardReturn;
+        playerCardReturn = null;
+        back();
+        return;
+    }
     hideOnlineOverlay();
     if (!gameInProgress && !isHomeShown()) showHomeScreen();
 }
@@ -5569,11 +5591,18 @@ byId("lb-signin").addEventListener("click", () => byId("home-profile").click());
 byId("lb-pro-btn").addEventListener("click", () => showProSheet());
 document.querySelectorAll(".lb-tab").forEach((b) => b.addEventListener("click", () => showRanking(b.dataset.tab)));
 
-function rankingRow(cells, { me = false, cls = "" } = {}) {
+function rankingRow(cells, { me = false, cls = "", onOpen = null } = {}) {
     const li = document.createElement("li");
     li.className = cls;
     li.classList.toggle("is-me", me);
     for (const cell of cells) li.appendChild(cell);
+    if (onOpen) { // a tap on the row: that player's card
+        li.classList.add("lb-tap");
+        li.tabIndex = 0;
+        li.setAttribute("role", "button");
+        li.addEventListener("click", onOpen);
+        li.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } });
+    }
     return li;
 }
 const span = (className, text = "") => Object.assign(document.createElement("span"), { className, textContent: text });
@@ -5618,7 +5647,7 @@ async function showRanking(tab) {
     if (rankingTab !== tab) return; // another tab was picked meanwhile
     list.replaceChildren();
     list.removeAttribute("aria-busy");
-    const row = (r) => rankingRow([span("lb-rank", `${r.rank}`), span("lb-flag", r.country ? flagOf(r.country) : ""), span("lb-name", r.name), span("lb-points", t("{n} pts", { n: r.points }))], { me: r.me });
+    const row = (r) => rankingRow([span("lb-rank", `${r.rank}`), span("lb-flag", r.country ? flagOf(r.country) : ""), span("lb-name", r.name), span("lb-points", t("{n} pts", { n: r.points }))], { me: r.me, onOpen: r.id ? () => openPlayerInfo(r, { back: backToRanking, canAdd: true }) : null });
     board.rows.forEach((r) => list.appendChild(row(r)));
     empty.hidden = board.rows.length > 0;
     empty.textContent = tab === "week" ? t("No points yet this week: be the first!") : t("No points yet: be the first!");
@@ -5666,7 +5695,7 @@ async function showFriends() {
         const play = Object.assign(document.createElement("button"), { className: "lb-play", type: "button", textContent: t("PLAY") });
         play.hidden = !(both && f.online);
         play.addEventListener("click", () => inviteFriend(f));
-        list.appendChild(rankingRow([dot, name, span("lb-points", ""), play], { cls: "lb-friend" }));
+        list.appendChild(rankingRow([dot, name, span("lb-points", ""), play], { cls: "lb-friend", onOpen: () => openPlayerInfo(f, { back: backToRanking }) }));
     }
 }
 
@@ -5686,6 +5715,51 @@ async function inviteFriend(f) {
     showToast(res.error === "friend_offline" ? t("{name} isn't online any more.", { name: f.name }) : t("Can't invite {name} right now.", { name: f.name }));
     if (rankingTab === "friends") showRanking("friends");
 }
+
+//--------- any player's card: from the ranking and from the friends ---------
+// The card a tap on a player's box opens in a game (showPlayerCard), for anyone in the ranking or on the
+// friends list: their name, country, level badge (with the star if they are Pro), points and online record
+// (the server's /api/player/:id). `person` is { id, name, country } as the list has it, shown at once; `back`
+// is where OK goes (the ranking page stays under it; the friends list is a sheet of its own).
+const DEMO_PLAYER = { ok: true, name: "Anna", country: "IT", level: 12, xp: 480, star: true, record: { played: 40, won: 26 } };
+async function openPlayerInfo(person, { back, friend = null, canAdd = false } = {}) {
+    playerCardReturn = back;
+    byId("pc-name").textContent = person.name;
+    const country = person.country;
+    byId("pc-country").textContent = country ? countryLine(country) : "";
+    byId("pc-country").hidden = !country;
+    byId("pc-badge-wrap").hidden = true; // until the server answers
+    byId("pc-record").hidden = true;
+    const add = byId("pc-add-friend"), manage = byId("pc-manage");
+    add.hidden = true;
+    manage.hidden = !friend;
+    manage.onclick = () => { playerCardReturn = null; openFriendManage(person, friend); };
+    showOnlineView("player");
+    const info = friendsDemo ? { ...DEMO_PLAYER, name: person.name, country: person.country } : await fetchPlayer(person.id);
+    if (onlineOverlay.dataset.view !== "player" || playerCardReturn !== back) return; // left meanwhile
+    if (!info?.ok) { showToast(t("Can't load this player right now. Please try again.")); return; }
+    byId("pc-name").textContent = info.name;
+    byId("pc-country").textContent = info.country ? countryLine(info.country) : "";
+    byId("pc-country").hidden = !info.country;
+    byId("pc-badge-wrap").hidden = info.level === null;
+    const own = currentUser()?.id === person.id;
+    paintIdentity("pc", { level: info.level, pro: Boolean(info.star), plan: info.xp === null ? "" : pointsText(info.xp), rec: info.record });
+    document.querySelectorAll("#pc-record .stat").forEach((el) => { // the tiles explain themselves for one's own card only
+        const text = el.dataset.explain || el.dataset.explainOwn;
+        el.dataset.explainOwn = text;
+        if (own) el.dataset.explain = text; else delete el.dataset.explain;
+    });
+    // Someone who is not yet a friend, and not oneself: a request they can accept or not.
+    add.hidden = !(canAdd && currentUser() && !own);
+    add.dataset.name = info.name;
+    add.dataset.id = person.id;
+}
+const countryLine = (country) => {
+    let name = country;
+    try { name = new Intl.DisplayNames([LANG, "en"], { type: "region" }).of(country); } catch { /* the code */ }
+    return `${flagOf(country)} ${name}`;
+};
+const backToRanking = () => hideOnlineOverlay(); // the ranking page is still under the card
 
 //--------- the friends you chose (server/friendships.js, docs/FRIENDS.md) ---------
 // The FRIEND button opens the friends sheet: requests waiting, friends with what each is doing,
@@ -5794,7 +5868,7 @@ function renderFriends(data) {
     if (guest) return;
     byId("fr-requests-list").replaceChildren(...data.incoming.map((p) => friendRow(p, {
         sub: t("wants to be your friend"),
-        onOpen: () => openFriendManage(p, "incoming"),
+        onOpen: () => openPlayerInfo(p, { back: openFriends, friend: "incoming" }),
         actions: [
             frButton("✓", { label: t("ACCEPT"), onClick: () => answerRequest(p, true) }),
             frButton("✕", { no: true, label: t("DECLINE"), onClick: () => answerRequest(p, false) }),
@@ -5806,11 +5880,11 @@ function renderFriends(data) {
             dot: f.state === "offline" ? "" : f.state,
             sub: stateText(f.state),
             isNew: isNewFriend(f),
-            onOpen: () => openFriendManage(f, "friend"),
+            onOpen: () => openPlayerInfo(f, { back: openFriends, friend: "friend" }),
             // Asked to play when they are free enough to be asked: at the home screen, or in a game that can wait.
             actions: f.state === "online" || f.state === "busy" ? [frButton(t("PLAY"), { onClick: () => inviteFriend(f) })] : [],
         })),
-        ...data.outgoing.map((p) => friendRow(p, { sub: t("Waiting for their answer"), onOpen: () => openFriendManage(p, "outgoing") })),
+        ...data.outgoing.map((p) => friendRow(p, { sub: t("Waiting for their answer"), onOpen: () => openPlayerInfo(p, { back: openFriends, friend: "outgoing" }) })),
     );
 }
 

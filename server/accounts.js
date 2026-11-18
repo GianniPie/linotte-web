@@ -42,6 +42,27 @@ async function askSupabase(token) {
   }
 }
 
+// Another player's public profile (name, picture, country), for the card a tap on them in the ranking or the
+// friends opens. Read with the project's secret key (the profiles table lets each account read only its own);
+// nothing but those three is ever given out. null: no such account (or no key: a local run).
+export async function profileById(id, { key = process.env.SUPABASE_SECRET_KEY || "", url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
+  if (!url || !key || typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) return null;
+  try {
+    const res = await fetchImpl(`${url}/rest/v1/profiles?id=eq.${encodeURIComponent(id)}&select=name,avatar,country&limit=1`, { headers: { apikey: key } });
+    if (!res.ok) return null;
+    const [row] = await res.json();
+    if (!row) return null;
+    return {
+      name: cleanPlayerName(row.name),
+      avatar: isAvatar(row.avatar) ? row.avatar : "",
+      country: isCountry(row.country) ? row.country : "",
+    };
+  } catch (err) {
+    console.error("profile read failed:", err.message);
+    return null;
+  }
+}
+
 // The player's own profile (supabase/profiles.sql), read with their own token
 // so the database's row-level security applies. Only what passes the same
 // checks as the app is kept: a bad name, picture or country is dropped (and

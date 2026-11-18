@@ -229,6 +229,8 @@ export default {
     "You asked {name}. Waiting for their answer.": "你向 {name} 发了请求。等待对方回复。",
     "Done.": "完成。",
     "Request declined.": "已拒绝请求。",
+    "FRIEND OPTIONS": "好友选项",
+    "Can't load this player right now. Please try again.": "暂时无法加载这位玩家。请重试。",
     "Add me on Linotte! My code: {code}": "在 Linotte 上加我吧！我的代码：{code}",
     "Friend code": "好友代码",
     "Sign in first, then open the link again.": "请先登录，然后再打开链接。",

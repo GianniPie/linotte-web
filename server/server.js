@@ -20,7 +20,7 @@ import {
   friendList, createBudget, createInviteBook, inviteRule, normalizeFriendCode,
 } from "./friendships.js";
 import { levelOf, FREE_LOOKS } from "../public/shared/level.js";
-import { userIdFromToken, profileOf } from "./accounts.js";
+import { userIdFromToken, profileOf, profileById } from "./accounts.js";
 import { createStore } from "./store.js";
 import { createBotLab, BOTLAB_ENABLED } from "./botlab.js";
 
@@ -64,7 +64,7 @@ function apiHeaders(req, res) {
   res.set("Cache-Control", "no-store");
 }
 const accountOf = (req) => userIdFromToken((req.get("Authorization") || "").replace(/^Bearer\s+/i, ""));
-for (const route of ["/api/me", "/api/ad-reward", "/api/leaderboard", "/api/friends"]) {
+for (const route of ["/api/me", "/api/ad-reward", "/api/leaderboard", "/api/friends", "/api/player/:id"]) {
   app.options(route, (req, res) => {
     apiHeaders(req, res);
     res.set("Access-Control-Allow-Headers", "Authorization, X-Linotte-Dev");
@@ -112,6 +112,31 @@ app.get("/api/friends", async (req, res) => {
   } catch (err) {
     console.error("friends:", err.message);
     res.status(503).json({ friends: [] });
+  }
+});
+
+// Anyone's card, from the ranking or the friends: name, country, picture, level and points, the star (Pro) and
+// the online record. Only what the game already shows an opponent, so no sign-in is needed; remembered a minute.
+const playerCache = new Map(); // id -> { at, card }
+app.get("/api/player/:id", async (req, res) => {
+  apiHeaders(req, res);
+  const id = String(req.params.id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(404).json({ ok: false });
+  const hit = playerCache.get(id);
+  if (hit && Date.now() - hit.at < 60_000) return res.json(hit.card);
+  try {
+    const [profile, stats, access] = await Promise.all([profileById(id), accountStats(id), accessFor({ userId: id })]);
+    if (!profile) return res.status(404).json({ ok: false });
+    const card = {
+      ok: true, id, name: profile.name || nameFromId(id), country: profile.country, avatar: profile.avatar,
+      xp: stats.xp, level: stats.xp === null ? null : levelOf(stats.xp), star: access.star, record: stats.record,
+    };
+    playerCache.set(id, { at: Date.now(), card });
+    if (playerCache.size > 500) playerCache.delete(playerCache.keys().next().value);
+    res.json(card);
+  } catch (err) {
+    console.error("player card:", err.message);
+    res.status(503).json({ ok: false });
   }
 });
 

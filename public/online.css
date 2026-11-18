@@ -1039,6 +1039,15 @@ body.daily-open .sheet-daily {
   display: none;
 }
 
+/* A row of the ranking or the friends that opens that player's card. */
+.lb-list li.lb-tap {
+  cursor: pointer;
+}
+
+.lb-list li.lb-tap:active {
+  background: rgba(0, 0, 0, .06);
+}
+
 /* A friend just made, until the list has been seen. */
 .fr-name span.fr-new {
   display: inline-block;
