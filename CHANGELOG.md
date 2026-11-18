@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.32.1] - 2026-11-18
+
+### Fixed
+- 2.32.0 broke the app for anyone already signed in: the points beside the level were written by a helper that was declared after the code that runs first when the page opens with a saved session, so the page stopped there ("Cannot access 'pointsText' before initialization") and neither the profile nor the buttons after it worked. Sign-in itself was fine (the sign-in service logged every login). The helper is now declared where it is available from the start.
+
 ## [2.32.0] - 2026-11-18
 
 ### Changed

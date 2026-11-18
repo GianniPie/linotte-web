@@ -5487,7 +5487,7 @@ byId("pro-restore").addEventListener("click", (e) => {
 byId("pro-sample").textContent = levelLabel(12, true);
 
 // A player's points as written beside their level ("83 pts"; below zero with a minus).
-const pointsText = (xp) => t("{n} pts", { n: xp < 0 ? `\u2212${-xp}` : xp });
+function pointsText(xp) { return t("{n} pts", { n: xp < 0 ? `\u2212${-xp}` : xp }); } // (a function: the sign-in callback uses it while the page loads)
 
 function showHomeBadge() {
     const badge = byId("home-badge");
