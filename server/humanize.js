@@ -32,16 +32,18 @@ export function makePersona() {
 }
 
 // Median think time (ms) per kind of pause.
+// (Slowed down once: a turn took about 15 s at the median, quicker than a person; the thinking
+// pauses grew most, the taps between two dice hardly.)
 const MEDIAN = {
-  turnStart: 1800, // after the opponent's turn ends / the game starts
-  rollResult: 1500, // looking at the dice just rolled
-  lockGap: 450, // between two dice taps
-  afterLock: 650,
-  call: 900,
-  placeThink: 1100,
-  tentativeRedo: 1300,
-  afterPlace: 850,
-  beforeRoll: 600,
+  turnStart: 2600, // after the opponent's turn ends / the game starts
+  rollResult: 2100, // looking at the dice just rolled
+  lockGap: 520, // between two dice taps
+  afterLock: 800,
+  call: 1100,
+  placeThink: 1550,
+  tentativeRedo: 1500,
+  afterPlace: 1100,
+  beforeRoll: 700,
   rematch: 2200, // asked for a rematch: a moment to decide
 };
 

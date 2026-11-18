@@ -176,6 +176,7 @@ function dressLikeTheGame() {
         d.style.backgroundImage = getComputedStyle(realDie).backgroundImage;
         d.classList.toggle("black-shadow", realDie.classList.contains("black-shadow"));
         d.classList.toggle("red-shadow", realDie.classList.contains("red-shadow"));
+        d.style.borderRadius = realDie.style.borderRadius; // the corners of this die's own drawing
     });
 }
 

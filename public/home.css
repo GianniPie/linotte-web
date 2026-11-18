@@ -490,6 +490,26 @@ body:not(.is-pro) .home-pro-owned {
   font-size: .667em;
 }
 
+/* The FRIEND button: a red dot while a friend request or an invitation waits. */
+#home-friend-btn {
+  position: relative;
+}
+
+.home-badge {
+  position: absolute;
+  top: -.35em;
+  right: -.35em;
+  width: 1.1em;
+  height: 1.1em;
+  border: var(--btn-border);
+  border-radius: 50%;
+  background: #e0443a;
+}
+
+.home-badge[hidden] {
+  display: none;
+}
+
 /* A developer who switched online play on (?online=1, see linotte.js) sees
    ONLINE and FRIEND without their SOON badge. */
 .online-enabled #home-online-btn .soon-badge,

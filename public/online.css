@@ -125,6 +125,10 @@
 
 #online-overlay[data-view="searching"] .sheet-view[data-view="searching"],
 #online-overlay[data-view="friend"] .sheet-view[data-view="friend"],
+#online-overlay[data-view="friends"] .sheet-view[data-view="friends"],
+#online-overlay[data-view="friend-add"] .sheet-view[data-view="friend-add"],
+#online-overlay[data-view="friend-confirm"] .sheet-view[data-view="friend-confirm"],
+#online-overlay[data-view="friend-manage"] .sheet-view[data-view="friend-manage"],
 #online-overlay[data-view="waiting"] .sheet-view[data-view="waiting"],
 #online-overlay[data-view="joincode"] .sheet-view[data-view="joincode"],
 #online-overlay[data-view="message"] .sheet-view[data-view="message"],
@@ -167,6 +171,10 @@
 
 .sheet-btn.cancel {
   background-color: rgb(150, 130, 110);
+}
+
+.sheet-btn.danger {
+  background-color: rgb(196, 74, 62);
 }
 
 .sheet-btn.bot {
@@ -226,6 +234,29 @@
 
 .bot-help-body b::after {
   content: ":";
+}
+
+/* The first screen's language choice: six small chips above the text. */
+.consent-langs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .4em;
+}
+
+.consent-lang {
+  padding: .35em .2em;
+  border: .125em solid transparent;
+  border-radius: .5625em;
+  background: rgba(0, 0, 0, .07);
+  color: inherit;
+  font: .9em "Changa One", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.consent-lang.is-on {
+  border-color: rgba(0, 0, 0, .5);
+  background: rgba(0, 0, 0, .16);
 }
 
 /* the consent button stays dead until the box is ticked (the inactive
@@ -898,4 +929,182 @@ body.daily-open .sheet-daily {
   padding-bottom: .9em;
   margin-bottom: .5em;
   border-bottom: 1px solid rgba(0, 0, 0, .15);
+}
+
+
+/* ============================================
+   FRIENDS (the "friends" sheet: see docs/FRIENDS.md)
+   ============================================ */
+.fr-block {
+  display: flex;
+  flex-direction: column;
+  gap: .3em;
+  text-align: left;
+}
+
+.fr-head {
+  font: 1em "Changa One", sans-serif;
+  text-align: center;
+}
+
+.fr-list {
+  width: 100%;
+  max-height: 42vh;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.fr-list li {
+  display: grid;
+  grid-template-columns: .8em minmax(0, 1fr) auto;
+  gap: .5em;
+  align-items: center;
+  padding: .45em .3em;
+  border-bottom: 1px solid rgba(0, 0, 0, .1);
+}
+
+.fr-list li:last-child {
+  border-bottom: 0;
+}
+
+/* The name is a button: it opens what can be done with this friend. */
+.fr-name {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: 1.05em "Changa One", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fr-name span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fr-name .fr-state {
+  font: .75em sans-serif;
+  opacity: .65;
+}
+
+/* online green, busy (a game against the bot) and in an online game, offline grey */
+.fr-dot {
+  width: .6em;
+  height: .6em;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .2);
+}
+
+.fr-dot.is-online {
+  background: #2fbf4f;
+  box-shadow: 0 0 0 .15em rgba(47, 191, 79, .25);
+}
+
+.fr-dot.is-busy {
+  background: #e8a317;
+  box-shadow: 0 0 0 .15em rgba(232, 163, 23, .25);
+}
+
+.fr-dot.is-playing {
+  background: #e8a317;
+}
+
+.fr-actions {
+  display: flex;
+  gap: .4em;
+}
+
+.fr-btn {
+  min-width: 2.3em;
+  padding: .3em .7em;
+  border: var(--btn-border);
+  border-radius: .5625em;
+  background: rgb(46, 160, 90);
+  color: #fff;
+  font: .9em "Changa One", sans-serif;
+  cursor: pointer;
+}
+
+.fr-btn.is-no {
+  background: rgb(150, 130, 110);
+}
+
+.fr-btn[hidden] {
+  display: none;
+}
+
+.fr-my-code {
+  font-size: 2.6em;
+}
+
+.fr-or {
+  margin-top: .3em;
+}
+
+.fr-code-input {
+  font-size: 2em;
+  letter-spacing: .18em;
+}
+
+/* A friend's invitation while a game against the bot or at the same table is on: a quiet banner. */
+.invite-banner {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  gap: .6em;
+  width: min(92vw, 420px);
+  padding: .5em .6em .5em .9em;
+  transform: translateX(-50%);
+  border: .2em solid rgba(0, 0, 0, .35);
+  border-radius: 1em;
+  background: whitesmoke;
+  color: #3d240c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+  font: 15px sans-serif;
+  animation: invitePeek .35s cubic-bezier(.2, 1.2, .4, 1) both;
+}
+
+.invite-banner[hidden] {
+  display: none;
+}
+
+.invite-banner-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.invite-banner-go,
+.invite-banner-no {
+  padding: .35em .8em;
+  border: var(--btn-border);
+  border-radius: .5625em;
+  font: 1em "Changa One", sans-serif;
+  color: #fff;
+  cursor: pointer;
+}
+
+.invite-banner-go {
+  background: rgb(46, 160, 90);
+}
+
+.invite-banner-no {
+  background: rgb(150, 130, 110);
+}
+
+@keyframes invitePeek {
+  from { opacity: 0; transform: translate(-50%, -140%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .invite-banner { animation: none; }
 }

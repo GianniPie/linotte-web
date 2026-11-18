@@ -8,8 +8,15 @@ export const diceFaces = [
     "red_sprite.png",
     "flat_sprite.svg",
     "chinese_sprite.png",
-    "persian_sprite.png"
+    "persian_sprite.png",
+    "candy_sprite.webp",
+    "space_sprite.webp"
 ];
+
+// The corner radius of each die's drawing, as a share of its side (measured on the art: the
+// outline included). The die on the board and its tile in the options take this radius, so the
+// shadow and the yellow selection ring follow the die's own corners instead of one shared curve.
+export const diceRadius = [15.5, 19.5, 14, 19.5, 14, 14.1, 19.3, 10.2];
 
 export const dicePos = [
     "0% 0%",
@@ -28,6 +35,8 @@ export const diceNames = [
     "FLAT",
     "CHINESE",
     "PERSIAN",
+    "CANDY",
+    "SPACE",
 ];
 
 

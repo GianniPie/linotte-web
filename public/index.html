@@ -109,8 +109,9 @@
                 </div>
                 <div class="button home-mode-btn home-mode-friend has-soon" id="home-friend-btn">
                     <div class="text-button" data-i18n>FRIEND</div>
-                    <div class="home-mode-sub" data-i18n>Private room</div>
+                    <div class="home-mode-sub" data-i18n>Friends, private room</div>
                     <span class="soon-badge" data-i18n>SOON</span>
+                    <span class="home-badge" id="friends-badge" hidden aria-hidden="true"></span>
                 </div>
                 <div class="button home-mode-btn home-mode-bot" id="home-vs-bot-btn">
                     <div class="text-button" data-i18n>VS BOT</div>
@@ -149,6 +150,9 @@
     <div id="consent-overlay" class="sheet-overlay" style="display:none">
         <div class="opt-bg"></div>
         <div class="sheet" role="dialog" aria-labelledby="consent-title">
+            <!-- The phone's language is used, but it may not be the one wanted: pick another right here
+                 (built in linotte.js from the language list; the page reloads in it). -->
+            <div class="consent-langs" id="consent-langs" role="group" aria-label="Language"></div>
             <div class="sheet-title" id="consent-title" data-i18n>Before you play</div>
             <ul class="sheet-list">
                 <li data-i18n>You must be 16 or older. The game is fine for any age, but it shows ads and has online play, and under EU privacy law (GDPR) younger players may need a parent's consent for that.</li>
@@ -187,6 +191,54 @@
                 <div class="button sheet-btn go" id="friend-create"><div class="text-button" data-i18n>CREATE ROOM</div></div>
                 <div class="button sheet-btn alt" id="friend-join"><div class="text-button" data-i18n>I HAVE A CODE</div></div>
                 <div class="button sheet-btn cancel" id="friend-back"><div class="text-button" data-i18n>BACK</div></div>
+            </div>
+
+            <!-- the friends you chose (public/linotte.js, "Friends"; design in docs/FRIENDS.md) -->
+            <div class="sheet-view" data-view="friends">
+                <div class="sheet-title" data-i18n>Friends</div>
+                <div class="sheet-text sheet-small" id="fr-signin-text" hidden data-i18n>Sign in to keep a list of friends, see who is online and invite them to play.</div>
+                <div class="fr-block" id="fr-requests" hidden>
+                    <div class="fr-head" data-i18n>Friend requests</div>
+                    <ul class="fr-list" id="fr-requests-list"></ul>
+                </div>
+                <div class="fr-block" id="fr-friends" hidden>
+                    <ul class="fr-list" id="fr-list"></ul>
+                </div>
+                <div class="sheet-text sheet-small" id="fr-empty" hidden data-i18n>No friends yet. Give someone your code, or add an opponent after a game.</div>
+                <div class="button sheet-btn go" id="fr-add"><div class="text-button" data-i18n>ADD FRIEND</div></div>
+                <div class="button sheet-btn alt" id="fr-room"><div class="text-button" data-i18n>PRIVATE ROOM</div></div>
+                <div class="button sheet-btn alt" id="fr-signin" hidden><div class="text-button" data-i18n>SIGN IN</div></div>
+                <div class="button sheet-btn cancel" id="fr-back"><div class="text-button" data-i18n>BACK</div></div>
+            </div>
+
+            <div class="sheet-view" data-view="friend-add">
+                <div class="sheet-title" data-i18n>Add a friend</div>
+                <div class="sheet-text" data-i18n>This is your code. Give it to someone you know: when they use it, you are friends.</div>
+                <div class="room-code fr-my-code" id="fr-my-code" aria-live="polite">------</div>
+                <div class="button sheet-btn go" id="fr-share"><div class="text-button" data-i18n>SHARE LINK</div></div>
+                <div class="button sheet-btn alt" id="fr-copy"><div class="text-button" data-i18n>COPY LINK</div></div>
+                <div class="sheet-text fr-or" data-i18n>Got a friend's code?</div>
+                <input id="fr-code-input" class="code-input fr-code-input" type="text" inputmode="text" autocomplete="off"
+                    autocapitalize="characters" spellcheck="false" maxlength="6" placeholder="------" aria-label="Friend's code">
+                <div class="sheet-text error" id="fr-code-error"></div>
+                <div class="button sheet-btn go" id="fr-code-submit"><div class="text-button" data-i18n>ADD</div></div>
+                <div class="button sheet-btn cancel" id="fr-add-back"><div class="text-button" data-i18n>BACK</div></div>
+            </div>
+
+            <div class="sheet-view" data-view="friend-confirm">
+                <div class="sheet-title" id="fr-confirm-title"></div>
+                <div class="sheet-text" data-i18n>They gave you their code. You will see when they are online and can invite each other to play.</div>
+                <div class="button sheet-btn go" id="fr-confirm-yes"><div class="text-button" data-i18n>ADD FRIEND</div></div>
+                <div class="button sheet-btn cancel" id="fr-confirm-no"><div class="text-button" data-i18n>NOT NOW</div></div>
+            </div>
+
+            <div class="sheet-view" data-view="friend-manage">
+                <div class="sheet-title" id="fr-manage-title"></div>
+                <div class="sheet-text sheet-small" id="fr-manage-text"></div>
+                <div class="button sheet-btn go" id="fr-manage-accept" hidden><div class="text-button" data-i18n>ACCEPT</div></div>
+                <div class="button sheet-btn danger" id="fr-manage-remove"><div class="text-button" data-i18n>REMOVE FRIEND</div></div>
+                <div class="button sheet-btn danger" id="fr-manage-block"><div class="text-button" data-i18n>BLOCK</div></div>
+                <div class="button sheet-btn cancel" id="fr-manage-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
 
             <div class="sheet-view" data-view="waiting">
@@ -342,6 +394,7 @@
                     <div class="stat" data-explain="Games you won."><b id="pc-won">0</b><span data-i18n>Won</span></div>
                     <div class="stat" data-explain="The share of your games that you won."><b id="pc-rate">0%</b><span data-i18n>Win rate</span></div>
                 </div>
+                <div class="button sheet-btn alt" id="pc-add-friend" hidden><div class="text-button" data-i18n>ADD FRIEND</div></div>
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
             </div>
             <!-- what opponents see: name, picture, country (see "Profile" in linotte.js) -->
@@ -427,6 +480,13 @@
         </div>
     </div>
 
+    <!-- A friend's invitation while this player is in a game against the bot or at the same table:
+         a quiet banner over the game, never a window (see onFriendInvite in linotte.js). -->
+    <div id="invite-banner" class="invite-banner" role="alert" hidden>
+        <span class="invite-banner-text" id="invite-banner-text"></span>
+        <button class="invite-banner-go" id="invite-banner-go" type="button" data-i18n>PLAY</button>
+        <button class="invite-banner-no" id="invite-banner-no" type="button" aria-label="Not now">✕</button>
+    </div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="points-stack" class="points-stack" role="status" aria-live="polite"></div>
 
@@ -779,6 +839,14 @@
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do5"><img
                                         src="resources/images/dice/pe001.png"></div>
+                            </li>
+                            <li class="car-item">
+                                <div class="car-item-content die-options" id="do6"><img
+                                        src="resources/images/dice/candy01.webp"></div>
+                            </li>
+                            <li class="car-item">
+                                <div class="car-item-content die-options" id="do7"><img
+                                        src="resources/images/dice/space01.webp"></div>
                             </li>
                         </ul>
                         <button class="car-button previous" data-carousel="die" data-direction="previous"

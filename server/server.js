@@ -14,7 +14,11 @@ import { nameFromId } from "./names.js";
 import { isPro, forgetPro } from "./entitlements.js";
 import { accountStats } from "./results.js";
 import { todayStatus, grantAdReward, weeklyLeaderboard, clampTz } from "./bonuses.js";
-import { markOnline, markOffline, socketsOf, isOnline, friendsOf, areFriends } from "./friends.js";
+import { markOnline, markOffline, socketsOf, isOnline, friendsOf, areFriends, setActivity, presenceOf } from "./friends.js";
+import {
+  friendCodeOf, addByCode, peekCode, requestFriend, respondToRequest, removeFriend, blockUser, unblockUser,
+  friendList, createBudget, createInviteBook, inviteRule, normalizeFriendCode,
+} from "./friendships.js";
 import { levelOf, FREE_LOOKS } from "../public/shared/level.js";
 import { userIdFromToken, profileOf } from "./accounts.js";
 import { createStore } from "./store.js";
@@ -121,6 +125,12 @@ app.get("/api/leaderboard", async (req, res) => {
   }
 });
 
+// A friend code as a link: https://host/f/K7QF3A opens the app asking "Add …?".
+app.get("/f/:code", (req, res) => {
+  const code = normalizeFriendCode(req.params.code);
+  res.redirect(code.length === 6 ? `/?friend=${code}` : "/");
+});
+
 // Invite links: https://host/j/K7QF opens the app already trying to join.
 app.get("/j/:code", (req, res) => {
   const code = normalizeCode(req.params.code);
@@ -129,6 +139,46 @@ app.get("/j/:code", (req, res) => {
 
 const store = await createStore();
 const lobby = new Lobby(io, store, { afterRecord: (socket) => setStats(socket) });
+
+//--------- friends: who is where, and invitations ---------
+// "offline" | "online" | "busy" | "playing" (friends.js). The server knows who is in an online game;
+// the app says whether it is on the home screen or in a game against the bot or at the same table.
+const playingNow = (s) => Boolean(lobby.activeRoom(s.data.playerId));
+const stateOf = (userId) => presenceOf(userId, playingNow);
+
+// An account's accepted friends' ids, kept for a minute (they are asked every time someone connects).
+const friendIdsCache = new Map();
+async function acceptedFriendIds(userId) {
+  const hit = friendIdsCache.get(userId);
+  if (hit && Date.now() - hit.at < 60_000) return hit.ids;
+  const ids = (await friendList(userId)).friends.map((f) => f.id);
+  friendIdsCache.set(userId, { at: Date.now(), ids });
+  return ids;
+}
+const forgetFriendIds = (...userIds) => userIds.forEach((id) => friendIdsCache.delete(id));
+// Tells the friends who are online that this account's state is now what it is. Never throws.
+async function announcePresence(userId) {
+  if (!userId) return;
+  try {
+    const state = stateOf(userId);
+    for (const id of await acceptedFriendIds(userId)) for (const s of socketsOf(id)) s.emit("friend_presence", { id: userId, state });
+  } catch (err) {
+    console.error("presence not announced:", err.message);
+  }
+}
+const requestBudget = createBudget();
+
+// An invitation nobody answered in a minute: the inviter's room closes and both are told.
+const invites = createInviteBook({
+  onExpire: (inv) => {
+    const room = lobby.byCode.get(inv.code);
+    const waiting = room && room.status === "waiting";
+    const inviter = socketsOf(inv.fromId).find((x) => lobby.roomOfSocket(x)?.code === inv.code);
+    if (waiting && inviter) lobby.leaveRoom(inviter);
+    if (!waiting) return; // they played: nothing to undo
+    for (const x of [...socketsOf(inv.fromId), ...socketsOf(inv.toId)]) x.emit("invite_expired", { inviteId: inv.id });
+  },
+});
 let stopping = false;
 
 //----------- CONNECTIONS ---------------
@@ -172,6 +222,7 @@ async function setAccount(socket, token) {
   // Online for friends (friends.js): whichever account this app is now.
   markOffline(socket);
   markOnline(socket);
+  announcePresence(d.userId);
 }
 
 io.on("connection", (socket) => {
@@ -282,28 +333,126 @@ io.on("connection", (socket) => {
     return room ? room.emote(socket.data.seat, p.id) : { ok: false };
   });
 
-  // A Pro player invites a Pro friend who is online: a private room, and
-  // the friend's app is asked to join it (friends.js).
+  //--------- the friends the player chooses (friendships.js, docs/FRIENDS.md) ---------
+  const account = () => socket.data.userId || null;
+  const needAccount = (handler) => async (p) => (account() ? handler(p, account()) : { ok: false, error: "sign_in" });
+
+  // Where the app is: its home screen, a game against the bot, or "Same table" (friends.js).
+  on("presence_set", {}, (p) => {
+    if (!setActivity(socket, String(p.state))) return { ok: false };
+    announcePresence(account());
+    return { ok: true };
+  });
+
+  // The friends screen in one answer: friends with their state, requests in and out, the account's code.
+  on("friends_list", {}, needAccount(async (p, me) => {
+    const [list, code, mePro] = await Promise.all([friendList(me), friendCodeOf(me), isPro({ userId: me })]);
+    forgetFriendIds(me);
+    const friends = await Promise.all(list.friends.map(async (f) => ({ ...f, pro: await isPro({ userId: f.id }), state: stateOf(f.id) })));
+    return { ok: true, pro: mePro, code, friends, incoming: list.incoming, outgoing: list.outgoing };
+  }));
+
+  // Whose code this is, so the app can ask "Add Anna?" before it makes friends.
+  on("friend_code_peek", {}, needAccount(async (p, me) => {
+    if (!requestBudget.take(me)) return { ok: false, error: "slow_down" };
+    const owner = await peekCode(p.code);
+    return owner && owner.friendId !== me ? { ok: true, name: owner.name, country: owner.country } : { ok: false, error: owner ? "self" : "no_code" };
+  }));
+
+  on("friend_add_code", { needsConsent: true }, needAccount(async (p, me) => {
+    if (!requestBudget.take(me)) return { ok: false, error: "slow_down" };
+    const res = await addByCode(me, p.code);
+    if (res.result === "accepted") {
+      forgetFriendIds(me, res.friendId);
+      for (const s of socketsOf(res.friendId)) s.emit("friend_accepted", { id: me, name: socket.data.name });
+    }
+    return { ok: res.result === "accepted" || res.result === "already", result: res.result, friendId: res.friendId };
+  }));
+
+  // A request to someone (their id came from the friends screen) or to the opponent of the game this
+  // player is in or just played ("Add friend" on their card: the app never sees their account id).
+  const sendRequest = async (me, otherId) => {
+    if (!requestBudget.take(me)) return { ok: false, error: "slow_down" };
+    const result = await requestFriend(me, otherId);
+    if (result === "sent") {
+      for (const s of socketsOf(otherId)) s.emit("friend_request", { id: me, name: socket.data.name, country: socket.data.country || "" });
+    } else if (result === "accepted") {
+      forgetFriendIds(me, otherId);
+      for (const s of socketsOf(otherId)) s.emit("friend_accepted", { id: me, name: socket.data.name });
+    }
+    // "blocked" is said like "sent": the one who was blocked never learns it.
+    return { ok: true, result: result === "blocked" ? "sent" : result };
+  };
+  on("friend_request", { needsConsent: true }, needAccount((p, me) => sendRequest(me, String(p.userId || ""))));
+  on("friend_request_opponent", { needsConsent: true }, needAccount((p, me) => {
+    const room = lobby.roomOfSocket(socket);
+    const other = room && room.seats[room.otherSeat(socket.data.seat)];
+    // A guest cannot be asked. The server's own players that pass for people are answered like
+    // a person who hasn't replied yet (they are not told apart).
+    if (other?.kind === "bot") return { ok: true, result: "sent" };
+    if (!other || other.kind !== "human" || !other.userId) return { ok: false, error: "not_an_account" };
+    return sendRequest(me, other.userId);
+  }));
+
+  on("friend_respond", {}, needAccount(async (p, me) => {
+    const other = String(p.userId || "");
+    const result = await respondToRequest(me, other, p.accept === true);
+    if (result === "accepted") {
+      forgetFriendIds(me, other);
+      for (const s of socketsOf(other)) s.emit("friend_accepted", { id: me, name: socket.data.name });
+    }
+    return { ok: result !== "none", result };
+  }));
+
+  on("friend_remove", {}, needAccount(async (p, me) => {
+    await removeFriend(me, String(p.userId || ""));
+    forgetFriendIds(me, String(p.userId || ""));
+    return { ok: true };
+  }));
+  on("friend_block", {}, needAccount(async (p, me) => {
+    await blockUser(me, String(p.userId || ""));
+    forgetFriendIds(me, String(p.userId || ""));
+    return { ok: true };
+  }));
+  on("friend_unblock", {}, needAccount(async (p, me) => {
+    await unblockUser(me, String(p.userId || ""));
+    return { ok: true };
+  }));
+
+  // A player invites a friend to play: a private room, and the friend's app is told (what happens
+  // depends on what the friend is doing, see inviteRule). Creating a room is Pro, as ever
+  // (ROOMS_NEED_PRO): the one who invites. The friend plays free, Pro or not.
   on("friend_invite", { needsConsent: true }, async (p) => {
     const me = socket.data;
     const friendId = String(p.friendId || "");
     if (!me.userId || !me.pro) return { ok: false, error: "pro_required" };
     if (!(await areFriends(me.userId, friendId))) return { ok: false, error: "not_friends" };
-    if (!(await isPro({ userId: friendId }))) return { ok: false, error: "friend_not_pro" };
-    if (!isOnline(friendId)) return { ok: false, error: "friend_offline" };
+    const state = stateOf(friendId);
+    const rule = inviteRule(state);
+    if (!rule.send) return { ok: false, error: rule.error, friendState: state };
     const res = lobby.createPrivate(socket);
     if (!res.ok) return res;
-    for (const s of socketsOf(friendId)) s.emit("friend_invite", { from: me.name, fromId: me.userId, code: res.code });
-    return res;
+    const { invite, replaced } = invites.create({ fromId: me.userId, toId: friendId, code: res.code });
+    for (const old of replaced) for (const s of socketsOf(old.toId)) s.emit("invite_expired", { inviteId: old.id }); // the old one is withdrawn
+    for (const s of socketsOf(friendId)) {
+      s.emit("friend_invite", { from: me.name, fromId: me.userId, code: res.code, inviteId: invite.id, soft: rule.soft, expiresAt: invite.expiresAt });
+    }
+    return { ...res, inviteId: invite.id, expiresAt: invite.expiresAt, friendState: state };
   });
-  // ...and says no: the inviter hears it.
+  // ...the friend takes it (joining the room is the room_join with its code)...
+  on("invite_accepted", {}, (p) => ({ ok: Boolean(invites.answer(String(p.inviteId || ""), socket.data.userId)) }));
+  // ...or says no: the inviter hears it.
   on("invite_declined", {}, (p) => {
-    for (const s of socketsOf(String(p.fromId || ""))) s.emit("invite_declined", { name: socket.data.name });
+    const inv = invites.answer(String(p.inviteId || ""), socket.data.userId);
+    const fromId = inv ? inv.fromId : String(p.fromId || "");
+    for (const s of socketsOf(fromId)) s.emit("invite_declined", { name: socket.data.name, inviteId: p.inviteId });
     return { ok: true };
   });
 
   socket.on("disconnect", () => {
+    const account = socket.data.presenceId;
     markOffline(socket);
+    if (account) { invites.cancelFrom(account); announcePresence(account); }
     if (socket.data.playerId) lobby.handleDisconnect(socket);
   });
 });

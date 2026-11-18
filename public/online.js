@@ -232,6 +232,10 @@ export class OnlineClient {
         s.on("bonus", (msg) => this.h.onBonus?.(msg));
         s.on("recorded", () => this.h.onRecorded?.());
         s.on("friend_invite", (msg) => this.h.onFriendInvite?.(msg));
+        s.on("friend_request", (msg) => this.h.onFriendRequest?.(msg));
+        s.on("friend_accepted", (msg) => this.h.onFriendAccepted?.(msg));
+        s.on("friend_presence", (msg) => this.h.onFriendPresence?.(msg));
+        s.on("invite_expired", (msg) => this.h.onInviteExpired?.(msg || {}));
         s.on("invite_declined", (msg) => this.h.onInviteDeclined?.(msg || {}));
         s.on("game_over", (msg) => this.h.onGameOver?.(msg));
         s.on("room_expired", () => this.h.onRoomExpired?.());
@@ -306,7 +310,21 @@ export class OnlineClient {
     createRoom() { return this.call("room_create"); }
     // Pro to Pro: a private room, and the friend's app is asked to join.
     inviteFriend(friendId) { return this.call("friend_invite", { friendId }); }
-    declineInvite(fromId) { return this.call("invite_declined", { fromId }); }
+    declineInvite(fromId, inviteId) { return this.call("invite_declined", { fromId, inviteId }); }
+    acceptInvite(inviteId) { return this.call("invite_accepted", { inviteId }); }
+
+    //--------- friends you choose (server/friendships.js) ---------
+    // Where this app is, for the friends who might invite: "home", "bot" or "table".
+    setPresence(state) { return this.socket?.connected ? this.call("presence_set", { state }) : Promise.resolve({ ok: false }); }
+    // { ok, pro, code, friends: [{ id, name, country, games, weekPoints, pro, state }], incoming, outgoing }
+    friendsList() { return this.call("friends_list"); }
+    friendCodePeek(code) { return this.call("friend_code_peek", { code }); }
+    friendAddCode(code) { return this.call("friend_add_code", { code }); }
+    friendRequest(userId) { return this.call("friend_request", { userId }); }
+    friendRequestOpponent() { return this.call("friend_request_opponent"); }
+    friendRespond(userId, accept) { return this.call("friend_respond", { userId, accept }); }
+    friendRemove(userId) { return this.call("friend_remove", { userId }); }
+    friendBlock(userId) { return this.call("friend_block", { userId }); }
     joinRoom(code) { return this.call("room_join", { code }); }
     leaveRoom() { return this.call("room_leave"); }
 
@@ -339,6 +357,12 @@ export class OnlineClient {
 // Invite links look like /j/K7QF (redirected to /?join=K7QF) or ?join=K7QF.
 export function inviteLink(code) {
     return `${location.origin}/j/${code}`;
+}
+
+// A friend code as a link (https://host/f/K7QF3A -> /?friend=K7QF3A).
+export function pendingFriendCode() {
+    const code = new URLSearchParams(location.search).get("friend");
+    return code ? code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) : null;
 }
 
 export function pendingJoinCode() {

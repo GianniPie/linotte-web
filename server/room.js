@@ -14,7 +14,7 @@ import { createInitialGameState, rndNum } from "../public/shared/utils.js";
 import { piecesPath, pieces } from "../public/shared/assets.js";
 import { assignPieces, isPlayPiece } from "../public/shared/pieces.js";
 import { tableSeat, ownsBackground, FREE_LOOKS } from "../public/shared/level.js";
-import { NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME } from "../public/shared/chat.js";
+import { NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs, EMOTE_WINDOW_MS } from "../public/shared/chat.js";
 import {
   TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS, IDLE_TURNS_LIMIT,
   RECONNECT_GRACE_MS, TURN_FREEZE_CAP_MS, EMOTES,
@@ -54,6 +54,7 @@ export class Room {
     this.graceTimers = {};
     this.idleTurns = {}; // seat -> turns in a row ended without a roll
     this.lastEmoteAt = {};
+    this.emoteTimes = {}; // seat -> when its latest reactions were sent (the limit in shared/chat.js)
     this.nudges = {}; // seat -> { at, n }: the bell's limits (see emote)
   }
 
@@ -347,6 +348,10 @@ export class Room {
     if (this.status !== "playing" || !EMOTES.includes(id)) return { ok: false };
     const now = Date.now();
     if (now - (this.lastEmoteAt[seat] || 0) < 800) return { ok: false };
+    // Two in a row, then a wait: for a person and for the computer opponent alike.
+    const recent = (this.emoteTimes[seat] || []).filter((x) => now - x < EMOTE_WINDOW_MS);
+    const waitMs = emoteWaitMs(recent, now);
+    if (waitMs > 0) return { ok: false, error: "emote_limit", waitMs };
     // The bell (a nudge: the board shakes and rings for both) is limited: one
     // every 10 seconds and 5 a game, or it becomes a nuisance.
     if (id === NUDGE) {
@@ -355,6 +360,7 @@ export class Room {
       this.nudges[seat] = { at: now, n: sent.n + 1 };
     }
     this.lastEmoteAt[seat] = now;
+    this.emoteTimes[seat] = [...recent, now];
     const other = this.otherSeat(seat);
     this.emitToSeat(other, "emote", { from: seat, id });
     if (this.seats[other]?.kind === "bot") this.seats[other].bot.onEvent("emote", { id });

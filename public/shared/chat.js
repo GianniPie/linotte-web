@@ -31,3 +31,14 @@ export const chatImage = (id) => `resources/images/chat/${CHAT.find((c) => c.id 
 export const NUDGE = "🔔";
 export const NUDGE_COOLDOWN_MS = 10 * 1000;
 export const NUDGE_MAX_PER_GAME = 5;
+
+// Reactions in general, or someone can fill the other's screen: two in a row are fine (the second may
+// correct the first), then a wait. In any EMOTE_WINDOW_MS, at most EMOTE_BURST per player, the bell
+// included. The server decides (Room#emote); the app counts the same, to say so before sending.
+export const EMOTE_BURST = 2;
+export const EMOTE_WINDOW_MS = 12 * 1000;
+// How long until another may be sent, from the times (ms, oldest first) of the ones sent: 0 = now.
+export function emoteWaitMs(times, now = Date.now()) {
+    const recent = times.filter((x) => now - x < EMOTE_WINDOW_MS);
+    return recent.length >= EMOTE_BURST ? Math.max(0, EMOTE_WINDOW_MS - (now - recent[recent.length - EMOTE_BURST])) : 0;
+}

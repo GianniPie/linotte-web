@@ -64,13 +64,13 @@ export function badgeTier(level) {
     return BADGE_TIERS.find((b) => level >= b.from)?.tier || "plain";
 }
 
-// Looks unlocked by reaching a level: option index -> level. Only the FLAT
-// dice (3) and Linotte's own green background (Sun Tornado, 4) are free;
-// every other one is earned, about one a level at first. The options list
+// Looks unlocked by reaching a level: option index -> level. The FLAT, CHINESE and
+// PERSIAN dice (3, 4, 5) and Linotte's own green background (Sun Tornado, 4) are free; every other one is
+// earned, about one a level at first. CANDY (6) comes first, SPACE (7) after it. The options list
 // them in this order (see sortLooksByLevel in linotte.js).
 export const FREE_LOOKS = { dice: 3, background: 4 };
 export const LEVEL_UNLOCKS = {
-    dice: { 1: 2, 2: 4, 0: 6, 4: 10, 5: 15 },
+    dice: { 1: 2, 2: 4, 0: 6, 6: 10, 7: 15 },
     background: { 0: 1, 1: 3, 2: 5, 3: 7, 5: 9, 6: 12, 7: 16, 8: 20 },
 };
 export const unlockLevel = (kind, index) => LEVEL_UNLOCKS[kind][index] ?? 0;

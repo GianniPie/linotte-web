@@ -633,6 +633,116 @@ const lobby = new Lobby(io, store);
   console.log("ok: friends");
 }
 
+//--------- 15b. friends you choose: code, requests, states, invitations ---------
+{
+  const { markOnline, markOffline, setActivity, presenceOf } = await import("./friends.js");
+  const fr = await import("./friendships.js");
+  const A = "11111111-1111-4111-8111-111111111111", B = "22222222-2222-4222-8222-222222222222";
+  const calls = [];
+  const db = (answers) => ({ key: "k", url: "https://example.supabase.co", fetch: async (u, o) => {
+    const name = u.split("/rpc/")[1];
+    calls.push([name, JSON.parse(o.body)]);
+    const v = typeof answers[name] === "function" ? answers[name](JSON.parse(o.body)) : answers[name];
+    return { ok: true, text: async () => JSON.stringify(v ?? null) };
+  } });
+
+  // the personal code
+  assert.equal(await fr.friendCodeOf(A, db({ friend_code_of: "K7QF3A" })), "K7QF3A");
+  assert.equal(await fr.friendCodeOf(A, db({ friend_code_of: "K7QF3" })), null, "a malformed code is refused");
+  assert.equal(await fr.friendCodeOf(A, { key: "" }), null, "no database: no code");
+  assert.equal(await fr.friendCodeOf("nope", db({})), null, "not an account id");
+  assert.equal(fr.normalizeFriendCode(" k7q-f3a "), "K7QF3A", "typed any way");
+
+  // using someone's code: friends at once
+  calls.length = 0;
+  const added = await fr.addByCode(A, "k7qf3a", db({ user_by_friend_code: B, friend_request: "accepted" }));
+  assert.deepEqual(added, { result: "accepted", friendId: B });
+  assert.deepEqual(calls.at(-1), ["friend_request", { a: A, b: B, auto: true }], "a code is consent: auto-accepted");
+  calls.length = 0;
+  assert.equal((await fr.addByCode(A, "ABC", db({}))).result, "no_code");
+  assert.equal(calls.length, 0, "a bad code never reaches the database");
+  assert.equal((await fr.addByCode(A, "K7QF3A", db({ user_by_friend_code: null }))).result, "no_code", "a code nobody has");
+
+  // whose code it is, before using it
+  assert.deepEqual(await fr.peekCode("k7qf3a", db({ friend_code_owner: [{ user_id: B, name: "Seal2", country: "IT" }] })), { friendId: B, name: "Seal2", country: "IT" });
+  assert.equal(await fr.peekCode("k7qf3a", db({ friend_code_owner: [] })), null, "a code nobody has");
+  assert.equal(await fr.peekCode("bad", db({})), null);
+
+  // requests and answers
+  assert.equal(await fr.requestFriend(A, B, db({ friend_request: "sent" })), "sent");
+  assert.deepEqual(calls.at(-1), ["friend_request", { a: A, b: B, auto: false }]);
+  assert.equal(await fr.requestFriend(A, "not-an-id", db({})), "none");
+  assert.equal(await fr.respondToRequest(B, A, true, db({ friend_respond: "accepted" })), "accepted");
+  assert.deepEqual(calls.at(-1), ["friend_respond", { me: B, other: A, accept: true }]);
+
+  // the friends screen
+  const rows = [
+    { friend_id: B, name: "Seal2", country: "IT", status: "accepted", requested_by: A, games: 3, week_points: 9 },
+    { friend_id: "33333333-3333-4333-8333-333333333333", name: null, country: null, status: "pending", requested_by: "33333333-3333-4333-8333-333333333333", games: 0, week_points: 0 },
+    { friend_id: "44444444-4444-4444-8444-444444444444", name: "Mia", country: "FR", status: "pending", requested_by: A, games: 0, week_points: 0 },
+  ];
+  const list = await fr.friendList(A, db({ friend_list: rows }));
+  assert.equal(list.friends.length, 1);
+  assert.equal(list.friends[0].weekPoints, 9);
+  assert.equal(list.incoming.length, 1, "a request someone else sent is for the account to answer");
+  assert.ok(list.incoming[0].name.length > 0, "without a profile name, the animal name");
+  assert.equal(list.outgoing[0].name, "Mia", "a request the account sent is waiting");
+  assert.deepEqual((await fr.friendList(A, { key: "" })).friends, [], "no database: nobody");
+
+  // the brake on requests
+  let clock = 0;
+  const budget = fr.createBudget({ perHour: 3, now: () => clock });
+  assert.ok(budget.take(A) && budget.take(A) && budget.take(A), "three allowed");
+  assert.ok(!budget.take(A), "the fourth in an hour is not");
+  assert.ok(budget.take(B), "someone else's budget is their own");
+  clock = 3600_001;
+  assert.ok(budget.take(A), "an hour later it is back");
+
+  // what a friend is doing
+  const mk = (userId, activity) => { const x = fakeSocket("player-" + userId.slice(0, 8), "N"); x.data.userId = userId; markOnline(x); if (activity) setActivity(x, activity); return x; };
+  assert.equal(presenceOf(A), "offline", "nobody connected");
+  const home = mk(A);
+  assert.equal(presenceOf(A), "online", "on the home screen");
+  assert.ok(setActivity(home, "bot") && !setActivity(home, "volcano"), "only the known states");
+  assert.equal(presenceOf(A), "busy", "in a game against the bot");
+  setActivity(home, "table");
+  assert.equal(presenceOf(A), "busy", "at the same table");
+  assert.equal(presenceOf(A, () => true), "playing", "in an online game (the lobby knows)");
+  const second = mk(A);
+  assert.equal(presenceOf(A), "online", "free on a second device is free enough");
+  assert.equal(presenceOf(A, (x) => x === home), "playing", "...unless a game is on any of them");
+  markOffline(home); markOffline(second);
+  assert.equal(presenceOf(A), "offline", "gone");
+
+  // what an invitation does for each state
+  assert.deepEqual(fr.inviteRule("online"), { send: true, soft: false }, "home: a window");
+  assert.deepEqual(fr.inviteRule("busy"), { send: true, soft: true }, "bot or same table: a quiet banner");
+  assert.deepEqual(fr.inviteRule("playing"), { send: false, error: "friend_playing" }, "in an online game: nothing sent");
+  assert.deepEqual(fr.inviteRule("offline"), { send: false, error: "friend_offline" });
+
+  // the open invitations: one per inviter, only the friend answers, a minute and it is over
+  const timers = [];
+  const expired = [];
+  const book = fr.createInviteBook({ onExpire: (i) => expired.push(i.id), setTimer: (fn) => { const t = { fn, unref() {} }; timers.push(t); return t; }, clearTimer: (t) => { t.cleared = true; } });
+  const one = book.create({ fromId: A, toId: B, code: "K7QF" });
+  assert.equal(book.size(), 1);
+  const two = book.create({ fromId: A, toId: B, code: "ZZZZ" });
+  assert.equal(two.replaced.length, 1, "a new invitation withdraws the old one");
+  assert.equal(book.size(), 1);
+  assert.equal(book.answer(two.invite.id, A), null, "not the inviter's to answer");
+  assert.equal(book.answer(two.invite.id, B)?.code, "ZZZZ", "the friend answers");
+  assert.equal(book.size(), 0);
+  const three = book.create({ fromId: A, toId: B, code: "QQQQ" });
+  timers.at(-1).fn();
+  assert.deepEqual(expired, [three.invite.id], "unanswered: it expires");
+  assert.equal(book.size(), 0);
+  const four = book.create({ fromId: A, toId: B, code: "WWWW" });
+  assert.equal(book.cancelFrom(A).length, 1, "the inviter leaves: the invitation goes");
+  assert.equal(book.get(four.invite.id), null);
+  assert.ok(one.invite.id !== two.invite.id);
+  console.log("ok: friendships");
+}
+
 //--------- 16. the table's background, matching by level ---------
 {
   const { tableSeat, canMeet, ownsBackground } = await import("../public/shared/level.js");
@@ -759,13 +869,25 @@ const lobby = new Lobby(io, store);
   assert.ok(!room.emote(seat, "❤️").ok, "one that isn't in the set is refused");
   assert.equal(find(b, "emote").at(-1)?.payload.id, "👍", "and the other player gets it");
 
-  const wait = () => { room.lastEmoteAt[seat] = 0; };
+  // Two in a row (the second may correct the first), then a wait; anyone, the computer included, goes through Room#emote.
+  const gap = () => { room.lastEmoteAt[seat] = 0; }; // (past the 0.8 s between two taps)
+  gap(); assert.ok(room.emote(seat, "👍").ok, "a second one right away, to correct the first");
+  gap(); assert.equal(room.emote(seat, "👍").error, "emote_limit", "but not a third");
+  assert.ok(room.emote(seat, "👍").waitMs > 0, "and it says for how long");
+  assert.equal(find(b, "emote").length, 2, "the other player only got the two");
+  room.emoteTimes[seat] = room.emoteTimes[seat].map((x) => x - 13000); // 13 s later
+  gap(); assert.ok(room.emote(seat, "👍").ok, "after the wait it goes through again");
+  const wait = () => { room.lastEmoteAt[seat] = 0; room.emoteTimes[seat] = []; };
   wait(); assert.ok(room.emote(seat, "🔔").ok, "the bell rings");
   wait(); assert.equal(room.emote(seat, "🔔").error, "nudge_limit", "but not again within 10 seconds");
   for (let n = 2; n <= 5; n++) { room.nudges[seat].at -= 11000; wait(); assert.ok(room.emote(seat, "🔔").ok, `bell ${n} of 5`); }
   room.nudges[seat].at -= 11000; wait();
   assert.equal(room.emote(seat, "🔔").error, "nudge_limit", "5 a game at most");
   assert.ok(find(b, "emote").filter((m) => m.payload.id === "🔔").length === 5, "the other player was rung 5 times");
+  const { emoteWaitMs } = await import("../public/shared/chat.js");
+  assert.equal(emoteWaitMs([0, 1000], 2000), 10000, "two just sent: wait until the older is 12 s old");
+  assert.equal(emoteWaitMs([0], 2000), 0, "one is free");
+  assert.equal(emoteWaitMs([0, 1000], 13000), 0, "and 12 s later it is again");
   room.forfeit(seat, "left");
   console.log("ok: chat reactions");
 }

@@ -12,6 +12,18 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.31.0] - 2026-11-18
+
+### Changed
+- Two new dice, CANDY and SPACE, to unlock: CANDY at level 10 and SPACE at level 15, in the places CHINESE and PERSIAN had, which are now free for everyone (like FLAT). Anyone who had already unlocked those keeps them, and so do the saved choices. The new dice have the classic's soft shadow, and the art is kept small: 220 px a face like the others, as WebP (58 and 48 KB each instead of 750; the originals are in `art/dice-sources/`).
+- Every die now has its own corner radius, measured on its drawing: the shadow and the yellow selection ring, on the board, in the options tiles and in the how-to videos, follow the die's corners instead of one shared curve (they were 20% for all, the drawings go from 10% to 19.5%).
+- A limit on reactions (emoji): two in a row are allowed (the second can correct the first), then a wait: at most two in any 12 seconds per player, the bell included. The server decides, so it holds for everyone, and the computer opponent that plays like a person goes through the same rule. In the app, the reactions in the fan dim and a message says to wait a few seconds, instead of sending.
+- The computer opponent that plays like a person (random online games with few players) is slower and less ready to react: the pauses before the first roll, after seeing the dice and before placing grew by about 40% (a turn takes about 19 s at the median instead of 15, and never more than the clock allows), the reply to a reaction you send takes 3.5 to 9 s (it was 1.5 to 6), a reaction after a move 2.4 to 6 s (it was 1.2 to 4), after the end of the game 2.5 to 6.5 s, and two reactions are at least 6 s apart (it was 4).
+- The first screen ("Before you play") now has the six languages at the top, to pick another one than the phone's: it is translated as a whole, and the choice is kept. It used to follow the phone's language only, so a phone set to English could only read it in English.
+
+### Added
+- Friends you choose. The FRIEND button on the home opens the new Friends sheet: requests waiting for your answer (a red dot on the button tells), your friends with what each is doing (online, busy in a game against the bot or at the same table, in an online game, offline) and PLAY to invite those who can be asked, ADD FRIEND and PRIVATE ROOM (the old room code, as before). Tap a name to remove or block. ADD FRIEND shows your own 6-character code with a link to share (`/f/CODE`) and takes a friend's: it asks "Add Anna?" before making you friends. After an online game, ADD FRIEND on the opponent's card sends them a request. A friend who invites you while you play against the bot or at the same table reaches you as a quiet banner (accepting puts that game on hold, the home offers it back), never a window over an online game; the invitation lasts a minute. Everyone signed in is now online for friends (it was Pro only) and the list is free: only opening the room to invite stays Pro. Playing in a private room no longer makes friends by itself; the ones you already had stay. The data is in `supabase/friendships.sql`, to be run in the SQL Editor (it also fixes the friends' weekly points, which still counted the old online rates). Design in `docs/FRIENDS.md`.
+
 ## [2.30.0] - 2026-11-17
 
 ### Changed

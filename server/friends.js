@@ -25,6 +25,7 @@ export function markOnline(socket) {
   if (!sockets.has(id)) sockets.set(id, new Set());
   sockets.get(id).add(socket);
   socket.data.presenceId = id;
+  socket.data.activity = "home"; // until the app says it is somewhere else (setActivity)
 }
 
 export function markOffline(socket) {
@@ -39,8 +40,31 @@ export function markOffline(socket) {
 export const socketsOf = (userId) => [...(sockets.get(userId) || [])];
 export const isOnline = (userId) => (sockets.get(userId)?.size || 0) > 0;
 
+// What an online account is doing, for its friends and for invitations:
+//   "home"  the app is open on its home screen (or anywhere that isn't a game): free to be asked;
+//   "bot"   playing against the bot, "table" playing "Same table": a game that can be put on hold,
+//           so an invitation reaches them quietly (a banner, not a window over their game);
+//   and, told by the server itself, "playing": in an online game, not to be disturbed.
+// The app says which of the first three it is (setActivity); the server knows about "playing".
+export const ACTIVITIES = ["home", "bot", "table"];
+export function setActivity(socket, state) {
+  if (!socket.data.presenceId || !ACTIVITIES.includes(state)) return false;
+  socket.data.activity = state;
+  return true;
+}
+
+// "offline" | "online" | "busy" | "playing" for an account. `playing(socket)` says whether that
+// connection is in an online game (the lobby knows). One account on two devices: it is as free as
+// its freest connection, except that a game on any of them means "playing".
+export function presenceOf(userId, playing = () => false) {
+  const list = socketsOf(userId);
+  if (!list.length) return "offline";
+  if (list.some(playing)) return "playing";
+  return list.some((s) => s.data.activity === "home") ? "online" : "busy";
+}
+
 //--------- the friends table ---------
-async function rpc(name, args, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
+export async function rpc(name, args, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
   if (!key || !url) return null;
   const res = await fetchImpl(`${url}/rest/v1/rpc/${name}`, {
     method: "POST",

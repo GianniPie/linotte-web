@@ -177,14 +177,14 @@ window.addEventListener('orientationchange', onViewportChange);
 
 //----------- GAME STATE ---------------
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
-import { dicePath, diceFaces, dicePos, diceNames, bgPath, backgrounds, piecesPath, pieces, avatarIds, avatarUrl } from "./shared/assets.js";
+import { dicePath, diceFaces, dicePos, diceNames, diceRadius, bgPath, backgrounds, piecesPath, pieces, avatarIds, avatarUrl } from "./shared/assets.js";
 import { updateGame, canRoll, callBlockedBy } from "./shared/gameEngine.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget, labCandidates, setSpeedWeights, setSpeedModels, labAim, labCall, labStop, labLock } from "./shared/botAI.js";
 import { labOn, labSend, labListen } from "./botlab-client.js";
 import GameController from './shared/gameController.js';
 import { playFairyTrail, cancelFairyTrails } from "./shared/fairyTrail.js";
 import { initCombinationDemos } from "./demo.js";
-import { CHAT, chatImage, chatScale, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME } from "./shared/chat.js";
+import { CHAT, chatImage, chatScale, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs } from "./shared/chat.js";
 import { TURN_FREEZE_CAP_MS } from "./shared/turn.js";
 import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
 import { nameProblem, cleanPlayerName, COUNTRIES, flagOf } from "./shared/playerNames.js";
@@ -192,7 +192,7 @@ import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces
 import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAbandon, guestToday, guestAdReward } from "./stats.js";
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
-import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
+import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends } from "./online.js";
 import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
@@ -533,8 +533,17 @@ function showPlayerCard(seat) {
         if (mine) el.dataset.explain = text; else delete el.dataset.explain;
     });
     byId("pc-badge-wrap").hidden = isBot || controller.mode === "offline";
+    // An online opponent with an account can be asked to be a friend.
+    const addFriend = byId("pc-add-friend");
+    addFriend.hidden = !(controller.mode === "online" && !mine && (currentUser() || friendsDemo) && p.level != null);
+    addFriend.dataset.name = p.name;
     showOnlineView("player");
 }
+document.getElementById("pc-add-friend").addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    btn.hidden = true;
+    askOpponentToBeFriend(btn.dataset.name);
+});
 boxPlayer1.addEventListener("click", () => showPlayerCard(1));
 boxPlayer2.addEventListener("click", () => showPlayerCard(2));
 
@@ -1039,11 +1048,16 @@ function renderDiceFace(id) {
         el.classList.remove("black-shadow", "red-shadow");
     });
 
-    if (id == 0 || id == 1 || id == 4 || id == 5) {
+    // Every die has the classic's soft shadow but the flat one (no shadow) and the red one (its own).
+    if (id != 2 && id != 3) {
         document.querySelectorAll(".die").forEach(el => {
             el.classList.add("black-shadow");
         });
     }
+    // The corners of this die's own drawing: the shadow and the selection ring follow them.
+    document.querySelectorAll(".die").forEach(el => {
+        el.style.borderRadius = `${diceRadius[id]}%`;
+    });
     if (id == 2) {
         document.querySelectorAll(".die").forEach(el => {
             el.classList.add("red-shadow");
@@ -1446,6 +1460,8 @@ function clearBoardVisuals() {
 
 
 const dieOptions = document.querySelectorAll(".die-options");
+// Each tile (and its selection ring) has the corners of the die it shows.
+dieOptions.forEach(dieOption => { dieOption.style.borderRadius = `${diceRadius[Number(dieOption.id.slice(2))]}%`; });
 dieOptions.forEach(dieOption => {
     dieOption.addEventListener("click", () => {
         if (lockedToast(dieOption)) return;
@@ -3527,6 +3543,9 @@ function layoutChatFanColumns({ item, step, down, roomY, margin }) {
     chatFan.dataset.side = "right";
 }
 
+// Reactions are limited like on the server (EMOTE_BURST in EMOTE_WINDOW_MS): the times of this game's own.
+let chatSent = [];
+const emoteWait = () => emoteWaitMs(chatSent);
 // The bell is limited like on the server (NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME).
 let chatNudge = { at: 0, n: 0 };
 function nudgeWait() {
@@ -3542,7 +3561,9 @@ function openChatFan() {
     chatFan.hidden = false;
     layoutChatFan();
     const bell = chatFanItems.querySelector(`[data-id="${NUDGE}"]`);
-    bell.classList.toggle("is-wait", Boolean(nudgeWait()));
+    const cooling = emoteWait() > 0; // two reactions just sent: they all wait a few seconds
+    chatFanItems.querySelectorAll(".chat-fan-item").forEach((el) => el.classList.toggle("is-wait", cooling));
+    if (!cooling) bell.classList.toggle("is-wait", Boolean(nudgeWait()));
     chatFab.setAttribute("aria-expanded", "true");
     void chatFan.offsetWidth; // so the opening plays from the closed state
     chatFan.classList.add("is-open");
@@ -3563,10 +3584,12 @@ document.getElementById("chat-fan-backdrop").addEventListener("click", () => clo
 async function pickChat(id, btn) {
     if (!chatAvailable()) { closeChatFan(); return; }
     const from = btn.getBoundingClientRect();
+    if (emoteWait() > 0) { showToast(t("Wait a few seconds before sending another reaction.")); return; }
     if (id === NUDGE) {
         const wait = nudgeWait();
         if (wait) { showToast(wait); return; }
         closeChatFan();
+        chatSent.push(Date.now());
         const res = await onlineClient.sendEmote(id);
         if (res?.ok) {
             chatNudge = { at: Date.now(), n: chatNudge.n + 1 };
@@ -3578,7 +3601,8 @@ async function pickChat(id, btn) {
         return;
     }
     throwChatEmoji(id, from);
-    onlineClient.sendEmote(id);
+    chatSent.push(Date.now());
+    onlineClient.sendEmote(id).then((res) => { if (res?.error === "emote_limit") showToast(t("Wait a few seconds before sending another reaction.")); });
     closeChatFan();
 }
 
@@ -3851,6 +3875,7 @@ function throwChatEmoji(emoji, originRect) {
 
 const onlineClient = new OnlineClient({
     onConnection: (connected) => {
+        if (connected) { lastPresence = ""; refreshFriendsBadge(); } // a new connection is "home" to the server until told
         // Back after a drop while looking for an opponent (e.g. the server
         // restarted for an update): the new server's queue is empty, so join
         // it again. A game that had started is picked up by rejoin instead.
@@ -3889,6 +3914,10 @@ const onlineClient = new OnlineClient({
     onIdle: onRemoteIdle,
     onFriendInvite: (msg) => onFriendInvite(msg),
     onInviteDeclined: (msg) => onInviteDeclined(msg),
+    onInviteExpired: (msg) => onInviteExpired(msg),
+    onFriendRequest: (msg) => onFriendRequest(msg),
+    onFriendAccepted: (msg) => onFriendAccepted(msg),
+    onFriendPresence: (msg) => onFriendPresence(msg),
     // The server saved the game just played: its points are final now.
     onRecorded: () => { if (currentUser() && !pointsHeld()) showGameXp(); }, // before the card: noteGameResult asks
     // The first online game of the day played to the end: the server added the bonus.
@@ -3996,7 +4025,20 @@ consentContinue.addEventListener("click", () => {
     consentOverlay.style.display = "none";
     if (onlineClient.socket) onlineClient.ensureConsentSent();
     autoJoinFromLink();
+    autoFriendFromLink();
 });
+
+// The language of this first screen: the phone's, with the others one tap away.
+(function buildConsentLanguages() {
+    const box = document.getElementById("consent-langs");
+    for (const { code, name } of LANGUAGES) {
+        const btn = Object.assign(document.createElement("button"), { type: "button", className: "consent-lang" + (code === LANG ? " is-on" : ""), textContent: name });
+        btn.lang = code;
+        btn.setAttribute("aria-pressed", String(code === LANG));
+        btn.addEventListener("click", () => setLanguage(code));
+        box.appendChild(btn);
+    }
+})();
 
 if (!hasConsent()) showConsent();
 
@@ -4156,7 +4198,7 @@ document.getElementById("home-online-btn").addEventListener("click", () => {
     else showToast(t("Online play is coming soon."));
 });
 document.getElementById("home-friend-btn").addEventListener("click", () => {
-    if (onlineEnabled) showOnlineView("friend");
+    if (onlineEnabled) openFriends();
     else showToast(t("Playing with a friend is coming soon."));
 });
 
@@ -5632,37 +5674,360 @@ async function inviteFriend(f) {
     if (rankingTab === "friends") showRanking("friends");
 }
 
-// A Pro friend invites this player: join their room, or say no.
+//--------- the friends you chose (server/friendships.js, docs/FRIENDS.md) ---------
+// The FRIEND button opens the friends sheet: requests waiting, friends with what each is doing,
+// ADD FRIEND (your code and link, a friend's code) and PRIVATE ROOM (the old way, with a room code).
+// ?friendsdemo=1 on a local page fills it with made-up friends, to look at the screen without a server.
+const friendsDemo = ["localhost", "127.0.0.1"].includes(location.hostname) && new URLSearchParams(location.search).has("friendsdemo");
+const DEMO_FRIENDS = {
+    ok: true, pro: true, code: "K7QF3A",
+    friends: [
+        { id: "d1", name: "Anna", country: "IT", games: 12, weekPoints: 18, pro: true, state: "online" },
+        { id: "d2", name: "Marco", country: "IT", games: 5, weekPoints: 7, pro: false, state: "busy" },
+        { id: "d3", name: "Giulia", country: "FR", games: 9, weekPoints: 11, pro: true, state: "playing" },
+        { id: "d4", name: "Luca", country: "", games: 2, weekPoints: 0, pro: false, state: "offline" },
+    ],
+    incoming: [{ id: "d5", name: "Sofia", country: "ES" }],
+    outgoing: [{ id: "d6", name: "Paolo", country: "PT" }],
+};
+let friendsData = null; // the last answer of friends_list
+let friendsRefresh = 0; // timer that asks again while the sheet is open
+
+const friendLink = (code) => `${location.origin}/f/${code}`;
+const stateText = (state) => ({ online: t("Online"), busy: t("Busy"), playing: t("In a game"), offline: t("Offline") }[state] || "");
+const STATE_ORDER = { online: 0, busy: 1, playing: 2, offline: 3 };
+
+async function loadFriends() {
+    if (friendsDemo) return structuredClone(DEMO_FRIENDS);
+    return onlineClient.friendsList();
+}
+
+// The red dot on the FRIEND button: requests waiting for an answer.
+function setFriendsBadge(n) { byId("friends-badge").hidden = !(n > 0); }
+async function refreshFriendsBadge() {
+    if (!currentUser() && !friendsDemo) return setFriendsBadge(0);
+    const res = await loadFriends();
+    if (res?.ok) { friendsData = res; setFriendsBadge(res.incoming.length); }
+}
+
+async function openFriends() {
+    stopFriendsRefresh();
+    if (!currentUser() && !friendsDemo) { renderFriends(null); showOnlineView("friends"); return; }
+    if (friendsData) renderFriends(friendsData); // what was known, until the fresh answer comes
+    else renderFriends({ ok: true, friends: [], incoming: [], outgoing: [], loading: true });
+    showOnlineView("friends");
+    if (!friendsDemo && !(await prepareOnline())) return;
+    showOnlineView("friends");
+    await updateFriends();
+    // The games starting and ending are not announced: ask again every so often while it is open.
+    friendsRefresh = setInterval(() => { if (onlineOverlay.dataset.view === "friends") updateFriends(); else stopFriendsRefresh(); }, 20000);
+}
+function stopFriendsRefresh() { clearInterval(friendsRefresh); friendsRefresh = 0; }
+async function updateFriends() {
+    const res = await loadFriends();
+    if (!res?.ok) { if (onlineOverlay.dataset.view === "friends" && !friendsData) showToast(t("Can't load your friends right now. Please try again.")); return; }
+    friendsData = res;
+    setFriendsBadge(res.incoming.length);
+    if (onlineOverlay.dataset.view === "friends") renderFriends(res);
+}
+
+function friendRow(person, { dot = "", sub = "", actions = [], onOpen }) {
+    const li = document.createElement("li");
+    const name = Object.assign(document.createElement("button"), { className: "fr-name", type: "button" });
+    name.append(span("", nameWithFlag(person)), span("fr-state", sub));
+    name.addEventListener("click", onOpen);
+    const box = span("fr-actions");
+    box.append(...actions);
+    li.append(span("fr-dot" + (dot ? ` is-${dot}` : "")), name, box);
+    return li;
+}
+const frButton = (text, { no = false, label = text, onClick }) => {
+    const b = Object.assign(document.createElement("button"), { className: "fr-btn" + (no ? " is-no" : ""), type: "button", textContent: text });
+    b.setAttribute("aria-label", label);
+    b.addEventListener("click", (e) => { e.stopPropagation(); onClick(b); });
+    return b;
+};
+
+function renderFriends(data) {
+    const guest = !data;
+    byId("fr-signin-text").hidden = !guest;
+    byId("fr-signin").hidden = !guest;
+    byId("fr-add").hidden = guest;
+    byId("fr-requests").hidden = guest || !data.incoming.length;
+    byId("fr-friends").hidden = guest || !(data.friends.length || data.outgoing.length);
+    byId("fr-empty").hidden = guest || data.loading || data.friends.length || data.incoming.length || data.outgoing.length;
+    if (guest) return;
+    byId("fr-requests-list").replaceChildren(...data.incoming.map((p) => friendRow(p, {
+        sub: t("wants to be your friend"),
+        onOpen: () => openFriendManage(p, "incoming"),
+        actions: [
+            frButton("✓", { label: t("ACCEPT"), onClick: () => answerRequest(p, true) }),
+            frButton("✕", { no: true, label: t("DECLINE"), onClick: () => answerRequest(p, false) }),
+        ],
+    })));
+    const friends = [...data.friends].sort((a, b) => (STATE_ORDER[a.state] - STATE_ORDER[b.state]) || a.name.localeCompare(b.name));
+    byId("fr-list").replaceChildren(
+        ...friends.map((f) => friendRow(f, {
+            dot: f.state === "offline" ? "" : f.state,
+            sub: stateText(f.state),
+            onOpen: () => openFriendManage(f, "friend"),
+            // Asked to play when they are free enough to be asked: at the home screen, or in a game that can wait.
+            actions: f.state === "online" || f.state === "busy" ? [frButton(t("PLAY"), { onClick: () => inviteFriend(f) })] : [],
+        })),
+        ...data.outgoing.map((p) => friendRow(p, { sub: t("Waiting for their answer"), onOpen: () => openFriendManage(p, "outgoing") })),
+    );
+}
+
+async function answerRequest(person, accept) {
+    if (friendsDemo) { showToast(accept ? t("{name} is now your friend.", { name: person.name }) : t("Request declined.")); return; }
+    const res = await onlineClient.friendRespond(person.id, accept);
+    if (res.ok && accept) showToast(t("{name} is now your friend.", { name: person.name }));
+    await updateFriends();
+}
+
+// What can be done with one person on the list: a request (accept, decline), a friend (remove) or a
+// request this player sent (withdraw); and block them. Remove and block ask for a second tap.
+function openFriendManage(person, kind) {
+    byId("fr-manage-title").textContent = nameWithFlag(person);
+    byId("fr-manage-text").textContent = {
+        friend: t("Remove {name} from your friends, or block them so they can't ask again.", { name: person.name }),
+        incoming: t("{name} wants to be your friend.", { name: person.name }),
+        outgoing: t("You asked {name}. Waiting for their answer.", { name: person.name }),
+    }[kind];
+    byId("fr-manage-accept").hidden = kind !== "incoming";
+    const remove = byId("fr-manage-remove"), block = byId("fr-manage-block");
+    byId("fr-manage-remove").querySelector(".text-button").textContent = { friend: t("REMOVE FRIEND"), incoming: t("DECLINE"), outgoing: t("WITHDRAW REQUEST") }[kind];
+    block.querySelector(".text-button").textContent = t("BLOCK");
+    block.hidden = kind === "outgoing";
+    byId("fr-manage-accept").onclick = async () => { await answerRequest(person, true); openFriends(); };
+    const sure = (btn, label, action) => {
+        btn.onclick = async () => {
+            if (btn.dataset.sure !== "1") { // first tap: say what it will do
+                btn.dataset.sure = "1";
+                btn.querySelector(".text-button").textContent = t("SURE? TAP AGAIN");
+                setTimeout(() => { btn.dataset.sure = ""; btn.querySelector(".text-button").textContent = label; }, 3500);
+                return;
+            }
+            btn.dataset.sure = "";
+            if (!friendsDemo) await action();
+            showToast(t("Done."));
+            if (!friendsDemo) friendsData = null;
+            openFriends();
+        };
+    };
+    sure(remove, remove.querySelector(".text-button").textContent, () => (kind === "incoming" ? onlineClient.friendRespond(person.id, false) : onlineClient.friendRemove(person.id)));
+    sure(block, t("BLOCK"), () => onlineClient.friendBlock(person.id));
+    showOnlineView("friend-manage");
+}
+byId("fr-manage-back").addEventListener("click", openFriends);
+
+byId("fr-back").addEventListener("click", () => { stopFriendsRefresh(); closeOnlineOverlay(); });
+byId("fr-room").addEventListener("click", () => { stopFriendsRefresh(); showOnlineView("friend"); });
+byId("fr-signin").addEventListener("click", () => { stopFriendsRefresh(); byId("home-profile").click(); });
+
+// ADD FRIEND: this player's own code (to give), and a friend's (to use).
+byId("fr-add").addEventListener("click", () => {
+    stopFriendsRefresh();
+    byId("fr-my-code").textContent = friendsData?.code || "------";
+    byId("fr-code-input").value = "";
+    byId("fr-code-error").textContent = "";
+    showOnlineView("friend-add");
+});
+byId("fr-add-back").addEventListener("click", openFriends);
+async function shareFriendCode() {
+    const code = friendsData?.code;
+    if (!code) return false;
+    const url = friendLink(code);
+    if (navigator.share) {
+        try { await navigator.share({ title: "Linotte", text: t("Add me on Linotte! My code: {code}", { code }), url }); return true; }
+        catch { /* dismissed the share sheet */ }
+    }
+    return copyFriendLink();
+}
+async function copyFriendLink() {
+    const code = friendsData?.code;
+    if (!code) return false;
+    try { await navigator.clipboard.writeText(friendLink(code)); showToast(t("Link copied")); return true; }
+    catch { window.prompt("Copy this link", friendLink(code)); return false; }
+}
+byId("fr-share").addEventListener("click", shareFriendCode);
+byId("fr-copy").addEventListener("click", copyFriendLink);
+
+const friendCodeErrors = () => ({
+    no_code: t("That code doesn't match anyone. Check it."),
+    self: t("That's your own code."),
+    slow_down: t("Too many tries. Wait a minute and try again."),
+});
+// Someone's code (typed, or from a link): who is it? ask, and only then add.
+let pendingFriendCodeUse = null;
+async function useFriendCode(raw, { fromLink = false } = {}) {
+    const code = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const errorEl = byId("fr-code-error");
+    errorEl.textContent = "";
+    if (code.length !== 6) { errorEl.textContent = friendCodeErrors().no_code; return; }
+    let owner;
+    if (friendsDemo) owner = { ok: true, name: "Sofia", country: "ES" };
+    else {
+        if (!(await prepareOnline())) return;
+        owner = await onlineClient.friendCodePeek(code);
+    }
+    if (!owner.ok) {
+        const text = friendCodeErrors()[owner.error] || t("Something went wrong. Please try again.");
+        if (fromLink) showMessage(t("Friend code"), text);
+        else { showOnlineView("friend-add"); errorEl.textContent = text; }
+        return;
+    }
+    pendingFriendCodeUse = { code, fromLink };
+    byId("fr-confirm-title").textContent = t("Add {name} as a friend?", { name: owner.name });
+    showOnlineView("friend-confirm");
+}
+byId("fr-code-submit").addEventListener("click", () => useFriendCode(byId("fr-code-input").value));
+byId("fr-code-input").addEventListener("keydown", (e) => { if (e.key === "Enter") useFriendCode(e.currentTarget.value); });
+byId("fr-confirm-no").addEventListener("click", () => { pendingFriendCodeUse = null; openFriends(); });
+byId("fr-confirm-yes").addEventListener("click", async () => {
+    const use = pendingFriendCodeUse;
+    pendingFriendCodeUse = null;
+    if (!use) return openFriends();
+    if (friendsDemo) { showToast(t("{name} is now your friend.", { name: "Sofia" })); return openFriends(); }
+    const res = await onlineClient.friendAddCode(use.code);
+    if (res.ok) showToast(res.result === "already" ? t("You are already friends.") : t("You are friends now."));
+    else showToast(res.result === "full" ? t("Your list of friends is full.") : t("Can't add friends right now."));
+    friendsData = null;
+    openFriends();
+});
+
+// A code in a link (https://host/f/K7QF3A -> /?friend=K7QF3A): once the consent is given and the
+// player is signed in.
+let friendLinkDone = false;
+async function autoFriendFromLink() {
+    const code = pendingFriendCode();
+    if (!code || friendLinkDone || !hasConsent()) return;
+    friendLinkDone = true;
+    history.replaceState(null, "", location.pathname);
+    // The saved session is read a moment after the page loads.
+    await Promise.race([waitUntil(() => currentUser()), new Promise((resolve) => setTimeout(resolve, 3000))]);
+    if (!currentUser() && !friendsDemo) return showMessage(t("Friend code"), t("Sign in first, then open the link again."));
+    useFriendCode(code, { fromLink: true });
+}
+
+// "Add friend" on an opponent's card (or the winner card): a request they can accept or not.
+async function askOpponentToBeFriend(name) {
+    if (friendsDemo) { showToast(t("Request sent to {name}.", { name })); return; }
+    const res = await onlineClient.friendRequestOpponent();
+    if (!res.ok) { showToast(res.error === "slow_down" ? t("Too many tries. Wait a minute and try again.") : t("Can't add friends right now.")); return; }
+    showToast({
+        sent: t("Request sent to {name}.", { name }),
+        accepted: t("You are friends now."),
+        already: t("You are already friends."),
+        waiting: t("You already asked."),
+        full: t("Your list of friends is full."),
+    }[res.result] || t("Request sent to {name}.", { name }));
+}
+
+// The server tells what happens around the list.
+function onFriendRequest({ name }) {
+    showToast(t("{name} wants to be your friend.", { name }), 4000);
+    refreshFriendsBadge();
+    if (onlineOverlay.dataset.view === "friends") updateFriends();
+}
+function onFriendAccepted({ name }) {
+    showToast(t("{name} is now your friend.", { name }), 3500);
+    refreshFriendsBadge();
+    if (onlineOverlay.dataset.view === "friends") updateFriends();
+}
+function onFriendPresence({ id, state }) {
+    const f = friendsData?.friends.find((x) => x.id === id);
+    if (!f || f.state === state) return;
+    f.state = state;
+    if (onlineOverlay.dataset.view === "friends") renderFriends(friendsData);
+}
+
+// Where this app is, for the friends who might invite: "home", "bot" or "table". Told when it changes.
+let lastPresence = "";
+function currentPresence() {
+    if (!gameInProgress || isGameOver || isHomeShown()) return "home";
+    return controller.mode === "bot" ? "bot" : controller.mode === "offline" ? "table" : "home";
+}
+setInterval(() => {
+    if (!onlineClient.isConnected()) return;
+    const now = currentPresence();
+    if (now !== lastPresence) { lastPresence = now; onlineClient.setPresence(now); }
+}, 3000);
+
+if (friendsDemo) refreshFriendsBadge();
+
+// A friend invites this player. At the home screen: a window. In a game against the bot or at the
+// same table (the server says "soft"): a quiet banner, and accepting puts that game on hold (it is
+// saved at every turn, the home offers it back). In an online game the server sends nothing.
 let pendingInvite = null;
-function onFriendInvite({ from, fromId, code }) {
-    // Busy in a game: no, without asking.
-    if (gameInProgress && !isGameOver) { onlineClient.declineInvite(fromId); return; }
-    pendingInvite = { fromId, code };
+let inviteBannerTimer = 0;
+function onFriendInvite({ from, fromId, code, inviteId, soft, expiresAt }) {
+    // An online game that counts: never interrupted (an older server may still send one).
+    if (gameInProgress && !isGameOver && controller.mode === "online") { onlineClient.declineInvite(fromId, inviteId); return; }
+    pendingInvite = { fromId, code, inviteId };
+    const inGame = gameInProgress && !isGameOver && !isHomeShown();
+    if (soft || inGame) {
+        byId("invite-banner-text").textContent = t("{name} invites you to play", { name: from });
+        byId("invite-banner").hidden = false;
+        clearTimeout(inviteBannerTimer);
+        inviteBannerTimer = setTimeout(hideInviteBanner, Math.max(3000, (expiresAt || Date.now() + 60000) - Date.now()));
+        buzz(60);
+        return;
+    }
     byId("invite-title").textContent = t("{name} invites you to play", { name: from });
     hideHomeScreen();
     showOnlineView("invite");
+    buzz(60);
 }
-byId("invite-accept").addEventListener("click", () => {
+function hideInviteBanner() {
+    clearTimeout(inviteBannerTimer);
+    byId("invite-banner").hidden = true;
+}
+function acceptPendingInvite() {
     const inv = pendingInvite;
     pendingInvite = null;
-    if (inv) joinFriendByCode(inv.code);
-});
-byId("invite-decline").addEventListener("click", () => {
-    if (pendingInvite) onlineClient.declineInvite(pendingInvite.fromId);
+    hideInviteBanner();
+    if (!inv) return;
+    onlineClient.acceptInvite(inv.inviteId);
+    if (gameInProgress && !isGameOver && controller.mode !== "online") { saveOfflineGame(); leaveToHome(); } // put on hold
+    joinFriendByCode(inv.code);
+}
+function declinePendingInvite() {
+    if (pendingInvite) onlineClient.declineInvite(pendingInvite.fromId, pendingInvite.inviteId);
     pendingInvite = null;
-    closeOnlineOverlay();
-});
+    hideInviteBanner();
+}
+byId("invite-accept").addEventListener("click", acceptPendingInvite);
+byId("invite-decline").addEventListener("click", () => { declinePendingInvite(); closeOnlineOverlay(); });
+byId("invite-banner-go").addEventListener("click", acceptPendingInvite);
+byId("invite-banner-no").addEventListener("click", declinePendingInvite);
 // The friend said no (or was busy): out of the waiting room.
 function onInviteDeclined({ name }) {
     if (onlineOverlay.dataset.view !== "waiting") return;
     showToast(t("{name} can't play now.", { name: name || t("Your friend") }), 3500);
     byId("room-cancel").click();
 }
+// Nobody answered in a minute: the invitation is gone, for the friend (window or banner) and for the
+// one who sent it (the server has closed its room).
+function onInviteExpired({ inviteId }) {
+    if (pendingInvite && pendingInvite.inviteId === inviteId) {
+        pendingInvite = null;
+        hideInviteBanner();
+        if (onlineOverlay.dataset.view === "invite") { closeOnlineOverlay(); showToast(t("The invitation has run out.")); }
+        return;
+    }
+    if (onlineOverlay.dataset.view === "waiting") {
+        showToast(t("No answer. The invitation has run out."), 3500);
+        setOnlineSession(false);
+        currentRoomCode = null;
+        closeOnlineOverlay();
+    }
+}
 
-// Pro players keep the app connected on the home screen, so their Pro
-// friends see them online and can invite them (friends.js).
+// A signed-in player keeps the app connected, so their friends see them online and can invite them
+// (friends.js).
 function stayReachable() {
-    if (currentUser() && document.body.classList.contains("is-pro") && hasConsent() && onlineClient.available()) onlineClient.connect();
+    if (currentUser() && hasConsent() && onlineClient.available()) onlineClient.connect();
 }
 
 
@@ -5828,7 +6193,7 @@ document.getElementById("searching-cancel").addEventListener("click", () => {
     onlineClient.leaveRoom();
     closeOnlineOverlay();
 });
-document.getElementById("friend-back").addEventListener("click", closeOnlineOverlay);
+document.getElementById("friend-back").addEventListener("click", openFriends); // back to the friends
 document.getElementById("friend-create").addEventListener("click", createFriendRoom);
 document.getElementById("friend-join").addEventListener("click", () => {
     document.getElementById("code-error").textContent = "";
@@ -5924,7 +6289,7 @@ async function beginOnlineGame(snap) {
     gameState = snap.state;
     LOCAL_PLAYER = snap.seat;
     showTableLook(snap.state?.tableLook, snap.fresh);
-    if (snap.fresh) chatNudge = { at: 0, n: 0 };
+    if (snap.fresh) { chatNudge = { at: 0, n: 0 }; chatSent = []; }
     idleTurns = {};
     opponentGone = snap.opponentConnected === false;
     gameState.players[snap.seat].name = t("YOU");
@@ -6170,8 +6535,8 @@ function onRemoteIdle({ seat, turns, limit }) {
     }
 }
 
-document.addEventListener("DOMContentLoaded", autoJoinFromLink);
-if (document.readyState !== "loading") autoJoinFromLink();
+document.addEventListener("DOMContentLoaded", () => { autoJoinFromLink(); autoFriendFromLink(); });
+if (document.readyState !== "loading") { autoJoinFromLink(); autoFriendFromLink(); }
 
 // Relaunched in the middle of an online game (or while a friend room was
 // waiting): reconnect now -- the client asks the server for its room as soon

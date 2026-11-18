@@ -33,7 +33,7 @@ import { scoringCells, newPieceCell, touches, placementMargin, nearness, indexOf
 import { pickFor, pickWeighted, replyTo, wrongOne, cooledHeat, activity, HEAT_PER_EMOTE } from "./botChat.js";
 
 const MAX_EMOTES_PER_GAME = 6;
-const MIN_GAP_BETWEEN_EMOTES_MS = 4000; // a person doesn't fire off reactions back to back
+const MIN_GAP_BETWEEN_EMOTES_MS = 6000; // a person doesn't fire off reactions back to back
 
 // Like people, some bots show a country flag (most don't): picked from the
 // game's likely players (the app's languages' countries come up most).
@@ -130,13 +130,14 @@ export class HumanBot {
         break;
       case "emote":
         this.warmUp();
-        if (this.chance(0.8)) this.later(rand.uniform(1500, 6000), () => this.send(replyTo(data.id)));
+        // Seeing it, picking the reply from the fan: a few seconds, rarely quick (it was 1.5 to 6 s).
+        if (this.chance(0.8)) this.later(rand.uniform(3500, 9000), () => this.send(replyTo(data.id)));
         break;
       case "gameOver":
         this.watchGen++;
         if (this.chance(0.9)) {
           const won = data.winner === this.seat;
-          this.later(rand.uniform(1500, 4500), () => this.send(won ? rand.pick(["🙏🏻", "🤣", "❤️"]) : rand.pick(["❤️", "🫤", "😮"])));
+          this.later(rand.uniform(2500, 6500), () => this.send(won ? rand.pick(["🙏🏻", "🤣", "❤️"]) : rand.pick(["❤️", "🫤", "😮"])));
         }
         break;
     }
@@ -165,7 +166,8 @@ export class HumanBot {
 
   // Maybe say something fitting `situation`, after a pause. Unprompted, so only
   // once the other player has played a piece.
-  speak(situation, p, [lo, hi] = [1200, 4000], extra = 0) {
+  // The default wait is after the move that caused it (it was 1.2 to 4 s: too ready).
+  speak(situation, p, [lo, hi] = [2400, 6000], extra = 0) {
     if (situation !== "start" && !this.opponentHasPlaced()) return;
     if (!this.chance(p)) return;
     this.later(rand.uniform(lo, hi) + extra, () => this.send(pickFor(situation)));
