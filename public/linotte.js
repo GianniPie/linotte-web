@@ -526,7 +526,7 @@ function showPlayerCard(seat) {
     // The online record (won, and the share of games won), where there is one:
     // signed-in players, from the server's count.
     const rec = controller.mode === "online" ? p.record : mine && currentUser() ? lastKnownRecord() : null;
-    paintIdentity("pc", { level, pro, plan: (guest ? t("Guest") : pro ? t("Pro") : t("Free")) + (mine && !isBot ? ` \u00b7 ${pointsText(myXp())}` : ""), rec }); // one's own card also says the points
+    paintIdentity("pc", { level, pro, plan: mine && !isBot ? planText() : (guest ? t("Guest") : pro ? "" : t("Free")), rec }); // one's own card also says the points
     // The tiles explain themselves for your own card ("Games you won"), not an opponent's.
     document.querySelectorAll("#pc-record .stat").forEach((el) => {
         const text = el.dataset.explain || el.dataset.explainOwn;
@@ -4319,7 +4319,7 @@ byId("account-delete-back").addEventListener("click", () => showOnlineView("acco
 // The account says who you are the way the player card does (name, country,
 // level badge, Pro or Free, the record), and offers Pro when you don't have it.
 function fillAccountSheet() {
-    const pro = document.body.classList.contains("is-pro");
+    const pro = isMyStar(); // Pro, with its star (a tester has Pro's things and is not Pro: it can buy it)
     const user = currentUser();
     byId("ac-name").textContent = profile?.name || t("Player"); // never the account's own name (Google's): the nickname is the only one shown
     const country = profile?.country;
@@ -4327,7 +4327,7 @@ function fillAccountSheet() {
     try { countryName = new Intl.DisplayNames([LANG, "en"], { type: "region" }).of(country); } catch { /* the code */ }
     byId("ac-country").textContent = country ? `${flagOf(country)}\u2002${countryName}` : "";
     byId("ac-country").hidden = !country;
-    paintIdentity("ac", { level: levelOf(myXp()), pro: isMyStar(), plan: `${pro ? t("Pro") : t("Free")} \u00b7 ${pointsText(myXp())}`, rec: lastKnownRecord() });
+    paintIdentity("ac", { level: levelOf(myXp()), pro, plan: planText(), rec: lastKnownRecord() });
     byId("account-getpro").hidden = pro;
 }
 byId("account-getpro").addEventListener("click", () => showProSheet());
@@ -5434,7 +5434,7 @@ function myToday() {
 }
 
 function fillProSheet() {
-    const pro = document.body.classList.contains("is-pro");
+    const pro = isMyStar();
     const signedIn = Boolean(currentUser());
     const inApp = Boolean(store());
     byId("pro-price").textContent = t("One purchase, for life: {price}", { price: window.LinotteNative?.proPrice || PRO_PRICE });
@@ -5464,7 +5464,7 @@ byId("pro-buy").addEventListener("click", (e) => {
     loginStep(e.currentTarget, byId("pro-note"), async () => {
         if (await store().buyPro()) {
             await refreshPro({ fresh: true });
-            if (document.body.classList.contains("is-pro")) showToast(t("Welcome to Linotte Pro!"));
+            if (isMyStar()) showToast(t("Welcome to Linotte Pro!"));
         }
     });
 });
@@ -5475,7 +5475,7 @@ byId("pro-restore").addEventListener("click", (e) => {
     loginStep(e.currentTarget, byId("pro-note"), async () => {
         await store().restorePurchases();
         await refreshPro({ fresh: true });
-        showToast(document.body.classList.contains("is-pro") ? t("Linotte Pro restored.") : t("No purchase found for this account."));
+        showToast(isMyStar() ? t("Linotte Pro restored.") : t("No purchase found for this account."));
     });
 });
 
@@ -5485,6 +5485,13 @@ byId("pro-restore").addEventListener("click", (e) => {
 // player, without Pro.
 // The Pro sheet shows what the star looks like, as it will on your badge.
 byId("pro-sample").textContent = levelLabel(12, true);
+
+// What is written under one's own level: Guest or Free, then the points. Never the word Pro: the star on the
+// badge says it, and the accounts that have Pro's things as a gift (no star) are not called Free either.
+function planText() {
+    const word = !currentUser() ? t("Guest") : isMyStar() || document.body.classList.contains("is-pro") ? "" : t("Free");
+    return [word, pointsText(myXp())].filter(Boolean).join(" \u00b7 ");
+}
 
 // A player's points as written beside their level ("83 pts"; below zero with a minus).
 function pointsText(xp) { return t("{n} pts", { n: xp < 0 ? `\u2212${-xp}` : xp }); } // (a function: the sign-in callback uses it while the page loads)

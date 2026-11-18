@@ -158,18 +158,18 @@
   white-space: nowrap;
 }
 
-body.is-pro .home-pro {
+body.has-star .home-pro {
   background: #3d240c;
   color: rgb(242, 200, 60) !important;
 }
 
-body.is-pro .home-pro::before {
+body.has-star .home-pro::before {
   content: "\2605\00a0"; /* star */
   font-family: system-ui, sans-serif;
 }
 
-body.is-pro .home-pro-get,
-body:not(.is-pro) .home-pro-owned {
+body.has-star .home-pro-get,
+body:not(.has-star) .home-pro-owned {
   display: none;
 }
 
@@ -611,8 +611,11 @@ body:not(.is-pro) .home-pro-owned {
 }
 
 /* The player's country: its flag before "Signed in". */
+/* The country's flag, before the name (the first row); the second row is the level and the points. */
 .home-flag {
+  flex: none;
   margin-right: .3em;
+  font-size: .9em;
 }
 
 .home-flag[hidden] {

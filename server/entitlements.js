@@ -9,8 +9,9 @@
 // badge the opponent sees, and later no ads and exclusive new designs.
 //
 // Who an account is, from the bottom (docs/ROLES.md): guest (no account), member (signed in), pro (bought
-// Pro in a store: has the star), tester (given Pro: all of it, no star), special (the close circle),
-// collaborator, admin. The four above Pro are given by hand in Supabase's account_roles table
+// Pro in a store), tester and special (given Pro's things, but not Pro: they can buy it), collaborator and
+// admin (Pro). The star, the mark of Pro, is for a purchase and for the collaborators and the admin. The
+// four roles above Pro are given by hand in Supabase's account_roles table
 // (supabase/roles.sql), and an account in the older pro_grants table counts as a tester. Read with
 // the project's secret key. isPro() still answers the question the game asks most: does this account
 // have Pro's things (no ads, private rooms, its own piece, the Pro looks)? Everyone from pro up does;
@@ -22,7 +23,7 @@ import { SUPABASE_URL } from "../public/shared/accounts.js";
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 
 const CACHE_MS = 5 * 60 * 1000;
-const cache = new Map(); // userId -> { role, at }
+const cache = new Map(); // userId -> { role, purchased, at }
 
 export const ROLES = ["guest", "member", "pro", "tester", "special", "collaborator", "admin"];
 const GIVEN_ROLES = ["tester", "special", "collaborator", "admin"]; // what account_roles may hold
@@ -31,11 +32,12 @@ export const atLeast = (role, min) => roleRank(role) >= roleRank(min);
 
 // What a role has. New things for the upper roles hang here (their own looks, tools, powers): `special`
 // is everyone from the close circle up, `staff` the collaborators and the admin, `admin` the admin alone.
-export function accessOf(role) {
+export function accessOf(role, purchased = false) {
   return {
     role,
-    pro: atLeast(role, "pro"),
-    star: role === "pro",
+    pro: atLeast(role, "pro"), // Pro's things: no ads, private rooms, own piece, the Pro looks
+    purchased, // bought Pro in a store (RevenueCat)
+    star: purchased || role === "pro" || atLeast(role, "collaborator"), // is Pro: the star by the name
     special: atLeast(role, "special"),
     staff: atLeast(role, "collaborator"),
     admin: role === "admin",
@@ -76,12 +78,13 @@ async function hasGrant(userId, key, url, fetchImpl) {
 // The role of an account: given by hand (account_roles, or the older pro_grants: a tester), else
 // pro if it bought Pro, else member; a guest has none.
 async function resolveRole(userId, key, grantKey, url, fetchImpl) {
+  const purchased = key ? await askRevenueCat(userId, key, fetchImpl) : false;
   if (grantKey && url) {
     const given = await givenRole(userId, grantKey, url, fetchImpl);
-    if (given) return given;
-    if (await hasGrant(userId, grantKey, url, fetchImpl)) return "tester";
+    if (given) return { role: given, purchased };
+    if (await hasGrant(userId, grantKey, url, fetchImpl)) return { role: "tester", purchased };
   }
-  return key && await askRevenueCat(userId, key, fetchImpl) ? "pro" : "member";
+  return { role: purchased ? "pro" : "member", purchased };
 }
 
 // `userId`: the verified account id, or null for a guest.
@@ -95,15 +98,15 @@ export async function accessFor({ userId = null, devToken = "" } = {}, {
   if (!key && !grantKey) return accessOf("member");
 
   const hit = cache.get(userId);
-  if (hit && Date.now() - hit.at < CACHE_MS) return accessOf(hit.role);
+  if (hit && Date.now() - hit.at < CACHE_MS) return accessOf(hit.role, hit.purchased);
 
   try {
-    const role = await resolveRole(userId, key, grantKey, url, fetchImpl);
-    cache.set(userId, { role, at: Date.now() });
-    return accessOf(role);
+    const { role, purchased } = await resolveRole(userId, key, grantKey, url, fetchImpl);
+    cache.set(userId, { role, purchased, at: Date.now() });
+    return accessOf(role, purchased);
   } catch (err) {
     console.error("Pro check failed:", err.message);
-    return accessOf(hit ? hit.role : "member"); // a short outage shouldn't lock out paying players
+    return hit ? accessOf(hit.role, hit.purchased) : accessOf("member"); // a short outage shouldn't lock out paying players
   }
 }
 

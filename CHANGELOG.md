@@ -12,6 +12,14 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.32.2] - 2026-11-18
+
+### Changed
+- The profile button on the home: the country's flag now stands before the name (first row), and the second row is only the level and the points.
+
+### Changed
+- The star is Pro, and the word "Pro" goes with it. The collaborators and the admin are Pro (they have the star); a tester or a special account has Pro's things (no ads, rooms, pieces, looks) but is not Pro: no star and no word "Pro" under the badge, and the GET PRO button stays, since buying it is what makes them Pro (with the star). There is no word "Pro" under the badge any more, on anyone's card: the star says it. Under it: Guest or Free, or nothing for Pro and for the gifted accounts, followed by the points.
+
 ## [2.32.1] - 2026-11-18
 
 ### Fixed
