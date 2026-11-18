@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.33.1] - 2026-11-18
+
+### Changed
+- A player's card opened from the ranking or the friends is there at once: the name and the country are shown straight away, and where the level badge, the points and the record will go there are grey placeholders with a light passing over them, replaced by the data when the server has answered. Before, those parts only appeared (and moved the card) once the data was in.
+
 ## [2.33.0] - 2026-11-18
 
 ### Added

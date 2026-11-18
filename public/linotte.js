@@ -511,6 +511,7 @@ function showPlayerCard(seat) {
     playerCardReturn = null;
     byId("pc-manage").hidden = true;
     delete byId("pc-add-friend").dataset.id;
+    document.querySelector('.sheet-view[data-view="player"]').classList.remove("pc-skeleton");
     const mine = controller.mode !== "offline" && seat === (controller.mode === "online" ? LOCAL_PLAYER : 1);
     const isBot = controller.mode === "bot" && seat === 2;
     byId("pc-name").textContent = mine ? (profile?.name || p.name) : p.name;
@@ -5728,8 +5729,21 @@ async function openPlayerInfo(person, { back, friend = null, canAdd = false } = 
     const country = person.country;
     byId("pc-country").textContent = country ? countryLine(country) : "";
     byId("pc-country").hidden = !country;
-    byId("pc-badge-wrap").hidden = true; // until the server answers
-    byId("pc-record").hidden = true;
+    // The card is there at once, with grey placeholders (a light passing over them) where the badge, the points
+    // and the record will be; the server's answer replaces them.
+    const view = document.querySelector('.sheet-view[data-view="player"]');
+    view.classList.add("pc-skeleton");
+    byId("pc-badge-wrap").hidden = false;
+    const badge = byId("pc-badge");
+    badge.hidden = false;
+    badge.classList.remove("is-pro");
+    badge.dataset.tier = "";
+    badge.textContent = "Lv 00";
+    byId("pc-plan").classList.remove("is-pro");
+    byId("pc-plan").textContent = "000 pts";
+    byId("pc-record").hidden = false;
+    byId("pc-played").textContent = byId("pc-won").textContent = "00";
+    byId("pc-rate").textContent = "00%";
     const add = byId("pc-add-friend"), manage = byId("pc-manage");
     add.hidden = true;
     manage.hidden = !friend;
@@ -5737,7 +5751,13 @@ async function openPlayerInfo(person, { back, friend = null, canAdd = false } = 
     showOnlineView("player");
     const info = friendsDemo ? { ...DEMO_PLAYER, name: person.name, country: person.country } : await fetchPlayer(person.id);
     if (onlineOverlay.dataset.view !== "player" || playerCardReturn !== back) return; // left meanwhile
-    if (!info?.ok) { showToast(t("Can't load this player right now. Please try again.")); return; }
+    view.classList.remove("pc-skeleton");
+    if (!info?.ok) {
+        byId("pc-badge-wrap").hidden = true;
+        byId("pc-record").hidden = true;
+        showToast(t("Can't load this player right now. Please try again."));
+        return;
+    }
     byId("pc-name").textContent = info.name;
     byId("pc-country").textContent = info.country ? countryLine(info.country) : "";
     byId("pc-country").hidden = !info.country;

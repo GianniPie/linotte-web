@@ -768,13 +768,36 @@
 .lb-skel:nth-child(3n + 1) .sk-name { width: 74%; }
 .lb-skel .sk-pts { width: 3em; }
 
+/* A player's card while it loads: the badge, the points and the record are grey placeholders with the same light. */
+.pc-skeleton .pc-badge,
+.pc-skeleton .pc-plan,
+.pc-skeleton .stat b {
+  color: transparent !important;
+  border-color: transparent !important;
+  text-shadow: none !important;
+  border-radius: .5em;
+  background: linear-gradient(100deg, rgba(0, 0, 0, .08) 30%, rgba(0, 0, 0, .16) 50%, rgba(0, 0, 0, .08) 70%) 0 0 / 250% 100% !important;
+  animation: lbShimmer 1.3s ease-in-out infinite;
+}
+
+.pc-skeleton .pc-badge {
+  border-radius: 999px;
+}
+
+.pc-skeleton .stat {
+  pointer-events: none;
+}
+
 @keyframes lbShimmer {
   from { background-position: 100% 0; }
   to { background-position: -50% 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lb-skel .sk { animation: none; }
+  .lb-skel .sk,
+  .pc-skeleton .pc-badge,
+  .pc-skeleton .pc-plan,
+  .pc-skeleton .stat b { animation: none; }
 }
 
 .lb-list li.is-me,
