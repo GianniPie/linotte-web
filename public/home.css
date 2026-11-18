@@ -490,20 +490,25 @@ body:not(.is-pro) .home-pro-owned {
   font-size: .667em;
 }
 
-/* The FRIEND button: a red dot while a friend request or an invitation waits. */
+/* The FRIEND button: a red "NEW" tag, the shape of the gold "+2" on ONLINE, while a friend request waits or a
+   friend has just been made (see updateFriendsBadge in linotte.js). */
 #home-friend-btn {
   position: relative;
 }
 
 .home-badge {
   position: absolute;
-  top: -.35em;
-  right: -.35em;
-  width: 1.1em;
-  height: 1.1em;
-  border: var(--btn-border);
-  border-radius: 50%;
+  top: -.6em;
+  right: -.4em;
+  z-index: 1;
+  padding: 0 .55em;
+  border-radius: .7em;
+  border: 1.5px solid rgba(0, 0, 0, .35);
   background: #e0443a;
+  color: #fff;
+  font: .75em/1.5 "Changa One", sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .home-badge[hidden] {

@@ -5690,6 +5690,8 @@ const DEMO_FRIENDS = {
     incoming: [{ id: "d5", name: "Sofia", country: "ES" }],
     outgoing: [{ id: "d6", name: "Paolo", country: "PT" }],
 };
+const demoState = structuredClone(DEMO_FRIENDS); // the demo's friends change as the buttons are used
+const demoDrop = (id) => { for (const k of ["friends", "incoming", "outgoing"]) demoState[k] = demoState[k].filter((p) => p.id !== id); };
 let friendsData = null; // the last answer of friends_list
 let friendsRefresh = 0; // timer that asks again while the sheet is open
 
@@ -5698,16 +5700,34 @@ const stateText = (state) => ({ online: t("Online"), busy: t("Busy"), playing: t
 const STATE_ORDER = { online: 0, busy: 1, playing: 2, offline: 3 };
 
 async function loadFriends() {
-    if (friendsDemo) return structuredClone(DEMO_FRIENDS);
+    if (friendsDemo) return structuredClone(demoState);
     return onlineClient.friendsList();
 }
 
 // The red dot on the FRIEND button: requests waiting for an answer.
-function setFriendsBadge(n) { byId("friends-badge").hidden = !(n > 0); }
+function setFriendsBadge(n) { byId("friends-badge").hidden = !(n > 0); } // (it says NEW, from the page)
+// What waits for a look: requests to answer, and friends just made that this device has not seen in the
+// list yet (a request accepted, or a code used: the notice of the moment is a few seconds, this stays).
+const friendsSeenKey = () => `linotte-friends-seen:${currentUser()?.id || "demo"}`;
+function seenFriendIds() {
+    try { return new Set(JSON.parse(localStorage.getItem(friendsSeenKey()) || "[]")); } catch { return new Set(); }
+}
+const isNewFriend = (f) => !seenFriendIds().has(f.id);
+function markFriendSeen(id) {
+    try { localStorage.setItem(friendsSeenKey(), JSON.stringify([...seenFriendIds(), id])); } catch { /* storage off */ }
+}
+function updateFriendsBadge(res) { setFriendsBadge(res.incoming.length + res.friends.filter(isNewFriend).length); }
+// Leaving the sheet: everyone on the list has been seen.
+function leaveFriends() {
+    stopFriendsRefresh();
+    if (!friendsData) return;
+    try { localStorage.setItem(friendsSeenKey(), JSON.stringify(friendsData.friends.map((f) => f.id))); } catch { /* storage off */ }
+    updateFriendsBadge(friendsData);
+}
 async function refreshFriendsBadge() {
     if (!currentUser() && !friendsDemo) return setFriendsBadge(0);
     const res = await loadFriends();
-    if (res?.ok) { friendsData = res; setFriendsBadge(res.incoming.length); }
+    if (res?.ok) { friendsData = res; updateFriendsBadge(res); }
 }
 
 async function openFriends() {
@@ -5727,14 +5747,16 @@ async function updateFriends() {
     const res = await loadFriends();
     if (!res?.ok) { if (onlineOverlay.dataset.view === "friends" && !friendsData) showToast(t("Can't load your friends right now. Please try again.")); return; }
     friendsData = res;
-    setFriendsBadge(res.incoming.length);
-    if (onlineOverlay.dataset.view === "friends") renderFriends(res);
+    if (onlineOverlay.dataset.view === "friends") renderFriends(res); // (the badge waits: they are looking at it)
+    else updateFriendsBadge(res);
 }
 
-function friendRow(person, { dot = "", sub = "", actions = [], onOpen }) {
+function friendRow(person, { dot = "", sub = "", actions = [], onOpen, isNew = false }) {
     const li = document.createElement("li");
     const name = Object.assign(document.createElement("button"), { className: "fr-name", type: "button" });
-    name.append(span("", nameWithFlag(person)), span("fr-state", sub));
+    const title = span("", nameWithFlag(person));
+    if (isNew) title.append(" ", span("fr-new", t("NEW")));
+    name.append(title, span("fr-state", sub));
     name.addEventListener("click", onOpen);
     const box = span("fr-actions");
     box.append(...actions);
@@ -5770,6 +5792,7 @@ function renderFriends(data) {
         ...friends.map((f) => friendRow(f, {
             dot: f.state === "offline" ? "" : f.state,
             sub: stateText(f.state),
+            isNew: isNewFriend(f),
             onOpen: () => openFriendManage(f, "friend"),
             // Asked to play when they are free enough to be asked: at the home screen, or in a game that can wait.
             actions: f.state === "online" || f.state === "busy" ? [frButton(t("PLAY"), { onClick: () => inviteFriend(f) })] : [],
@@ -5779,9 +5802,17 @@ function renderFriends(data) {
 }
 
 async function answerRequest(person, accept) {
-    if (friendsDemo) { showToast(accept ? t("{name} is now your friend.", { name: person.name }) : t("Request declined.")); return; }
-    const res = await onlineClient.friendRespond(person.id, accept);
-    if (res.ok && accept) showToast(t("{name} is now your friend.", { name: person.name }));
+    if (friendsDemo) {
+        demoDrop(person.id);
+        if (accept) demoState.friends.push({ ...person, games: 0, weekPoints: 0, pro: false, state: "online" });
+    } else {
+        const res = await onlineClient.friendRespond(person.id, accept);
+        if (!res.ok) return updateFriends();
+    }
+    if (accept) {
+        showToast(t("{name} is now your friend.", { name: person.name }));
+        markFriendSeen(person.id); // accepted right here: it is not news
+    } else if (friendsDemo) showToast(t("Request declined."));
     await updateFriends();
 }
 
@@ -5809,9 +5840,9 @@ function openFriendManage(person, kind) {
                 return;
             }
             btn.dataset.sure = "";
-            if (!friendsDemo) await action();
+            if (friendsDemo) demoDrop(person.id); else await action();
             showToast(t("Done."));
-            if (!friendsDemo) friendsData = null;
+            friendsData = null;
             openFriends();
         };
     };
@@ -5821,8 +5852,8 @@ function openFriendManage(person, kind) {
 }
 byId("fr-manage-back").addEventListener("click", openFriends);
 
-byId("fr-back").addEventListener("click", () => { stopFriendsRefresh(); closeOnlineOverlay(); });
-byId("fr-room").addEventListener("click", () => { stopFriendsRefresh(); showOnlineView("friend"); });
+byId("fr-back").addEventListener("click", () => { leaveFriends(); closeOnlineOverlay(); });
+byId("fr-room").addEventListener("click", () => { leaveFriends(); showOnlineView("friend"); });
 byId("fr-signin").addEventListener("click", () => { stopFriendsRefresh(); byId("home-profile").click(); });
 
 // ADD FRIEND: this player's own code (to give), and a friend's (to use).
@@ -5931,7 +5962,7 @@ function onFriendRequest({ name }) {
     if (onlineOverlay.dataset.view === "friends") updateFriends();
 }
 function onFriendAccepted({ name }) {
-    showToast(t("{name} is now your friend.", { name }), 3500);
+    showToast(t("{name} is now your friend.", { name }), 5000);
     refreshFriendsBadge();
     if (onlineOverlay.dataset.view === "friends") updateFriends();
 }

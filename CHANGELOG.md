@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.31.3] - 2026-11-18
+
+### Changed
+- A new friend no longer goes unnoticed: when someone accepts your request or uses your friend code, a red "NEW" tag, the shape of the gold "+2" on ONLINE, appears on the FRIEND button and stays, and in the Friends sheet the new friend carries a NEW tag, until you have seen the list (it stays for requests waiting for your answer). A friend you accept yourself from the list is not flagged as new. The message "X is now your friend" lasts 5 seconds instead of 3.5, but it only reaches an app that is open, so the badge and the tag are what you can count on.
+
 ## [2.31.2] - 2026-11-18
 
 ### Fixed

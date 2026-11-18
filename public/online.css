@@ -1039,6 +1039,18 @@ body.daily-open .sheet-daily {
   display: none;
 }
 
+/* A friend just made, until the list has been seen. */
+.fr-name span.fr-new {
+  display: inline-block;
+  overflow: visible;
+  padding: .05em .45em;
+  border-radius: 999px;
+  background: #e0443a;
+  color: #fff;
+  font: .65em "Changa One", sans-serif;
+  vertical-align: .15em;
+}
+
 .fr-my-code {
   font-size: 2.6em;
 }
