@@ -150,7 +150,8 @@
 #online-overlay[data-view="endgame"] .sheet-view[data-view="endgame"],
 #online-overlay[data-view="play-warning"] .sheet-view[data-view="play-warning"],
 #online-overlay[data-view="rematch-offer"] .sheet-view[data-view="rematch-offer"],
-#online-overlay[data-view="restart"] .sheet-view[data-view="restart"] {
+#online-overlay[data-view="restart"] .sheet-view[data-view="restart"],
+#online-overlay[data-view="giveup"] .sheet-view[data-view="giveup"] {
   display: flex;
 }
 
@@ -397,6 +398,7 @@
   left: 50%;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 7dvh + var(--ad-h, 0px));
   transform: translate(-50%, 20px);
+  width: max-content; /* as wide as its text (left: 50% alone would squeeze it into half the screen), up to */
   max-width: min(86vw, 420px);
   padding: .7em 1.1em;
   border-radius: 1em;
@@ -408,13 +410,22 @@
   text-align: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 150ms cubic-bezier(.25, 1, .5, 1), transform 150ms cubic-bezier(.25, 1, .5, 1);
+  white-space: pre-line; /* a line break in a message is kept */
+  transition: opacity 150ms cubic-bezier(.25, 1, .5, 1), transform 150ms cubic-bezier(.25, 1, .5, 1), translate 200ms cubic-bezier(.25, 1, .5, 1);
   z-index: 95;
 }
 
 .toast.show {
   opacity: 1;
   transform: translate(-50%, 0);
+  /* Swiped away to the left, right or down (see showToast in linotte.js); the finger moves it, so no
+     transition on `translate` while dragging (below). */
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.toast.dragging {
+  transition: opacity 150ms, transform 150ms;
 }
 
 /* Linotte Pro sheet (see the "Pro" section of linotte.js): the price line,

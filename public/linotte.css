@@ -321,6 +321,25 @@ html {
   opacity: .3;
 }
 
+/* The last 5 seconds of the player's own turn (see clockWarn in linotte.js): the digits turn red and the
+   clock beats once a second, swelling with a red glow, a little more each time (--beat-scale). */
+.div-info-right.warn .clock-tile .half {
+  color: #ff5a47;
+}
+
+.div-info-right.beat .clock {
+  animation: clockBeat .9s cubic-bezier(.2, .7, .3, 1);
+}
+
+@keyframes clockBeat {
+  0% { transform: scale(var(--beat-scale, 1.3)); filter: drop-shadow(0 0 .7em rgba(255, 70, 50, .95)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255, 70, 50, 0)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .div-info-right.beat .clock { animation: none; }
+}
+
 .clock-pause {
   position: absolute;
   inset: 0;
@@ -494,9 +513,18 @@ html {
 
   #options-overlay,
   #winner-overlay,
-  #online-overlay,
-  #toast {
+  #online-overlay {
     transition: rotate .6s ease;
+  }
+
+  /* The toast keeps its own fade and slide (online.css) next to the turn; its swiping aside runs on
+     `translate`, which the turn (`rotate`) doesn't touch. */
+  #toast {
+    transition: rotate .6s ease, opacity 150ms cubic-bezier(.25, 1, .5, 1), transform 150ms cubic-bezier(.25, 1, .5, 1), translate 200ms cubic-bezier(.25, 1, .5, 1);
+  }
+
+  #toast.dragging {
+    transition: rotate .6s ease, opacity 150ms, transform 150ms;
   }
 
   body.table-flipped #options-overlay,
@@ -1184,9 +1212,10 @@ summary:focus-visible {
 }
 
 /* DONE, when it is the next thing to do and nothing was touched for a while
-   (see "NUDGING THE DONE BUTTON" in linotte.js): a small shake, then a rest, in
+   (see "NUDGING THE DONE BUTTON" in linotte.js; ROLL does the same at the start of a turn): a small shake, then a rest, in
    a loop. */
-.button.done.nudge {
+.button.done.nudge,
+.button.roll.nudge {
   animation: doneNudge 2.6s ease-in-out infinite;
 }
 
@@ -1201,7 +1230,8 @@ summary:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .button.done.nudge { animation: none; }
+  .button.done.nudge,
+  .button.roll.nudge { animation: none; }
 }
 
 /* Vs-bot only: swapped in for ROLL+DONE while it's the bot's turn (see
@@ -1985,6 +2015,46 @@ html.is-resizing *::after {
   border-radius: .4em;
   margin: auto;
   font-size: 1.2em;
+}
+
+/* The Game buttons stacked, the whole block as wide as its widest row (PAUSE and RESTART); GIVE UP is a row of
+   its own under them, as wide as they are together. */
+.game-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* The buttons in the first row are all as wide as the widest of them (RESTART, RICOMINCIA...), so GIVE UP
+   under them lines up with their outer edges. */
+.game-actions .car-list {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 14px;
+  justify-content: center;
+}
+
+.game-actions .car-list::before,
+.game-actions .car-list::after {
+  display: none;
+}
+
+.game-actions .car-btn .opt-btn {
+  width: 100%;
+  min-width: 0;
+}
+
+.giveup-row {
+  margin: .5em 0 .3em;
+}
+
+.giveup-row .opt-btn {
+  width: 100%;
+  margin: 0;
 }
 
 .car-btn {

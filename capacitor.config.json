@@ -1,0 +1,11 @@
+{
+  "appId": "com.linotte.game",
+  "appName": "Linotte",
+  "webDir": "public",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

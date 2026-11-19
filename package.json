@@ -1,13 +1,15 @@
 {
   "name": "linotte-web",
-  "version": "2.34.0",
+  "version": "2.34.1",
   "type": "module",
   "description": "Linotte web",
   "main": "index.js",
   "scripts": {
     "test": "BOT_TIME_SCALE=0.002 node server/smoke-test.js && node test/check-demos.js",
     "start": "node server/server.js",
-    "release": "node scripts/release.mjs"
+    "release": "node scripts/release.mjs",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android"
   },
   "repository": {
     "type": "git",
@@ -28,5 +30,10 @@
     "jose": "^6.2.12",
     "redis": "^6.3.1",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/cli": "^7.6.10",
+    "@capacitor/core": "^7.6.10"
   }
 }

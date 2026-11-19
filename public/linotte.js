@@ -180,6 +180,7 @@ window.addEventListener('orientationchange', onViewportChange);
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
 import { dicePath, diceFaces, dicePos, diceNames, diceRadius, bgPath, backgrounds, piecesPath, pieces, avatarIds, avatarUrl, avatarOrDefault } from "./shared/assets.js";
 import { updateGame, canRoll, callBlockedBy } from "./shared/gameEngine.js";
+import { cannotWin } from "./shared/giveUp.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget, labCandidates, setSpeedWeights, setSpeedModels, labAim, labCall, labStop, labLock } from "./shared/botAI.js";
 import { labOn, labSend, labListen } from "./botlab-client.js";
 import GameController from './shared/gameController.js';
@@ -1085,7 +1086,26 @@ function flip(tile, newVal) {
     }, 300);
 }
 
+// In the last 5 seconds of the player's own turn the clock turns red and beats once a second: it swells
+// with a red glow (a bit more every second), ticks and buzzes, so the end of the turn can't be missed.
+const CLOCK_WARN_AT = 5;
+const clockIsMine = () => !isGameOver && gameInProgress && controller
+    && (controller.mode === "offline" || gameState.currentPlayer === (controller.mode === "online" ? LOCAL_PLAYER : 1));
+// `left`: the seconds the clock shows (1 to 5), or null when there is nothing to warn about.
+function clockWarn(left) {
+    const wrap = document.getElementById("clock-wrap");
+    if (left === null) { wrap.classList.remove("warn", "beat"); return; }
+    wrap.classList.add("warn");
+    wrap.style.setProperty("--beat-scale", (1.25 + (CLOCK_WARN_AT - left) * 0.06).toFixed(2));
+    wrap.classList.remove("beat");
+    void wrap.offsetWidth; // so the beat starts again each second
+    wrap.classList.add("beat");
+    playTick();
+    buzz(left === 1 ? [70] : [40]);
+}
+
 function tick() {
+    clockWarn(value >= 1 && value <= CLOCK_WARN_AT && clockIsMine() ? value : null);
     const [t, u] = String(value).padStart(2, "0").split("");
     flip(document.getElementById("tens"), t);
     flip(document.getElementById("units"), u);
@@ -1136,6 +1156,7 @@ function startTimer() {
 }
 
 function stopTimer() {
+    clockWarn(null);
     if (timerId !== null) {
         clearTimeout(timerId);
         timerId = null;
@@ -1274,6 +1295,15 @@ function updateGameTab() {
     document.getElementById("pause-slot").hidden = mode === "online" || !live;
     document.getElementById("flip-slot").hidden = mode !== "offline";
     document.getElementById("restart-slot").hidden = mode === "online" || !gameInProgress;
+    document.getElementById("giveup-slot").hidden = !canGiveUp();
+}
+
+// Against the bot, a game that can't be won any more (see shared/giveUp.js: the board alone says
+// so, whatever the dice) may be given up: it ends at once as a loss, without waiting for the end.
+// Only on this player's own turn, not while the dice roll or the bot plays.
+function canGiveUp() {
+    return controller.mode === "bot" && gameInProgress && !isGameOver && !turnHandoverPending
+        && gameState.currentPlayer === 1 && rollBtnEnabled && cannotWin(gameState, 1);
 }
 
 // Closes the menu. The "hidden" class, not display:none -- the open button
@@ -2712,6 +2742,35 @@ setInterval(() => {
     if (now - Math.max(lastTouchAt, doneReadySince) >= DONE_NUDGE_AFTER_MS) setDoneNudge(true);
 }, 500);
 
+//------------------ NUDGING THE ROLL BUTTON ----------------------
+// The same for ROLL at the start of the player's turn: when the turn has passed to this player, nothing
+// has been rolled and nothing was touched for 10 seconds, ROLL shakes like DONE does, until anything is touched.
+const ROLL_NUDGE_AFTER_MS = 10000;
+let rollReadySince = 0;
+const rollIsTheNextStep = () => {
+    if (!gameInProgress || isGameOver || !isMyTurn() || rollBtn.classList.contains("is-inactive")) return false;
+    if (rollsShown < 3) return false; // already rolled this turn
+    // Not covered by anything (the home, a menu, a sheet, the winner card).
+    const r = rollBtn.getBoundingClientRect();
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return Boolean(top && rollBtn.contains(top));
+};
+function setRollNudge(on) {
+    if (on === rollBtn.classList.contains("nudge")) return;
+    rollBtn.classList.toggle("nudge", on);
+    if (on) buzz(DONE_NUDGE_BUZZ);
+}
+rollBtn.addEventListener("animationiteration", () => buzz(DONE_NUDGE_BUZZ));
+for (const type of ["pointerdown", "keydown"]) {
+    document.addEventListener(type, () => setRollNudge(false), { capture: true, passive: true });
+}
+setInterval(() => {
+    if (!rollIsTheNextStep()) { rollReadySince = 0; setRollNudge(false); return; }
+    const now = performance.now();
+    if (!rollReadySince) rollReadySince = now;
+    if (now - Math.max(lastTouchAt, rollReadySince) >= ROLL_NUDGE_AFTER_MS) setRollNudge(true);
+}, 500);
+
 // The ROLL label and the inactive look of ROLL/DONE (see .button.is-inactive
 // in linotte.css) always change together: ROLL with no rolls left, DONE
 // before the turn's first roll. Online, `n` is the count the player is about
@@ -2786,6 +2845,7 @@ endGameDoneBtn.addEventListener("click", () => {
     else showWinnerPopup(determineWinner());
 });
 
+let giveUpHintFor = null; // the game whose "you can give up" hint was shown
 function performEndTurn() {
     console.log("doneButton");
 
@@ -2861,6 +2921,9 @@ function performEndTurn() {
             startTurnTimer(); // fresh 60s -- keeps running through the bot's own turn too, not just the human's
             if (controller.mode === "bot" && gameState.currentPlayer === 2) {
                 playBotTurn();
+            } else if (canGiveUp() && giveUpHintFor !== gameState) {
+                giveUpHintFor = gameState; // told once per game that it can be given up
+                showToast(`${t("This game is lost.")}\n${t("You can give up from the menu.")}`, 5000); // two lines
             }
         });
     });
@@ -3895,6 +3958,36 @@ function playNudgeSound() {
     }
 }
 
+// The clock's tick for the last seconds, made on the spot like the other sounds: a tiny dry click (a 20 ms
+// burst of filtered noise), the same each second. The 2 is the click's own strength, TICK_VOLUME the
+// level it is set at (the dice and the bell are at 0.35).
+const TICK_VOLUME = 0.15;
+function playTick() {
+    if (!isVolumeOn) return;
+    const c = audio();
+    if (!c) return;
+    if (c.state === "suspended") c.resume();
+    const at = c.currentTime + 0.01;
+    const master = c.createGain();
+    master.gain.setValueAtTime(0.0001, at);
+    master.gain.exponentialRampToValueAtTime(2 * TICK_VOLUME, at + 0.004);
+    master.gain.exponentialRampToValueAtTime(0.0001, at + 0.03);
+    master.connect(c.destination);
+    const length = Math.floor(c.sampleRate * 0.02);
+    const buffer = c.createBuffer(1, length, c.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+    const source = c.createBufferSource();
+    source.buffer = buffer;
+    const filter = c.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 4000;
+    filter.Q.value = 2;
+    source.connect(filter);
+    filter.connect(master);
+    source.start(at);
+}
+
 function quadBezierPoint(p0, p1, p2, t) {
     const u = 1 - t;
     return u * u * p0 + 2 * u * t * p1 + t * t * p2;
@@ -4190,11 +4283,58 @@ function showMessage(title, text) {
     showOnlineView("message");
 }
 
+// The black messages stay half as long again as the time they are given, and can be swiped away
+// (left, right or down) before that.
+const TOAST_STAY = 1.5;
+let toastMs = 2500;
 function showToast(text, ms = 2500) {
+    toastMs = ms * TOAST_STAY;
     toastEl.textContent = text;
+    toastEl.style.translate = "";
+    toastEl.classList.remove("dragging");
     toastEl.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
+    toastTimer = setTimeout(hideToast, toastMs);
+}
+function hideToast() {
+    toastEl.classList.remove("show");
+}
+{
+    let drag = null;
+    const SWIPE_SIDE = 50, SWIPE_DOWN = 30; // px the finger has to travel to send it away
+    const offset = (e) => {
+        const dx = e.clientX - drag.x, dy = Math.max(0, e.clientY - drag.y); // up is not a way out
+        return Math.abs(dx) >= dy ? { x: dx, y: 0 } : { x: 0, y: dy };
+    };
+    toastEl.addEventListener("pointerdown", (e) => {
+        if (!toastEl.classList.contains("show")) return;
+        drag = { x: e.clientX, y: e.clientY };
+        clearTimeout(toastTimer);
+        toastEl.classList.add("dragging");
+        toastEl.setPointerCapture?.(e.pointerId);
+    });
+    toastEl.addEventListener("pointermove", (e) => {
+        if (!drag) return;
+        const o = offset(e);
+        toastEl.style.translate = `${o.x}px ${o.y}px`;
+    });
+    const release = (e) => {
+        if (!drag) return;
+        const o = e.type === "pointercancel" ? { x: 0, y: 0 } : offset(e);
+        drag = null;
+        toastEl.classList.remove("dragging");
+        if (Math.abs(o.x) >= SWIPE_SIDE || o.y >= SWIPE_DOWN) {
+            // out in the direction it was sent, then back in place once it is gone
+            toastEl.style.translate = o.y >= SWIPE_DOWN ? "0 80px" : `${Math.sign(o.x) * window.innerWidth}px 0`;
+            hideToast();
+            setTimeout(() => { if (!toastEl.classList.contains("show")) toastEl.style.translate = ""; }, 400);
+        } else {
+            toastEl.style.translate = ""; // a short drag or a tap: back where it was, for the rest of its time
+            toastTimer = setTimeout(hideToast, toastMs);
+        }
+    };
+    toastEl.addEventListener("pointerup", release);
+    toastEl.addEventListener("pointercancel", release);
 }
 
 function waitUntil(condition, pollMs = 80) {
@@ -6478,7 +6618,7 @@ byId("game-home-btn").addEventListener("click", async () => {
         const free = opponentGone || (idleTurns[LOCAL_PLAYER === 1 ? 2 : 1] || 0) > 0;
         byId("leave-text").textContent = free
             ? t("Your opponent has stopped playing: you can leave without losing points.")
-            : t("Your opponent wins, and you lose 2 level points.");
+            : t("Your opponent wins, and you lose 3 level points.");
         showOnlineView("leave");
         return;
     }
@@ -6515,6 +6655,38 @@ byId("restart-confirm").addEventListener("click", async () => {
         });
     }
 });
+
+// GIVE UP in the Game tab (vs the bot, when the game can't be won any more): asks first, then the
+// game ends as a lost one, the winner card straight away -- no celebration to watch.
+byId("giveup-btn").addEventListener("click", () => showOnlineView("giveup"));
+byId("giveup-confirm").addEventListener("click", () => {
+    closeOnlineOverlay();
+    if (!canGiveUp()) { showToast(t("It isn't your turn: try again in a moment.")); return; }
+    handleTab("back");
+    giveUpVsBot();
+});
+function giveUpVsBot() {
+    stopTimer();
+    clearInterval(rollAnimationID);
+    clearInterval(stopRollID);
+    clearSavedGame();
+    forcedWinner = 2;
+    isGameOver = true;
+    endGameSequenceStarted = true; // no celebration of the end
+    endCardFor = gameState;
+    chatSync();
+    rollBtnEnabled = false;
+    doneBtnEnabled = false;
+    // The same end-of-game controls checkGameOver() leaves.
+    document.getElementById("div-dice").classList.add("game-over-dim");
+    document.getElementById("div-resultsAndCalls").classList.add("game-over-dim");
+    rollBtn.classList.add("game-over-dim");
+    rollBtn.style.display = "none";
+    doneBtn.style.display = "none";
+    turnLabelEl.style.display = "none";
+    endGameDoneBtn.style.display = "flex";
+    showWinnerPopup(2);
+}
 
 document.getElementById("searching-cancel").addEventListener("click", () => {
     searchingRandom = false;

@@ -278,9 +278,17 @@ export class OnlineClient {
 
         // A phone coming back from the background often has a dead socket the
         // browser hasn't noticed yet.
-        document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === "visible" && this.socket && !this.socket.connected) this.socket.connect();
-        });
+        // (In the store apps the system closes the socket in the background, and the page may come back
+        // still believing it is connected: so a quick question is asked, and an unanswered one reconnects.)
+        const wake = () => {
+            const sock = this.socket;
+            if (!sock) return;
+            if (!sock.connected) return sock.connect();
+            sock.timeout(3000).emit("look", {}, (err) => { if (err) { sock.disconnect(); sock.connect(); } });
+        };
+        document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wake(); });
+        window.addEventListener("online", wake);
+        window.addEventListener("pageshow", (e) => { if (e.persisted) wake(); });
         return this.ready;
     }
 

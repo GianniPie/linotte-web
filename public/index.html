@@ -484,7 +484,7 @@
             <!-- leaving an online game for the home -->
             <div class="sheet-view" data-view="leave">
                 <div class="sheet-title" data-i18n>Leave the game?</div>
-                <div class="sheet-text" id="leave-text" data-i18n>Your opponent wins, and you lose 2 level points.</div>
+                <div class="sheet-text" id="leave-text" data-i18n>Your opponent wins, and you lose 3 level points.</div>
                 <div class="sheet-row">
                     <div class="button sheet-btn cancel" id="leave-confirm"><div class="text-button" data-i18n>LEAVE</div></div>
                     <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>STAY</div></div>
@@ -507,6 +507,15 @@
                 <div class="sheet-text sheet-reassure" data-i18n>You don't lose any level points.</div>
                 <div class="sheet-row">
                     <div class="button sheet-btn cancel" id="restart-confirm"><div class="text-button" data-i18n>RESTART</div></div>
+                    <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>CANCEL</div></div>
+                </div>
+            </div>
+            <div class="sheet-view" data-view="giveup">
+                <div class="sheet-title" data-i18n>Give up?</div>
+                <div class="sheet-text" data-i18n>You can't win this game any more, whatever you roll. It ends now and counts as a loss.</div>
+                <div class="sheet-text sheet-reassure" data-i18n>You don't lose any level points.</div>
+                <div class="sheet-row">
+                    <div class="button sheet-btn cancel" id="giveup-confirm"><div class="text-button" data-i18n>GIVE UP</div></div>
                     <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>CANCEL</div></div>
                 </div>
             </div>
@@ -800,12 +809,16 @@
                 <section>
                     <div class="separator"></div>
                     <div class="title" data-i18n>Game</div>
+                    <div class="game-actions">
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
                             <div class="car-btn" id="pause-slot"><div class="opt-btn" id="pause-btn"><span class="pause-icon"></span></div></div>
                             <div class="car-btn" id="flip-slot"><div class="opt-btn flipped" id="flip-table-btn">FLIP</div></div>
                             <div class="car-btn" id="restart-slot"><div class="opt-btn" id="restart-btn" data-i18n>RESTART</div></div>
                         </div>
+                    </div>
+                    <!-- vs the bot, only when the board alone says the game can't be won (see updateGameTab) -->
+                    <div class="giveup-row" id="giveup-slot" hidden><div class="opt-btn" id="giveup-btn" data-i18n>GIVE UP</div></div>
                     </div>
                 </section>
 

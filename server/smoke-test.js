@@ -450,6 +450,18 @@ const lobby = new Lobby(io, store);
   assert.equal(botWinPayout({ strategy: "speed", turns: 7, margin: 6 }), 10, "speed mode pays 1 and the speed bonus");
   assert.equal(botWinPayout({ strategy: "speed", turns: 20, margin: 6 }), 1, "a slow speed win pays its 1 point");
   assert.equal(SPEED_TOP_PAY, 12); assert.equal(SPEED_TOP_TURNS, 5);
+  // Giving up against the bot is offered only when the board alone says the game can't be won.
+  const { cannotWin, canReachPoints } = await import("../public/shared/giveUp.js");
+  const board = (cells) => { const t = Array.from({ length: 5 }, () => Array(5).fill(0)); for (const [r, c, v] of cells) t[r][c] = v; return t; };
+  const game = (table, p1, p2, left1, left2) => ({ table, players: { 1: { points: p1, remainingPieces: left1 }, 2: { points: p2, remainingPieces: left2 } } });
+  assert.equal(cannotWin(game(board([]), 0, 0, 12, 12), 1), false, "a fresh game can be won");
+  assert.equal(cannotWin(game(board([[0, 0, 1], [0, 1, 1]]), 0, 0, 1, 5), 1), false, "one piece finishes a line: 1 point is reachable");
+  assert.equal(cannotWin(game(board([[0, 0, 1], [0, 1, 1]]), 0, 1, 1, 5), 1), true, "one piece makes 1 point at most, the bot has 1: no win left");
+  assert.equal(cannotWin(game(board([[0, 0, 1], [0, 1, 1]]), 0, 1, 2, 5), 1), false, "two pieces can make 2 points here (a row of 4 holds 2 lines)");
+  assert.equal(cannotWin(game(board([]), 0, 1, 0, 3), 1), true, "no pieces left and behind");
+  assert.equal(cannotWin(game(board([]), 0, 0, 0, 3), 1), true, "no pieces left and level: at best a draw, so no win");
+  assert.equal(canReachPoints(board([[1, 1, 2], [1, 1, 2]]), 1, 1, 12), true, "lines the other player has not touched are still open");
+  assert.equal(canReachPoints(board([[0, 1, 2], [0, 2, 1], [0, 3, 2]]), 1, 1, 1), false, "one piece can't make a line when every line with a piece of yours is blocked");
   console.log("ok: online results are recorded");
 }
 

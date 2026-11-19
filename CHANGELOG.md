@@ -12,6 +12,20 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.34.1] - 2026-11-19
+
+### Added
+- GIVE UP against the bot: in the Game tab, only when the board alone says the game can't be won any more (the player's pieces left, put on the empty cells in the best way, still can't pass the points the bot already has: `public/shared/giveUp.js`, checked over 800 simulated games with no wrong verdict). It asks first, then the game ends as a loss, with no points and no penalty. A short message ("This game is lost. You can give up from the menu.") tells the player once per game that it can be given up. Online is unchanged.
+- The Android app's project (Capacitor 7, in `android/`, config in `capacitor.config.json`): the web app wrapped as it is (`webDir` is `public`), the launcher icon and the splash screen made from the app's own artwork. The app id `com.linotte.game` is a placeholder, to be changed before the first upload to Google Play (it can't be after). `npm run android:sync` copies the web files into the project; `npm run android:open` opens it in Android Studio. Built (debug APK, with Java 21: Gradle 8 doesn't run on the Java 25 that comes with Android Studio) and tried in the emulator: the consent screen, the home, a random-opponent game against the hosted server all work.
+
+### Changed
+- The app icon on Android (the "maskable" one, which the phone crops to the middle two thirds): the black frame was cut off and only the bird showed. The frame is now inside the visible part, on an opaque white background (it had transparent corners), at the same size as the Android app's icon. The other icons are unchanged.
+- The black messages (toasts) stay half as long again, can be swiped away to the left, right or down, are as wide as their text instead of being squeezed into half the screen, and may have a line break (the one that says a game can be given up has two lines). They also fade and slide in again in portrait, as `online.css` had meant (the turn's `rotate` transition had replaced it).
+- The turn clock, in the last 5 seconds of the player's own turn (not during the opponent's): the digits turn red and it beats once a second, swelling with a red glow a little more each time, with a tiny dry click (the same each second) and a small buzz.
+- ROLL shakes like DONE does: at the start of the player's turn, when nothing has been rolled and nothing was touched for 10 seconds (DONE does it after 5 seconds once a piece is placed), until anything is touched.
+- The window shown when leaving an online game said "you lose 2 level points"; leaving costs 3 (as the rules and the missed-turns message already said). Fixed in the five languages.
+- A phone coming back from the background (or the network coming back) now asks the server a quick question and reconnects when it isn't answered within 3 seconds, instead of only when the page knows the socket dropped: in the store apps the system closes the socket and the page may still believe it is connected. The fairy playground page loads the bundled fonts instead of Google Fonts.
+
 ## [2.34.0] - 2026-11-19
 
 ### Changed
