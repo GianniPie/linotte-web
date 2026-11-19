@@ -13,7 +13,7 @@ import { grantDailyBonus } from "./bonuses.js";
 import { noteFriends } from "./friends.js";
 import { DAILY_BONUS_POINTS, canMeet } from "../public/shared/level.js";
 import {
-  QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS,
+  QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS, HOST_AWAY_MS,
 } from "./config.js";
 
 // No 0/O/1/I: a code read out loud or typed from a screenshot can't be misread.
@@ -194,6 +194,7 @@ export class Lobby {
     if (!room || room.status === "over") return { ok: false, error: "bad_code" };
     if (room.seatOf(me.playerId)) return { ok: false, error: "own_room" };
     if (room.status !== "waiting" || !room.freeSeat()) return { ok: false, error: "room_full" };
+    if (room.hostAway(HOST_AWAY_MS)) return { ok: false, error: "host_away" }; // nobody to play against
     if (this.activeRoom(me.playerId)) return { ok: false, error: "already_in_game" };
     this.leaveQueue(me.playerId);
 
@@ -204,6 +205,24 @@ export class Lobby {
   }
 
   //--------- coming back ---------
+  // A room (waiting or playing) with a seat of this account whose device is not connected: the seat now
+  // belongs to this device. Never a seat that is connected: that device is still in the game.
+  takeOverSeat(me) {
+    for (const room of this.rooms.values()) {
+      if (room.status === "over") continue;
+      for (const s of [1, 2]) {
+        const x = room.seats[s];
+        if (x?.kind !== "human" || x.userId !== me.userId || x.connected) continue;
+        this.byPlayer.delete(x.playerId);
+        x.playerId = me.playerId;
+        this.byPlayer.set(me.playerId, room);
+        room.onChange(room); // saved with the new device
+        return room;
+      }
+    }
+    return null;
+  }
+
   async rejoin(socket) {
     const me = socket.data;
     let room = this.activeRoom(me.playerId);
@@ -212,6 +231,9 @@ export class Lobby {
       const restored = await this.restore(await this.store.roomIdOfPlayer(me.playerId));
       if (restored && restored.status !== "over" && restored.seatOf(me.playerId)) room = restored;
     }
+    // The same account on another device (the phone after the browser): the seat its first device left empty
+    // is taken over, so the owner of a room, or a player in a game, comes back from anywhere.
+    if (!room && me.userId) room = this.takeOverSeat(me);
     if (!room) return { ok: false };
     const seat = room.seatOf(me.playerId);
     room.onReconnect(seat, socket);
@@ -386,7 +408,7 @@ export class Lobby {
 
   // The app watched the video: the game's points count, and the day's first
   // game brings its bonus. { ok, claimed, daily }.
-  async claimPoints(socket) {
+  async claimPoints(socket, { adFree = false } = {}) {
     const userId = socket.data.userId;
     const waiting = userId && this.pending.get(userId);
     if (!waiting) {
@@ -399,7 +421,7 @@ export class Lobby {
       this.video(userId, "claim_failed", { ms });
       return { ok: false };
     }
-    this.video(userId, "watched", { ms });
+    this.video(userId, adFree ? "ad_free" : "watched", { ms });
     const daily = await this.grantDaily(userId, { tz: socket.data.tz });
     try { await this.afterRecord(socket); } catch (err) { console.error("stats not refreshed:", err.message); }
     return { ok: true, claimed: true, daily: Boolean(daily), points: daily ? DAILY_BONUS_POINTS : 0 };

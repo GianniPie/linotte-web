@@ -177,6 +177,21 @@ export async function fetchLeaderboard(range = "week") {
     return res.json();
 }
 
+// A problem report from the form: { message, screenshot (a data URL, or ""), client } -> { ok, error? }.
+// The server adds who the player is and its own view of their online game (server/feedback.js).
+export async function sendFeedback(payload) {
+    try {
+        const headers = { "Content-Type": "application/json" };
+        const token = await accessToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+        const res = await fetch(`${SERVER_URL}/api/feedback`, { method: "POST", headers, body: JSON.stringify(payload) });
+        const body = await res.json().catch(() => ({}));
+        return res.ok && body.ok ? { ok: true } : { ok: false, error: body.error || (res.status === 429 ? "slow_down" : "failed") };
+    } catch {
+        return { ok: false, error: "offline" };
+    }
+}
+
 // Anyone's card (name, country, level, points, star, record) by account id: null if it can't be had.
 export async function fetchPlayer(id) {
     try {
@@ -288,8 +303,8 @@ export class OnlineClient {
 
     // The video before the winner card: watched (the game's points count, and
     // the day's first game's bonus comes back: { claimed, daily, points }) or closed.
-    claimPoints() {
-        return this.call("claim_points");
+    claimPoints({ adFree = false } = {}) {
+        return this.call("claim_points", adFree ? { adFree: true } : {}); // adFree: no video was owed (a first game), so none was watched
     }
     skipPoints() {
         return this.call("skip_points");
@@ -344,6 +359,8 @@ export class OnlineClient {
     friendRespond(userId, accept) { return this.call("friend_respond", { userId, accept }); }
     friendRemove(userId) { return this.call("friend_remove", { userId }); }
     friendBlock(userId) { return this.call("friend_block", { userId }); }
+    // "Report" on the opponent's card: a reason from name, emoji, other.
+    reportOpponent(reason) { return this.call("report_player", { reason }); }
     joinRoom(code) { return this.call("room_join", { code }); }
     leaveRoom() { return this.call("room_leave"); }
 

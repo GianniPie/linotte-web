@@ -12,6 +12,30 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.34.0] - 2026-11-19
+
+### Changed
+- A newcomer's first two finished games have no video at all (the points come at once, the screen after the game goes straight on): counted on the device (the first two games it ever finishes, any mode that ends in a result). For an online game of an account the app tells the server there is no video (`claim_points` with `adFree`, logged as `ad_free` instead of `watched`), because the server holds an online game's points until the video is watched.
+- The video that ends a game that pays no points (a loss against the bot, a game at the same table) now waits for at least two minutes since the last full-screen video, and is dropped if it would come sooner. Games last longer than that, so it only matters for very short ones. The video of a game that pays points still always plays, and leaving a game midway to change mode shows none (as before: a game owes its video only when it ends).
+- Speed mode against the bot pays much more for a fast win: 12 points for a win in 5 turns (the least a five in a row takes), one less for every extra turn, down to the win's own 1 point from 16 turns on (it used to be 1 + up to 4 for 14 turns or fewer, so more than half of the wins paid just 1). In games between equal players this makes speed pay about 1.75 points a game, as much as points mode (about 1.7) and still under online (about 3). The rules text (How to play and How levels work) says it in the five languages; the database already took bonuses up to 40.
+
+### Added
+- The end of the How to play page (version, credits, piece designs, legal, problems) is now set apart from the instructions: a short thick line, more room, and an island of its own titled "About Linotte".
+- Report a problem and contact the developer, one form inside the app: two plain links at the end of How to play (Contact the developer under Piece designs, and Report a problem in a section of its own after Legal) open a sheet with a box to write in and a button to add a screenshot (made smaller before it goes). "Report a problem" and "Contact the developer" are the same form with another title and words; the mail says which in its subject ([Linotte problem] or [Linotte contact]), and someone who isn't signed in can leave an e-mail to be answered at (only for a message to the developer). What the player doesn't have to see goes with it: who they are (account, name, e-mail to reply to, role, level, country, language), their device and the app's version, the connection, the game open on the screen (mode, turn, points, pieces left and the whole position) and, for an online game, the server's own view of the room, plus the last errors the page logged. The server keeps it in the new `feedback` table (`supabase/feedback.sql`, to be run in the SQL Editor) and mails it to linotte.cloud@gmail.com through Resend when `RESEND_API_KEY` is set on Render (with the details as an attached file and the screenshot). A few an hour per person. Without the key it is only kept (and logged on a local run).
+
+### Added
+- Accessibility pass. The game's buttons are mostly `<div class="button">`, which a finger can press but a screen reader can't see and a keyboard can't reach: a new `public/a11y.js` gives the 100 or so of them a role, a place in the tab order and Enter and Space, names to the ones that only have a picture (the options and the tabs, the < > arrows, the dice and backgrounds, the reactions), on/off and not-usable states from the classes the app already toggles, and empty text for decorative pictures. A visible ring shows what the keyboard is on. The grey "Report this player" link is darker, for contrast. Checked in the browser: no clickable thing without a role or a place in the tab order left, and Enter and Space press a focused button.
+- The keep-awake job on GitHub is now also the alarm: it fails (and GitHub emails you) when the server doesn't answer, or says anything but ok, or its account side (/api/me, which reads the database) doesn't answer.
+
+### Added
+- The player's picture on the player's card: the gallery picture they chose, or the generic buddy when they chose none, in a round frame above the name. On the cards opened from the ranking and the friends it is grey and shimmering until the data arrives, like the rest; in a game the opponent's picture comes with the game (the server now puts it in the game's state; only a picture of the game's gallery can be there). A player who has chosen no picture gets one of the first eight pieces, always the same for the same account (the server and the app work it out the same way); in the profile it shows as the picture it is. The photo of a Google or Apple account is gone: it is no longer kept or shown anywhere, not even in your own profile button, so the game's own pictures are the only ones.
+
+### Added
+- Report an opponent: a small quiet link, "Report this player", under the opponent's card in an online game (not a button), asks what went wrong (an offensive name, annoying reactions, something else: the name is the only free text, and the server plays the rules, so there is no cheating to report) and keeps it for you to read in the new `reports` table (`supabase/reports.sql`, to be run in the SQL Editor; the query to read them is in the file). One report per player per game and six an hour; the server's own players that pass for people are answered like a person and nothing is kept for them.
+
+### Fixed
+- A private room whose owner has closed the app can no longer be joined after a minute and a half: whoever uses the link is told the owner isn't there and to ask for a new one, instead of a game starting with nobody on the other side (which cost the owner 3 points when they never came back). And the same account can take its room (or its game) back from another device, such as the phone after the browser, as long as the first device is gone; a device still connected is never taken over.
+
 ## [2.33.1] - 2026-11-18
 
 ### Changed

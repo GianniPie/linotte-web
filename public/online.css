@@ -129,6 +129,8 @@
 #online-overlay[data-view="friend-add"] .sheet-view[data-view="friend-add"],
 #online-overlay[data-view="friend-confirm"] .sheet-view[data-view="friend-confirm"],
 #online-overlay[data-view="friend-manage"] .sheet-view[data-view="friend-manage"],
+#online-overlay[data-view="report"] .sheet-view[data-view="report"],
+#online-overlay[data-view="feedback"] .sheet-view[data-view="feedback"],
 #online-overlay[data-view="waiting"] .sheet-view[data-view="waiting"],
 #online-overlay[data-view="joincode"] .sheet-view[data-view="joincode"],
 #online-overlay[data-view="message"] .sheet-view[data-view="message"],
@@ -343,6 +345,13 @@
   padding: .3em .6em;
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* A link that stays out of the way: grey, not red. */
+.sheet-link.muted {
+  color: inherit;
+  opacity: .75;
+  font-size: .8em;
 }
 
 #account-email {
@@ -1071,6 +1080,30 @@ body.daily-open .sheet-daily {
   background: rgba(0, 0, 0, .06);
 }
 
+/* The picture on a player's card: the gallery one, or the generic buddy; grey and shimmering while the card loads. */
+.pc-avatar {
+  align-self: center;
+  width: 4.6em;
+  aspect-ratio: 1;
+  border: .15em solid rgba(0, 0, 0, .35);
+  border-radius: 50%;
+  background: rgb(228, 209, 187) url("resources/images/avatar-guest.svg") center / 100% no-repeat;
+  background-origin: border-box;
+}
+
+.pc-avatar.has-picture {
+  background-size: cover;
+}
+
+.pc-skeleton .pc-avatar {
+  background: linear-gradient(100deg, rgba(0, 0, 0, .08) 30%, rgba(0, 0, 0, .16) 50%, rgba(0, 0, 0, .08) 70%) 0 0 / 250% 100%;
+  animation: lbShimmer 1.3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-skeleton .pc-avatar { animation: none; }
+}
+
 /* A friend just made, until the list has been seen. */
 .fr-name span.fr-new {
   display: inline-block;
@@ -1151,4 +1184,37 @@ body.daily-open .sheet-daily {
 
 @media (prefers-reduced-motion: reduce) {
   .invite-banner { animation: none; }
+}
+
+
+/* Report a problem */
+.feedback-text {
+  width: 100%;
+  min-height: 7em;
+  resize: vertical;
+  font: 1em/1.4 sans-serif;
+  text-align: left;
+}
+
+.feedback-shot {
+  display: flex;
+  align-items: center;
+  gap: .8em;
+  justify-content: center;
+}
+
+.feedback-shot[hidden] {
+  display: none;
+}
+
+.feedback-shot img {
+  max-width: 6em;
+  max-height: 5em;
+  border: 3px solid rgba(0, 0, 0, .35);
+  border-radius: .5625em;
+  object-fit: cover;
+}
+
+#feedback-email {
+  font-size: 1em;
 }

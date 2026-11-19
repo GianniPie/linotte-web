@@ -442,14 +442,14 @@ const lobby = new Lobby(io, store);
     [-2, -1, -1, 0, 0, 0, 1, 1, 2, 3, 9, 10, 10, 11, 20, 30], "levels: 5 points more each, then 50 each from level 10");
   assert.deepEqual([-2, -1, 0, 1, 3, 10, 11, 20].map(levelStart), [-29, -14, -4, 5, 30, 275, 325, 775], "where levels start");
   assert.ok(!Object.is(levelOf(-1), -0), "never -0");
-  const { speedBonus, SPEED_BONUS_TIERS } = await import("../public/shared/level.js");
-  assert.deepEqual([0, 5, 8, 9, 11, 12, 14, 15, 30].map(speedBonus), [0, 4, 4, 3, 3, 2, 2, 0, 0], "the faster the win, the bigger the bonus; none from 15 turns");
+  const { speedBonus, SPEED_TOP_TURNS, SPEED_TOP_PAY } = await import("../public/shared/level.js");
+  assert.deepEqual([0, 3, 5, 6, 10, 15, 16, 17, 30].map(speedBonus), [0, 11, 11, 10, 6, 1, 0, 0, 0], "a win in 5 turns pays 12 (11 on top of the 1), one less per extra turn, down to the win's own 1 point");
   const { botWinPayout } = await import("../public/shared/level.js");
   assert.equal(botWinPayout({ strategy: "points", turns: 7, margin: 6 }), 6, "points mode pays the pure winning margin");
   assert.equal(botWinPayout({ strategy: "points", turns: 7, margin: 0 }), 1, "at least the win's 1 point");
-  assert.equal(botWinPayout({ strategy: "speed", turns: 7, margin: 6 }), 5, "speed mode pays 1 and the speed bonus");
+  assert.equal(botWinPayout({ strategy: "speed", turns: 7, margin: 6 }), 10, "speed mode pays 1 and the speed bonus");
   assert.equal(botWinPayout({ strategy: "speed", turns: 20, margin: 6 }), 1, "a slow speed win pays its 1 point");
-  assert.equal(SPEED_BONUS_TIERS.length, 3);
+  assert.equal(SPEED_TOP_PAY, 12); assert.equal(SPEED_TOP_TURNS, 5);
   console.log("ok: online results are recorded");
 }
 
@@ -659,6 +659,114 @@ const lobby = new Lobby(io, store);
   assert.ok(list[0].name.length > 0, "a friend without a profile name gets their animal name");
   assert.equal(list[0].weekPoints, 7);
   console.log("ok: friends");
+}
+
+//--------- 15a. a room whose owner is away, and an account coming back from another device ---------
+{
+  const lobby = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async () => false, befriend: async () => {} });
+  const host = fakeSocket("player-awayhost01", "Host1");
+  host.data.userId = "user-away-host";
+  assert.ok(lobby.createPrivate(host).ok);
+  const room = lobby.roomOfSocket(host);
+  const code = room.code;
+  // The owner goes (closes the app); just now the room still waits for them...
+  lobby.handleDisconnect(host);
+  assert.ok(!room.hostAway(90000), "gone for a moment: still joinable");
+  // ...a while later it no longer does: a friend with the link is told, not thrown into an empty game.
+  room.seats[host.data.seat].awaySince = Date.now() - 100000;
+  const guest = fakeSocket("player-awayguest2", "Guest2");
+  assert.equal((await lobby.joinByCode(guest, code)).error, "host_away", "an absent owner's room can't be joined");
+  assert.equal(room.status, "waiting", "and it keeps waiting");
+  // The same account on another device: the seat is theirs again, with the same code.
+  const phone = fakeSocket("player-awayphone03", "Phone3");
+  phone.data.userId = "user-away-host";
+  const back = await lobby.rejoin(phone);
+  assert.deepEqual([back.ok, back.status, back.code], [true, "waiting", code], "the owner is back in their room from another device");
+  assert.ok(!room.hostAway(90000), "and the room is joinable again");
+  assert.ok((await lobby.joinByCode(guest, code)).ok, "so the friend can join");
+  // A device that is still connected is not taken over.
+  const thief = fakeSocket("player-awaythief04", "Thief4");
+  thief.data.userId = "user-away-host";
+  assert.equal((await lobby.rejoin(thief)).ok, false, "a connected seat is not taken from its device");
+  room.forfeit(phone.data.seat, "left");
+  console.log("ok: a room whose owner is away");
+}
+
+//--------- 15d. the default picture ---------
+{
+  const { defaultAvatar, avatarOrDefault, DEFAULT_AVATARS, isAvatar } = await import("../public/shared/assets.js");
+  assert.equal(DEFAULT_AVATARS.length, 8);
+  assert.deepEqual(DEFAULT_AVATARS, ["p001", "p002", "p003", "p004", "p005", "p006", "p007", "p008"], "the first eight pieces");
+  assert.equal(defaultAvatar("user-a"), defaultAvatar("user-a"), "always the same for the same account");
+  const seen = new Set(Array.from({ length: 200 }, (_, i) => defaultAvatar("user-" + i)));
+  assert.ok(seen.size >= 6 && [...seen].every((id) => DEFAULT_AVATARS.includes(id)), "spread over the eight, never another");
+  assert.equal(avatarOrDefault("p020", "x"), "p020", "a chosen picture wins");
+  assert.ok(isAvatar(avatarOrDefault("", "x")) && isAvatar(avatarOrDefault("../evil", "x")), "no choice, or a bad one: the default");
+  console.log("ok: default picture");
+}
+
+//--------- 15e. problem reports from the form ---------
+{
+  const { parseScreenshot, buildReport, sendFeedback, emailOf, createFeedbackBudget } = await import("./feedback.js");
+  const png = "data:image/png;base64," + Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]).toString("base64");
+  assert.equal(parseScreenshot(png)?.ext, "png", "a PNG is kept");
+  assert.equal(parseScreenshot("data:image/png;base64," + Buffer.from("not a png").toString("base64")), null, "bytes that are not the type it says");
+  assert.equal(parseScreenshot("data:text/html;base64,PGI+"), null, "not an image");
+  assert.equal(parseScreenshot("data:image/jpeg;base64," + Buffer.alloc(1_600_000, 0xff).toString("base64")), null, "too big");
+  const shot = parseScreenshot(png);
+  const report = buildReport({
+    message: "The dice froze on my turn", version: "9.9.9", ip: "1.2.3.4", screenshot: shot,
+    account: { userId: "u1", name: "Gianni", email: "g@example.com", role: "admin", level: 5, xp: 100, country: "IT" },
+    client: { language: "it", userAgent: "UA", screen: "390x844", viewport: "390x700", pixelRatio: 3, host: "linotte.app", errors: ["TypeError: x is not a function"], game: { mode: "bot", strategy: "points", inProgress: true, points: "3 - 1", turns: 6 } },
+    serverGame: { roomId: "r1", kind: "random", status: "playing", seats: [{ seat: 1, name: "A", kind: "human", connected: true }] },
+  });
+  assert.ok(report.text.startsWith("The dice froze on my turn"), "the message first");
+  for (const needle of ["Gianni (u1)", "g@example.com", "Role: admin", "9.9.9", "390x844", "Mode: bot (points)", "Room: r1", "TypeError: x is not a function"]) assert.ok(report.text.includes(needle), "the mail says " + needle);
+  assert.ok(report.subject.includes("Gianni") && report.subject.includes("9.9.9"), "a subject that says who and which version");
+  assert.ok(report.subject.startsWith("[Linotte problem]") && buildReport({ kind: "contact", message: "Hello", account: {}, replyTo: "a@b.co" }).subject.startsWith("[Linotte contact]"), "the subject says which kind");
+  assert.ok(buildReport({ kind: "contact", message: "Hello", account: {}, replyTo: "a@b.co" }).text.includes("E-mail to answer: a@b.co"), "the address a guest gave");
+  assert.deepEqual(report.attachments.map((a) => a.filename), ["details.json", "screenshot.png"], "details and the screenshot go along");
+  // kept and mailed
+  const calls = [];
+  const fetcher = async (u, o) => { calls.push([u, o?.method, o?.body && JSON.parse(o.body)]); return { ok: true, status: 200, text: async () => "" }; };
+  const sent = await sendFeedback(report, { userId: "u1", message: "m", replyTo: "g@example.com", screenshot: shot }, { key: "k", url: "https://example.supabase.co", resendKey: "re_x", fetch: fetcher });
+  assert.deepEqual([sent.ok, sent.kept, sent.mailed], [true, true, true]);
+  assert.ok(calls[0][0].endsWith("/rest/v1/feedback") && calls[0][2].user_id === "u1" && calls[0][2].screenshot.startsWith("data:image/png;base64,"), "kept in the table");
+  assert.ok(calls[1][0].includes("api.resend.com") && calls[1][2].to[0] === "linotte.cloud@gmail.com" && calls[1][2].reply_to === "g@example.com", "mailed to the project's address, replyable");
+  // one of the two failing still counts as sent; both failing doesn't
+  const mailDown = async (u) => (u.includes("resend") ? { ok: false, status: 500, text: async () => "no" } : { ok: true });
+  assert.equal((await sendFeedback(report, {}, { key: "k", url: "https://x.supabase.co", resendKey: "re_x", fetch: mailDown })).ok, true, "kept though the mail failed");
+  assert.equal((await sendFeedback(report, {}, { key: "k", url: "https://x.supabase.co", resendKey: "re_x", fetch: async () => ({ ok: false, status: 500, text: async () => "" }) })).ok, false, "neither: not sent");
+  assert.equal((await sendFeedback(report, {}, { key: "", resendKey: "" })).ok, true, "a local run: only logged");
+  assert.equal(await emailOf("u1", { key: "k", url: "https://x.supabase.co", fetch: async () => ({ ok: true, json: async () => ({ email: "g@example.com" }) }) }), "g@example.com");
+  assert.equal(await emailOf(null, { key: "k" }), null);
+  let clock = 0;
+  const budget = createFeedbackBudget({ perHour: 2, now: () => clock });
+  assert.ok(budget.take("a") && budget.take("a") && !budget.take("a"), "two an hour");
+  clock = 3600_001;
+  assert.ok(budget.take("a"), "an hour later");
+  console.log("ok: problem reports");
+}
+
+//--------- 15c. reporting a player ---------
+{
+  const { createReportBook, saveReport, REPORT_REASONS } = await import("./reports.js");
+  let clock = 0;
+  const book = createReportBook({ perHour: 2, now: () => clock });
+  assert.equal(book.take("a", "room1", "x"), "ok", "a first report");
+  assert.equal(book.take("a", "room1", "x"), "again", "the same player in the same game: not twice");
+  assert.equal(book.take("a", "room2", "x"), "ok", "another game");
+  assert.equal(book.take("a", "room3", "x"), "slow_down", "two an hour");
+  clock = 3600_001;
+  assert.equal(book.take("a", "room3", "x"), "ok", "an hour later");
+  const sent = [];
+  const keep = { key: "k", url: "https://example.supabase.co", fetch: async (u, o) => { sent.push([u, JSON.parse(o.body)]); return { ok: true }; } };
+  assert.ok(await saveReport({ reporter: "u1", reporterPlayer: "p1", reportedUser: null, reportedPlayer: "p2", reportedName: "Rude", roomId: "r", reason: "name" }, keep));
+  assert.ok(sent[0][0].endsWith("/rest/v1/reports") && sent[0][1].reason === "name" && sent[0][1].reported_name === "Rude", "kept in the reports table");
+  assert.equal(await saveReport({ reason: "invented" }, keep), false, "only the listed reasons");
+  assert.equal(await saveReport({ reason: "other" }, { ...keep, fetch: async () => ({ ok: false, status: 500 }) }), false, "a failure is reported, not thrown");
+  assert.deepEqual(REPORT_REASONS, ["name", "emoji", "other"]);
+  console.log("ok: reports");
 }
 
 //--------- 15b. friends you choose: code, requests, states, invitations ---------

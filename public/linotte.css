@@ -1040,6 +1040,18 @@ body.table-flipped .tile::before {
 }
 
 
+/* A visible place for the keyboard (and the switch and the screen reader's cursor): a ring on whatever is
+   focused, only when it is the keyboard that focused it. */
+[role="button"]:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: .1875em solid #1f4fd8;
+  outline-offset: .125em;
+}
+
 /* ============================================
    BUTTON SECTION
    ============================================ */
@@ -1850,6 +1862,16 @@ html.is-resizing *::after {
   background: rgba(255, 255, 255, .88);
   border: .075em solid rgba(0, 0, 0, .18);
   color: #3d240c;
+}
+
+/* The end of the help page is not about how to play: a short thick line, more room than between the
+   instruction islands, and a title of its own (see "About Linotte" in index.html). */
+.rules-about-sep {
+  height: 0;
+  width: 28%;
+  margin: 1.9em auto .9em;
+  border-top: .25em solid rgba(0, 0, 0, .3);
+  border-radius: 999px;
 }
 
 /* Options: one island per option, like the help's sections. */

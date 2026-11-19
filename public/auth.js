@@ -48,7 +48,7 @@ function toUser(u) {
         id: u.id,
         email: u.email || "",
         name: meta.full_name || meta.name || "",
-        avatar: meta.avatar_url || meta.picture || "",
+        // (the photo of the Google or Apple account is not kept: the game's own pictures are the only ones)
         provider: u.app_metadata?.provider || "email",
     };
 }

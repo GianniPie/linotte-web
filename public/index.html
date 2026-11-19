@@ -232,6 +232,35 @@
                 <div class="button sheet-btn cancel" id="fr-confirm-no"><div class="text-button" data-i18n>NOT NOW</div></div>
             </div>
 
+            <!-- report the opponent of an online game (public/linotte.js, "Report"; server/reports.js) -->
+            <div class="sheet-view" data-view="report">
+                <div class="sheet-title" id="report-title"></div>
+                <div class="sheet-text" data-i18n>What went wrong?</div>
+                <div class="button sheet-btn alt" data-reason="name"><div class="text-button" data-i18n>OFFENSIVE NAME</div></div>
+                <div class="button sheet-btn alt" data-reason="emoji"><div class="text-button" data-i18n>ANNOYING REACTIONS</div></div>
+                <div class="button sheet-btn alt" data-reason="other"><div class="text-button" data-i18n>SOMETHING ELSE</div></div>
+                <div class="button sheet-btn cancel" id="report-back"><div class="text-button" data-i18n>BACK</div></div>
+            </div>
+
+            <!-- Report a problem: a few words and, if wanted, a screenshot. Who they are, their device and the game
+                 go along by themselves (public/linotte.js, "Problem reports"; server/feedback.js). -->
+            <div class="sheet-view" data-view="feedback">
+                <div class="sheet-title" id="feedback-title"></div>
+                <div class="sheet-text sheet-small" id="feedback-intro"></div>
+                <textarea id="feedback-text" class="text-input feedback-text" maxlength="3000" rows="6" aria-label="Your message"></textarea>
+                <!-- only for a message to the developer from someone who isn't signed in: where to answer -->
+                <input id="feedback-email" class="text-input" type="email" autocomplete="email" maxlength="120" hidden aria-label="Your e-mail, so we can answer">
+                <input id="feedback-file" type="file" accept="image/*" hidden>
+                <div class="feedback-shot" id="feedback-shot" hidden>
+                    <img id="feedback-thumb" alt="">
+                    <button class="sheet-link muted" id="feedback-remove" type="button" data-i18n>Remove</button>
+                </div>
+                <div class="button sheet-btn alt" id="feedback-attach"><div class="text-button" data-i18n>ADD A SCREENSHOT</div></div>
+                <div class="sheet-text error" id="feedback-error"></div>
+                <div class="button sheet-btn go" id="feedback-send"><div class="text-button" data-i18n>SEND</div></div>
+                <div class="button sheet-btn cancel" id="feedback-cancel"><div class="text-button" data-i18n>CANCEL</div></div>
+            </div>
+
             <div class="sheet-view" data-view="friend-manage">
                 <div class="sheet-title" id="fr-manage-title"></div>
                 <div class="sheet-text sheet-small" id="fr-manage-text"></div>
@@ -276,7 +305,7 @@
                     <summary data-i18n>What's the difference?</summary>
                     <div class="bot-help-body">
                         <p><b data-i18n>POINTS</b> <span data-i18n>A longer game, played for the most points. If you win, you earn as many level points as you finish ahead by: win 12 to 9 and you earn 3.</span></p>
-                        <p><b data-i18n>SPEED</b> <span data-i18n>A race to five in a row, which ends the game at once. If you win in 14 turns or fewer, you earn up to +4 bonus points.</span></p>
+                        <p><b data-i18n>SPEED</b> <span data-i18n>A race to five in a row, which ends the game at once. The faster you win, the more you earn: 12 points for a win in 5 turns, one less for each extra turn, down to 1 point.</span></p>
                     </div>
                 </details>
                 <div class="button sheet-btn cancel" data-sheet-close><div class="text-button" data-i18n>BACK</div></div>
@@ -362,7 +391,7 @@
                     <li data-i18n>Each online game you win, against a random opponent or a friend: +4 points.</li>
                     <li data-i18n>Each online game you lose or draw, played to the end: +2 points.</li>
                     <li data-i18n>Each win against the bot: +1 point.</li>
-                    <li data-i18n>A win against the bot in speed mode in 14 turns or fewer: up to +4 bonus points, the faster the more.</li>
+                    <li data-i18n>A win against the bot in speed mode: 12 points in 5 turns, one less for each extra turn, down to 1 point.</li>
                     <li data-i18n>A win against the bot in points mode: as many points as your winning margin.</li>
                     <li data-i18n>The first online game of the day: +2 bonus points.</li>
                     <li data-i18n>Watching an ad to the end: +1 point, up to 5 a day.</li>
@@ -381,6 +410,7 @@
             </div>
             <!-- a player in the game, tapped: see showPlayerCard in linotte.js -->
             <div class="sheet-view" data-view="player">
+                <div class="pc-avatar" id="pc-avatar" aria-hidden="true"></div>
                 <div class="sheet-title" id="pc-name"></div>
                 <div class="player-card-country" id="pc-country"></div>
                 <!-- their level, as the badge they wear in the game; under it, in small, Pro / Free / Guest -->
@@ -397,6 +427,8 @@
                 <div class="button sheet-btn alt" id="pc-add-friend" hidden><div class="text-button" data-i18n>ADD FRIEND</div></div>
                 <div class="button sheet-btn danger" id="pc-manage" hidden><div class="text-button" data-i18n>FRIEND OPTIONS</div></div>
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
+                <!-- a small quiet link, not a button: reporting is rare (see "Report" in linotte.js) -->
+                <button class="sheet-link muted" id="pc-report" type="button" hidden data-i18n>Report this player</button>
             </div>
             <!-- what opponents see: name, picture, country (see "Profile" in linotte.js) -->
             <div class="sheet-view" data-view="profile">
@@ -1135,6 +1167,10 @@
                         </div>
                     </section>
 
+                    <!-- Everything below is not instructions: a line, a title of its own, then the version, credits and legal. -->
+                    <div class="rules-about-sep" aria-hidden="true"></div>
+                    <div class="page-heading" data-i18n>About Linotte</div>
+
                     <footer class="rules-foot">
                         <p class="rules-foot-name">Linotte, <span id="version">version </span></p>
                         <p data-i18n>Made by GianniPie, inspired by the traditional French dice game.</p>
@@ -1153,12 +1189,17 @@
                         <p data-i18n-html>Some piece designs may be covered by copyright. If you hold the rights to one, contact the
                             developer<span id="contact-email"></span> to have it removed right away, or to discuss a commercial
                             agreement.</p>
+                        <!-- the form in the app (the "feedback" sheet; see "Problem reports" in linotte.js) -->
+                        <p><a href="#feedback" class="feedback-open" data-kind="contact" data-i18n>Contact the developer</a></p>
 
                         <h2 class="rules-foot-h" data-i18n>Legal</h2>
                         <ul class="rules-credits rules-legal">
                             <li><a href="legal/terms.html" target="_blank" rel="noopener" data-i18n>Terms of Service</a></li>
                             <li><a href="legal/privacy.html" target="_blank" rel="noopener" data-i18n>Privacy Policy</a></li>
                         </ul>
+
+                        <h2 class="rules-foot-h" data-i18n>Problems</h2>
+                        <p><a href="#feedback" class="feedback-open" data-kind="problem" data-i18n>Report a problem</a></p>
                     </footer>
                 </div>
             </div>

@@ -178,7 +178,7 @@ window.addEventListener('orientationchange', onViewportChange);
 
 //----------- GAME STATE ---------------
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
-import { dicePath, diceFaces, dicePos, diceNames, diceRadius, bgPath, backgrounds, piecesPath, pieces, avatarIds, avatarUrl } from "./shared/assets.js";
+import { dicePath, diceFaces, dicePos, diceNames, diceRadius, bgPath, backgrounds, piecesPath, pieces, avatarIds, avatarUrl, avatarOrDefault } from "./shared/assets.js";
 import { updateGame, canRoll, callBlockedBy } from "./shared/gameEngine.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget, labCandidates, setSpeedWeights, setSpeedModels, labAim, labCall, labStop, labLock } from "./shared/botAI.js";
 import { labOn, labSend, labListen } from "./botlab-client.js";
@@ -193,7 +193,9 @@ import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces
 import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAbandon, guestToday, guestAdReward } from "./stats.js";
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
-import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer } from "./online.js";
+import { recentErrors } from "./diagnostics.js"; // the last errors of the page, for a problem report
+import "./a11y.js"; // roles, names, keyboard and states for the buttons that are not <button>s
+import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer, sendFeedback, getPlayerId } from "./online.js";
 import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
@@ -510,11 +512,14 @@ function showPlayerCard(seat) {
     if (!p || !gameInProgress) return;
     playerCardReturn = null;
     byId("pc-manage").hidden = true;
+    byId("pc-report").hidden = true;
     delete byId("pc-add-friend").dataset.id;
     document.querySelector('.sheet-view[data-view="player"]').classList.remove("pc-skeleton");
     const mine = controller.mode !== "offline" && seat === (controller.mode === "online" ? LOCAL_PLAYER : 1);
     const isBot = controller.mode === "bot" && seat === 2;
     byId("pc-name").textContent = mine ? (profile?.name || p.name) : p.name;
+    // Online the server's state has everyone's, one's own included; offline, one's own (or the buddy for a guest).
+    setCardAvatar(controller.mode === "online" ? p.avatar : mine && currentUser() ? avatarOrDefault(profile?.avatar, currentUser().id) : mine ? "" : p.avatar);
 
     const country = mine ? (controller.mode === "online" ? p.country : profile?.country) : p.country;
     let countryName = country;
@@ -543,8 +548,151 @@ function showPlayerCard(seat) {
     const addFriend = byId("pc-add-friend");
     addFriend.hidden = !(controller.mode === "online" && !mine && (currentUser() || friendsDemo) && p.level != null);
     addFriend.dataset.name = p.name;
+    // The opponent of an online game can be reported (the server's own players are answered like a person).
+    const report = byId("pc-report");
+    report.hidden = !(controller.mode === "online" && !mine);
+    report.dataset.name = p.name;
     showOnlineView("player");
 }
+//--------- problem reports: the form in the app ---------
+// A few words and, if wanted, a screenshot; the rest is sent without the player seeing it (collectDiagnostics):
+// their device and the page's errors, the game open on the screen. The server adds who they are and, for an
+// online game, its own view of it, and keeps the report and mails it (server/feedback.js).
+let feedbackShot = ""; // the screenshot as a data URL, or ""
+let feedbackBack = null; // where CANCEL and a sent report go back to
+
+function collectDiagnostics() {
+    const g = gameState;
+    const state = JSON.stringify(g);
+    return {
+        language: LANG,
+        host: location.host,
+        userAgent: navigator.userAgent,
+        platform: navigator.platform || "",
+        screen: `${screen.width}x${screen.height}`,
+        viewport: `${innerWidth}x${innerHeight}`,
+        pixelRatio: devicePixelRatio,
+        standalone: Boolean(matchMedia("(display-mode: standalone)").matches || navigator.standalone),
+        native: IN_NATIVE_APP,
+        online: navigator.onLine,
+        connection: navigator.connection?.effectiveType || "",
+        serverConnected: onlineClient.isConnected(),
+        playerId: getPlayerId(),
+        time: new Date().toISOString(),
+        errors: recentErrors(),
+        game: {
+            mode: gameInProgress ? controller?.mode : "",
+            strategy: gameInProgress && controller?.mode === "bot" ? botStrategy : "",
+            inProgress: gameInProgress,
+            over: isGameOver,
+            currentPlayer: g?.currentPlayer,
+            points: g ? `${g.players[1].points} - ${g.players[2].points}` : "",
+            piecesLeft: g ? `${g.players[1].remainingPieces} - ${g.players[2].remainingPieces}` : "",
+            turns: myTurns,
+            state: state.length <= 30000 ? g : undefined, // the whole position, when it is not huge
+        },
+    };
+}
+
+// A screenshot is made smaller before it goes: at most 1400 px a side, JPEG, under about 1.2 MB.
+async function shrinkImage(file) {
+    const url = URL.createObjectURL(file);
+    try {
+        const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = url; });
+        const scale = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        for (const quality of [0.82, 0.65, 0.5]) {
+            const data = canvas.toDataURL("image/jpeg", quality);
+            if (data.length * 0.75 < 1_200_000) return data;
+        }
+        return "";
+    } finally { URL.revokeObjectURL(url); }
+}
+
+function showFeedbackShot() {
+    document.getElementById("feedback-shot").hidden = !feedbackShot;
+    document.getElementById("feedback-thumb").src = feedbackShot || "";
+    document.getElementById("feedback-attach").querySelector(".text-button").textContent = feedbackShot ? t("CHANGE SCREENSHOT") : t("ADD A SCREENSHOT");
+}
+
+// "problem" (something went wrong) or "contact" (the developer: a question, an idea, rights): the same form.
+let feedbackKind = "problem";
+const FEEDBACK_TEXTS = () => ({
+    problem: [t("Report a problem"), t("Tell us what went wrong, or what could be better. We read everything."), t("What happened?")],
+    contact: [t("Contact the developer"), t("A question, an idea, a collaboration or a matter of rights: write here and we will answer."), t("Your message")],
+});
+function openFeedback(kind = "problem") {
+    feedbackKind = kind === "contact" ? "contact" : "problem";
+    const [title, intro, placeholder] = FEEDBACK_TEXTS()[feedbackKind];
+    document.getElementById("feedback-title").textContent = title;
+    document.getElementById("feedback-intro").textContent = intro;
+    document.getElementById("feedback-text").placeholder = placeholder;
+    // Someone who is not signed in can't be answered unless they say where.
+    const email = document.getElementById("feedback-email");
+    email.hidden = !(feedbackKind === "contact" && !currentUser());
+    email.placeholder = t("Your e-mail, so we can answer");
+    feedbackBack = onlineOverlay.style.display !== "none" ? onlineOverlay.dataset.view : null;
+    document.getElementById("feedback-error").textContent = "";
+    showFeedbackShot();
+    showOnlineView("feedback");
+    document.getElementById("feedback-text").focus({ preventScroll: true });
+}
+document.querySelectorAll(".feedback-open").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); openFeedback(el.dataset.kind); }));
+document.getElementById("feedback-attach").addEventListener("click", () => document.getElementById("feedback-file").click());
+document.getElementById("feedback-remove").addEventListener("click", () => { feedbackShot = ""; document.getElementById("feedback-file").value = ""; showFeedbackShot(); });
+document.getElementById("feedback-file").addEventListener("change", async (e) => {
+    const file = e.currentTarget.files?.[0];
+    if (!file) return;
+    const error = document.getElementById("feedback-error");
+    error.textContent = "";
+    try {
+        feedbackShot = await shrinkImage(file);
+        if (!feedbackShot) error.textContent = t("That picture is too big. Try another one.");
+    } catch {
+        feedbackShot = "";
+        error.textContent = t("That file can't be used as a picture.");
+    }
+    showFeedbackShot();
+});
+document.getElementById("feedback-cancel").addEventListener("click", () => hideOnlineOverlay()); // the options page it was opened from stays
+document.getElementById("feedback-send").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const text = document.getElementById("feedback-text"), error = document.getElementById("feedback-error");
+    error.textContent = "";
+    if (text.value.trim().length < 3) { error.textContent = t("Write a few words first."); return; }
+    if (btn.classList.contains("is-busy")) return;
+    btn.classList.add("is-busy");
+    const email = document.getElementById("feedback-email").value.trim();
+    if (!document.getElementById("feedback-email").hidden && email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { error.textContent = t("That e-mail doesn't look right."); return; }
+    const res = await sendFeedback({ kind: feedbackKind, message: text.value.trim(), email, screenshot: feedbackShot, client: collectDiagnostics() });
+    btn.classList.remove("is-busy");
+    if (!res.ok) {
+        error.textContent = res.error === "slow_down" ? t("Too many tries. Wait a minute and try again.") : t("Can't send it right now. Please try again.");
+        return;
+    }
+    text.value = "";
+    feedbackShot = "";
+    document.getElementById("feedback-file").value = "";
+    hideOnlineOverlay();
+    showToast(t("Thank you! Your message has reached us."), 3500);
+});
+
+// REPORT on the opponent's card: a reason, kept for the owner to read (server/reports.js).
+let reportName = "";
+document.getElementById("pc-report").addEventListener("click", (e) => {
+    reportName = e.currentTarget.dataset.name || "";
+    byId("report-title").textContent = t("Report {name}", { name: reportName });
+    showOnlineView("report");
+});
+document.getElementById("report-back").addEventListener("click", () => { if (gameInProgress) showPlayerCard(LOCAL_PLAYER === 1 ? 2 : 1); else closeOnlineOverlay(); }); // (byId is declared further down: not usable while the page loads)
+document.querySelectorAll("#online-overlay [data-reason]").forEach((el) => el.addEventListener("click", async () => {
+    const res = await onlineClient.reportOpponent(el.dataset.reason);
+    closeOnlineOverlay();
+    showToast(res.ok ? t("Thank you. We'll take a look.") : res.error === "slow_down" ? t("Too many tries. Wait a minute and try again.") : t("Can't send the report right now."));
+}));
 document.getElementById("pc-add-friend").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     btn.hidden = true;
@@ -1726,13 +1874,33 @@ document.getElementById("winner-button").addEventListener("click", async (e) => 
 // already playing (a second tap), so that tap is ignored.
 let adOwed = false;
 let adPlaying = false;
+// A newcomer's first games come without any video (this device's first AD_FREE_GAMES finished
+// games): a first impression with no ad in it, the points at once. Counted when the game's
+// end is first handled (a game is counted once, however many times its card is shown).
+const AD_FREE_GAMES = 2;
+let countedGame = null;
+let adFreeGame = null; // the game that has no video
+function countGameForAds() {
+    if (countedGame === gameState) return;
+    countedGame = gameState;
+    let n = 0;
+    try { n = Number(localStorage.getItem("linotte-finished-games")) || 0; localStorage.setItem("linotte-finished-games", String(n + 1)); } catch { n = AD_FREE_GAMES; } // no storage: no free games
+    if (n < AD_FREE_GAMES) adFreeGame = gameState;
+}
+// Two full-screen videos are never closer than this (games last longer, so it only
+// matters for very short ones): the video of a game that pays points is the player's
+// own trade and always plays, the other one waits its turn and is dropped if too soon.
+const AD_GAP_MS = 120000;
+let lastGameAdAt = 0;
 async function endOfGameAd() {
     if (adPlaying) return false;
     if (!adOwed) return true;
     adOwed = false;
     if (document.body.classList.contains("is-pro")) return true;
+    if (Date.now() - lastGameAdAt < AD_GAP_MS) return true;
     adPlaying = true;
     await interstitial();
+    lastGameAdAt = Date.now();
     adPlaying = false;
     return true;
 }
@@ -1783,7 +1951,7 @@ let recordedGame = null;
 function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
     if (recordedGame === gameState) return;
     recordedGame = gameState;
-    adOwed = !videoShown; // the video at the next step out (see endOfGameAd), unless the points video was it
+    adOwed = !videoShown && adFreeGame !== gameState; // the video at the next step out (see endOfGameAd), unless the points video was it, or this is a first game
     showRematchState(lastOverReason === "normal" || controller.mode !== "online" ? "ready" : "left");
     const overReason = lastOverReason;
     lastOverReason = "normal";
@@ -1878,11 +2046,21 @@ function gamePaysPoints(winner) {
 let pointsVideoFor = null; // the game whose video has been shown
 async function showWinnerPopup(winner) {
     const first = recordedGame !== gameState;
-    if (first && pointsVideoFor !== gameState && gamePaysPoints(winner) && !document.body.classList.contains("is-pro")) {
+    if (first) countGameForAds();
+    if (first && adFreeGame === gameState && controller.mode === "online" && currentUser() && gamePaysPoints(winner) && pointsVideoFor !== gameState) {
+        // A first game, played online with an account: the server holds its points for a video; there is none, so it is told.
+        pointsVideoFor = gameState;
+        let res = await onlineClient.claimPoints({ adFree: true });
+        if (res?.ok && !res.claimed) { await new Promise((r) => setTimeout(r, 1500)); res = await onlineClient.claimPoints({ adFree: true }); } // the server may not have the game in its books yet
+        if (res?.daily) heldBonus = { points: res.points || DAILY_BONUS_POINTS };
+        return renderWinnerPopup(winner, { earn: true, videoShown: false });
+    }
+    if (first && pointsVideoFor !== gameState && adFreeGame !== gameState && gamePaysPoints(winner) && !document.body.classList.contains("is-pro")) {
         pointsVideoFor = gameState;
         adOwed = false; // this one is the game's video: none at the next step out
         adPlaying = true;
         const watched = await rewarded(t("Close the video? You won't get the points."));
+        lastGameAdAt = Date.now();
         adPlaying = false;
         // An online game of an account: the server has the game recorded and
         // holds its points until told the video was watched (or closed).
@@ -4111,6 +4289,7 @@ function describeOnlineError(res) {
         case "bad_code": return [t("Room not found"), t("Check the code and try again. Rooms close after 15 minutes.")];
         case "room_full": return [t("Room is full"), t("That game already has two players.")];
         case "own_room": return [t("That's your room"), t("Send the link or code to your friend instead.")];
+        case "host_away": return [t("Nobody is there"), t("The owner of this room isn't here right now. Ask them for a new link.")];
         case "already_in_game": return null; // handled by rejoin()
         default: return [t("Something went wrong"), t("Please try again in a moment.")];
     }
@@ -4169,6 +4348,7 @@ async function joinFriendByCode(code, { fromLink = false } = {}) {
     if (res.error === "already_in_game") { onlineClient.rejoin(); return; }
     const info = describeOnlineError(res);
     // An old invite link: the game it was for is over.
+    if (fromLink && res.error === "host_away") return showMessage(info[0], info[1]);
     if (fromLink && res.error === "bad_code") return showMessage(t("Invite expired"), t("That game is over or the room has closed. Ask your friend for a new link, or play from the home screen."));
     if (info && res.error !== "pro_required") {
         showOnlineView("joincode");
@@ -4436,7 +4616,8 @@ function showHomeProfile() {
     const flag = flagOf(profile?.country);
     byId("home-flag").textContent = flag;
     byId("home-flag").hidden = !flag;
-    showAvatarPhoto(document.querySelector("#home-profile .home-avatar"), avatarUrl(profile?.avatar) || user?.avatar || "");
+    // The chosen picture, else the default one of the first eight pieces; a guest keeps the generic buddy.
+    showAvatarPhoto(document.querySelector("#home-profile .home-avatar"), user ? avatarUrl(avatarOrDefault(profile?.avatar, user.id)) : "");
 }
 
 // The options that follow the account, as this page's option numbers.
@@ -4561,7 +4742,7 @@ function openProfileSheet() {
     buildProfileSheet();
     byId("profile-name").value = profile?.name || "";
     byId("profile-country").value = profile?.country || "";
-    selectAvatar(profile?.avatar || "");
+    selectAvatar(currentUser() ? avatarOrDefault(profile?.avatar, currentUser().id) : profile?.avatar || ""); // the default one, if none was chosen, shows as the picture it is
     byId("profile-error").textContent = "";
     byId("profile-title").textContent = t(nicknameRequired ? "Choose your nickname" : "Your profile");
     byId("profile-cancel").hidden = nicknameRequired;
@@ -5725,6 +5906,7 @@ async function inviteFriend(f) {
 const DEMO_PLAYER = { ok: true, name: "Anna", country: "IT", level: 12, xp: 480, star: true, record: { played: 40, won: 26 } };
 async function openPlayerInfo(person, { back, friend = null, canAdd = false } = {}) {
     playerCardReturn = back;
+    byId("pc-report").hidden = true;
     byId("pc-name").textContent = person.name;
     const country = person.country;
     byId("pc-country").textContent = country ? countryLine(country) : "";
@@ -5733,6 +5915,7 @@ async function openPlayerInfo(person, { back, friend = null, canAdd = false } = 
     // and the record will be; the server's answer replaces them.
     const view = document.querySelector('.sheet-view[data-view="player"]');
     view.classList.add("pc-skeleton");
+    setCardAvatar("");
     byId("pc-badge-wrap").hidden = false;
     const badge = byId("pc-badge");
     badge.hidden = false;
@@ -5759,6 +5942,7 @@ async function openPlayerInfo(person, { back, friend = null, canAdd = false } = 
         return;
     }
     byId("pc-name").textContent = info.name;
+    setCardAvatar(info.avatar);
     byId("pc-country").textContent = info.country ? countryLine(info.country) : "";
     byId("pc-country").hidden = !info.country;
     byId("pc-badge-wrap").hidden = info.level === null;
@@ -5773,6 +5957,13 @@ async function openPlayerInfo(person, { back, friend = null, canAdd = false } = 
     add.hidden = !(canAdd && currentUser() && !own);
     add.dataset.name = info.name;
     add.dataset.id = person.id;
+}
+// The picture on a player's card: one of the gallery (anything else is ignored), else the generic buddy.
+function setCardAvatar(id) {
+    const url = avatarUrl(id);
+    const el = document.getElementById("pc-avatar");
+    el.style.backgroundImage = url ? `url("${url}")` : "";
+    el.classList.toggle("has-picture", Boolean(url));
 }
 const countryLine = (country) => {
     let name = country;

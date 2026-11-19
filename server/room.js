@@ -61,6 +61,15 @@ export class Room {
   get channel() { return "room:" + this.id; }
 
   //--------- seats ---------
+  // A waiting room whose owner has been gone longer than `graceMs` (see HOST_AWAY_MS).
+  hostAway(graceMs, now = Date.now()) {
+    if (this.status !== "waiting") return false;
+    return [1, 2].some((s) => {
+      const x = this.seats[s];
+      return x?.kind === "human" && !x.connected && x.awaySince && now - x.awaySince > graceMs;
+    });
+  }
+
   seatOf(playerId) {
     for (const s of [1, 2]) if (this.seats[s]?.playerId === playerId) return s;
     return 0;
@@ -68,9 +77,9 @@ export class Room {
 
   freeSeat() { return !this.seats[1] ? 1 : !this.seats[2] ? 2 : 0; }
 
-  addHuman(seat, socket, { playerId, name, userId = null, pro = false, star = pro, country = "", piece = -1, level = 0, xp = 0, record = null, background = FREE_LOOKS.background }) {
+  addHuman(seat, socket, { playerId, name, userId = null, pro = false, star = pro, avatar = "", country = "", piece = -1, level = 0, xp = 0, record = null, background = FREE_LOOKS.background }) {
     this.seats[seat] = {
-      kind: "human", playerId, name, userId: userId || null, pro: Boolean(pro), star: Boolean(star), country: country || "",
+      kind: "human", playerId, name, userId: userId || null, pro: Boolean(pro), star: Boolean(star), avatar: avatar || "", country: country || "",
       level: Number(level) || 0, xp: Number(xp) || 0, record: record || { played: 0, won: 0 },
       // The background they'd show (the table, see tableSeat): only one
       // their level has unlocked (nothing can be bought yet).
@@ -85,6 +94,7 @@ export class Room {
   bindSocket(seat, socket) {
     this.seats[seat].socketId = socket.id;
     this.seats[seat].connected = true;
+    this.seats[seat].awaySince = null;
     socket.join(this.channel);
     socket.data.roomId = this.id;
     socket.data.seat = seat;
@@ -121,6 +131,7 @@ export class Room {
     for (const s of [1, 2]) {
       state.players[s].pro = Boolean(this.seats[s].star ?? this.seats[s].pro);
       state.players[s].country = this.seats[s].country || "";
+      state.players[s].avatar = this.seats[s].avatar || ""; // the picture on their card
       // Every signed-in player shows their level and online record (a guest's
       // can't be trusted: none; Pro adds a star and a frame to the badge).
       const signedIn = Boolean(this.seats[s].userId);
@@ -372,6 +383,7 @@ export class Room {
     const s = this.seats[seat];
     if (!s || s.kind !== "human") return;
     s.connected = false;
+    s.awaySince = Date.now();
     if (this.status !== "playing") return; // a waiting host may be off sharing the invite link
     this.emitToSeat(this.otherSeat(seat), "opponent_status", { connected: false });
     this.freezeTurn(seat);
@@ -430,7 +442,7 @@ export class Room {
       const x = this.seats[s];
       if (!x) return null;
       if (x.kind === "bot") return { kind: "bot", playerId: x.playerId, name: x.name, bot: x.bot.toJSON() };
-      return { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), star: Boolean(x.star ?? x.pro), country: x.country || "", level: x.level || 0, record: x.record || null };
+      return { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), star: Boolean(x.star ?? x.pro), avatar: x.avatar || "", country: x.country || "", level: x.level || 0, record: x.record || null };
     };
     return {
       v: 1,
@@ -462,7 +474,7 @@ export class Room {
         room.seats[s] = { kind: "bot", playerId: x.playerId, name: x.name, country: x.bot?.country || "", connected: true, bot: HumanBot.fromJSON(x.bot) };
         room.seats[s].bot.attach(room, s);
       } else {
-        room.seats[s] = { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), star: Boolean(x.star ?? x.pro), country: x.country || "", level: x.level || 0, record: x.record || { played: 0, won: 0 }, socketId: null, connected: false };
+        room.seats[s] = { kind: "human", playerId: x.playerId, name: x.name, userId: x.userId || null, pro: Boolean(x.pro), star: Boolean(x.star ?? x.pro), avatar: x.avatar || "", country: x.country || "", level: x.level || 0, record: x.record || { played: 0, won: 0 }, socketId: null, connected: false };
       }
     }
     if (room.status !== "playing") return room;

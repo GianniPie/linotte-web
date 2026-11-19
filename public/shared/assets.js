@@ -108,3 +108,14 @@ export const pieces =  [
 export const avatarIds = pieces.map((f) => f.slice(0, 4));
 export const isAvatar = (id) => typeof id === "string" && avatarIds.includes(id);
 export const avatarUrl = (id) => (isAvatar(id) ? piecesPath + pieces[avatarIds.indexOf(id)] : "");
+
+// A player who has not chosen a picture gets one of the first eight pieces, always the same for the same
+// account (or device, for a guest): the server and the app work it out the same way from the id. The photo
+// of a Google or Apple account is never used.
+export const DEFAULT_AVATARS = avatarIds.slice(0, 8);
+export function defaultAvatar(seed) {
+    let h = 2166136261;
+    for (const ch of String(seed ?? "")) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+    return DEFAULT_AVATARS[(h >>> 0) % DEFAULT_AVATARS.length];
+}
+export const avatarOrDefault = (id, seed) => (isAvatar(id) ? id : defaultAvatar(seed));

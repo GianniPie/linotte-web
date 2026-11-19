@@ -36,6 +36,10 @@ export const RECONNECT_GRACE_MS = 60 * 1000;
 // (see public/shared/turn.js).
 export { TURN_FREEZE_CAP_MS } from "../public/shared/turn.js";
 
+// A waiting private room whose owner has been away (app closed, phone locked) this long can't be joined any
+// more: whoever uses its link is told to ask for a new one, instead of starting a game with nobody there.
+export const HOST_AWAY_MS = 90 * 1000;
+
 // A private room nobody joined is dropped after this.
 export const ROOM_WAIT_TTL_MS = 15 * 60 * 1000;
 // Finished rooms are kept briefly so a refresh can still show the result.

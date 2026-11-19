@@ -8,6 +8,10 @@
 # (Settings > Secrets and variables > Actions > Variables), e.g.
 # https://linotte-web.onrender.com. Without it, this job does nothing.
 # On a paid Render plan the server never sleeps and this job can be removed.
+#
+# It is also the alarm: if the server does not answer, or its game answer is wrong, the run fails and GitHub
+# emails the person who owns the schedule (a failed scheduled workflow is mailed by default; check Settings >
+# Notifications > Actions on GitHub that "Send notifications for failed workflows only" is on).
 name: Keep game server awake
 
 on:
@@ -31,4 +35,8 @@ jobs:
             exit 0
           fi
           # Up to ~90s: a sleeping server takes about a minute to answer.
-          curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 5 "$URL/healthz"
+          health=$(curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 5 "$URL/healthz")
+          echo "$health"
+          echo "$health" | grep -q '"ok":true' || { echo "::error::/healthz did not say ok"; exit 1; }
+          # The account and game side too (it reads the database): a server that is up but can't do its job.
+          curl --fail --silent --show-error --max-time 60 --retry 2 --retry-delay 5 -o /dev/null "$URL/api/me" || { echo "::error::/api/me failed"; exit 1; }

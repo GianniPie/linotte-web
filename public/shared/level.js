@@ -18,19 +18,21 @@ export const ONLINE_WIN_POINTS = 4;
 export const ONLINE_FINISHED_POINTS = 2;
 export const BOT_WIN_POINTS = 1; // a win against the bot (it used to be 1 point for 5 wins: no progress to see)
 
-// Speed mode against the bot: the faster the game is won, the more it pays on top of
-// BOT_WIN_POINTS. Counted in the winner's own turns. The bot's own games last about 15
-// turns a side (median 15, a quarter of wins in 11 or fewer, one in ten in 8 or fewer):
-// from there up it pays nothing. (Calibrated on bot-vs-bot games; the app saves each
-// game's turns, so these can be set again from real ones: see game_results.turns.)
-// Points mode pays the winning margin and nothing for a loss, about 1.65 a game for a
-// player as good as the bot against 1.15 here (and 0.5 a game without the bonus): the
-// bonus makes up part of the difference, the rest is the risk of the margin.
-export const SPEED_BONUS_TIERS = [{ upTo: 8, bonus: 4 }, { upTo: 11, bonus: 3 }, { upTo: 14, bonus: 2 }];
+// Speed mode against the bot: the faster the game is won, the more it pays. A win in
+// SPEED_TOP_TURNS turns (the least a five in a row takes) pays SPEED_TOP_PAY points; every
+// extra turn takes one off, down to the win's own BOT_WIN_POINTS (from 16 turns on). Counted
+// in the winner's own turns. The bot's own games last about 15 turns a side (median 15, one
+// win in ten in 8 or fewer, one in fifty in 5 or fewer). Calibrated on bot-vs-bot games, where
+// this pays about 1.75 a game against 1.7 for points mode (a winning margin, nothing for a
+// loss) and 3 online; the app saves each game's turns, so it can be set again from real ones
+// (see game_results.turns).
+export const SPEED_TOP_TURNS = 5;
+export const SPEED_TOP_PAY = 12;
+// The part that comes on top of BOT_WIN_POINTS.
 export function speedBonus(turns) {
     if (!(turns > 0)) return 0;
-    for (const tier of SPEED_BONUS_TIERS) if (turns <= tier.upTo) return tier.bonus;
-    return 0;
+    const pay = SPEED_TOP_PAY - Math.max(0, Math.floor(turns) - SPEED_TOP_TURNS);
+    return Math.max(BOT_WIN_POINTS, pay) - BOT_WIN_POINTS;
 }
 
 // What a win against the bot pays: speed, 1 point and the speed bonus; points, the pure

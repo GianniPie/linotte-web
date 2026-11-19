@@ -21,7 +21,11 @@ import {
 } from "./friendships.js";
 import { levelOf, FREE_LOOKS } from "../public/shared/level.js";
 import { userIdFromToken, profileOf, profileById } from "./accounts.js";
+import { avatarOrDefault } from "../public/shared/assets.js";
 import { createStore } from "./store.js";
+import { REPORT_REASONS, createReportBook, saveReport } from "./reports.js";
+import { createFeedbackBudget, parseScreenshot, buildReport, emailOf, sendFeedback, MAX_MESSAGE } from "./feedback.js";
+import { VERSION } from "../public/version.js";
 import { createBotLab, BOTLAB_ENABLED } from "./botlab.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -64,10 +68,10 @@ function apiHeaders(req, res) {
   res.set("Cache-Control", "no-store");
 }
 const accountOf = (req) => userIdFromToken((req.get("Authorization") || "").replace(/^Bearer\s+/i, ""));
-for (const route of ["/api/me", "/api/ad-reward", "/api/leaderboard", "/api/friends", "/api/player/:id"]) {
+for (const route of ["/api/me", "/api/ad-reward", "/api/leaderboard", "/api/friends", "/api/player/:id", "/api/feedback"]) {
   app.options(route, (req, res) => {
     apiHeaders(req, res);
-    res.set("Access-Control-Allow-Headers", "Authorization, X-Linotte-Dev");
+    res.set("Access-Control-Allow-Headers", "Authorization, X-Linotte-Dev, Content-Type");
     res.set("Access-Control-Allow-Methods", "GET, POST");
     res.sendStatus(204);
   });
@@ -128,7 +132,7 @@ app.get("/api/player/:id", async (req, res) => {
     const [profile, stats, access] = await Promise.all([profileById(id), accountStats(id), accessFor({ userId: id })]);
     if (!profile) return res.status(404).json({ ok: false });
     const card = {
-      ok: true, id, name: profile.name || nameFromId(id), country: profile.country, avatar: profile.avatar,
+      ok: true, id, name: profile.name || nameFromId(id), country: profile.country, avatar: avatarOrDefault(profile.avatar, id),
       xp: stats.xp, level: stats.xp === null ? null : levelOf(stats.xp), star: access.star, record: stats.record,
     };
     playerCache.set(id, { at: Date.now(), card });
@@ -138,6 +142,53 @@ app.get("/api/player/:id", async (req, res) => {
     console.error("player card:", err.message);
     res.status(503).json({ ok: false });
   }
+});
+
+// "Report a problem": a message, maybe a screenshot, and what the app knows about the player's device and game.
+// The server adds who the player is, and its own view of the online game they are in (feedback.js). Kept and
+// mailed; a few an hour per account.
+const feedbackBudget = createFeedbackBudget();
+app.post("/api/feedback", express.json({ limit: "3mb" }), async (req, res) => {
+  apiHeaders(req, res);
+  try {
+    const body = req.body || {};
+    const message = String(body.message || "").trim();
+    if (message.length < 3 || message.length > MAX_MESSAGE) return res.status(400).json({ ok: false, error: "bad_message" });
+    const userId = await accountOf(req);
+    if (!feedbackBudget.take(userId || req.ip)) return res.status(429).json({ ok: false, error: "slow_down" });
+    let screenshot = null;
+    if (body.screenshot) {
+      screenshot = parseScreenshot(body.screenshot);
+      if (!screenshot) return res.status(400).json({ ok: false, error: "bad_screenshot" });
+    }
+    const kind = body.kind === "contact" ? "contact" : "problem";
+    const client = body.client && typeof body.client === "object" ? body.client : {};
+    const typedEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.email || "")) ? String(body.email).slice(0, 120) : "";
+    const [access, stats, profile, email] = await Promise.all([
+      accessFor({ userId }), accountStats(userId), userId ? profileById(userId) : null, emailOf(userId),
+    ]);
+    const room = typeof client.playerId === "string" ? lobby.activeRoom(client.playerId) : null;
+    const serverGame = room && {
+      roomId: room.id, kind: room.kind, status: room.status, currentPlayer: room.state?.currentPlayer,
+      points: room.state ? [1, 2].map((s) => room.state.players[s].points).join(" - ") : "", idleTurns: JSON.stringify(room.idleTurns || {}),
+      seats: [1, 2].map((s) => room.seats[s] && { seat: s, name: room.seats[s].name, kind: room.seats[s].kind, userId: room.seats[s].userId || null, connected: room.seats[s].connected !== false }).filter(Boolean),
+    };
+    const account = {
+      userId, name: profile?.name || "", email, role: access.role, country: profile?.country || "",
+      level: stats.xp === null ? undefined : levelOf(stats.xp), xp: stats.xp ?? undefined,
+    };
+    const report = buildReport({ kind, message, client, account, replyTo: email || typedEmail, serverGame, ip: req.ip, screenshot, version: VERSION });
+    const result = await sendFeedback(report, { userId, kind, message, replyTo: email || typedEmail, screenshot });
+    res.status(result.ok ? 200 : 503).json({ ok: result.ok });
+  } catch (err) {
+    console.error("feedback:", err.message);
+    res.status(500).json({ ok: false });
+  }
+});
+// A body too big for the route (a huge screenshot): said, not a stack trace.
+app.use((err, req, res, next) => {
+  if (err?.type === "entity.too.large") { apiHeaders(req, res); return res.status(413).json({ ok: false, error: "too_big" }); }
+  next(err);
 });
 
 // This week's leaderboard, with the asking player's own place.
@@ -193,6 +244,7 @@ async function announcePresence(userId) {
   }
 }
 const requestBudget = createBudget();
+const serverReports = createReportBook();
 
 // An invitation nobody answered in a minute: the inviter's room closes and both are told.
 const invites = createInviteBook({
@@ -248,9 +300,10 @@ async function refreshAccess(socket) {
 async function setAccount(socket, token) {
   const d = socket.data;
   d.userId = await userIdFromToken(token);
-  const profile = d.userId ? await profileOf(token) : { name: "", country: "" };
+  const profile = d.userId ? await profileOf(token) : { name: "", country: "", avatar: "" };
   d.name = profile.name || nameFromId(d.userId || d.playerId);
   d.country = profile.country;
+  d.avatar = avatarOrDefault(profile.avatar, d.userId || d.playerId); // a picture of the game's gallery (accounts.js checks it), or the default one, for the player's card
   await setStats(socket);
   // Online for friends (friends.js): whichever account this app is now.
   markOffline(socket);
@@ -334,7 +387,7 @@ io.on("connection", (socket) => {
   on("rejoin", {}, () => lobby.rejoin(socket));
 
   // The video before the winner card was watched (the game's points count) or closed (they don't).
-  on("claim_points", {}, () => lobby.claimPoints(socket));
+  on("claim_points", {}, (p) => lobby.claimPoints(socket, { adFree: p.adFree === true }));
   on("skip_points", {}, () => lobby.skipPoints(socket));
 
   on("queue_join", { needsConsent: true }, () => lobby.joinQueue(socket));
@@ -361,6 +414,27 @@ io.on("connection", (socket) => {
     // server's truth: hand it the authoritative state to redraw from.
     if (!res.ok && res.snapshot) res.snapshot = { ...res.snapshot, seat: socket.data.seat };
     return res;
+  });
+
+  // "Report" on the opponent's card: kept for the owner to read (reports.js). The server's own players that
+  // pass for people are answered like a real one (they are not told apart), and nothing is kept for them.
+  const reports = serverReports;
+  on("report_player", { needsConsent: true }, async (p) => {
+    const reason = String(p.reason || "");
+    if (!REPORT_REASONS.includes(reason)) return { ok: false, error: "bad_reason" };
+    const room = lobby.roomOfSocket(socket);
+    const other = room && room.seats[room.otherSeat(socket.data.seat)];
+    if (!other) return { ok: false, error: "no_game" };
+    if (other.kind === "bot") return { ok: true };
+    const reporter = socket.data.userId || socket.data.playerId;
+    const verdict = reports.take(reporter, room.id, other.userId || other.playerId);
+    if (verdict === "again") return { ok: true }; // already told: no second line to read
+    if (verdict === "slow_down") return { ok: false, error: "slow_down" };
+    const saved = await saveReport({
+      reporter: socket.data.userId, reporterPlayer: socket.data.playerId,
+      reportedUser: other.userId, reportedPlayer: other.playerId, reportedName: other.name, roomId: room.id, reason,
+    });
+    return { ok: saved };
   });
 
   on("emote", {}, (p) => {
