@@ -274,6 +274,7 @@ export class OnlineClient {
         s.on("game_over", (msg) => this.h.onGameOver?.(msg));
         s.on("room_expired", () => this.h.onRoomExpired?.());
         s.on("rematch_offer", () => this.h.onRematchOffer?.());
+        s.on("mode_offer", (msg) => this.h.onModeOffer?.(msg || {})); // the other way to play (Normal / Ruthless) is offered
         s.on("rematch_declined", (msg) => this.h.onRematchDeclined?.(msg || {}));
 
         // A phone coming back from the background often has a dead socket the
@@ -347,11 +348,13 @@ export class OnlineClient {
         await this.ready;
         return this.call("consent", { consentVersion: hasConsent() ? CONSENT_VERSION : 0 });
     }
-    joinQueue() { return this.call("queue_join"); }
+    // `mode`: "normal" or "ruthless" (shared/level.js). The answer may be { offered: true }: a different way is offered, see answerMode.
+    joinQueue(mode) { return this.call("queue_join", { mode }); }
+    answerMode(accept) { return this.call("mode_answer", { accept }); }
     leaveQueue() { return this.call("queue_leave"); }
-    createRoom() { return this.call("room_create"); }
+    createRoom(mode) { return this.call("room_create", { mode }); }
     // Pro to Pro: a private room, and the friend's app is asked to join.
-    inviteFriend(friendId) { return this.call("friend_invite", { friendId }); }
+    inviteFriend(friendId, mode) { return this.call("friend_invite", { friendId, mode }); }
     declineInvite(fromId, inviteId) { return this.call("invite_declined", { fromId, inviteId }); }
     acceptInvite(inviteId) { return this.call("invite_accepted", { inviteId }); }
 
@@ -369,7 +372,8 @@ export class OnlineClient {
     friendBlock(userId) { return this.call("friend_block", { userId }); }
     // "Report" on the opponent's card: a reason from name, emoji, other.
     reportOpponent(reason) { return this.call("report_player", { reason }); }
-    joinRoom(code) { return this.call("room_join", { code }); }
+    // `confirmed`: said yes to a Ruthless room (the server asks first: error "confirm_ruthless").
+    joinRoom(code, confirmed = false) { return this.call("room_join", { code, confirmed }); }
     leaveRoom() { return this.call("room_leave"); }
 
     //--------- in game ---------

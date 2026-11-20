@@ -11,13 +11,14 @@ import { recordResults, experience, accountStats, resultRows } from "./results.j
 import { levelOf, levelStart } from "../public/shared/level.js";
 import { pieces } from "../public/shared/assets.js";
 import { generateKeyPair, exportJWK, createLocalJWKSet, SignJWT } from "jose";
-import { QUEUE_BOT_DELAY_MS } from "./config.js";
+import { QUEUE_BOT_DELAY_MS, BOT_MODE } from "./config.js";
 import {
   chooseCallToMake, chooseDiceToLock, shouldStopRolling, explainPlacement,
 } from "../public/shared/botAI.js";
 
 QUEUE_BOT_DELAY_MS[0] = 20; // don't wait 7s for the bot in a test
 QUEUE_BOT_DELAY_MS[1] = 40;
+BOT_MODE.same = 1; // the bot asks for what the player asked, unless a test says otherwise
 
 //--------- fakes ---------
 const channels = new Map(); // channel -> Set(socket)
@@ -409,10 +410,12 @@ const lobby = new Lobby(io, store);
   // Online games played before ONLINE_RATES_FROM: wins +2, lost or drawn to the end +1, abandoned -2
   // (here 40 wins, 6 finished, 2 abandoned = 82); since: +4, +2, -3 (2 wins, 1 finished, 1 abandoned = 7).
   // Bot wins +1 each (13), 2 daily bonuses +2 each, 3 ads +1 each, and the bonus points of the
-  // bot wins (speed bonus, or the margin beyond the first point: 16): 82 + 7 + 13 + 16 + 4 + 3 = 125.
+  // bot wins (speed bonus, or the margin beyond the first point: 16): 82 + 7 + 13 + 16 + 4 + 3 = 125, and the
+  // margin of the online games since ONLINE_MARGIN_FROM (-5 here, summed by the database): 120.
   const counts = async (u, o) => {
     sent.push([u, o]);
     if (u.includes("/rpc/bot_bonus_xp")) return { ok: true, json: async () => 16 }; // the bonus points of the bot wins, summed by the database
+    if (u.includes("/rpc/online_margin_xp")) return { ok: true, json: async () => -5 }; // what the online games were won or lost by, summed by the database
     const era = u.includes("played_at=lt.") ? "old" : u.includes("played_at=gte.") ? "new" : "all";
     const pick = (o, w, a) => ({ old: o, new: w, all: a })[era];
     const n = u.includes("kind=eq.daily") ? 2 : u.includes("kind=eq.ad") ? 3
@@ -420,16 +423,21 @@ const lobby = new Lobby(io, store);
       : u.includes("won=is.false") ? pick(6, 1, 7) : pick(40, 2, 42);
     return { ok: true, headers: { get: () => `0-0/${n}` } };
   };
-  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 125, "experience is counted, bonuses and the speed bonus included");
+  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts }), 120, "experience is counted: bonuses, the speed bonus and the margin of the online games included");
   const stats = await accountStats("user-host", { key: "k", url: "https://example.supabase.co", fetch: counts });
   assert.deepEqual(stats.record, { played: 52, won: 42 }, "the online record: 42 won of 52 (42 + 7 finished + 3 abandoned)");
-  const asked = sent.slice(-14).map(([u]) => u);
+  const asked = sent.slice(-15).map(([u]) => u);
   assert.ok(asked.some((u) => u.includes("source=eq.server&won=is.true")), "online wins from the server");
   assert.ok(asked.some((u) => u.includes("won=is.false&abandoned=is.false")), "online games finished without winning");
   assert.ok(asked.some((u) => u.includes("mode=eq.bot") && u.includes("from_guest=is.false")), "bot wins, not the guest's");
   assert.ok(asked.some((u) => u.includes("source=eq.server&abandoned=is.true")), "abandoned games");
   assert.ok(asked.filter((u) => u.includes("earns_xp=is.true")).length === 5, "points only from games whose video was watched (wins, finished, bot)");
   assert.ok(asked.some((u) => u.includes("/rpc/bot_bonus_xp")), "the bonus of the bot wins is summed by the database");
+  const marginCall = sent.slice(-15).find(([u]) => u.includes("/rpc/online_margin_xp"));
+  assert.ok(marginCall && JSON.parse(marginCall[1].body).uid === "user-host", "the margin of the Ruthless games is summed by the database");
+  // without the SQL (the function isn't there yet) only the margin is left out, not the whole level
+  const noMargin = async (u, o) => (u.includes("/rpc/online_margin_xp") ? { ok: false, status: 404, headers: { get: () => null } } : counts(u, o));
+  assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: noMargin }), 125, "the margin missing leaves the rest of the points");
   const none = async () => ({ ok: true, headers: { get: () => "*/0" } });
   assert.equal(await experience("user-host", { key: "k", url: "https://example.supabase.co", fetch: none }), 0, "none yet");
   assert.equal(await experience(null, { key: "k" }), 0, "a guest has none");
@@ -477,6 +485,26 @@ const lobby = new Lobby(io, store);
   assert.equal(nameChangeWaitMs(new Date(at - 1 * hour).toISOString(), at), 23 * hour, "changed an hour ago: 23 hours to go");
   assert.equal(nameChangeWaitMs(new Date(at - 24 * hour).toISOString(), at), 0, "a day later it is free again");
   assert.equal(nameChangeWaitMs(new Date(at - 30 * hour).toISOString(), at), 0);
+  // Online games: Normal as ever, Ruthless counts the points they were won or lost by.
+  const { onlinePayout, onlineMarginExtra, ABANDON_BASE, validMode } = await import("../public/shared/level.js");
+  const R = { ruthless: true };
+  assert.equal(onlinePayout({ won: true, points: 7, opponentPoints: 3, ...R }), 8, "ruthless, a win by 4: +4 and +4");
+  assert.equal(onlinePayout({ won: false, points: 3, opponentPoints: 7, ...R }), -2, "a loss by 4: +2 and -4");
+  assert.equal(onlinePayout({ won: false, points: 4, opponentPoints: 4, ...R }), 2, "a draw: +2");
+  assert.equal(onlinePayout({ won: true, points: 2, opponentPoints: 5, ...R }), 4, "won because the opponent left while ahead: no margin, just +4");
+  assert.equal(onlinePayout({ abandoned: true, points: 3, opponentPoints: 7, ...R }), -(ABANDON_BASE + 4), "leaving: -6 and the lead of the opponent");
+  assert.equal(onlinePayout({ abandoned: true, points: 5, opponentPoints: 1, ...R }), -6, "leaving while ahead: -6");
+  for (const [points, opponentPoints] of [[0, 9], [3, 7], [5, 5], [8, 2]]) { // leaving always costs more than finishing from the same score
+    assert.ok(onlinePayout({ abandoned: true, points, opponentPoints, ...R }) < onlinePayout({ won: false, points, opponentPoints, ...R }), `leaving at ${points}-${opponentPoints} costs more than losing`);
+  }
+  assert.equal(onlinePayout({ won: true, points: 7, opponentPoints: 3 }), 4, "normal: a win is +4 whatever the score");
+  assert.equal(onlinePayout({ won: false, points: 3, opponentPoints: 7 }), 2, "normal: +2 for a loss played to the end");
+  assert.equal(onlinePayout({ abandoned: true, points: 3, opponentPoints: 7 }), -3, "normal: leaving is -3");
+  assert.equal(onlineMarginExtra({ won: true, points: 7, opponentPoints: 3, ...R }), 4, "the part on top of the flat +4");
+  assert.equal(onlineMarginExtra({ won: false, points: 3, opponentPoints: 7, ...R }), -4, "and of the flat +2");
+  assert.equal(onlineMarginExtra({ abandoned: true, points: 3, opponentPoints: 7, ...R }), -(3 + 4), "and of the flat -3");
+  assert.equal(onlineMarginExtra({ won: true, points: 7, opponentPoints: 3 }), 0, "nothing on top in a normal game");
+  assert.deepEqual(["ruthless", "normal", "x", undefined, null].map(validMode), ["ruthless", "normal", "normal", "normal", "normal"]);
   // Giving up against the bot is offered only when the board alone says the game can't be won.
   const { cannotWin, canReachPoints } = await import("../public/shared/giveUp.js");
   const board = (cells) => { const t = Array.from({ length: 5 }, () => Array(5).fill(0)); for (const [r, c, v] of cells) t[r][c] = v; return t; };
@@ -1548,6 +1576,85 @@ const lobby = new Lobby(io, store);
   assert.equal(room.frozen, null, "after the cap it runs on");
   room.dispose();
   console.log("ok: the turn clock is held for a bad connection");
+}
+
+//--------- 16. Normal and Ruthless: the queue, the offers, the bots, the friends' rooms ---------
+{
+  const lobbyM = new Lobby(io, createMemoryStore());
+  // the same way to play: at once, and the room is played that way
+  const a1 = fakeSocket("mode-aaaaaaaa", "Owl1"), b1 = fakeSocket("mode-bbbbbbbb", "Jay2");
+  assert.equal(lobbyM.joinQueue(a1, "ruthless").matched, false);
+  assert.equal(lobbyM.joinQueue(b1, "ruthless").matched, true, "two who asked for Ruthless are played at once");
+  assert.equal(lobbyM.roomOfSocket(a1).mode, "ruthless");
+  assert.equal(find(a1, "game_start")[0].payload.mode, "ruthless", "and told which way it is played");
+  assert.equal(lobbyM.joinQueue(fakeSocket("mode-cccccccc", "Ibis3")).matched, false, "no mode asked means Normal");
+  assert.equal(lobbyM.joinQueue(fakeSocket("mode-dddddddd", "Kiwi4"), "nonsense").matched, true, "an unknown mode is Normal");
+  // the other way: offered to the one who arrived, and the waiting one keeps what they asked for
+  const waiting = fakeSocket("mode-eeeeeeee", "Lynx5"), newcomer = fakeSocket("mode-ffffffff", "Emu6");
+  lobbyM.joinQueue(waiting, "normal");
+  const res = lobbyM.joinQueue(newcomer, "ruthless");
+  assert.ok(res.offered && !res.matched && res.offer.mode === "normal" && res.offer.name === "Lynx5", "a different way is offered, not started");
+  assert.equal(find(newcomer, "mode_offer")[0].payload.mode, "normal", "the newcomer is told");
+  assert.equal(find(waiting, "mode_offer").length, 0, "the one waiting is not disturbed");
+  assert.equal(lobbyM.roomOfSocket(waiting), null, "nobody plays yet");
+  const accepted = lobbyM.answerOffer(newcomer, true);
+  assert.ok(accepted.matched, "accepted: the game starts");
+  assert.equal(lobbyM.roomOfSocket(newcomer).mode, "normal", "the way the waiting one asked for");
+  assert.ok(find(waiting, "game_start").length === 1);
+  // said no: goes on looking for what was asked, and the same person is not offered again for a minute
+  const w2 = fakeSocket("mode-gggggggg", "Fox7"), n2 = fakeSocket("mode-hhhhhhhh", "Hen8");
+  lobbyM.joinQueue(w2, "ruthless");
+  assert.ok(lobbyM.joinQueue(n2, "normal").offered);
+  const no = lobbyM.answerOffer(n2, false);
+  assert.ok(no.declined && !no.offered && !no.matched, "no: back to looking, not offered the same one again");
+  assert.equal(lobbyM.lobbyHasQueued?.(n2) ?? lobbyM.queue.has("mode-hhhhhhhh"), true, "waiting for what was asked");
+  assert.equal(lobbyM.queue.get("mode-hhhhhhhh").mode, "normal");
+  for (const id of [...lobbyM.queue.keys()]) lobbyM.leaveQueue(id); // a clean queue for the next case
+  // the one waiting left before the answer: the answer starts nothing
+  const w3 = fakeSocket("mode-iiiiiiii", "Cat9"), n3 = fakeSocket("mode-jjjjjjjj", "Dog10");
+  lobbyM.joinQueue(w3, "ruthless");
+  assert.ok(lobbyM.joinQueue(n3, "normal").offered);
+  lobbyM.leaveQueue("mode-iiiiiiii");
+  const gone = lobbyM.answerOffer(n3, true);
+  assert.ok(!gone.matched, "the other one left: nothing starts, the newcomer keeps looking");
+  assert.equal(lobbyM.queue.get("mode-jjjjjjjj")?.mode, "normal");
+  assert.equal(lobbyM.answerOffer(n3, true).error, "no_offer", "no offer, no answer");
+  // a bot that doesn't ask for the same is offered like a person, and the player can say no
+  for (const id of [...lobbyM.queue.keys()]) lobbyM.leaveQueue(id);
+  BOT_MODE.same = 0;
+  const p4 = fakeSocket("mode-kkkkkkkk", "Bee11");
+  lobbyM.joinQueue(p4, "normal");
+  await wait(150);
+  const botOffer = find(p4, "mode_offer")[0];
+  assert.ok(botOffer && botOffer.payload.mode === "ruthless" && botOffer.payload.name, "after the wait a bot offers the other way, with a name");
+  assert.equal(lobbyM.roomOfSocket(p4), null);
+  assert.ok(lobbyM.answerOffer(p4, true).matched, "accepted");
+  const botRoom = lobbyM.roomOfSocket(p4);
+  assert.ok(botRoom.mode === "ruthless" && botRoom.botSeats().length === 1, "a game against that bot, the way it offered");
+  BOT_MODE.same = 1;
+  const p5 = fakeSocket("mode-llllllll", "Rat12");
+  lobbyM.joinQueue(p5, "ruthless");
+  await wait(150);
+  assert.equal(lobbyM.roomOfSocket(p5).mode, "ruthless", "a bot that asks for the same starts at once");
+  // friends: the room is opened one way, and a Ruthless one has to be confirmed by who comes in
+  const host = fakeSocket("mode-mmmmmmmm", "Pig13"), guest = fakeSocket("mode-nnnnnnnn", "Cow14");
+  const created = lobbyM.createPrivate(host, "ruthless");
+  assert.ok(created.ok && created.mode === "ruthless");
+  const asked = await lobbyM.joinByCode(guest, created.code);
+  assert.deepEqual([asked.ok, asked.error, asked.mode], [false, "confirm_ruthless", "ruthless"], "a Ruthless room asks first");
+  assert.equal(lobbyM.roomOfSocket(guest), null, "and nobody sits down yet");
+  assert.ok((await lobbyM.joinByCode(guest, created.code, true)).ok, "confirmed");
+  assert.equal(lobbyM.roomOfSocket(guest).mode, "ruthless");
+  const host2 = fakeSocket("mode-oooooooo", "Ant15"), guest2 = fakeSocket("mode-pppppppp", "Bat16");
+  const normalRoom = lobbyM.createPrivate(host2);
+  assert.equal(normalRoom.mode, "normal");
+  assert.ok((await lobbyM.joinByCode(guest2, normalRoom.code)).ok, "a Normal room needs no confirmation");
+  // the mode survives a restart, and is recorded with the results
+  const saved = lobbyM.roomOfSocket(guest).toJSON();
+  assert.equal(saved.mode, "ruthless");
+  assert.equal(resultRows({ kind: "random", mode: "ruthless", winner: 1, seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: { kind: "human", userId: "b", name: "B" } }, state: { players: { 1: { points: 6 }, 2: { points: 2 } } } }).every((r) => r.ruthless === true), true, "the rows say it was Ruthless");
+  assert.equal(resultRows({ kind: "random", mode: "normal", winner: 1, seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: null }, state: { players: { 1: { points: 6 }, 2: { points: 2 } } } })[0].ruthless, false);
+  console.log("ok: Normal and Ruthless");
 }
 
 console.log("all smoke tests passed");

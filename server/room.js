@@ -13,7 +13,7 @@ import { updateGame, canRoll, callAllowed } from "../public/shared/gameEngine.js
 import { createInitialGameState, rndNum } from "../public/shared/utils.js";
 import { piecesPath, pieces } from "../public/shared/assets.js";
 import { assignPieces, isPlayPiece } from "../public/shared/pieces.js";
-import { tableSeat, ownsBackground, FREE_LOOKS } from "../public/shared/level.js";
+import { tableSeat, ownsBackground, FREE_LOOKS, validMode } from "../public/shared/level.js";
 import { NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs, EMOTE_WINDOW_MS } from "../public/shared/chat.js";
 import {
   TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS, IDLE_TURNS_LIMIT,
@@ -29,10 +29,11 @@ const pieceOf = (i) => ({ pieceImage: piecesPath + pieces[i], color: "#" + piece
 let roomCounter = 0;
 
 export class Room {
-  constructor({ io, kind, code = null, onClose = () => {}, onChange = () => {} }) {
+  constructor({ io, kind, code = null, mode = "normal", onClose = () => {}, onChange = () => {} }) {
     this.id = "r" + (++roomCounter).toString(36) + Math.random().toString(36).slice(2, 6);
     this.io = io;
     this.kind = kind; // "random" | "private"
+    this.mode = validMode(mode); // "normal" | "ruthless": how the points are counted (shared/level.js)
     this.code = code;
     this.onClose = onClose;
     // Called after anything worth saving changed (see Lobby.persist): the
@@ -166,6 +167,7 @@ export class Room {
       roomId: this.id,
       code: this.code,
       kind: this.kind,
+      mode: this.mode,
       seat,
       fresh, // true only for the initial game_start (the client plays the coin flip)
       starter: this.starter,
@@ -446,7 +448,7 @@ export class Room {
     };
     return {
       v: 1,
-      id: this.id, kind: this.kind, code: this.code, status: this.status,
+      id: this.id, kind: this.kind, mode: this.mode, code: this.code, status: this.status,
       state: this.state, seq: this.seq, turnId: this.turnId, rolling: this.rolling,
       starter: this.starter, winner: this.winner, forfeitedBy: this.forfeitedBy || 0, idleTurns: this.idleTurns,
       createdAt: this.createdAt, endedAt: this.endedAt, turnEndsAt: this.frozen ? Date.now() + this.frozen.left : this.turnEndsAt,
@@ -460,7 +462,7 @@ export class Room {
   // settled, the turn clock resumes where it was (with a little extra for the
   // time the restart took) and a bot whose turn it is starts playing again.
   static fromJSON(data, { io, onClose, onChange }) {
-    const room = new Room({ io, kind: data.kind, code: data.code, onClose, onChange });
+    const room = new Room({ io, kind: data.kind, mode: data.mode, code: data.code, onClose, onChange });
     room.id = data.id;
     Object.assign(room, {
       status: data.status, state: data.state, seq: data.seq, turnId: data.turnId,

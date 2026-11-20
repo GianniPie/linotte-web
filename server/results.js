@@ -7,7 +7,7 @@
 
 import { SUPABASE_URL } from "../public/shared/accounts.js";
 import { bonusPoints } from "./bonuses.js";
-import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY, ONLINE_RATES_FROM, LEGACY_ONLINE } from "../public/shared/level.js";
+import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY, ONLINE_RATES_FROM, MODE_RUTHLESS, LEGACY_ONLINE } from "../public/shared/level.js";
 
 const SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 
@@ -32,6 +32,7 @@ export function resultRows(room, held = new Set()) {
       // Left or gone for good before the end: costs level points.
       abandoned: room.forfeitedBy === seat,
       earns_xp: !held.has(seat),
+      ruthless: room.mode === MODE_RUTHLESS, // the points the game was won or lost by count (supabase/online_margin.sql)
       source: "server",
     });
   }
@@ -107,6 +108,19 @@ async function botBonusXp(userId, { key, url, fetch: fetchImpl }) {
   return Number.isFinite(total) ? total : 0;
 }
 
+// What the Ruthless online games were won or lost by, summed by the database (online_margin_xp in
+// supabase/online_margin.sql): the part on top of the flat +4 / +2 / -3 counted below.
+async function onlineMarginXp(userId, { key, url, fetch: fetchImpl }) {
+  const res = await fetchImpl(`${url}/rest/v1/rpc/online_margin_xp`, {
+    method: "POST",
+    headers: { apikey: key, "Content-Type": "application/json" },
+    body: JSON.stringify({ uid: userId }),
+  });
+  if (res.ok === false) throw new Error(`Supabase answered ${res.status}`);
+  const total = Number(await res.json());
+  return Number.isFinite(total) ? total : 0;
+}
+
 export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = {}) {
   if (!userId || !key || !url) return NONE;
   const count = async (filter) => {
@@ -123,7 +137,7 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
   try {
     const since = encodeURIComponent(ONLINE_RATES_FROM);
     const old = `played_at=lt.${since}`, now = `played_at=gte.${since}`; // before / since the rates went up
-    const [wins, finished, winsOld, finishedOld, abandonedOld, winsNew, finishedNew, abandonedNew, bot, bonus, botBonus] = await Promise.all([
+    const [wins, finished, winsOld, finishedOld, abandonedOld, winsNew, finishedNew, abandonedNew, bot, bonus, botBonus, margin] = await Promise.all([
       count("source=eq.server&won=is.true"),
       count("source=eq.server&won=is.false&abandoned=is.false"),
       count(`source=eq.server&won=is.true&earns_xp=is.true&${old}`),
@@ -137,12 +151,14 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
       // What the wins against the bot paid on top of their 1 point: the speed bonus, or the rest
       // of the winning margin in points mode (summed by the database, see game_results_points.sql).
       botBonusXp(userId, { key, url, fetch: fetchImpl }),
+      // Without the function (supabase/online_margin.sql not run yet) the margin is left out, not the whole level.
+      onlineMarginXp(userId, { key, url, fetch: fetchImpl }).catch((err) => { console.error("online margin not counted (online_margin.sql run?):", err.message); return 0; }),
     ]);
     const abandoned = abandonedOld + abandonedNew;
     return {
       xp: LEGACY_ONLINE.win * winsOld + LEGACY_ONLINE.finished * finishedOld - LEGACY_ONLINE.abandon * abandonedOld
         + ONLINE_WIN_POINTS * winsNew + ONLINE_FINISHED_POINTS * finishedNew - ABANDON_PENALTY * abandonedNew
-        + BOT_WIN_POINTS * bot + botBonus + bonus,
+        + margin + BOT_WIN_POINTS * bot + botBonus + bonus,
       record: { played: wins + finished + abandoned, won: wins },
     };
   } catch (err) {

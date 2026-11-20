@@ -197,7 +197,7 @@ import { renderBanner, interstitial, rewarded } from "./ads.js";
 import { recentErrors } from "./diagnostics.js"; // the last errors of the page, for a problem report
 import "./a11y.js"; // roles, names, keyboard and states for the buttons that are not <button>s
 import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer, sendFeedback, getPlayerId } from "./online.js";
-import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY } from "./shared/level.js";
+import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY, ABANDON_BASE, onlinePayout, validMode, MODE_NORMAL, MODE_RUTHLESS } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
 gameState.players[2].name = "BOT";
@@ -317,6 +317,8 @@ let gameXpBase = null;
 let gameXpLabel = ""; // what the game's badge says: Victory or Game played
 let gameXpPays = 0; // the most the game itself can have paid (the rest is a bonus)
 let gameXpBonus = 0; // of it, what came on top of a win's 1 point (the speed bonus, or the rest of the margin)
+var gameMode = MODE_NORMAL; // (var: startBot runs at load, before this line, and calls setGameMode) how the online game on the screen is played (Normal / Ruthless, from the server), shown by the devil in place of the VS
+let gameXpParts = null; // an online game with the margin: its badges, [points, label] each (the flat part, the margin)
 let gameBotStrategy = "speed"; // the mode of the game just played against the bot (its badges differ)
 function refreshIfStale() {
     if (!currentUser() || Date.now() - lastRefreshAt < 15000) return;
@@ -343,6 +345,7 @@ function showHomeScreen() {
 function markActiveMode() {}
 
 function startOffline() {
+    setGameMode(MODE_NORMAL); // not an online game: the old VS
     controller = new GameController("offline");
     controller.setState(gameState);
     markActiveMode();
@@ -357,6 +360,7 @@ function startOnline() {
 function startBot(strategy = "speed") {
     botStrategy = strategy;
     LOCAL_PLAYER = 1;
+    setGameMode(MODE_NORMAL); // not an online game: the old VS
     controller = new GameController("bot");
     controller.setState(gameState);
     markActiveMode();
@@ -2017,6 +2021,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
         points: gameState.players[me].points,
         opponentPoints: gameState.players[other].points,
         opponent: controller.mode === "bot" ? "Bot" : gameState.players[other].name,
+        ruthless: mode !== "bot" && gameMode === MODE_RUTHLESS,
         noXp: !earn, // the points video was closed early
     });
     // What the game was worth: the points earned and the way to the next
@@ -2034,6 +2039,12 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
             gameXpLabel = gameBadgeLabel(winner === me);
             // What a game pays is set by the rules (a win against the bot, an online win or finish).
             gameXpPays = mode === "bot" ? BOT_WIN_POINTS + bonus : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
+            gameXpParts = null;
+            if (mode !== "bot" && gameMode === MODE_RUTHLESS) {
+                const game = onlineGameParts(winner === me, me, other);
+                gameXpPays = game.total;
+                gameXpParts = game.parts;
+            }
             gameXpBonus = bonus;
             gameBotStrategy = botStrategy;
             await showGameXp();
@@ -2045,7 +2056,8 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
         // One badge for what the game paid and one for the day's bonus.
         const earned = after - xpBefore - (r?.daily ? DAILY_BONUS_POINTS : 0);
         gameBotStrategy = botStrategy;
-        queueGameBadges(earned, bonus, gameBadgeLabel(winner === me));
+        if (mode !== "bot" && gameMode === MODE_RUTHLESS) for (const [points, label] of onlineGameParts(winner === me, me, other).parts) queuePointsGain(points, label);
+        else queueGameBadges(earned, bonus, gameBadgeLabel(winner === me));
         if (r?.daily) queuePointsGain(DAILY_BONUS_POINTS, t("Daily bonus"));
         if (after === xpBefore) return;
         xpStrip = { base: xpBefore, after };
@@ -4171,7 +4183,7 @@ const onlineClient = new OnlineClient({
         // restarted for an update): the new server's queue is empty, so join
         // it again. A game that had started is picked up by rejoin instead.
         if (connected && onlineOverlay.style.display !== "none" && onlineOverlay.dataset.view === "searching" && searchingRandom) {
-            onlineClient.joinQueue();
+            onlineClient.joinQueue(wantedMode);
         }
         if (!gameInProgress || controller.mode !== "online" || isGameOver) return;
         showToast(connected ? t("Back online") : t("Connection lost, reconnecting..."), connected ? 1800 : 5000);
@@ -4183,6 +4195,7 @@ const onlineClient = new OnlineClient({
         }
     },
     onGameStart: (snap) => beginOnlineGame(snap),
+    onModeOffer: (msg) => onModeOffer(msg),
     onSnapshot: (snap) => beginOnlineGame({ ...snap, fresh: false }),
     onWaitingRoom: (code) => showWaitingRoom(code),
     onAction: onRemoteAction,
@@ -4456,6 +4469,57 @@ let onlineKind = "random";
 document.getElementById("warn-back").addEventListener("click", closeOnlineOverlay);
 document.getElementById("warn-go").addEventListener("click", () => startRandomOnline());
 
+//--------- Normal and Ruthless ---------
+// Whoever opens an online game says how to play it: Normal as ever, or Ruthless (with the devil icon), where the points the game
+// is decided by count too (shared/level.js, onlinePayout). The choice is kept. Someone who asked for the same is
+// played at once; for the other way the server offers it and the player accepts or goes on looking
+// (server/lobby.js). In the game, a Ruthless one shows the same emoji beside VS.
+// (byId is declared further down: not usable while the page loads)
+const modeEl = (id) => document.getElementById(id);
+const MODE_KEY = "linotte-mode";
+let wantedMode = (() => { try { return validMode(localStorage.getItem(MODE_KEY)); } catch { return MODE_NORMAL; } })();
+// The devil of Ruthless (resources/images/devil.svg), to put after a text built here.
+const devilIcon = () => { const img = document.createElement("img"); img.className = "devil-icon"; img.src = "resources/images/devil.svg"; img.alt = ""; return img; };
+// What each way pays, in a line (under the two buttons).
+const modeLine = (mode) => (mode === MODE_RUTHLESS
+    ? t("Ruthless: +4 and the points you win by for a win, +2 minus the points you lose by for a loss.")
+    : t("Normal: +4 for a win, +2 for a loss, whatever the score."));
+function showModeChoice() {
+    document.querySelectorAll(".mode-btn").forEach((b) => b.classList.toggle("is-selected", b.dataset.mode === wantedMode));
+    document.querySelectorAll(".mode-explain").forEach((el) => { el.textContent = modeLine(wantedMode); });
+    // The rule first, assertive; then, on a line of its own, what leaving costs.
+    modeEl("warn-text").textContent = t("Once the game starts, play it to the end.") + "\n"
+        + (wantedMode === MODE_RUTHLESS ? t("Leaving costs 6 points or more.") : t("Leaving costs 3 points."));
+}
+document.querySelectorAll(".mode-btn").forEach((b) => b.addEventListener("click", () => {
+    wantedMode = validMode(b.dataset.mode);
+    try { localStorage.setItem(MODE_KEY, wantedMode); } catch { /* not kept */ }
+    showModeChoice();
+}));
+showModeChoice();
+
+// The server found someone who asked for the other way: accept, or go on looking.
+function onModeOffer({ mode, name }) {
+    const offered = validMode(mode);
+    modeEl("offer-title").textContent = t(offered === MODE_RUTHLESS ? "{name} chose Ruthless" : "{name} chose Normal", { name: name || t("Your opponent") });
+    if (offered === MODE_RUTHLESS) modeEl("offer-title").append(" ", devilIcon());
+    modeEl("offer-text").textContent = offered === MODE_RUTHLESS
+        ? t("In a Ruthless game the points the game is decided by also count: you can win more, and lose more. Play it?")
+        : t("A Normal game: +4 for a win, +2 for a loss, whatever the score. Play it?");
+    showOnlineView("mode-offer");
+    buzz(40);
+}
+modeEl("offer-accept").addEventListener("click", async () => {
+    const res = await onlineClient.answerMode(true);
+    if (!res.ok && res.error !== "no_offer") { searchingRandom = false; handleOnlineError(res); }
+    else if (!res.matched && onlineOverlay.dataset.view === "mode-offer") showOnlineView("searching"); // the other one had gone: looking again
+});
+modeEl("offer-decline").addEventListener("click", async () => {
+    showOnlineView("searching");
+    const res = await onlineClient.answerMode(false);
+    if (!res.ok && res.error !== "no_offer") { searchingRandom = false; handleOnlineError(res); }
+});
+
 async function startRandomOnline() {
     onlineKind = "random";
     // Below zero: matched with others below zero (see canMeet), and told so.
@@ -4464,7 +4528,7 @@ async function startRandomOnline() {
     document.getElementById("searching-text").textContent = t("This usually takes a few seconds.");
     showOnlineView("searching");
     searchingRandom = true;
-    const res = await onlineClient.joinQueue();
+    const res = await onlineClient.joinQueue(wantedMode);
     if (!res.ok) { searchingRandom = false; handleOnlineError(res); }
 }
 
@@ -4474,20 +4538,27 @@ async function createFriendRoom() {
     if (ROOMS_NEED_PRO && !lastKnownPro()) { showProSheet(); return; }
     onlineKind = "friend";
     if (!(await prepareOnline())) return;
-    const res = await onlineClient.createRoom();
+    const res = await onlineClient.createRoom(wantedMode);
     if (res.ok) showWaitingRoom(res.code);
     else handleOnlineError(res);
 }
 
-async function joinFriendByCode(code, { fromLink = false } = {}) {
+let pendingRuthlessJoin = null;
+async function joinFriendByCode(code, { fromLink = false, confirmed = false } = {}) {
     onlineKind = "friend";
     const errorEl = document.getElementById("code-error");
     errorEl.textContent = "";
     if (!(await prepareOnline())) return;
     document.getElementById("searching-text").textContent = t("Joining the game...");
     showOnlineView("searching");
-    const res = await onlineClient.joinRoom(code);
+    const res = await onlineClient.joinRoom(code, confirmed);
     if (res.ok) return; // game_start follows right away
+    if (res.error === "confirm_ruthless") { // a Ruthless room: its owner's choice, said to the one who comes in
+        pendingRuthlessJoin = { code, fromLink };
+        byId("ruthless-join-text").textContent = t("{name} opened this room as Ruthless: the points the game is decided by also count, so you can win more and lose more. Join it?", { name: res.host || t("Your friend") });
+        showOnlineView("ruthless-join");
+        return;
+    }
     if (res.error === "already_in_game") { onlineClient.rejoin(); return; }
     const info = describeOnlineError(res);
     // An old invite link: the game it was for is over.
@@ -4500,6 +4571,13 @@ async function joinFriendByCode(code, { fromLink = false } = {}) {
         handleOnlineError(res);
     }
 }
+
+modeEl("ruthless-join-go").addEventListener("click", () => {
+    const join = pendingRuthlessJoin;
+    pendingRuthlessJoin = null;
+    if (join) joinFriendByCode(join.code, { fromLink: join.fromLink, confirmed: true });
+});
+modeEl("ruthless-join-back").addEventListener("click", () => { pendingRuthlessJoin = null; closeOnlineOverlay(); });
 
 let currentRoomCode = null;
 function showWaitingRoom(code) {
@@ -4541,7 +4619,7 @@ const onlineEnabled = (() => {
 document.body.classList.toggle("online-enabled", onlineEnabled);
 
 document.getElementById("home-online-btn").addEventListener("click", () => {
-    if (onlineEnabled) showOnlineView("play-warning"); // a game started has to be played: said first
+    if (onlineEnabled) { showModeChoice(); showOnlineView("play-warning"); } // how to play, and a game started has to be played: said first
     else showToast(t("Online play is coming soon."));
 });
 document.getElementById("home-friend-btn").addEventListener("click", () => {
@@ -4687,13 +4765,7 @@ byId("ac-badge").addEventListener("keydown", (e) => { if (e.key === "Enter" || e
 byId("st-level-help").addEventListener("click", () => showOnlineView("level-help"));
 // ...and the same one from the level road, under its title.
 byId("road-how").addEventListener("click", () => showOnlineView("level-help"));
-// In the rules, what each thing is worth stands out: every "+2" / "−2" in bold
-// (the texts are already translated by now).
-document.querySelectorAll(".level-rules li").forEach((li) => {
-    const parts = li.textContent.split(/([+−-]\d+)/);
-    if (parts.length < 2) return;
-    li.replaceChildren(...parts.map((part, i) => (i % 2 ? Object.assign(document.createElement("b"), { textContent: part }) : part)));
-});
+// (In the rules, every value is in bold with its pt in the page's own markup, translated with the text.)
 byId("level-help-back").addEventListener("click", hideOnlineOverlay); // back to the stats page under it
 byId("account-delete-confirm").addEventListener("click", (e) => loginStep(e.currentTarget, byId("account-delete-error"), async () => {
     await deleteAccount();
@@ -5250,11 +5322,30 @@ async function showGameXp() {
     noteXpGain(gameXpBase, after);
     // The game's own points get a badge too (the bonus has its own, see onBonus).
     const earned = Math.min(gameXpPays, after - gameXpBase);
-    if (first) queueGameBadges(earned, gameXpBonus, gameXpLabel);
+    if (first && gameXpParts) for (const [points, label] of gameXpParts) queuePointsGain(points, label);
+    else if (first) queueGameBadges(earned, gameXpBonus, gameXpLabel);
     celebrateLevel(shown, after); // held with the points screen
 }
 
 const gameBadgeLabel = (won) => (won ? t("Victory") : t("Game played"));
+
+// How the game on the screen is played: a Ruthless one shows the devil in place of the VS (see .vs.ruthless in
+// online.css), a Normal one, or any game that is not online, the old VS.
+function setGameMode(mode) {
+    gameMode = validMode(mode);
+    const ruthless = gameMode === MODE_RUTHLESS;
+    document.getElementById("mode-badge").hidden = !ruthless;
+    document.querySelector(".vs")?.classList.toggle("ruthless", ruthless);
+}
+
+// What an online game was worth with the margin counted (shared/level.js, onlinePayout), for the points screen: the
+// total, and its badges: the flat part (+4 a win, +2 otherwise) and, when the game was won or lost by some points,
+// the margin (+ for a win, - for a loss) in a badge of its own.
+function onlineGameParts(won, me, other) {
+    const total = onlinePayout({ won, points: gameState.players[me].points, opponentPoints: gameState.players[other].points, ruthless: true });
+    const flat = won ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
+    return { total, parts: [[flat, gameBadgeLabel(won)], ...(total - flat ? [[total - flat, t("Point margin")]] : [])] };
+}
 
 function resetXpGain() {
     xpStrip = null;
@@ -6058,7 +6149,7 @@ async function showFriends() {
 async function inviteFriend(f) {
     onlineKind = "friend";
     if (!(await prepareOnline())) return;
-    const res = await onlineClient.inviteFriend(f.id);
+    const res = await onlineClient.inviteFriend(f.id, wantedMode);
     if (res.ok) {
         showWaitingRoom(res.code);
         showToast(t("Invite sent to {name}.", { name: f.name }));
@@ -6323,7 +6414,7 @@ function openFriendManage(person, kind) {
 byId("fr-manage-back").addEventListener("click", openFriends);
 
 byId("fr-back").addEventListener("click", () => { leaveFriends(); closeOnlineOverlay(); });
-byId("fr-room").addEventListener("click", () => { leaveFriends(); showOnlineView("friend"); });
+byId("fr-room").addEventListener("click", () => { leaveFriends(); showModeChoice(); showOnlineView("friend"); });
 byId("fr-signin").addEventListener("click", () => { stopFriendsRefresh(); byId("home-profile").click(); });
 
 // ADD FRIEND: this player's own code (to give), and a friend's (to use).
@@ -6462,7 +6553,7 @@ if (friendsDemo) refreshFriendsBadge();
 // saved at every turn, the home offers it back). In an online game the server sends nothing.
 let pendingInvite = null;
 let inviteBannerTimer = 0;
-function onFriendInvite({ from, fromId, code, inviteId, soft, expiresAt }) {
+function onFriendInvite({ from, fromId, code, inviteId, soft, expiresAt, mode }) {
     // An online game that counts: never interrupted (an older server may still send one).
     if (gameInProgress && !isGameOver && controller.mode === "online") { onlineClient.declineInvite(fromId, inviteId); return; }
     pendingInvite = { fromId, code, inviteId };
@@ -6476,6 +6567,7 @@ function onFriendInvite({ from, fromId, code, inviteId, soft, expiresAt }) {
         return;
     }
     byId("invite-title").textContent = t("{name} invites you to play", { name: from });
+    if (validMode(mode) === MODE_RUTHLESS) byId("invite-title").append(" ", devilIcon());
     hideHomeScreen();
     showOnlineView("invite");
     buzz(60);
@@ -6650,7 +6742,7 @@ byId("game-home-btn").addEventListener("click", async () => {
         const free = opponentGone || (idleTurns[LOCAL_PLAYER === 1 ? 2 : 1] || 0) > 0;
         byId("leave-text").textContent = free
             ? t("Your opponent has stopped playing: you can leave without losing points.")
-            : t("Your opponent wins, and you lose 3 level points.");
+            : t("Your opponent wins, and you lose {n} level points.", { n: abandonCost() });
         showOnlineView("leave");
         return;
     }
@@ -6821,6 +6913,7 @@ async function beginOnlineGame(snap) {
 
     gameState = snap.state;
     LOCAL_PLAYER = snap.seat;
+    setGameMode(snap.mode);
     showTableLook(snap.state?.tableLook, snap.fresh);
     if (snap.fresh) { chatNudge = { at: 0, n: 0 }; chatSent = []; }
     idleTurns = {};
@@ -6902,6 +6995,14 @@ function renderOnlineBoard() {
     divsOpacity(gameState.currentPlayer);
 }
 
+// What leaving the online game now costs (shared/level.js, onlinePayout): 6 points and one more for each point the
+// opponent is ahead by in a Ruthless game, 3 in a Normal one.
+function abandonLead() {
+    const me = LOCAL_PLAYER || 1, other = me === 1 ? 2 : 1;
+    return Math.max(0, (gameState?.players?.[other]?.points | 0) - (gameState?.players?.[me]?.points | 0));
+}
+const abandonCost = () => (gameMode === MODE_RUTHLESS ? ABANDON_BASE + abandonLead() : ABANDON_PENALTY);
+
 function leaveOnlineGameIfAny() {
     if (controller.mode !== "online") return;
     // Leaving before the end abandons the game: it costs level points (the
@@ -6910,7 +7011,8 @@ function leaveOnlineGameIfAny() {
     const excused = opponentGone || (idleTurns[LOCAL_PLAYER === 1 ? 2 : 1] || 0) > 0;
     if (gameInProgress && !isGameOver && !excused) {
         const xpBefore = myXp();
-        noteGuestAbandon();
+        const cost = abandonCost(); // before anything changes: the lead the opponent has now
+        noteGuestAbandon(abandonLead(), gameMode === MODE_RUTHLESS);
         // The points lost get their badge, then the level screen if a level went with them.
         if (currentUser()) setTimeout(async () => {
             await refreshPro({ fresh: true });
@@ -6918,7 +7020,7 @@ function leaveOnlineGameIfAny() {
             if (after !== null && after < xpBefore) showPointsGain(after - xpBefore, t("Game abandoned"));
         }, 1500);
         else setTimeout(() => {
-            showPointsGain(-ABANDON_PENALTY, t("Game abandoned"));
+            showPointsGain(-cost, t("Game abandoned"));
             celebrateLevel(xpBefore, myXp());
         }, 800);
     }
@@ -7045,8 +7147,8 @@ function onRemoteGameOver({ winner, reason }) {
             : t("Your opponent left. You win!")));
     } else if (reason === "idle") {
         // This phone's player let their turns run out: abandoned.
-        showToast(t("You missed {n} turns in a row: the game counts as abandoned (−3 level points).", { n: IDLE_LIMIT_SHOWN }), 6000);
-        noteGuestAbandon();
+        showToast(t("You missed {n} turns in a row: the game counts as abandoned (−{p} level points).", { n: IDLE_LIMIT_SHOWN, p: abandonCost() }), 6000);
+        noteGuestAbandon(abandonLead(), gameMode === MODE_RUTHLESS);
         if (currentUser()) setTimeout(() => refreshPro({ fresh: true }), 1500);
     }
 }
@@ -7062,7 +7164,7 @@ function onRemoteIdle({ seat, turns, limit }) {
     idleTurns[seat] = turns;
     if (turns !== limit - 1) return;
     if (seat === LOCAL_PLAYER) {
-        showToast(t("You let {n} turns run out without playing: miss the next one too and you lose the game and 2 level points.", { n: turns }), 7000);
+        showToast(t("You let {n} turns run out without playing: miss the next one too and you lose the game and {p} level points.", { n: turns, p: abandonCost() }), 7000);
     } else {
         showToast(t("Your opponent is inactive: if they miss their next turn too, you win. You can also leave now without losing points."), 7000);
     }

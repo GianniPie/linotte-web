@@ -9,7 +9,7 @@
 // no telling which of the two players is the owner of the phone.
 
 import { currentUser, addGameResults, loadGameResults } from "./auth.js";
-import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY, LEGACY_ONLINE, DAILY_BONUS_POINTS, AD_REWARD_POINTS, AD_REWARDS_PER_DAY } from "./shared/level.js";
+import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY, LEGACY_ONLINE, onlineMarginExtra, DAILY_BONUS_POINTS, AD_REWARD_POINTS, AD_REWARDS_PER_DAY } from "./shared/level.js";
 
 const LOCAL_KEY = "linotte-results";
 const LOCAL_MAX = 500;
@@ -26,7 +26,7 @@ function writeLocal(list) {
 // pays them was closed early, see showWinnerPopup in linotte.js).
 // bonus: the speed bonus of a win against the bot (see speedBonus); turns: the player's own
 // turns in a game against the bot, kept to set the bonus's steps from real games.
-export async function recordGame({ mode, won, points, opponentPoints, opponent, abandoned = false, noXp = false, bonus = 0, turns = null, strategy = null }) {
+export async function recordGame({ mode, won, points, opponentPoints, opponent, abandoned = false, ruthless = false, noXp = false, bonus = 0, turns = null, strategy = null }) {
     const entry = {
         mode, won: Boolean(won), points: points | 0, opponent_points: opponentPoints | 0,
         opponent: String(opponent || "").slice(0, 24) || null, played_at: new Date().toISOString(),
@@ -44,7 +44,11 @@ export async function recordGame({ mode, won, points, opponentPoints, opponent, 
         // (the first online game of the day played to the end brings its bonus: told back).
         if (noXp) return {};
         if (mode === "bot") { if (won) { noteGuest("bot"); if (bonus > 0) noteGuest("bonus", bonus | 0); } }
-        else if (!abandoned) noteGuest(won ? "online2" : "finished2");
+        else if (!abandoned) {
+            noteGuest(won ? "online2" : "finished2");
+            const extra = onlineMarginExtra({ won, points, opponentPoints, ruthless }); // the points won or lost by, in a Ruthless game
+            if (extra) noteGuest("marginXp", extra);
+        }
         if (mode !== "bot" && !abandoned && !guestToday().dailyDone) {
             const g = readGuest();
             writeGuest({ ...g, daily: (Number(g.daily) || 0) + 1, dailyDay: utcDay() });
@@ -115,12 +119,17 @@ export function guestXp() {
     // (LEGACY_ONLINE: they keep what they paid); the "...2" ones are played since.
     return LEGACY_ONLINE.win * n("online") + LEGACY_ONLINE.finished * n("finished") - LEGACY_ONLINE.abandon * n("abandoned")
         + ONLINE_WIN_POINTS * n("online2") + ONLINE_FINISHED_POINTS * n("finished2") - ABANDON_PENALTY * n("abandoned2")
+        + n("marginXp") // the points online games were won or lost by (onlineMarginExtra)
         + BOT_WIN_POINTS * n("bot")
         + n("bonus") + DAILY_BONUS_POINTS * n("daily") + AD_REWARD_POINTS * n("ad");
 }
 // A guest left an online game before its end (signed in, the server counts it).
-export function noteGuestAbandon() {
-    if (!currentUser()) noteGuest("abandoned2");
+// `lead`: the points the opponent was ahead by when it happened (leaving costs more the further behind you are).
+export function noteGuestAbandon(lead = 0, ruthless = false) {
+    if (currentUser()) return;
+    noteGuest("abandoned2");
+    const extra = onlineMarginExtra({ abandoned: true, points: 0, opponentPoints: Math.max(0, lead | 0), ruthless });
+    if (extra) noteGuest("marginXp", extra);
 }
 
 // Everything the Stats screen shows.

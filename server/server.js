@@ -390,16 +390,18 @@ io.on("connection", (socket) => {
   on("claim_points", {}, (p) => lobby.claimPoints(socket, { adFree: p.adFree === true }));
   on("skip_points", {}, () => lobby.skipPoints(socket));
 
-  on("queue_join", { needsConsent: true }, () => lobby.joinQueue(socket));
+  on("queue_join", { needsConsent: true }, (p) => lobby.joinQueue(socket, p?.mode));
+  // The offer of the other way to play (the "mode_offer" event) is accepted or not.
+  on("mode_answer", { needsConsent: true }, (p) => lobby.answerOffer(socket, p?.accept === true));
   on("queue_leave", {}, () => ({ ok: lobby.leaveQueue(socket.data.playerId) }));
 
   // Creating a friend room is meant to be the paid feature (joining is
   // always free); free for everyone until ROOMS_NEED_PRO is switched on.
-  on("room_create", { needsConsent: true }, async () => {
+  on("room_create", { needsConsent: true }, async (p) => {
     if (ROOMS_NEED_PRO && !(await refreshAccess(socket)).pro) return { ok: false, error: "pro_required" };
-    return lobby.createPrivate(socket);
+    return lobby.createPrivate(socket, p?.mode);
   });
-  on("room_join", { needsConsent: true }, (p) => lobby.joinByCode(socket, p.code));
+  on("room_join", { needsConsent: true }, (p) => lobby.joinByCode(socket, p.code, p.confirmed === true));
   on("room_leave", {}, () => { lobby.leaveRoom(socket); return { ok: true }; });
   on("rematch", { needsConsent: true }, () => lobby.requestRematch(socket));
   on("rematch_decline", {}, () => lobby.declineRematch(socket));
@@ -547,12 +549,12 @@ io.on("connection", (socket) => {
     const state = stateOf(friendId);
     const rule = inviteRule(state);
     if (!rule.send) return { ok: false, error: rule.error, friendState: state };
-    const res = lobby.createPrivate(socket);
+    const res = lobby.createPrivate(socket, p.mode);
     if (!res.ok) return res;
     const { invite, replaced } = invites.create({ fromId: me.userId, toId: friendId, code: res.code });
     for (const old of replaced) for (const s of socketsOf(old.toId)) s.emit("invite_expired", { inviteId: old.id }); // the old one is withdrawn
     for (const s of socketsOf(friendId)) {
-      s.emit("friend_invite", { from: me.name, fromId: me.userId, code: res.code, inviteId: invite.id, soft: rule.soft, expiresAt: invite.expiresAt });
+      s.emit("friend_invite", { from: me.name, fromId: me.userId, code: res.code, mode: res.mode, inviteId: invite.id, soft: rule.soft, expiresAt: invite.expiresAt });
     }
     return { ...res, inviteId: invite.id, expiresAt: invite.expiresAt, friendState: state };
   });

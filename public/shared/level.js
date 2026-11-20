@@ -2,7 +2,8 @@
 // The number on a player's badge is a level, from their experience points.
 // Online (random or friend, games recorded by the server): +4 for a win, +2
 // for a loss or draw played to the end, -3 for a game abandoned before its
-// end (left, gone for good after a disconnection, or 3 idle turns). Online
+// end (left, gone for good after a disconnection, or 3 idle turns); in a Ruthless game the points
+// it is won or lost by count on top (see below). Online
 // pays about twice what the bot does (a game between equals: 3 points online,
 // 1.7 against the bot in points mode), as it takes longer and is what keeps the
 // game alive. Games played before ONLINE_RATES_FROM keep what they paid then
@@ -42,6 +43,37 @@ export function botWinPayout({ strategy, turns, margin }) {
     return BOT_WIN_POINTS + speedBonus(turns);
 }
 export const ABANDON_PENALTY = 3;
+
+// Two ways to play online, chosen by whoever opens the game (the queue, or a friend's room):
+//   NORMAL    as above: +4 a win, +2 a game played to the end, -3 leaving.
+//   RUTHLESS  (shown with the devil icon, resources/images/devil.svg) the points a game is won or lost by count too. The winner gets
+//             +4 and the points he is ahead by; the loser keeps +2 and gives up the points he is behind by
+//             (so a loss can cost points: 2 - 7 = -5; a draw stays +2); leaving costs ABANDON_BASE and the
+//             lead the opponent had at that moment, always more than any loss from the same position, so
+//             staying beats leaving. The margin is no more than the game's own points (about 3 between
+//             equals, 10 at most in the simulations). Training against the bot risks nothing, so beginners
+//             can learn there.
+// Counted by the server like the flat rates (server/results.js, online_margin_xp in
+// supabase/online_margin.sql, from the games marked ruthless); a guest's own phone counts it too (stats.js).
+export const MODE_NORMAL = "normal";
+export const MODE_RUTHLESS = "ruthless";
+export const ABANDON_BASE = 6;
+export const validMode = (mode) => (mode === MODE_RUTHLESS ? MODE_RUTHLESS : MODE_NORMAL);
+const lead = (points, opponentPoints) => Math.max(0, (opponentPoints | 0) - (points | 0));
+// What one online game is worth ({ won, abandoned, points, opponentPoints, ruthless }: the scores of the player
+// and of the opponent when it ended, and whether it was a Ruthless game).
+export function onlinePayout({ won, abandoned, points, opponentPoints, ruthless = false }) {
+    if (!ruthless) return abandoned ? -ABANDON_PENALTY : won ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
+    if (abandoned) return -(ABANDON_BASE + lead(points, opponentPoints));
+    if (won) return ONLINE_WIN_POINTS + Math.max(0, (points | 0) - (opponentPoints | 0));
+    return ONLINE_FINISHED_POINTS - lead(points, opponentPoints);
+}
+// The part that comes on top of the flat rate (+4, +2 or -3): what the counts of the server and of the guest's
+// phone add to their flat sums. 0 in a Normal game.
+export function onlineMarginExtra(game) {
+    const flat = game.abandoned ? -ABANDON_PENALTY : game.won ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
+    return onlinePayout(game) - flat;
+}
 // From this moment online games pay the rates above; the ones before it paid the old ones.
 // The same moment is in supabase/leaderboard_everyone.sql: change both together.
 export const ONLINE_RATES_FROM = "2026-11-17T04:33:00Z";

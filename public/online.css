@@ -150,6 +150,8 @@
 #online-overlay[data-view="endgame"] .sheet-view[data-view="endgame"],
 #online-overlay[data-view="play-warning"] .sheet-view[data-view="play-warning"],
 #online-overlay[data-view="rematch-offer"] .sheet-view[data-view="rematch-offer"],
+#online-overlay[data-view="mode-offer"] .sheet-view[data-view="mode-offer"],
+#online-overlay[data-view="ruthless-join"] .sheet-view[data-view="ruthless-join"],
 #online-overlay[data-view="restart"] .sheet-view[data-view="restart"],
 #online-overlay[data-view="giveup"] .sheet-view[data-view="giveup"] {
   display: flex;
@@ -1233,4 +1235,81 @@ body.daily-open .sheet-daily {
 /* A name that can't be changed yet (once a day, see nameLockMs in linotte.js). */
 .text-input:disabled {
   opacity: .55;
+}
+
+/* Normal or Ruthless (see "Normal and Ruthless" in linotte.js): two buttons side by side, the chosen one blue. */
+.mode-choice {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+/* Both as wide as each other, unless RUTHLESS needs more room in some language (IMPITOYABLE, IMPLACÁVEL...): then it
+   takes what its word needs, with the devil, and NORMAL gives that much up. Never on two lines. */
+.mode-choice .mode-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.mode-choice .mode-btn[data-mode="ruthless"] {
+  min-width: max-content;
+}
+
+.mode-choice .mode-btn .text-button {
+  white-space: nowrap;
+}
+
+/* The chosen one is the saturated blue with white letters; the other is pale, with blue letters (a dimmed button would
+   look switched off). The devil has a thin white edge so that it shows on the blue one. */
+.mode-btn:not(.is-selected) {
+  background-color: #fff;
+}
+
+.mode-btn:not(.is-selected) .text-button {
+  color: #3a4fcf;
+}
+
+.mode-btn .devil-icon {
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
+}
+
+/* "Once the game starts..." and, on a line of its own, what leaving costs. */
+#warn-text {
+  white-space: pre-line;
+}
+
+.mode-explain {
+  min-height: 2.6em;
+}
+
+/* The devil of Ruthless (resources/images/devil.svg) inside a text or a button. */
+.devil-icon {
+  height: 1.15em;
+  width: auto;
+  vertical-align: -.2em;
+}
+
+/* In a Ruthless game the VS (the green chip) is replaced by one drawing, the devil over its own VS
+   (resources/images/devil-vs-2.svg, 112 by 162): the cell's background is taken away (.vs.ruthless, see setGameMode in
+   linotte.js) and the drawing is centered on the cell, 1.15 times as wide as it (so its own VS is as wide as the old one), and
+   grows and shrinks with it. It sits above the players' boxes where it overlaps them. A Normal game keeps the old VS. */
+.vs {
+  position: relative;
+  z-index: 2;
+}
+
+.vs.ruthless {
+  background-image: none;
+}
+
+.mode-badge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 115%; /* the drawing's own VS is .865 of its width: .995 of the old VS's, as wide as it */
+  max-width: none; /* the page's own img { max-width: 100% } would hold it to the cell */
+  height: auto;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35));
+  pointer-events: none;
 }

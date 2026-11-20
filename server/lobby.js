@@ -11,9 +11,9 @@ import { resultRows, recordResults, claimGameXp } from "./results.js";
 import { logVideo } from "./videoLog.js";
 import { grantDailyBonus } from "./bonuses.js";
 import { noteFriends } from "./friends.js";
-import { DAILY_BONUS_POINTS, canMeet } from "../public/shared/level.js";
+import { DAILY_BONUS_POINTS, canMeet, validMode, MODE_NORMAL, MODE_RUTHLESS } from "../public/shared/level.js";
 import {
-  QUEUE_BOT_DELAY_MS, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS, HOST_AWAY_MS,
+  QUEUE_BOT_DELAY_MS, OFFER_TTL_MS, DECLINE_MEMORY_MS, BOT_MODE, ROOM_WAIT_TTL_MS, ROOM_OVER_TTL_MS, HOST_AWAY_MS,
 } from "./config.js";
 
 // No 0/O/1/I: a code read out loud or typed from a screenshot can't be misread.
@@ -50,7 +50,9 @@ export class Lobby {
     this.claim = claim;
     this.video = video; // what became of each points video (videoLog.js)
     this.pending = new Map(); // userId -> a finished game whose points wait for the video
-    this.queue = new Map(); // playerId -> { socket, timer }
+    this.queue = new Map(); // playerId -> { socket, timer, mode }
+    this.offers = new Map(); // playerId -> the other way to play offered to him (see makeOffer)
+    this.declined = new Map(); // playerId -> Map(otherId -> until): offers said no to
     this.rooms = new Map(); // roomId -> Room
     this.byCode = new Map(); // code -> Room
     this.byPlayer = new Map(); // playerId -> Room
@@ -127,31 +129,54 @@ export class Lobby {
   }
 
   //--------- random queue ---------
-  joinQueue(socket) {
+  // Whoever looks for an opponent says how to play: Normal or Ruthless (shared/level.js). Someone who asked
+  // for the same is played at once. Someone who asked for the other is OFFERED, to the one who just arrived (the
+  // other was waiting, and keeps what they asked for): he accepts, and the game is played the way the waiting
+  // one asked, or he says no and goes on looking, and that same person is not offered again for a minute.
+  // The bot that takes the other seat after a wait mostly asks for the same as the player; when it doesn't,
+  // it is offered just the same (and is not told apart from a person).
+  joinQueue(socket, wantedMode = MODE_NORMAL) {
     const me = socket.data;
+    const mode = validMode(wantedMode);
     if (this.activeRoom(me.playerId)) return { ok: false, error: "already_in_game" };
     this.leaveQueue(me.playerId);
+    this.dropOffer(me.playerId);
 
-    for (const [otherId, entry] of this.queue) {
-      if (otherId === me.playerId || !entry.socket.connected) continue;
-      // Below zero meets below zero; the rest within a wide range of levels
-      // (canMeet in shared/level.js). No one suitable: the bot comes.
-      if (!canMeet(me.level || 0, entry.socket.data.level || 0)) continue;
-      this.leaveQueue(otherId);
-      const room = this.newRoom({ kind: "random" });
-      this.register(room);
-      this.seatPlayers(room,
-        { ...me, socket },
-        { ...entry.socket.data, socket: entry.socket, playerId: otherId });
-      room.start();
+    // Below zero meets below zero; the rest within a wide range of levels (canMeet in shared/level.js).
+    const waiting = [...this.queue].filter(([otherId, entry]) => otherId !== me.playerId && entry.socket.connected
+      && canMeet(me.level || 0, entry.socket.data.level || 0));
+    const same = waiting.find(([, entry]) => entry.mode === mode);
+    if (same) {
+      this.startQueueGame(socket, same[0], mode);
       return { ok: true, matched: true };
     }
+    const other = waiting.find(([otherId, entry]) => entry.mode !== mode && !this.wasDeclined(me.playerId, otherId));
+    if (other) {
+      this.makeOffer(socket, mode, { otherId: other[0], mode: other[1].mode, name: other[1].socket.data.name });
+      return { ok: true, matched: false, offered: true, offer: { mode: other[1].mode, name: other[1].socket.data.name } };
+    }
+    this.enqueue(socket, mode);
+    return { ok: true, matched: false };
+  }
 
-    // Nobody waiting: after a random wait, a bot takes the other seat.
+  // Nobody suitable yet: waits, and after a random wait a bot takes the other seat.
+  enqueue(socket, mode) {
+    const me = socket.data;
     const [lo, hi] = QUEUE_BOT_DELAY_MS;
     const timer = setTimeout(() => this.matchWithBot(me.playerId), lo + Math.random() * (hi - lo));
-    this.queue.set(me.playerId, { socket, timer });
-    return { ok: true, matched: false };
+    this.queue.set(me.playerId, { socket, timer, mode });
+  }
+
+  startQueueGame(socket, otherId, mode) {
+    const me = socket.data;
+    const entry = this.queue.get(otherId);
+    this.leaveQueue(otherId);
+    const room = this.newRoom({ kind: "random", mode });
+    this.register(room);
+    this.seatPlayers(room,
+      { ...me, socket },
+      { ...entry.socket.data, socket: entry.socket, playerId: otherId });
+    room.start();
   }
 
   leaveQueue(playerId) {
@@ -162,31 +187,85 @@ export class Lobby {
     return true;
   }
 
+  //--------- offers: the other way to play ---------
+  wasDeclined(playerId, otherId) { return (this.declined.get(playerId)?.get(otherId) || 0) > Date.now(); }
+  rememberDecline(playerId, otherId) {
+    if (!this.declined.has(playerId)) this.declined.set(playerId, new Map());
+    this.declined.get(playerId).set(otherId, Date.now() + DECLINE_MEMORY_MS);
+  }
+  // The offer made to `socket` (who asked for `mine`): { otherId, mode, name } for a waiting person, or
+  // { bot, mode, name } for a bot; the answer is answerOffer().
+  makeOffer(socket, mine, offer) {
+    const me = socket.data;
+    this.dropOffer(me.playerId);
+    const timer = setTimeout(() => this.answerOffer(socket, false), OFFER_TTL_MS);
+    this.offers.set(me.playerId, { ...offer, mine, timer });
+    socket.emit("mode_offer", { mode: offer.mode, name: offer.name, ttlMs: OFFER_TTL_MS });
+  }
+  dropOffer(playerId) {
+    const offer = this.offers.get(playerId);
+    if (!offer) return null;
+    clearTimeout(offer.timer);
+    this.offers.delete(playerId);
+    return offer;
+  }
+  answerOffer(socket, accept) {
+    const me = socket.data;
+    const offer = this.dropOffer(me.playerId);
+    if (!offer) return { ok: false, error: "no_offer" };
+    if (!socket.connected) return { ok: false };
+    if (accept && offer.bot) {
+      const room = this.newRoom({ kind: "random", mode: offer.mode });
+      this.register(room);
+      const humanSeat = this.seatPlayers(room, { ...me, socket })[0];
+      room.addBot(room.otherSeat(humanSeat), offer.bot);
+      room.start();
+      return { ok: true, matched: true };
+    }
+    if (accept && this.queue.has(offer.otherId) && this.queue.get(offer.otherId).socket.connected) {
+      this.startQueueGame(socket, offer.otherId, offer.mode);
+      return { ok: true, matched: true };
+    }
+    // Said no (or the other one is gone): keeps looking for what was asked in the first place.
+    if (!accept && offer.otherId) this.rememberDecline(me.playerId, offer.otherId);
+    const again = this.joinQueue(socket, offer.mine);
+    return { ...again, ok: true, declined: !accept };
+  }
+
   matchWithBot(playerId) {
     const entry = this.queue.get(playerId);
     if (!entry || !entry.socket.connected) { this.leaveQueue(playerId); return; }
     this.leaveQueue(playerId);
-    const { socket } = entry;
-    const room = this.newRoom({ kind: "random" });
+    const { socket, mode } = entry;
+    const bot = new HumanBot({ avoidName: socket.data.name });
+    // Mostly what was asked; now and then the other way, which is offered like a person's.
+    const botMode = Math.random() < BOT_MODE.same ? mode : (mode === MODE_RUTHLESS ? MODE_NORMAL : MODE_RUTHLESS);
+    if (botMode !== mode) {
+      this.makeOffer(socket, mode, { bot, mode: botMode, name: bot.name });
+      return;
+    }
+    const room = this.newRoom({ kind: "random", mode });
     this.register(room);
     const humanSeat = this.seatPlayers(room, { ...socket.data, socket, playerId })[0];
-    room.addBot(room.otherSeat(humanSeat), new HumanBot({ avoidName: socket.data.name }));
+    room.addBot(room.otherSeat(humanSeat), bot);
     room.start();
   }
 
   //--------- private rooms ---------
-  createPrivate(socket) {
+  createPrivate(socket, mode = MODE_NORMAL) {
     const me = socket.data;
     if (this.activeRoom(me.playerId)) return { ok: false, error: "already_in_game" };
     this.leaveQueue(me.playerId);
-    const room = this.newRoom({ kind: "private", code: makeCode(this.byCode) });
+    this.dropOffer(me.playerId);
+    const room = this.newRoom({ kind: "private", mode, code: makeCode(this.byCode) });
     this.register(room);
     room.addHuman(1, socket, me);
     this.byPlayer.set(me.playerId, room);
-    return { ok: true, code: room.code };
+    return { ok: true, code: room.code, mode: room.mode };
   }
 
-  async joinByCode(socket, rawCode) {
+  // `confirmed`: a Ruthless room asks the one who comes in to say yes first (points can be lost in it).
+  async joinByCode(socket, rawCode, confirmed = false) {
     const me = socket.data;
     const code = normalizeCode(rawCode);
     // a room created before a server restart is still in the store
@@ -196,7 +275,9 @@ export class Lobby {
     if (room.status !== "waiting" || !room.freeSeat()) return { ok: false, error: "room_full" };
     if (room.hostAway(HOST_AWAY_MS)) return { ok: false, error: "host_away" }; // nobody to play against
     if (this.activeRoom(me.playerId)) return { ok: false, error: "already_in_game" };
+    if (room.mode === MODE_RUTHLESS && !confirmed) return { ok: false, error: "confirm_ruthless", mode: room.mode, host: room.seats[1]?.name || room.seats[2]?.name || "" };
     this.leaveQueue(me.playerId);
+    this.dropOffer(me.playerId);
 
     room.addHuman(room.freeSeat(), socket, me);
     this.byPlayer.set(me.playerId, room);
@@ -309,7 +390,7 @@ export class Lobby {
       players[s] = socket;
     }
     old.rematchStarted = true;
-    const room = this.newRoom({ kind: old.kind });
+    const room = this.newRoom({ kind: old.kind, mode: old.mode });
     this.register(room);
     for (const s of [1, 2]) {
       const x = old.seats[s];
@@ -328,6 +409,7 @@ export class Lobby {
 
   handleDisconnect(socket) {
     this.leaveQueue(socket.data.playerId);
+    this.dropOffer(socket.data.playerId);
     const room = this.roomOfSocket(socket);
     if (!room) return;
     const seat = socket.data.seat;

@@ -188,6 +188,11 @@
                 <div class="sheet-title" data-i18n>Play a friend</div>
                 <div class="sheet-text" data-i18n>Create a private room and send your friend the link, or join one with a code.</div>
                 <div class="sheet-daily" data-i18n>Today's first online game: +2 bonus points.</div>
+                <div class="sheet-row mode-choice">
+                    <div class="button sheet-btn alt mode-btn" data-mode="normal"><div class="text-button" data-i18n>NORMAL</div></div>
+                    <div class="button sheet-btn alt mode-btn" data-mode="ruthless"><div class="text-button"><img class="devil-icon" src="resources/images/devil.svg" alt=""> <span data-i18n>RUTHLESS</span></div></div>
+                </div>
+                <div class="sheet-text sheet-small mode-explain"></div>
                 <div class="button sheet-btn go" id="friend-create"><div class="text-button" data-i18n>CREATE ROOM</div></div>
                 <div class="button sheet-btn alt" id="friend-join"><div class="text-button" data-i18n>I HAVE A CODE</div></div>
                 <div class="button sheet-btn cancel" id="friend-back"><div class="text-button" data-i18n>BACK</div></div>
@@ -362,12 +367,37 @@
                 <div class="button sheet-btn cancel" id="account-signout"><div class="text-button" data-i18n>SIGN OUT</div></div>
                 <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>OK</div></div>
             </div>
-            <!-- before looking for a random opponent: a game started has to be played -->
+            <!-- before looking for a random opponent: how to play (Normal or Ruthless) and a game started has to be played -->
             <div class="sheet-view" data-view="play-warning">
                 <div class="sheet-title" data-i18n>Ready to play?</div>
-                <div class="sheet-text" data-i18n>Once the game starts, play it to the end. If you leave or stop playing, you lose 3 points.</div>
+                <div class="sheet-row mode-choice">
+                    <div class="button sheet-btn alt mode-btn" data-mode="normal"><div class="text-button" data-i18n>NORMAL</div></div>
+                    <div class="button sheet-btn alt mode-btn" data-mode="ruthless"><div class="text-button"><img class="devil-icon" src="resources/images/devil.svg" alt=""> <span data-i18n>RUTHLESS</span></div></div>
+                </div>
+                <details class="bot-help">
+                    <summary data-i18n>What's the difference?</summary>
+                    <div class="bot-help-body">
+                        <p><b data-i18n>NORMAL</b> <span data-i18n>Win +4 pt, loss +2 pt, whatever the score. Leaving −3 pt.</span></p>
+                        <p><b><img class="devil-icon" src="resources/images/devil.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +4 pt plus the margin. Loss +2 pt minus the margin. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                    </div>
+                </details>
+                <div class="sheet-text" id="warn-text"></div>
                 <div class="button sheet-btn go" id="warn-go"><div class="text-button" data-i18n>PLAY</div></div>
                 <div class="button sheet-btn cancel" id="warn-back"><div class="text-button" data-i18n>BACK</div></div>
+            </div>
+            <!-- a different way to play than the one asked for is found: accept it or keep looking (server/lobby.js, makeOffer) -->
+            <div class="sheet-view" data-view="mode-offer">
+                <div class="sheet-title" id="offer-title"></div>
+                <div class="sheet-text" id="offer-text"></div>
+                <div class="button sheet-btn go" id="offer-accept"><div class="text-button" data-i18n>ACCEPT</div></div>
+                <div class="button sheet-btn cancel" id="offer-decline"><div class="text-button" data-i18n>SEARCH AGAIN</div></div>
+            </div>
+            <!-- a friend's room is Ruthless: the one who comes in says yes first -->
+            <div class="sheet-view" data-view="ruthless-join">
+                <div class="sheet-title"><img class="devil-icon" src="resources/images/devil.svg" alt=""> <span data-i18n>A Ruthless room</span></div>
+                <div class="sheet-text" id="ruthless-join-text"></div>
+                <div class="button sheet-btn go" id="ruthless-join-go"><div class="text-button" data-i18n>JOIN</div></div>
+                <div class="button sheet-btn cancel" id="ruthless-join-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
             <!-- the opponent asks for a rematch: accept or decline -->
             <div class="sheet-view" data-view="rematch-offer">
@@ -388,17 +418,18 @@
                 <div class="sheet-title" data-i18n>How levels work</div>
                 <div class="sheet-text sheet-small level-note" data-i18n>Everyone sees your level. Pro adds a star.</div>
                 <ul class="sheet-list level-rules">
-                    <li data-i18n>Each online game you win, against a random opponent or a friend: +4 points.</li>
-                    <li data-i18n>Each online game you lose or draw, played to the end: +2 points.</li>
-                    <li data-i18n>Each win against the bot: +1 point.</li>
-                    <li data-i18n>A win against the bot in speed mode: 12 points in 5 turns, one less for each extra turn, down to 1 point.</li>
-                    <li data-i18n>A win against the bot in points mode: as many points as your winning margin.</li>
-                    <li data-i18n>The first online game of the day: +2 bonus points.</li>
-                    <li data-i18n>Watching an ad to the end: +1 point, up to 5 a day.</li>
-                    <li data-i18n>Leaving an online game before the end, or not coming back within a minute after losing the connection: −3 points.</li>
-                    <li data-i18n>Letting 3 turns in a row run out without rolling counts as leaving: −3 points.</li>
+                    <li data-i18n-html>Online win: <b>+4 pt</b></li>
+                    <li data-i18n-html>Online loss or draw, played to the end: <b>+2 pt</b></li>
+                    <li><img class="devil-icon" src="resources/images/devil.svg" alt=""> <span data-i18n-html>Ruthless: win <b>+4 pt</b> plus the margin, loss <b>+2 pt</b> minus the margin. The margin is the points you win or lose by.</span></li>
+                    <li data-i18n-html>Leaving, or 3 missed turns: <b>−3 pt</b></li>
+                    <li><img class="devil-icon" src="resources/images/devil.svg" alt=""> <span data-i18n-html>Ruthless: <b>−6 pt</b>, plus the margin if you're behind</span></li>
+                    <li data-i18n-html>Win against the bot: <b>+1 pt</b></li>
+                    <li data-i18n-html>Bot, speed: <b>12 pt</b> in 5 turns, one less per extra turn, down to <b>1 pt</b></li>
+                    <li data-i18n-html>Bot, points: your winning margin, at least <b>1 pt</b></li>
+                    <li data-i18n-html>First online game of the day: <b>+2 pt</b></li>
+                    <li data-i18n-html>Ad watched to the end: <b>+1 pt</b>, up to 5 a day</li>
                     <li data-i18n>If your opponent stops playing or disconnects, you can leave at no cost.</li>
-                    <li data-i18n>Up to level 10, each level takes 5 points more than the one before (level 1 at 5 points, 2 at 15, 3 at 30, 10 at 275); after that, every level takes 50 points.</li>
+                    <li data-i18n-html>Levels: 1 at <b>5 pt</b>, 2 at <b>15 pt</b>, 3 at <b>30 pt</b>, up to 10 at <b>275 pt</b> (each takes <b>5 pt</b> more); then <b>50 pt</b> each.</li>
                     <li data-i18n>Rewards: only the FLAT dice and the green background are free. A new background at levels 1, 3, 5, 7, 9, 12, 16 and 20, new dice at 2, 4, 6, 10 and 15.</li>
                     <li data-i18n>The badge with your level changes colour as you climb: bronze at 5, silver at 10, gold at 20, ruby at 30 and diamond at 50.</li>
                     <li data-i18n>Points, and the level with them, can go below zero.</li>
@@ -486,7 +517,7 @@
             <!-- leaving an online game for the home -->
             <div class="sheet-view" data-view="leave">
                 <div class="sheet-title" data-i18n>Leave the game?</div>
-                <div class="sheet-text" id="leave-text" data-i18n>Your opponent wins, and you lose 3 level points.</div>
+                <div class="sheet-text" id="leave-text" data-i18n>Your opponent wins, and you lose {n} level points.</div>
                 <div class="sheet-row">
                     <div class="button sheet-btn cancel" id="leave-confirm"><div class="text-button" data-i18n>LEAVE</div></div>
                     <div class="button sheet-btn go" data-sheet-close><div class="text-button" data-i18n>STAY</div></div>
@@ -690,7 +721,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="vs"></div>
+                    <div class="vs"><img class="mode-badge" id="mode-badge" src="resources/images/devil-vs-2.svg" alt="Ruthless game: versus" hidden></div>
                     <div class="player p2" id="playerP2">
                         <div class="div-block-15">
                             <div class="textPlayer t1" id="textPlayerP2">P2</div>
@@ -1179,6 +1210,15 @@
                         <div class="rules-block">
                             <p data-i18n>The game ends as soon as a player has placed all 12 pieces or makes a line of five. The
                                 highest score wins.</p>
+                        </div>
+                    </section>
+
+                    <section class="rules-section" aria-labelledby="rules-online">
+                        <h2 class="title rules-h" id="rules-online" data-i18n>Online games</h2>
+                        <div class="rules-block">
+                            <p><b data-i18n>NORMAL</b> <span data-i18n>The game as it has always been: +4 points for a win, +2 for a game played to the end, whatever the score. Leaving costs 3 points.</span></p>
+                            <p><b><img class="devil-icon" src="resources/images/devil.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>The points the game is decided by count too. A win pays +4 and the points you win by. A loss pays +2 minus the points you lose by, so it can cost points. A draw pays +2. Leaving costs 6 points and one more for each point your opponent is ahead by.</span></p>
+                            <p class="rules-note" data-i18n>Whoever opens the game chooses how to play it. If the opponent found chose the other way, you are asked whether to play it. Against the bot nothing is ever lost.</p>
                         </div>
                     </section>
 

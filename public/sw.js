@@ -19,7 +19,7 @@
 // Bump when sw.js's own strategy changes, or to flush stale copies. App files (see isAppShell) no
 // longer depend on this to update -- they are fetched network-first -- but a
 // new name evicts the stale copies older installs are holding.
-const CACHE_VERSION = "linotte-v2.34.2";
+const CACHE_VERSION = "linotte-v2.35.0";
 
 const PRECACHE_URLS = [
     "/",
@@ -30,6 +30,8 @@ const PRECACHE_URLS = [
     "/online.css",
     "/home.css",
     "/resources/images/stats.svg",
+    "/resources/images/devil.svg",
+    "/resources/images/devil-vs-2.svg",
     "/resources/images/ranking.svg",
     "/resources/images/levelroad.svg",
     "/resources/images/chat.svg",

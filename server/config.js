@@ -48,6 +48,13 @@ export const ROOM_OVER_TTL_MS = 5 * 60 * 1000;
 // When no human is found, a bot seat joins after a random wait in this range.
 export const QUEUE_BOT_DELAY_MS = [7000, 15000];
 
+// Looking for an opponent who asked for the other way to play (Normal / Ruthless): the player has this long to
+// answer, then it counts as a no; the one who said no is not offered the same person for DECLINE_MEMORY_MS.
+// A bot asks for the same as the player this share of the times (BOT_MODE.same), else it is offered like a person.
+export const OFFER_TTL_MS = 15000;
+export const DECLINE_MEMORY_MS = 60000;
+export const BOT_MODE = { same: 0.85 }; // an object, so that the tests can set it
+
 // Multiplies every bot pause (1 = human pace). Tests set it close to 0.
 export const BOT_TIME_SCALE = process.env.BOT_TIME_SCALE ? Number(process.env.BOT_TIME_SCALE) : 1;
 
