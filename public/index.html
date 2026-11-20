@@ -192,7 +192,14 @@
                     <div class="button sheet-btn alt mode-btn" data-mode="normal"><div class="text-button" data-i18n>NORMAL</div></div>
                     <div class="button sheet-btn alt mode-btn" data-mode="ruthless"><div class="text-button"><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></div></div>
                 </div>
-                <div class="sheet-text sheet-small mode-explain"></div>
+                <details class="bot-help">
+                    <summary data-i18n>What's the difference?</summary>
+                    <div class="bot-help-body">
+                        <p><b data-i18n>NORMAL</b> <span data-i18n>Win +4 pt, loss +2 pt, whatever the score. Leaving −3 pt.</span></p>
+                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +4 pt plus the margin. Loss +2 pt minus the margin. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                    </div>
+                </details>
+                <div class="sheet-text mode-warn"></div>
                 <div class="button sheet-btn go" id="friend-create"><div class="text-button" data-i18n>CREATE ROOM</div></div>
                 <div class="button sheet-btn alt" id="friend-join"><div class="text-button" data-i18n>I HAVE A CODE</div></div>
                 <div class="button sheet-btn cancel" id="friend-back"><div class="text-button" data-i18n>BACK</div></div>
@@ -381,7 +388,7 @@
                         <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +4 pt plus the margin. Loss +2 pt minus the margin. Leaving −6 pt, plus the margin if you're behind.</span></p>
                     </div>
                 </details>
-                <div class="sheet-text" id="warn-text"></div>
+                <div class="sheet-text mode-warn"></div>
                 <div class="button sheet-btn go" id="warn-go"><div class="text-button" data-i18n>PLAY</div></div>
                 <div class="button sheet-btn cancel" id="warn-back"><div class="text-button" data-i18n>BACK</div></div>
             </div>
@@ -406,10 +413,35 @@
                 <div class="button sheet-btn go" id="rematch-accept"><div class="text-button" data-i18n>ACCEPT</div></div>
                 <div class="button sheet-btn cancel" id="rematch-decline"><div class="text-button" data-i18n>DECLINE</div></div>
             </div>
-            <!-- a Pro friend's invite (see friends.js on the server) -->
+            <!-- inviting a friend: the way to play is chosen now, every time; the friend accepts it or not -->
+            <div class="sheet-view" data-view="invite-mode">
+                <div class="sheet-title" id="invite-mode-title"></div>
+                <div class="sheet-row mode-choice">
+                    <div class="button sheet-btn alt mode-btn" data-mode="normal"><div class="text-button" data-i18n>NORMAL</div></div>
+                    <div class="button sheet-btn alt mode-btn" data-mode="ruthless"><div class="text-button"><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></div></div>
+                </div>
+                <details class="bot-help">
+                    <summary data-i18n>What's the difference?</summary>
+                    <div class="bot-help-body">
+                        <p><b data-i18n>NORMAL</b> <span data-i18n>Win +4 pt, loss +2 pt, whatever the score. Leaving −3 pt.</span></p>
+                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +4 pt plus the margin. Loss +2 pt minus the margin. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                    </div>
+                </details>
+                <div class="sheet-text mode-warn"></div>
+                <div class="button sheet-btn go" id="invite-mode-go"><div class="text-button" data-i18n>INVITE</div></div>
+                <div class="button sheet-btn cancel" id="invite-mode-back"><div class="text-button" data-i18n>BACK</div></div>
+            </div>
+            <!-- a Pro friend's invite (see friends.js on the server): it says how the game is played; PLAY accepts that -->
             <div class="sheet-view" data-view="invite">
                 <div class="sheet-title" id="invite-title"></div>
-                <div class="sheet-text" data-i18n>They're waiting in a private room.</div>
+                <details class="bot-help">
+                    <summary data-i18n>What's the difference?</summary>
+                    <div class="bot-help-body">
+                        <p><b data-i18n>NORMAL</b> <span data-i18n>Win +4 pt, loss +2 pt, whatever the score. Leaving −3 pt.</span></p>
+                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +4 pt plus the margin. Loss +2 pt minus the margin. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                    </div>
+                </details>
+                <div class="sheet-text mode-warn"></div>
                 <div class="button sheet-btn go" id="invite-accept"><div class="text-button" data-i18n>PLAY</div></div>
                 <div class="button sheet-btn cancel" id="invite-decline"><div class="text-button" data-i18n>NOT NOW</div></div>
             </div>

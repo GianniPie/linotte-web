@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.3] - 2026-11-20
+
+### Changed
+- Inviting a friend asks the way to play every time (Normal or Ruthless), then sends the invite. The invite says "in Normal / Ruthless mode" on a line of its own, then "What's the difference?" and the leaving rule, and PLAY on it is the yes: no second question when joining. "Play a friend" and the invite sheet describe the two ways exactly as "Ready to play?" does.
+
 ## [2.35.2] - 2026-11-20
 
 ### Changed

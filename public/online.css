@@ -142,6 +142,7 @@
 #online-overlay[data-view="player"] .sheet-view[data-view="player"],
 #online-overlay[data-view="level-help"] .sheet-view[data-view="level-help"],
 #online-overlay[data-view="invite"] .sheet-view[data-view="invite"],
+#online-overlay[data-view="invite-mode"] .sheet-view[data-view="invite-mode"],
 #online-overlay[data-view="profile"] .sheet-view[data-view="profile"],
 #online-overlay[data-view="account-signout"] .sheet-view[data-view="account-signout"],
 #online-overlay[data-view="account-delete"] .sheet-view[data-view="account-delete"],
@@ -1274,12 +1275,14 @@ body.daily-open .sheet-daily {
 }
 
 /* "Once the game starts..." and, on a line of its own, what leaving costs. */
-#warn-text {
+.mode-warn,
+#invite-title {
   white-space: pre-line;
 }
 
-.mode-explain {
-  min-height: 2.6em;
+/* "{name} invites you to play" on one line, then the way to play on the next. */
+#invite-title {
+  font-size: 1.55em;
 }
 
 /* The devil of Ruthless (resources/images/devil-2.svg) inside a text or a button. */

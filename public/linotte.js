@@ -4482,16 +4482,12 @@ const MODE_KEY = "linotte-mode";
 let wantedMode = (() => { try { return validMode(localStorage.getItem(MODE_KEY)); } catch { return MODE_NORMAL; } })();
 // The devil of Ruthless (resources/images/devil-2.svg), to put after a text built here.
 const devilIcon = () => { const img = document.createElement("img"); img.className = "devil-icon"; img.src = "resources/images/devil-2.svg"; img.alt = ""; return img; };
-// What each way pays, in a line (under the two buttons).
-const modeLine = (mode) => (mode === MODE_RUTHLESS
-    ? t("Ruthless: +4 and the points you win by for a win, +2 minus the points you lose by for a loss.")
-    : t("Normal: +4 for a win, +2 for a loss, whatever the score."));
+// The rule first, assertive; then, on a line of its own, what leaving costs.
+const leaveLine = (mode) => t("Once the game starts, play it to the end.") + "\n"
+    + (mode === MODE_RUTHLESS ? t("Leaving costs 6 points or more.") : t("Leaving costs 3 points."));
 function showModeChoice() {
     document.querySelectorAll(".mode-btn").forEach((b) => b.classList.toggle("is-selected", b.dataset.mode === wantedMode));
-    document.querySelectorAll(".mode-explain").forEach((el) => { el.textContent = modeLine(wantedMode); });
-    // The rule first, assertive; then, on a line of its own, what leaving costs.
-    modeEl("warn-text").textContent = t("Once the game starts, play it to the end.") + "\n"
-        + (wantedMode === MODE_RUTHLESS ? t("Leaving costs 6 points or more.") : t("Leaving costs 3 points."));
+    document.querySelectorAll(".mode-warn").forEach((el) => { el.textContent = leaveLine(wantedMode); });
 }
 document.querySelectorAll(".mode-btn").forEach((b) => b.addEventListener("click", () => {
     wantedMode = validMode(b.dataset.mode);
@@ -6153,7 +6149,17 @@ async function showFriends() {
 
 // PLAY on a friend: the server opens a private room and asks their app to
 // join; meanwhile this player waits in it, as after CREATE ROOM.
-async function inviteFriend(f) {
+// The way to play is asked every time (the buttons keep the last choice): the friend then accepts it or not.
+let inviting = null;
+function inviteFriend(f, back = hideOnlineOverlay) { // `back`: where BACK goes (the ranking stays under the sheet; the friends list is a sheet of its own)
+    inviting = { f, back };
+    modeEl("invite-mode-title").textContent = t("Invite {name}", { name: f.name });
+    showModeChoice();
+    showOnlineView("invite-mode");
+}
+modeEl("invite-mode-go").addEventListener("click", () => { const i = inviting; inviting = null; if (i) sendInvite(i.f); });
+modeEl("invite-mode-back").addEventListener("click", () => { const i = inviting; inviting = null; (i?.back || hideOnlineOverlay)(); });
+async function sendInvite(f) {
     onlineKind = "friend";
     if (!(await prepareOnline())) return;
     const res = await onlineClient.inviteFriend(f.id, wantedMode);
@@ -6363,7 +6369,7 @@ function renderFriends(data) {
             isNew: isNewFriend(f),
             onOpen: () => openPlayerInfo(f, { back: openFriends, friend: "friend" }),
             // Asked to play when they are free enough to be asked: at the home screen, or in a game that can wait.
-            actions: f.state === "online" || f.state === "busy" ? [frButton(t("PLAY"), { onClick: () => inviteFriend(f) })] : [],
+            actions: f.state === "online" || f.state === "busy" ? [frButton(t("PLAY"), { onClick: () => inviteFriend(f, openFriends) })] : [],
         })),
         ...data.outgoing.map((p) => friendRow(p, { sub: t("Waiting for their answer"), onOpen: () => openPlayerInfo(p, { back: openFriends, friend: "outgoing" }) })),
     );
@@ -6563,18 +6569,22 @@ let inviteBannerTimer = 0;
 function onFriendInvite({ from, fromId, code, inviteId, soft, expiresAt, mode }) {
     // An online game that counts: never interrupted (an older server may still send one).
     if (gameInProgress && !isGameOver && controller.mode === "online") { onlineClient.declineInvite(fromId, inviteId); return; }
-    pendingInvite = { fromId, code, inviteId };
+    pendingInvite = { fromId, code, inviteId, mode: validMode(mode) };
     const inGame = gameInProgress && !isGameOver && !isHomeShown();
     if (soft || inGame) {
         byId("invite-banner-text").textContent = t("{name} invites you to play", { name: from });
+        if (validMode(mode) === MODE_RUTHLESS) byId("invite-banner-text").append(" ", devilIcon());
         byId("invite-banner").hidden = false;
         clearTimeout(inviteBannerTimer);
         inviteBannerTimer = setTimeout(hideInviteBanner, Math.max(3000, (expiresAt || Date.now() + 60000) - Date.now()));
         buzz(60);
         return;
     }
-    byId("invite-title").textContent = t("{name} invites you to play", { name: from });
-    if (validMode(mode) === MODE_RUTHLESS) byId("invite-title").append(" ", devilIcon());
+    // The way to play, said in words on a line of its own, and what it means below: PLAY is a yes to it.
+    const ruthless = validMode(mode) === MODE_RUTHLESS;
+    byId("invite-title").textContent = t("{name} invites you to play", { name: from }) + "\n" + t(ruthless ? "in Ruthless mode" : "in Normal mode");
+    if (ruthless) byId("invite-title").append(" ", devilIcon());
+    document.querySelector('.sheet-view[data-view="invite"] .mode-warn').textContent = leaveLine(validMode(mode));
     hideHomeScreen();
     showOnlineView("invite");
     buzz(60);
@@ -6590,7 +6600,7 @@ function acceptPendingInvite() {
     if (!inv) return;
     onlineClient.acceptInvite(inv.inviteId);
     if (gameInProgress && !isGameOver && controller.mode !== "online") { saveOfflineGame(); leaveToHome(); } // put on hold
-    joinFriendByCode(inv.code);
+    joinFriendByCode(inv.code, { confirmed: true }); // accepting the invite is the yes to its way of playing
 }
 function declinePendingInvite() {
     if (pendingInvite) onlineClient.declineInvite(pendingInvite.fromId, pendingInvite.inviteId);
