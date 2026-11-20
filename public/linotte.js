@@ -5347,11 +5347,11 @@ function setGameMode(mode) {
 
 // What an online game was worth with the margin counted (shared/level.js, onlinePayout), for the points screen: the
 // total, and its badges: the flat part (+4 a win, +2 otherwise) and, when the game was won or lost by some points,
-// the margin (+ for a win, - for a loss) in a badge of its own.
+// the margin (+ for a win, - for a loss, a grey 0 for a draw) in a badge of its own, always.
 function onlineGameParts(won, me, other) {
     const total = onlinePayout({ won, points: gameState.players[me].points, opponentPoints: gameState.players[other].points, ruthless: true });
     const flat = won ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
-    return { total, parts: [[flat, gameBadgeLabel(won)], ...(total - flat ? [[total - flat, t("Point margin")]] : [])] };
+    return { total, parts: [[flat, gameBadgeLabel(won)], [total - flat, t("Point margin")]] };
 }
 
 function resetXpGain() {

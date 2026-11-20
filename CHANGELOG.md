@@ -12,6 +12,11 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.2] - 2026-11-20
+
+### Changed
+- A drawn Ruthless game shows the margin badge too, a grey 0, so every reason is always on the points screen.
+
 ## [2.35.1] - 2026-11-20
 
 ### Fixed
