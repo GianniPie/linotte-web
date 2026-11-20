@@ -12,6 +12,14 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.1] - 2026-11-20
+
+### Fixed
+- A Ruthless game that ends with the reasons cancelling out (played +2, margin -2) showed one grey "0" badge. It now shows every badge, always, and the title says "No points this time" when the total is zero, "Points lost" when it is negative.
+
+### Changed
+- The two devil drawings are redrawn: the face for buttons and texts (`public/resources/images/devil-2.svg`) and the face over its VS for a Ruthless game (`public/resources/images/devil-vs-3.svg`), in purple and magenta. New file names, so that no copy kept by a phone or by the app for offline play can be shown in their place.
+
 ## [2.35.0] - 2026-11-20
 
 ### Changed

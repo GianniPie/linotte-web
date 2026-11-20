@@ -1282,7 +1282,7 @@ body.daily-open .sheet-daily {
   min-height: 2.6em;
 }
 
-/* The devil of Ruthless (resources/images/devil.svg) inside a text or a button. */
+/* The devil of Ruthless (resources/images/devil-2.svg) inside a text or a button. */
 .devil-icon {
   height: 1.15em;
   width: auto;
@@ -1290,7 +1290,7 @@ body.daily-open .sheet-daily {
 }
 
 /* In a Ruthless game the VS (the green chip) is replaced by one drawing, the devil over its own VS
-   (resources/images/devil-vs-2.svg, 112 by 162): the cell's background is taken away (.vs.ruthless, see setGameMode in
+   (resources/images/devil-vs-3.svg, 112 by 162): the cell's background is taken away (.vs.ruthless, see setGameMode in
    linotte.js) and the drawing is centered on the cell, 1.15 times as wide as it (so its own VS is as wide as the old one), and
    grows and shrinks with it. It sits above the players' boxes where it overlaps them. A Normal game keeps the old VS. */
 .vs {

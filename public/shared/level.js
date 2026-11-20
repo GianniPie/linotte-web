@@ -46,7 +46,7 @@ export const ABANDON_PENALTY = 3;
 
 // Two ways to play online, chosen by whoever opens the game (the queue, or a friend's room):
 //   NORMAL    as above: +4 a win, +2 a game played to the end, -3 leaving.
-//   RUTHLESS  (shown with the devil icon, resources/images/devil.svg) the points a game is won or lost by count too. The winner gets
+//   RUTHLESS  (shown with the devil icon, resources/images/devil-2.svg) the points a game is won or lost by count too. The winner gets
 //             +4 and the points he is ahead by; the loser keeps +2 and gives up the points he is behind by
 //             (so a loss can cost points: 2 - 7 = -5; a draw stays +2); leaving costs ABANDON_BASE and the
 //             lead the opponent had at that moment, always more than any loss from the same position, so

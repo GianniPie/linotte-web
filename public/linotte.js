@@ -318,6 +318,7 @@ let gameXpLabel = ""; // what the game's badge says: Victory or Game played
 let gameXpPays = 0; // the most the game itself can have paid (the rest is a bonus)
 let gameXpBonus = 0; // of it, what came on top of a win's 1 point (the speed bonus, or the rest of the margin)
 var gameMode = MODE_NORMAL; // (var: startBot runs at load, before this line, and calls setGameMode) how the online game on the screen is played (Normal / Ruthless, from the server), shown by the devil in place of the VS
+let gameXpPartsShown = false; // its badges are already queued (they must not be twice)
 let gameXpParts = null; // an online game with the margin: its badges, [points, label] each (the flat part, the margin)
 let gameBotStrategy = "speed"; // the mode of the game just played against the bot (its badges differ)
 function refreshIfStale() {
@@ -2040,6 +2041,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
             // What a game pays is set by the rules (a win against the bot, an online win or finish).
             gameXpPays = mode === "bot" ? BOT_WIN_POINTS + bonus : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
             gameXpParts = null;
+            gameXpPartsShown = false;
             if (mode !== "bot" && gameMode === MODE_RUTHLESS) {
                 const game = onlineGameParts(winner === me, me, other);
                 gameXpPays = game.total;
@@ -2059,7 +2061,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
         if (mode !== "bot" && gameMode === MODE_RUTHLESS) for (const [points, label] of onlineGameParts(winner === me, me, other).parts) queuePointsGain(points, label);
         else queueGameBadges(earned, bonus, gameBadgeLabel(winner === me));
         if (r?.daily) queuePointsGain(DAILY_BONUS_POINTS, t("Daily bonus"));
-        if (after === xpBefore) return;
+        if (after === xpBefore) { if (gameMode === MODE_RUTHLESS && mode !== "bot") noteXpGain(xpBefore, after); return; }
         xpStrip = { base: xpBefore, after };
         noteXpGain(xpBefore, after);
         celebrateLevel(xpBefore, after); // held with the points screen
@@ -4478,8 +4480,8 @@ document.getElementById("warn-go").addEventListener("click", () => startRandomOn
 const modeEl = (id) => document.getElementById(id);
 const MODE_KEY = "linotte-mode";
 let wantedMode = (() => { try { return validMode(localStorage.getItem(MODE_KEY)); } catch { return MODE_NORMAL; } })();
-// The devil of Ruthless (resources/images/devil.svg), to put after a text built here.
-const devilIcon = () => { const img = document.createElement("img"); img.className = "devil-icon"; img.src = "resources/images/devil.svg"; img.alt = ""; return img; };
+// The devil of Ruthless (resources/images/devil-2.svg), to put after a text built here.
+const devilIcon = () => { const img = document.createElement("img"); img.className = "devil-icon"; img.src = "resources/images/devil-2.svg"; img.alt = ""; return img; };
 // What each way pays, in a line (under the two buttons).
 const modeLine = (mode) => (mode === MODE_RUTHLESS
     ? t("Ruthless: +4 and the points you win by for a win, +2 minus the points you lose by for a loss.")
@@ -5194,7 +5196,7 @@ function openPointsScreen(f) {
         const at = (ms, fn) => timers.push(setTimeout(fn, ms));
         box.replaceChildren();
         screen.classList.remove("bar-in");
-        byId("ps-title").textContent = t(f.badges.every(([points]) => points === 0) ? "No points this time" : f.badges.every(([points]) => points < 0) ? "Points lost" : "Points earned");
+        byId("ps-title").textContent = t(((net) => (net === 0 ? "No points this time" : net < 0 ? "Points lost" : "Points earned"))(f.badges.reduce((sum, [points]) => sum + points, 0)));
         const hasBar = f.base !== null && f.after !== null;
         byId("ps-bar-block").hidden = !hasBar;
         if (hasBar) setPointsBar(f.base, f.base);
@@ -5315,6 +5317,12 @@ async function showGameXp() {
     await refreshPro({ fresh: true, celebrate: gameXpBase === null });
     const after = lastKnownXp();
     if (after === null || gameXpBase === null) return;
+    // A Ruthless game's badges always say why, even when the reasons cancel out (+2 played, -2 margin: the level stays put).
+    if (gameXpParts && !gameXpPartsShown) {
+        gameXpPartsShown = true;
+        for (const [points, label] of gameXpParts) queuePointsGain(points, label);
+        noteXpGain(gameXpBase, after); // the bar too, at the level it stays at
+    }
     const shown = xpStrip ? xpStrip.after : gameXpBase;
     if (after === shown) return;
     const first = !xpStrip;
@@ -5322,8 +5330,7 @@ async function showGameXp() {
     noteXpGain(gameXpBase, after);
     // The game's own points get a badge too (the bonus has its own, see onBonus).
     const earned = Math.min(gameXpPays, after - gameXpBase);
-    if (first && gameXpParts) for (const [points, label] of gameXpParts) queuePointsGain(points, label);
-    else if (first) queueGameBadges(earned, gameXpBonus, gameXpLabel);
+    if (first && !gameXpParts) queueGameBadges(earned, gameXpBonus, gameXpLabel);
     celebrateLevel(shown, after); // held with the points screen
 }
 
