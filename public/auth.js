@@ -88,6 +88,7 @@ export function initAuth() {
                 auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" },
             });
             client.auth.onAuthStateChange((_event, session) => setUser(session?.user));
+            watchAppReturn();
             const { data } = await client.auth.getSession();
             setUser(data.session?.user);
             cleanUrl();
@@ -126,8 +127,32 @@ export function onUserChange(fn) {
 
 export const currentUser = () => current;
 
-// Where Google/Apple/the email link send the player back: this same page.
-const returnUrl = () => location.origin + location.pathname;
+// Where Google/Apple/the email link send the player back: this same page. In the Android app the page
+// is https://localhost, which Supabase doesn't know (it would send the player to the website instead),
+// and Google doesn't sign in inside an app's own web view: there the sign-in happens in the phone's
+// browser and comes back to the app through linotte://auth (declared in AndroidManifest.xml, and
+// listed in Supabase's Authentication > URL Configuration > Redirect URLs).
+const IN_APP = Boolean(window.Capacitor?.isNativePlatform?.());
+const APP_RETURN = "linotte://auth";
+const returnUrl = () => (IN_APP ? APP_RETURN : location.origin + location.pathname);
+
+// The app opened again by linotte://auth?code=...: the browser is put away and the code becomes a session.
+async function finishAppSignIn(url) {
+    if (!url || !url.startsWith(APP_RETURN)) return;
+    try { await window.Capacitor.Plugins.Browser?.close(); } catch { /* it was closed already */ }
+    const params = new URL(url).searchParams;
+    const failed = params.get("error_description") || params.get("error");
+    const code = params.get("code");
+    if (failed || !code) { console.error("sign-in did not complete:", failed || "no code"); return; }
+    const { error } = await client.auth.exchangeCodeForSession(code);
+    if (error) console.error("sign-in did not complete:", error.message);
+}
+function watchAppReturn() {
+    const app = window.Capacitor?.Plugins?.App;
+    if (!IN_APP || !app) return;
+    app.addListener("appUrlOpen", (e) => finishAppSignIn(e.url));
+    app.getLaunchUrl?.().then((e) => finishAppSignIn(e?.url)).catch(() => {}); // the app was started by the link
+}
 
 async function ready() {
     const c = await initAuth();
@@ -138,8 +163,9 @@ async function ready() {
 // Leaves the page for Google's or Apple's sign-in and comes back signed in.
 export async function signInWith(provider) {
     const c = await ready();
-    const { error } = await c.auth.signInWithOAuth({ provider, options: { redirectTo: returnUrl() } });
+    const { data, error } = await c.auth.signInWithOAuth({ provider, options: { redirectTo: returnUrl(), skipBrowserRedirect: IN_APP } });
     if (error) throw error;
+    if (IN_APP && data?.url) await window.Capacitor.Plugins.Browser.open({ url: data.url }); // the phone's browser, in front of the app
 }
 
 // Emails a one-time code (the same email also has a sign-in link, which
@@ -190,7 +216,13 @@ export async function accessToken() {
 export async function loadProfile() {
     if (!current) return null;
     const c = await ready();
-    const { data, error } = await c.from("profiles").select("name, avatar, country, prefs, stats").maybeSingle();
+    // The two dates come from supabase/profiles_name_limit.sql; where it hasn't been run (again) the columns
+    // aren't there (42703), and the profile is read without them: nothing else is lost.
+    let data = null, error = null;
+    for (const columns of ["name, avatar, country, prefs, stats, name_changed_at, name_removed_at", "name, avatar, country, prefs, stats, name_changed_at", "name, avatar, country, prefs, stats"]) {
+        ({ data, error } = await c.from("profiles").select(columns).maybeSingle());
+        if (error?.code !== "42703") break;
+    }
     if (error) throw error;
     return data || {};
 }

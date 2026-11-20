@@ -23,7 +23,7 @@ import { levelOf, FREE_LOOKS } from "../public/shared/level.js";
 import { userIdFromToken, profileOf, profileById } from "./accounts.js";
 import { avatarOrDefault } from "../public/shared/assets.js";
 import { createStore } from "./store.js";
-import { REPORT_REASONS, createReportBook, saveReport } from "./reports.js";
+import { REPORT_REASONS, createReportBook, saveReport, notifyReport } from "./reports.js";
 import { createFeedbackBudget, parseScreenshot, buildReport, emailOf, sendFeedback, MAX_MESSAGE } from "./feedback.js";
 import { VERSION } from "../public/version.js";
 import { createBotLab, BOTLAB_ENABLED } from "./botlab.js";
@@ -434,7 +434,15 @@ io.on("connection", (socket) => {
       reporter: socket.data.userId, reporterPlayer: socket.data.playerId,
       reportedUser: other.userId, reportedPlayer: other.playerId, reportedName: other.name, roomId: room.id, reason,
     });
-    return { ok: saved };
+    // The owner gets a mail with everything and how to act (reports.js); not waited for.
+    if (saved) {
+      notifyReport({
+        id: typeof saved === "string" ? saved : "", reason, roomId: room.id,
+        reporter: { userId: socket.data.userId || null, playerId: socket.data.playerId, shownName: socket.data.name },
+        reported: { userId: other.userId || null, playerId: other.playerId, shownName: other.name },
+      });
+    }
+    return { ok: Boolean(saved) };
   });
 
   on("emote", {}, (p) => {

@@ -450,6 +450,33 @@ const lobby = new Lobby(io, store);
   assert.equal(botWinPayout({ strategy: "speed", turns: 7, margin: 6 }), 10, "speed mode pays 1 and the speed bonus");
   assert.equal(botWinPayout({ strategy: "speed", turns: 20, margin: 6 }), 1, "a slow speed win pays its 1 point");
   assert.equal(SPEED_TOP_PAY, 12); assert.equal(SPEED_TOP_TURNS, 5);
+  // Player names: what the check must refuse and what it must let through.
+  const { nameProblem } = await import("../public/shared/playerNames.js");
+  const refuse = [
+    "Dio Brutto", "DioBrutto", "BruttoDio", "bruttodio", "DIOBRUTTO", "PorcoDio", "dioporco", "StronzoDio", // blasphemy, glued or not
+    "Cazzo", "C4zz0", "Kazzo", "Ca77o", "F.u.c.k", "Fuuuck", "Phuck", "Fvck", "Dick69", "Sex123", "BigDick", // spellings, numbers, joined words
+    "Putain", "Mierda", "Caralho", "Scheisse", "Arschloch", "Joder", "Fanculo", "Inculo", "SucaMi", "Mortacci", // other languages
+    "\uff46\uff55\uff43\uff4b", // full-width letters
+    "操你妈", "妈的你", // Chinese
+    "C\u0430zzo", "F\u0443ck", // look-alike letters from another alphabet: not an allowed alphabet
+    "Admin", "Linotte", "Support",
+  ];
+  for (const n of refuse) assert.ok(nameProblem(n), `the name "${n}" must be refused`);
+  const accept = [
+    "Claudio", "Audio", "Radio", "Dionisio", "Diogo", "Sussex", "Essex", "Cassandra", "Passo", "Analisi", "Cumulo", "Dickens",
+    "Sexton", "Bassano", "Gesualdo", "Cristiano", "Cristo", "Monique", "Computer", "Reputation", "Madonnina", "Therapist",
+    "Penisola", "Marco_92", "Luca2008", "Anna2020", "Luca Rossi", "Mia-Rose", "Élodie", "José", "Bjørn", "Łukasz", "小明同学", "Brutto",
+  ];
+  for (const n of accept) assert.equal(nameProblem(n), "", `the name "${n}" must be accepted`);
+  // A name can be changed once a day.
+  const { nameChangeWaitMs } = await import("../public/shared/playerNames.js");
+  const hour = 3600_000, at = Date.parse("2026-11-20T12:00:00Z");
+  assert.equal(nameChangeWaitMs(undefined, at), 0, "no change on record: free");
+  assert.equal(nameChangeWaitMs(null, at), 0);
+  assert.equal(nameChangeWaitMs("not a date", at), 0);
+  assert.equal(nameChangeWaitMs(new Date(at - 1 * hour).toISOString(), at), 23 * hour, "changed an hour ago: 23 hours to go");
+  assert.equal(nameChangeWaitMs(new Date(at - 24 * hour).toISOString(), at), 0, "a day later it is free again");
+  assert.equal(nameChangeWaitMs(new Date(at - 30 * hour).toISOString(), at), 0);
   // Giving up against the bot is offered only when the board alone says the game can't be won.
   const { cannotWin, canReachPoints } = await import("../public/shared/giveUp.js");
   const board = (cells) => { const t = Array.from({ length: 5 }, () => Array(5).fill(0)); for (const [r, c, v] of cells) t[r][c] = v; return t; };
@@ -778,6 +805,75 @@ const lobby = new Lobby(io, store);
   assert.equal(await saveReport({ reason: "invented" }, keep), false, "only the listed reasons");
   assert.equal(await saveReport({ reason: "other" }, { ...keep, fetch: async () => ({ ok: false, status: 500 }) }), false, "a failure is reported, not thrown");
   assert.deepEqual(REPORT_REASONS, ["name", "emoji", "other"]);
+  // the row's id comes back when the database gives it
+  assert.equal(await saveReport({ reason: "name" }, { ...keep, fetch: async () => ({ ok: true, json: async () => [{ id: "abc-123" }] }) }), "abc-123", "the id of the kept row");
+  // the mail for each report: everything, a link to Supabase's SQL editor with the query in it, the query, the terminal command
+  const { buildReportMail, notifyReport } = await import("./reports.js");
+  const uid = "22222222-2222-4222-8222-222222222222", rid = "33333333-3333-4333-8333-333333333333";
+  const mail = buildReportMail({ id: rid, reason: "name", when: "2026-11-20T10:00:00Z", roomId: "room9", reporter: { userId: null, playerId: "dev-1", shownName: "Fox12" }, reported: { userId: uid, playerId: "dev-2", shownName: "Wolf7", rawName: "BadName", email: "x@example.com", country: "IT", level: 3, xp: 40 } }, { url: "https://abcd.supabase.co" });
+  assert.ok(mail.subject.includes("OFFENSIVE NAME") && mail.subject.includes("Wolf7"));
+  for (const part of ["BadName", "x@example.com", "Level: 3 (40 points)", "guest (device dev-1)", `account ${uid}`, "room9",
+    `update public.profiles set name = null where id = '${uid}';`, `update public.reports set handled = true where id = '${rid}';`,
+    `node scripts/moderate.mjs rename ${uid} --handled ${rid}`, "https://supabase.com/dashboard/project/abcd/sql/new?content="]) {
+    assert.ok(mail.text.includes(part), `the report mail has: ${part}`);
+  }
+  assert.ok(decodeURIComponent(mail.link.split("content=")[1]).startsWith(`update public.profiles set name = null where id = '${uid}';`), "the link carries the query");
+  const guest = buildReportMail({ reason: "emoji", reported: { userId: null, playerId: "dev-3", shownName: "Cat4" }, reporter: {} });
+  assert.ok(guest.text.includes("is a guest") && !guest.text.includes("update public.profiles"), "a guest has no profile to change");
+  let sentMail = null;
+  const looked = [];
+  assert.ok(await notifyReport({ id: rid, reason: "name", roomId: "r1", reporter: { userId: null, playerId: "p1", shownName: "A" }, reported: { userId: uid, playerId: "p2", shownName: "B" } }, {
+    key: "k", url: "https://abcd.supabase.co", send: async (subject, text) => { sentMail = { subject, text }; return true; },
+    fetch: async (u) => { looked.push(u); return { ok: true, json: async () => (u.includes("/profiles") ? [{ name: "BruttoDio", country: "IT" }] : { email: "bad@example.com" }), headers: { get: () => null } }; },
+  }), "the mail is sent");
+  assert.ok(sentMail.text.includes('"BruttoDio"') && sentMail.text.includes("bad@example.com"), "the stored name and the e-mail are looked up");
+  assert.equal(await notifyReport({ reason: "name" }, { key: "", url: "", send: async () => { throw new Error("boom"); } }), false, "a failure never throws");
+  // 3 different signed-in players reporting a name within 24 hours take it away
+  const { autoRemoveName, AUTO_REMOVE_REPORTS } = await import("./reports.js");
+  assert.equal(AUTO_REMOVE_REPORTS, 3);
+  const fakeBase = (reportRows, profileName) => {
+    const calls = [];
+    return { calls, fetch: async (u, o = {}) => {
+      calls.push([o.method || "GET", u, o.body]);
+      if (u.includes("/reports?reported_user=") && !o.method) return { ok: true, json: async () => reportRows };
+      if (u.includes("/profiles?id=eq.") && !o.method) return { ok: true, json: async () => [{ name: profileName }] };
+      return { ok: true, json: async () => [] };
+    } };
+  };
+  const rows3 = [{ id: "r1", reporter: "a" }, { id: "r2", reporter: "b" }, { id: "r3", reporter: "c" }];
+  const base = fakeBase(rows3, "BadName");
+  const out = await autoRemoveName(uid, { key: "k", url: "https://abcd.supabase.co", fetch: base.fetch, now: () => Date.parse("2026-11-20T12:00:00Z") });
+  assert.deepEqual(out, { removed: true, previousName: "BadName", reporters: 3 });
+  const asked = base.calls[0][1];
+  assert.ok(asked.includes("handled=eq.false") && asked.includes("reporter=not.is.null") && asked.includes("reason=eq.name") && asked.includes("created_at=gte.2026-11-19T12%3A00%3A00.000Z"), "only open name reports by accounts, from the last 24 hours");
+  const patchName = base.calls.find((c) => c[0] === "PATCH" && c[1].includes("/profiles?id="));
+  assert.equal(JSON.parse(patchName[2]).name, null, "the name is taken away");
+  assert.equal(JSON.parse(patchName[2]).name_removed_at, "2026-11-20T12:00:00.000Z", "and the date is kept, so the app can say why");
+  // before the SQL is run again the column isn't there: the name is taken away all the same
+  const oldDb = fakeBase(rows3, "BadName");
+  const noColumn = { ...oldDb, fetch: async (u, o = {}) => (o.method === "PATCH" && u.includes("/profiles?id=") && String(o.body).includes("name_removed_at") ? (oldDb.calls.push(["PATCH", u, o.body]), { ok: false, status: 400 }) : oldDb.fetch(u, o)) };
+  assert.equal((await autoRemoveName(uid, { key: "k", url: "https://abcd.supabase.co", fetch: noColumn.fetch })).removed, true, "works without the new column");
+  const patchReports = base.calls.find((c) => c[0] === "PATCH" && c[1].includes("/reports?id=in.(r1,r2,r3)"));
+  assert.deepEqual(JSON.parse(patchReports[2]), { handled: true }, "the reports that counted are closed");
+  const two = fakeBase([{ id: "r1", reporter: "a" }, { id: "r2", reporter: "a" }, { id: "r3", reporter: "b" }], "BadName"); // one player three times, and another: 2 people
+  assert.equal((await autoRemoveName(uid, { key: "k", url: "https://abcd.supabase.co", fetch: two.fetch })).removed, false, "the same player reporting twice counts once");
+  assert.ok(!two.calls.some((c) => c[0] === "PATCH"), "nothing is changed below the threshold");
+  const empty = fakeBase(rows3, "");
+  assert.equal((await autoRemoveName(uid, { key: "k", url: "https://abcd.supabase.co", fetch: empty.fetch })).removed, false, "no name, nothing to take away");
+  assert.equal((await autoRemoveName(null, { key: "k", url: "u" })).removed, false, "a guest has no profile");
+  // and the mail tells about it, with the way back
+  const auto = buildReportMail({ id: rid, reason: "name", reporter: {}, reported: { userId: uid, shownName: "Wolf7" }, auto: { removed: true, previousName: "Bad'Name", reporters: 3 } }, { url: "https://abcd.supabase.co" });
+  assert.ok(auto.subject.includes("NAME REMOVED") && auto.text.startsWith("AUTOMATIC:") && auto.text.includes(`update public.profiles set name = 'Bad''Name' where id = '${uid}';`), "the mail says it and gives the undo");
+  // the whole path: the third report triggers it and the mail follows
+  const third = fakeBase(rows3, "BadName");
+  let sentAuto = null;
+  await notifyReport({ id: "r3", reason: "name", roomId: "r", reporter: { userId: "c", playerId: "p", shownName: "C" }, reported: { userId: uid, playerId: "q", shownName: "Wolf7" } }, {
+    key: "k", url: "https://abcd.supabase.co", fetch: third.fetch, send: async (subject, text) => { sentAuto = { subject, text }; return true; },
+  });
+  assert.ok(sentAuto.subject.includes("NAME REMOVED automatically") && third.calls.some((c) => c[0] === "PATCH" && c[1].includes("/profiles?id=")), "the third report takes the name away and mails it");
+  const emoji = fakeBase(rows3, "BadName");
+  await notifyReport({ reason: "emoji", reporter: {}, reported: { userId: uid, shownName: "W" } }, { key: "k", url: "https://abcd.supabase.co", fetch: emoji.fetch, send: async () => true });
+  assert.ok(!emoji.calls.some((c) => c[0] === "PATCH"), "only name reports count");
   console.log("ok: reports");
 }
 

@@ -189,7 +189,7 @@ import { initCombinationDemos } from "./demo.js";
 import { CHAT, chatImage, chatScale, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs } from "./shared/chat.js";
 import { TURN_FREEZE_CAP_MS } from "./shared/turn.js";
 import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
-import { nameProblem, cleanPlayerName, COUNTRIES, flagOf } from "./shared/playerNames.js";
+import { nameProblem, cleanPlayerName, nameChangeWaitMs, COUNTRIES, flagOf } from "./shared/playerNames.js";
 import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
 import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAbandon, guestToday, guestAdReward } from "./stats.js";
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
@@ -1089,6 +1089,9 @@ function flip(tile, newVal) {
 // In the last 5 seconds of the player's own turn the clock turns red and beats once a second: it swells
 // with a red glow (a bit more every second), ticks and buzzes, so the end of the turn can't be missed.
 const CLOCK_WARN_AT = 5;
+// The buzz is a soft heartbeat, lub-dub: two short taps close together (28 ms, a pause, 22 ms), once a second. A
+// phone's motor can only be on or off, so "gentle" is made of short taps, and nothing longer than the first.
+const HEARTBEAT = [28, 100, 22];
 const clockIsMine = () => !isGameOver && gameInProgress && controller
     && (controller.mode === "offline" || gameState.currentPlayer === (controller.mode === "online" ? LOCAL_PLAYER : 1));
 // `left`: the seconds the clock shows (1 to 5), or null when there is nothing to warn about.
@@ -1101,7 +1104,7 @@ function clockWarn(left) {
     void wrap.offsetWidth; // so the beat starts again each second
     wrap.classList.add("beat");
     playTick();
-    buzz(left === 1 ? [70] : [40]);
+    buzz(HEARTBEAT);
 }
 
 function tick() {
@@ -3718,7 +3721,7 @@ window.addEventListener("orientationchange", () => setTimeout(centerButtons, 200
 function placeChatFab() {
     const r = document.getElementById("chat-slot").getBoundingClientRect();
     if (!r.width) return; // not laid out yet: placed on the next tick
-    const x = r.left + r.width / 2, y = r.top + r.height / 2, size = 44;
+    const x = r.left + r.width / 2, y = r.top + r.height / 2, size = Math.round(Math.min(r.width, r.height)); // as tall as ROLL and DONE (the slot is 3em)
     chatAnchor = { x, y, size };
     for (const el of [chatFab, chatFan]) {
         el.style.setProperty("--fab-x", `${x}px`);
@@ -4856,8 +4859,23 @@ function selectAvatar(id) {
         .forEach((b) => b.setAttribute("aria-checked", String(b.dataset.id === id)));
 }
 
+// The name was taken away by the game after reports (name_removed_at, set by the server) and the player hasn't
+// chosen a new one since: the sheet says why. "Seen" is kept per removal, so a second one is told again.
+const NAME_REMOVED_SEEN = "linotte-name-removed-seen";
+function nameRemovedNotice() {
+    if (profile?.name || !profile?.name_removed_at) return false;
+    try { return localStorage.getItem(NAME_REMOVED_SEEN) !== profile.name_removed_at; } catch { return true; }
+}
+// How long this account still has to wait to change its name (ms); 0: free. A name that was never set is free.
+const nameLockMs = () => (profile?.name ? nameChangeWaitMs(profile.name_changed_at) : 0);
+
 function nameHint() {
     const raw = byId("profile-name").value;
+    const wait = nameLockMs();
+    if (wait) { // changed a moment ago: the field is shut until it can be changed again
+        byId("profile-name-hint").textContent = t("A name can be changed once a day. You can change it again in about {n} h.", { n: Math.max(1, Math.ceil(wait / 3600000)) });
+        return;
+    }
     byId("profile-name-hint").textContent = raw.trim()
         ? t(nameProblem(raw) || "This is the name your opponents see.")
         : nicknameRequired
@@ -4881,6 +4899,8 @@ function askNickname() {
 function openProfileSheet() {
     buildProfileSheet();
     byId("profile-name").value = profile?.name || "";
+    byId("profile-name").disabled = nameLockMs() > 0;
+    byId("profile-removed").hidden = !nameRemovedNotice();
     byId("profile-country").value = profile?.country || "";
     selectAvatar(currentUser() ? avatarOrDefault(profile?.avatar, currentUser().id) : profile?.avatar || ""); // the default one, if none was chosen, shows as the picture it is
     byId("profile-error").textContent = "";
@@ -4900,11 +4920,23 @@ byId("profile-cancel").addEventListener("click", () => { if (!nicknameRequired) 
 byId("profile-save").addEventListener("click", (e) => {
     const raw = byId("profile-name").value;
     if (nicknameRequired && !raw.trim()) { byId("profile-error").textContent = t("Choose a nickname to go on."); return; }
-    if (raw.trim() && nameProblem(raw)) { nameHint(); return; }
-    const fields = { name: cleanPlayerName(raw) || null, avatar: chosenAvatar || null, country: byId("profile-country").value || null };
+    const locked = nameLockMs() > 0; // the name can't change today: the rest of the profile still can
+    if (!locked && raw.trim() && nameProblem(raw)) { nameHint(); return; }
+    const fields = { avatar: chosenAvatar || null, country: byId("profile-country").value || null };
+    if (!locked) fields.name = cleanPlayerName(raw) || null;
+    const renamed = !locked && Boolean(profile?.name) && fields.name !== profile.name; // a change of an existing name starts the wait
     loginStep(e.currentTarget, byId("profile-error"), async () => {
-        await saveProfile(fields);
-        profile = { ...(profile || {}), ...fields };
+        try {
+            await saveProfile(fields);
+        } catch (err) {
+            if (String(err?.message || "").includes("name_changed_recently")) { // the database's word, if the app's clock was off
+                byId("profile-error").textContent = t("A name can be changed once a day. Try again tomorrow.");
+                return;
+            }
+            throw err;
+        }
+        if (fields.name && nameRemovedNotice()) { try { localStorage.setItem(NAME_REMOVED_SEEN, profile.name_removed_at); } catch { /* told again next time */ } }
+        profile = { ...(profile || {}), ...fields, ...(renamed ? { name_changed_at: new Date().toISOString() } : {}) };
         keepProfile(currentUser()?.id, profile);
         showHomeProfile();
         onlineClient.reauth(); // the game server picks up the new name and flag
@@ -7072,6 +7104,32 @@ initCombinationDemos({
         return { pieceImage: me.pieceImage, color: me.color };
     },
 });
+
+
+//----------- THE SCREEN STAYS ON DURING A GAME ---------------
+// A turn lasts 30 seconds and the phone's own timeout is often shorter, so while a game is on the screen
+// (not the home, not a finished game) the page asks to keep the screen awake. The browser gives it
+// back when the page is hidden, so it is asked again when it is shown. Where the phone or the browser
+// can't, nothing happens.
+let wakeLock = null;
+let wakeBusy = false;
+async function syncWakeLock() {
+    if (wakeBusy || !navigator.wakeLock) return;
+    const want = gameInProgress && !isGameOver && !isHomeShown() && !document.hidden;
+    wakeBusy = true;
+    try {
+        if (want && !wakeLock) {
+            wakeLock = await navigator.wakeLock.request("screen");
+            wakeLock.addEventListener("release", () => { wakeLock = null; });
+        } else if (!want && wakeLock) {
+            const held = wakeLock;
+            wakeLock = null;
+            await held.release();
+        }
+    } catch { wakeLock = null; } finally { wakeBusy = false; }
+}
+setInterval(syncWakeLock, 3000);
+document.addEventListener("visibilitychange", syncWakeLock);
 
 
 //----------- THE PHONE'S BACK GESTURE / BUTTON ---------------

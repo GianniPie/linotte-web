@@ -15,11 +15,21 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:exported="true">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Back from Google's (or the email's) sign-in in the browser: linotte://auth?code=... opens
+                 the app again (see public/auth.js). The same address must be in Supabase's Redirect URLs. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="linotte" android:host="auth" />
             </intent-filter>
 
         </activity>
@@ -38,4 +48,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- navigator.vibrate() in the page (the little buzzes) needs it; it is a normal permission, nothing is asked -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

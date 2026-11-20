@@ -113,6 +113,24 @@ async function mail(report, replyTo, { resendKey, fetch: fetchImpl }) {
   if (!res.ok) throw new Error(`Resend answered ${res.status} ${await res.text().catch(() => "")}`.trim());
 }
 
+// A plain mail to the project's own address (other server messages use it too, e.g. a player report): never
+// throws; true when Resend took it.
+export async function sendPlainMail(subject, text, { resendKey = RESEND_KEY, fetch: fetchImpl = fetch } = {}) {
+  if (!resendKey) return false;
+  try {
+    const res = await fetchImpl("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: FEEDBACK_FROM, to: [FEEDBACK_TO], subject, text }),
+    });
+    if (!res.ok) console.error("mail not sent: Resend answered", res.status);
+    return res.ok;
+  } catch (err) {
+    console.error("mail not sent:", err.message);
+    return false;
+  }
+}
+
 // Keeps and sends one report. Never throws; { ok } is true when it was kept or sent somewhere.
 export async function sendFeedback(report, { userId = null, kind = "problem", message = "", replyTo = null, screenshot = null } = {}, {
   key = SECRET_KEY, url = SUPABASE_URL, resendKey = RESEND_KEY, fetch: fetchImpl = fetch,

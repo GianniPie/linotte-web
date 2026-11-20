@@ -1229,3 +1229,8 @@ body.daily-open .sheet-daily {
 #feedback-email {
   font-size: 1em;
 }
+
+/* A name that can't be changed yet (once a day, see nameLockMs in linotte.js). */
+.text-input:disabled {
+  opacity: .55;
+}

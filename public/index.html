@@ -433,6 +433,8 @@
             <!-- what opponents see: name, picture, country (see "Profile" in linotte.js) -->
             <div class="sheet-view" data-view="profile">
                 <div class="sheet-title" id="profile-title" data-i18n>Your profile</div>
+                <!-- only when the game took the name away after reports (see nameRemovedNotice in linotte.js) -->
+                <div class="sheet-text error" id="profile-removed" hidden data-i18n>Your name was taken away because several players reported it as offensive. Please choose another one.</div>
                 <label class="profile-label" for="profile-name" data-i18n>Name</label>
                 <input class="text-input" id="profile-name" type="text" maxlength="12" autocomplete="nickname" autocapitalize="words" spellcheck="false">
                 <div class="sheet-text sheet-small" id="profile-name-hint"></div>
