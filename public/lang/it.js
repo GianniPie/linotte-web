@@ -70,7 +70,7 @@ export default {
     "Online unavailable": "Online non disponibile",
     "This build isn't connected to a game server.": "Questa versione non è collegata a un server di gioco.",
     "Connecting to the game server...": "Mi collego al server di gioco...",
-    "Waking up the game server. After a quiet spell this can take up to a minute.": "Sveglio il server di gioco. Dopo un po' di inattività può volerci fino a un minuto.",
+    "Getting the game ready. After a quiet spell this can take up to a minute.": "Preparo la partita. Dopo un po' di inattività può volerci fino a un minuto.",
     "Can't reach the server": "Server non raggiungibile",
     "Check your connection and try again.": "Controlla la connessione e riprova.",
     "Creating a private room is part of Linotte Pro. Your friend can always join a room for free.": "Creare una stanza privata fa parte di Linotte Pro. Il tuo amico può sempre entrare gratis.",

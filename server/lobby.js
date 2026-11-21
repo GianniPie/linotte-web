@@ -198,7 +198,7 @@ export class Lobby {
   makeOffer(socket, mine, offer) {
     const me = socket.data;
     this.dropOffer(me.playerId);
-    const timer = setTimeout(() => this.answerOffer(socket, false), OFFER_TTL_MS);
+    const timer = setTimeout(() => { this.answerOffer(socket, false); socket.emit("offer_over"); }, OFFER_TTL_MS); // nobody answered: it counts as a no, and the app is told
     this.offers.set(me.playerId, { ...offer, mine, timer });
     socket.emit("mode_offer", { mode: offer.mode, name: offer.name, ttlMs: OFFER_TTL_MS });
   }

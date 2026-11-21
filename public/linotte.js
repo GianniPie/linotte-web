@@ -2008,6 +2008,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
     pointsFlow.zeroLabel = !earn ? t("Video closed") : winner === 0 ? t("Draw") : winner !== (controller.mode === "online" ? LOCAL_PLAYER : 1) ? t("Game lost") : t("Victory");
     const me = controller.mode === "online" ? LOCAL_PLAYER : 1;
     const other = me === 1 ? 2 : 1;
+    const iAbandoned = controller.mode === "online" && overReason === "idle" && winner !== me; // this phone's player let 3 turns run out
     // A Ruthless game of an account against another: what the opponent gained or lost is told on the points screen too
     // (not when they left, nor against a guest, who keeps no account points).
     if (mode !== "bot" && gameMode === MODE_RUTHLESS && gameState.players[other].level != null && (overReason === "normal" || overReason === "idle")) {
@@ -2039,7 +2040,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
         turns: mode === "bot" ? myTurns : null,
         strategy: mode === "bot" ? botStrategy : null,
         // This phone's player let 3 turns run out: abandoned, not finished.
-        abandoned: controller.mode === "online" && overReason === "idle" && winner !== me,
+        abandoned: iAbandoned,
         points: gameState.players[me].points,
         opponentPoints: gameState.players[other].points,
         opponent: controller.mode === "bot" ? "Bot" : gameState.players[other].name,
@@ -2064,7 +2065,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
             gameXpParts = null;
             gameXpPartsShown = false;
             if (mode !== "bot" && gameMode === MODE_RUTHLESS) {
-                const game = onlineGameParts(winner === me, me, other);
+                const game = onlineGameParts(winner === me, me, other, iAbandoned);
                 gameXpPays = game.total;
                 gameXpParts = game.parts;
             }
@@ -2079,7 +2080,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
         // One badge for what the game paid and one for the day's bonus.
         const earned = after - xpBefore - (r?.daily ? DAILY_BONUS_POINTS : 0);
         gameBotStrategy = botStrategy;
-        if (mode !== "bot" && gameMode === MODE_RUTHLESS) for (const [points, label] of onlineGameParts(winner === me, me, other).parts) queuePointsGain(points, label);
+        if (mode !== "bot" && gameMode === MODE_RUTHLESS) for (const [points, label] of onlineGameParts(winner === me, me, other, iAbandoned).parts) queuePointsGain(points, label);
         else queueGameBadges(earned, bonus, gameBadgeLabel(winner === me));
         if (r?.daily) queuePointsGain(DAILY_BONUS_POINTS, t("Daily bonus"));
         if (after === xpBefore) { if (gameMode === MODE_RUTHLESS && mode !== "bot") noteXpGain(xpBefore, after); return; }
@@ -4219,6 +4220,7 @@ const onlineClient = new OnlineClient({
     },
     onGameStart: (snap) => beginOnlineGame(snap),
     onModeOffer: (msg) => onModeOffer(msg),
+    onOfferOver: () => { if (onlineOverlay.dataset.view === "mode-offer") showOnlineView("searching"); }, // nobody answered: the search goes on
     onSnapshot: (snap) => beginOnlineGame({ ...snap, fresh: false }),
     onWaitingRoom: (code) => showWaitingRoom(code),
     onAction: onRemoteAction,
@@ -4443,7 +4445,7 @@ async function prepareOnline() {
     }
     const slow = setTimeout(() => {
         if (onlineOverlay.dataset.view === "searching") {
-            searchingText.textContent = t("Waking up the game server. After a quiet spell this can take up to a minute.");
+            searchingText.textContent = t("Getting the game ready. After a quiet spell this can take up to a minute.");
         }
     }, 4000);
     const hello = await Promise.race([
@@ -4548,7 +4550,19 @@ async function startRandomOnline() {
     showOnlineView("searching");
     searchingRandom = true;
     const res = await onlineClient.joinQueue(wantedMode);
-    if (!res.ok) { searchingRandom = false; handleOnlineError(res); }
+    if (!res.ok) { searchingRandom = false; handleOnlineError(res); return; }
+    watchSearch();
+}
+// A search that has gone on far longer than the bot's wait (7-15 s on the server) has lost its place in the queue
+// (a connection that dropped and came back, an offer that was never seen): asked for again, as often as needed.
+const SEARCH_RETRY_MS = 22000;
+let searchWatch = 0;
+function watchSearch() {
+    clearInterval(searchWatch);
+    searchWatch = setInterval(() => {
+        if (!searchingRandom || onlineOverlay.style.display === "none") { clearInterval(searchWatch); return; }
+        if (onlineOverlay.dataset.view === "searching" && onlineClient.socket?.connected) onlineClient.joinQueue(wantedMode);
+    }, SEARCH_RETRY_MS);
 }
 
 async function createFriendRoom() {
@@ -5165,10 +5179,11 @@ function queuePointsGain(points, label) {
 // badge, "Winning margin", for all of it).
 function queueGameBadges(earned, bonus, label) {
     if (earned < 0) { queuePointsGain(earned, t("Game abandoned")); return; } // the points lost by leaving a game
-    if (earned > 0 && bonus > 0 && gameBotStrategy === "points") { queuePointsGain(earned, t("Winning margin")); return; }
+    if (earned > 0 && gameBotStrategy === "points" && (bonus > 0 || controller.mode === "bot")) { queuePointsGain(earned, t("Winning margin")); return; } // (a margin of 1 too)
     const bonusPart = Math.min(bonus || 0, Math.max(0, earned - BOT_WIN_POINTS));
     if (earned - bonusPart > 0) queuePointsGain(earned - bonusPart, label);
-    if (bonusPart > 0) queuePointsGain(bonusPart, t("Speed bonus"));
+    // A win against the bot in speed mode always has its bonus badge, a grey 0 when it was too slow for one.
+    if (bonusPart > 0 || (controller.mode === "bot" && earned > 0 && gameBotStrategy === "speed")) queuePointsGain(bonusPart, t("Speed bonus"));
 }
 
 function noteXpGain(before, after) {
@@ -5381,10 +5396,13 @@ function setGameMode(mode) {
     document.querySelector(".vs")?.classList.toggle("ruthless", ruthless);
 }
 
-// What an online game was worth in a Ruthless game (shared/level.js, onlinePayout), for the points screen: the total, in
-// one badge that says what it is: the margin the game was won or lost by (a grey 0 for a draw).
-function onlineGameParts(won, me, other) {
-    const total = onlinePayout({ won, points: gameState.players[me].points, opponentPoints: gameState.players[other].points, ruthless: true });
+// What an online game was worth in a Ruthless game (shared/level.js, onlinePayout), for the points screen: the total, and its
+// badges, one for each thing it is made of: the margin the game was won or lost by (a grey 0 for a draw), or, for a
+// game abandoned, the 6 of leaving and the margin the opponent had.
+function onlineGameParts(won, me, other, abandoned = false) {
+    const points = gameState.players[me].points, opponentPoints = gameState.players[other].points;
+    const total = onlinePayout({ won, abandoned, points, opponentPoints, ruthless: true });
+    if (abandoned) return { total, parts: [[-ABANDON_BASE, t("Game abandoned")], [total + ABANDON_BASE, t("Point margin")]] };
     return { total, parts: [[total, total === 0 ? t("Draw") : t("Point margin")]] };
 }
 
@@ -5690,9 +5708,9 @@ function playLossSound() {
     low.connect(ng);
     ng.connect(c.destination);
     noise.start(start);
-    // The sigh: two notes falling, loud enough to be heard over the game.
-    tone("triangle", 392, 370, 0.22, 0.34, 0.3);
-    tone("triangle", 311.13, 277, 0.5, 0.5, 0.3);
+    // The sigh: one note falling, loud enough to be heard over the game. With the thump that is two sounds, as the
+    // two notes of the badges that earn points.
+    tone("triangle", 392, 277, 0.22, 0.62, 0.32);
 }
 
 // A short rising fanfare, made on the spot like the bell's trill.
@@ -6554,16 +6572,25 @@ async function autoFriendFromLink() {
 }
 
 // The Android app opened by an invite or friend link (https://site/j/ABCD, https://site/f/ABCDEF; see AndroidManifest.xml):
-// the same as the link opened in a browser, but here, where the player is signed in.
+// the same as the link opened in a browser, but here, where the player is signed in. Opening it reloads the page as
+// /?friend=CODE, and the page asks for the launch link again each time it loads: so a link is acted on once (the one
+// that started the app) or, when it comes while the app runs, not twice within a few seconds.
 (() => {
     const app = window.Capacitor?.Plugins?.App;
     if (!window.Capacitor?.isNativePlatform?.() || !app) return;
-    const open = (url) => {
+    const HANDLED = "linotte-link-handled";
+    const open = (url, { launch = false } = {}) => {
         const m = /^https:\/\/[^/]+\/([jf])\/([A-Za-z0-9]+)/.exec(url || "");
-        if (m) location.href = `/?${m[1] === "j" ? "join" : "friend"}=${m[2].toUpperCase()}`;
+        if (!m) return;
+        try {
+            const [last, at] = (sessionStorage.getItem(HANDLED) || "|0").split("|");
+            if (last === url && (launch || Date.now() - Number(at) < 8000)) return; // already acted on
+            sessionStorage.setItem(HANDLED, `${url}|${Date.now()}`);
+        } catch { return; } // no way to remember it: better nothing than a loop of reloads
+        location.href = `/?${m[1] === "j" ? "join" : "friend"}=${m[2].toUpperCase()}`;
     };
     app.addListener("appUrlOpen", (e) => open(e.url));
-    app.getLaunchUrl?.().then((e) => open(e?.url)).catch(() => {});
+    app.getLaunchUrl?.().then((e) => open(e?.url, { launch: true })).catch(() => {});
 })();
 
 // "Add friend" on an opponent's card (or the winner card): a request they can accept or not.

@@ -12,6 +12,22 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.5] - 2026-11-21
+
+### Changed
+- A Ruthless game abandoned (three turns left to run out) shows two badges, the 6 of leaving and the margin the opponent had, as it is made of two things; it showed the margin only. The rule everywhere: one badge for each thing the points are made of, whatever it is worth (0, negative, positive), but the day's +2 bonus, which only appears when it was earned.
+- The points screen of a win against the bot always shows the badge of what the win was for: "Speed bonus" even when it is a grey 0 (too slow for a bonus), and "Winning margin" in points mode even when the margin is 1. (Every other kind of game already shows its badges: a 0 as a grey badge, a loss as a red one.)
+- The sound of a badge that loses points is two sounds, the thump and one falling note (it was the thump and two notes), like the two notes of a badge that earns points.
+
+### Changed
+- The wait for a slow server says "Getting the game ready. After a quiet spell this can take up to a minute." instead of "Waking up the game server...", which sounded like nobody was there.
+
+### Fixed
+- A random search that dragged on (the server's bot comes in after 7-15 seconds) could be stuck for good: a connection that dropped, or an offer of the other way nobody answered, left the app saying "This usually takes a few seconds" with no place in the queue. The app now asks for its place again every 22 seconds while it searches, and an offer nobody answered sends the player back to the search screen (new `offer_over` event from the server).
+
+### Fixed
+- Android: a friend or invite link that started the app (it was closed) made the page reload over and over, flashing an empty background and the search window, because each reload asked for the launch link again. A link is now acted on once.
+
 ## [2.35.4] - 2026-11-21
 
 ### Fixed

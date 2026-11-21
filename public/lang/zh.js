@@ -76,7 +76,7 @@ export default {
     "Online unavailable": "在线功能不可用",
     "This build isn't connected to a game server.": "此版本未连接游戏服务器。",
     "Connecting to the game server...": "正在连接游戏服务器……",
-    "Waking up the game server. After a quiet spell this can take up to a minute.": "正在唤醒游戏服务器。闲置一段时间后，可能需要一分钟左右。",
+    "Getting the game ready. After a quiet spell this can take up to a minute.": "正在准备对局。闲置一段时间后，可能需要最多一分钟。",
     "Can't reach the server": "无法连接服务器",
     "Check your connection and try again.": "请检查网络连接后重试。",
     "Creating a private room is part of Linotte Pro. Your friend can always join a room for free.": "创建私人房间是 Linotte Pro 的功能。你的好友始终可以免费加入。",
