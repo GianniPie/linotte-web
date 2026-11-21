@@ -5,7 +5,7 @@
 // the events this emits into screens and replays the opponent's moves.
 
 import { io } from "./vendor/socket.io.esm.min.js";
-import { SERVER_URL } from "./config.js";
+import { SERVER_URL, SITE_URL } from "./config.js";
 import { accessToken, currentUser } from "./auth.js";
 
 // Must equal CONSENT_VERSION in server/config.js. Bump both whenever the
@@ -249,6 +249,7 @@ export class OnlineClient {
                     // (A hello the server took for a guest while the app has an account says
                     // "not Pro": not to be believed, the saved answer stays.)
                     if (res?.ok) { this.name = res.name; if (res.signedIn || !currentUser()) { rememberAccess(res); this.h.onPro?.(Boolean(res.pro)); } }
+                    this.helloOk = Boolean(res?.ok);
                     this.h.onConnection?.(true, res);
                     resolve(res);
                     // Back after a drop (or a backgrounded app): ask for our room.
@@ -257,7 +258,7 @@ export class OnlineClient {
             });
         });
 
-        s.on("disconnect", () => this.h.onConnection?.(false));
+        s.on("disconnect", () => { this.helloOk = false; this.h.onConnection?.(false); });
         s.on("game_start", (snap) => this.h.onGameStart?.(snap));
         s.on("action", (msg) => this.h.onAction?.(msg));
         s.on("emote", (msg) => this.h.onEmote?.(msg));
@@ -328,6 +329,19 @@ export class OnlineClient {
         if (this.socket?.connected) this.call("look", { background });
     }
 
+    // For something the player asked for (a friend request): waits for the connection and the server's welcome (a socket that
+    // dropped while the app sat idle, or a server waking up) instead of answering "offline" at once.
+    async callWhenReady(event, payload = {}, waitMs = 25000) {
+        if (!this.socket) await this.connect();
+        const end = Date.now() + waitMs;
+        while (!(this.socket?.connected && this.helloOk) && Date.now() < end) {
+            if (this.socket && !this.socket.connected && !this.socket.active) this.socket.connect();
+            await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+        if (this.socket?.connected) await this.ensureConsentSent();
+        return this.call(event, payload);
+    }
+
     call(event, payload = {}) {
         return new Promise((resolve) => {
             if (!this.socket?.connected) return resolve({ ok: false, error: "offline" });
@@ -363,12 +377,12 @@ export class OnlineClient {
     setPresence(state) { return this.socket?.connected ? this.call("presence_set", { state }) : Promise.resolve({ ok: false }); }
     // { ok, pro, code, friends: [{ id, name, country, games, weekPoints, pro, state }], incoming, outgoing }
     friendsList() { return this.call("friends_list"); }
-    friendCodePeek(code) { return this.call("friend_code_peek", { code }); }
-    friendAddCode(code) { return this.call("friend_add_code", { code }); }
-    friendRequest(userId) { return this.call("friend_request", { userId }); }
+    friendCodePeek(code) { return this.callWhenReady("friend_code_peek", { code }); }
+    friendAddCode(code) { return this.callWhenReady("friend_add_code", { code }); }
+    friendRequest(userId) { return this.callWhenReady("friend_request", { userId }); }
     friendRequestOpponent() { return this.call("friend_request_opponent"); }
-    friendRespond(userId, accept) { return this.call("friend_respond", { userId, accept }); }
-    friendRemove(userId) { return this.call("friend_remove", { userId }); }
+    friendRespond(userId, accept) { return this.callWhenReady("friend_respond", { userId, accept }); }
+    friendRemove(userId) { return this.callWhenReady("friend_remove", { userId }); }
     friendBlock(userId) { return this.call("friend_block", { userId }); }
     // "Report" on the opponent's card: a reason from name, emoji, other.
     reportOpponent(reason) { return this.call("report_player", { reason }); }
@@ -404,8 +418,10 @@ export class OnlineClient {
 
 // Invite links look like /j/K7QF (redirected to /?join=K7QF) or ?join=K7QF.
 export function inviteLink(code) {
-    return `${location.origin}/j/${code}`;
+    return `${shareOrigin()}/j/${code}`;
 }
+// What a link to share starts with: this site, or the public one when this is the app (see SITE_URL).
+export const shareOrigin = () => (window.Capacitor?.isNativePlatform?.() ? SITE_URL : location.origin);
 
 // A friend code as a link (https://host/f/K7QF3A -> /?friend=K7QF3A).
 export function pendingFriendCode() {

@@ -32,7 +32,7 @@ export function resultRows(room, held = new Set()) {
       // Left or gone for good before the end: costs level points.
       abandoned: room.forfeitedBy === seat,
       earns_xp: !held.has(seat),
-      ruthless: room.mode === MODE_RUTHLESS, // the points the game was won or lost by count (supabase/online_margin.sql)
+      ruthless: room.mode === MODE_RUTHLESS, // only the points the game was won or lost by count (supabase/online_margin.sql)
       source: "server",
     });
   }
@@ -109,7 +109,7 @@ async function botBonusXp(userId, { key, url, fetch: fetchImpl }) {
 }
 
 // What the Ruthless online games were won or lost by, summed by the database (online_margin_xp in
-// supabase/online_margin.sql): the part on top of the flat +4 / +2 / -3 counted below.
+// supabase/online_margin.sql): what turns the flat +4 / +2 / -3 counted below into the Ruthless rule (the margin alone).
 async function onlineMarginXp(userId, { key, url, fetch: fetchImpl }) {
   const res = await fetchImpl(`${url}/rest/v1/rpc/online_margin_xp`, {
     method: "POST",

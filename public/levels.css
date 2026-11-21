@@ -222,6 +222,28 @@ body.ps-open #winner-overlay {
   min-height: 3.5em;
 }
 
+/* A Ruthless game: what the opponent gained or lost, under the bar, after the badges. */
+.ps-opponent {
+  text-align: center;
+  font-family: sans-serif;
+  font-size: 1.05em;
+  color: #fff;
+  opacity: 0;
+  transition: opacity .4s;
+}
+
+.ps-opponent.in {
+  opacity: 1;
+}
+
+.ps-opponent b {
+  color: #ffe58a;
+}
+
+.ps-opponent.is-loss b {
+  color: #ff9d9d;
+}
+
 /* The way to the next level: shown after the badges, then it fills. */
 .ps-bar-block {
   width: 100%;

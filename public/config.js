@@ -5,6 +5,10 @@
 // and Friend only say "coming soon" there.
 export const PUBLIC_SERVER_URL = "https://linotte-web.onrender.com";
 
+// The public web site: what an invite or friend link starts with. Inside the Android app the page is
+// https://localhost, which nobody else can open, so the links are made with this instead.
+export const SITE_URL = "https://linotte-web.vercel.app";
+
 // A page served by the Node server itself -- `npm start` on this machine, or
 // the same through an ngrok tunnel -- talks to that server (same origin).
 // The store apps load from capacitor://localhost or https://localhost, so

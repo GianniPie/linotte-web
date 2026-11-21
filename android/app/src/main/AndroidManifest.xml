@@ -32,6 +32,16 @@
                 <data android:scheme="linotte" android:host="auth" />
             </intent-filter>
 
+            <!-- Invite and friend links (https://linotte-web.vercel.app/j/ABCD and /f/ABCDEF) open the app, not the browser.
+                 Android checks the site's /.well-known/assetlinks.json against this app's signing key (public/.well-known). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="linotte-web.vercel.app" android:pathPrefix="/j/" />
+                <data android:scheme="https" android:host="linotte-web.vercel.app" android:pathPrefix="/f/" />
+            </intent-filter>
+
         </activity>
 
         <provider

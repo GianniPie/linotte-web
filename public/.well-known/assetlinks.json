@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.linotte.game",
+      "sha256_cert_fingerprints": [
+        "4C:C2:F1:32:BE:FA:3B:10:E1:16:D6:28:87:A2:60:28:AE:C5:AF:94:7D:43:2C:FD:5A:68:34:BB:DD:9A:55:A6"
+      ]
+    }
+  }
+]

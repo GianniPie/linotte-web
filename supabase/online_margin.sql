@@ -3,8 +3,8 @@
 -- Safe to run again. Until it is run, the server leaves the margin out (the flat +4 / +2 / -3 still count).
 --
 -- A game is marked `ruthless` by the server when its room was opened (or accepted) as Ruthless. In those games:
---   * a win pays the points the player was ahead by on top of its +4;
---   * a game played to the end and lost takes the points the player was behind by off its +2 (a draw: nothing);
+--   * only the points the game was won or lost by count: a win pays the margin (at least 1), a loss costs it,
+--     a draw pays 0. The flat +4 / +2 are taken off (this file adds the difference);
 --   * a game abandoned costs 3 more than the flat -3, and the points the opponent was ahead by at that moment
 --     (-6 and the lead in all: more than any loss from the same position, so staying beats leaving).
 -- Normal games are as they were. Only games recorded by the server (source = 'server'), and the ones whose
@@ -26,8 +26,8 @@ as $$
   select coalesce(sum(case
            when g.abandoned then -(3 + greatest(0, g.opponent_points - g.points))
            when not g.earns_xp then 0
-           when g.won then greatest(0, g.points - g.opponent_points)
-           else -greatest(0, g.opponent_points - g.points)
+           when g.won then greatest(1, g.points - g.opponent_points) - 4
+           else -greatest(0, g.opponent_points - g.points) - 2
          end), 0)::bigint
   from public.game_results g
   where g.user_id = uid and g.source = 'server' and g.ruthless;
@@ -58,8 +58,8 @@ as $$
                    case
                      when g.abandoned then -(3 + greatest(0, g.opponent_points - g.points))
                      when not g.earns_xp then 0
-                     when g.won then greatest(0, g.points - g.opponent_points)
-                     else -greatest(0, g.opponent_points - g.points)
+                     when g.won then greatest(1, g.points - g.opponent_points) - 4
+                     else -greatest(0, g.opponent_points - g.points) - 2
                    end
                  else 0 end) as pts
     from public.game_results g

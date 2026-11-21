@@ -488,10 +488,10 @@ const lobby = new Lobby(io, store);
   // Online games: Normal as ever, Ruthless counts the points they were won or lost by.
   const { onlinePayout, onlineMarginExtra, ABANDON_BASE, validMode } = await import("../public/shared/level.js");
   const R = { ruthless: true };
-  assert.equal(onlinePayout({ won: true, points: 7, opponentPoints: 3, ...R }), 8, "ruthless, a win by 4: +4 and +4");
-  assert.equal(onlinePayout({ won: false, points: 3, opponentPoints: 7, ...R }), -2, "a loss by 4: +2 and -4");
-  assert.equal(onlinePayout({ won: false, points: 4, opponentPoints: 4, ...R }), 2, "a draw: +2");
-  assert.equal(onlinePayout({ won: true, points: 2, opponentPoints: 5, ...R }), 4, "won because the opponent left while ahead: no margin, just +4");
+  assert.equal(onlinePayout({ won: true, points: 7, opponentPoints: 3, ...R }), 4, "ruthless, a win by 4: +4, the margin alone");
+  assert.equal(onlinePayout({ won: false, points: 3, opponentPoints: 7, ...R }), -4, "a loss by 4: -4");
+  assert.equal(onlinePayout({ won: false, points: 4, opponentPoints: 4, ...R }), 0, "a draw: 0");
+  assert.equal(onlinePayout({ won: true, points: 2, opponentPoints: 5, ...R }), 1, "won because the opponent left while ahead: no margin, the least a win is worth");
   assert.equal(onlinePayout({ abandoned: true, points: 3, opponentPoints: 7, ...R }), -(ABANDON_BASE + 4), "leaving: -6 and the lead of the opponent");
   assert.equal(onlinePayout({ abandoned: true, points: 5, opponentPoints: 1, ...R }), -6, "leaving while ahead: -6");
   for (const [points, opponentPoints] of [[0, 9], [3, 7], [5, 5], [8, 2]]) { // leaving always costs more than finishing from the same score
@@ -500,8 +500,10 @@ const lobby = new Lobby(io, store);
   assert.equal(onlinePayout({ won: true, points: 7, opponentPoints: 3 }), 4, "normal: a win is +4 whatever the score");
   assert.equal(onlinePayout({ won: false, points: 3, opponentPoints: 7 }), 2, "normal: +2 for a loss played to the end");
   assert.equal(onlinePayout({ abandoned: true, points: 3, opponentPoints: 7 }), -3, "normal: leaving is -3");
-  assert.equal(onlineMarginExtra({ won: true, points: 7, opponentPoints: 3, ...R }), 4, "the part on top of the flat +4");
-  assert.equal(onlineMarginExtra({ won: false, points: 3, opponentPoints: 7, ...R }), -4, "and of the flat +2");
+  assert.equal(onlineMarginExtra({ won: true, points: 7, opponentPoints: 3, ...R }), 0, "a win by 4 is +4: the same as the flat +4");
+  assert.equal(onlineMarginExtra({ won: true, points: 5, opponentPoints: 3, ...R }), -2, "a win by 2 is 2 less than the flat +4");
+  assert.equal(onlineMarginExtra({ won: false, points: 3, opponentPoints: 7, ...R }), -6, "a loss by 4 is 6 less than the flat +2");
+  assert.equal(onlineMarginExtra({ won: false, points: 4, opponentPoints: 4, ...R }), -2, "a draw is 2 less than the flat +2");
   assert.equal(onlineMarginExtra({ abandoned: true, points: 3, opponentPoints: 7, ...R }), -(3 + 4), "and of the flat -3");
   assert.equal(onlineMarginExtra({ won: true, points: 7, opponentPoints: 3 }), 0, "nothing on top in a normal game");
   assert.deepEqual(["ruthless", "normal", "x", undefined, null].map(validMode), ["ruthless", "normal", "normal", "normal", "normal"]);

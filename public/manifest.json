@@ -33,5 +33,7 @@
   "theme_color": "#ffffff",
   "background_color": "#ffffff",
   "display": "fullscreen",
+  "handle_links": "preferred",
+  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
   "display_override": ["fullscreen", "standalone"]
 }

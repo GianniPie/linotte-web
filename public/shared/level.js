@@ -46,11 +46,11 @@ export const ABANDON_PENALTY = 3;
 
 // Two ways to play online, chosen by whoever opens the game (the queue, or a friend's room):
 //   NORMAL    as above: +4 a win, +2 a game played to the end, -3 leaving.
-//   RUTHLESS  (shown with the devil icon, resources/images/devil-2.svg) the points a game is won or lost by count too. The winner gets
-//             +4 and the points he is ahead by; the loser keeps +2 and gives up the points he is behind by
-//             (so a loss can cost points: 2 - 7 = -5; a draw stays +2); leaving costs ABANDON_BASE and the
-//             lead the opponent had at that moment, always more than any loss from the same position, so
-//             staying beats leaving. The margin is no more than the game's own points (about 3 between
+//   RUTHLESS  (shown with the devil icon, resources/images/devil-2.svg) only the points the game is won or lost by count:
+//             a win pays the points the winner is ahead by (at least 1), a loss takes the points the loser is
+//             behind by off, a draw pays 0; leaving costs ABANDON_BASE and the lead the opponent had at that
+//             moment, always more than any loss from the same position, so staying beats leaving. The points
+//             pass from the loser to the winner. The margin is the game's own points (about 3 between
 //             equals, 10 at most in the simulations). Training against the bot risks nothing, so beginners
 //             can learn there.
 // Counted by the server like the flat rates (server/results.js, online_margin_xp in
@@ -65,11 +65,11 @@ const lead = (points, opponentPoints) => Math.max(0, (opponentPoints | 0) - (poi
 export function onlinePayout({ won, abandoned, points, opponentPoints, ruthless = false }) {
     if (!ruthless) return abandoned ? -ABANDON_PENALTY : won ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
     if (abandoned) return -(ABANDON_BASE + lead(points, opponentPoints));
-    if (won) return ONLINE_WIN_POINTS + Math.max(0, (points | 0) - (opponentPoints | 0));
-    return ONLINE_FINISHED_POINTS - lead(points, opponentPoints);
+    if (won) return Math.max(1, (points | 0) - (opponentPoints | 0)); // a win is never worth less than 1 (the opponent may have left while ahead)
+    return 0 - lead(points, opponentPoints); // a loss costs the points it was lost by; a draw is 0
 }
-// The part that comes on top of the flat rate (+4, +2 or -3): what the counts of the server and of the guest's
-// phone add to their flat sums. 0 in a Normal game.
+// The difference from the flat rate (+4, +2 or -3): what the counts of the server and of the guest's phone add to
+// their flat sums. 0 in a Normal game; in a Ruthless one it makes the flat rate into the margin alone.
 export function onlineMarginExtra(game) {
     const flat = game.abandoned ? -ABANDON_PENALTY : game.won ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
     return onlinePayout(game) - flat;

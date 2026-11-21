@@ -196,7 +196,7 @@ import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
 import { recentErrors } from "./diagnostics.js"; // the last errors of the page, for a problem report
 import "./a11y.js"; // roles, names, keyboard and states for the buttons that are not <button>s
-import { OnlineClient, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer, sendFeedback, getPlayerId } from "./online.js";
+import { OnlineClient, shareOrigin, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer, sendFeedback, getPlayerId } from "./online.js";
 import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY, ABANDON_BASE, onlinePayout, validMode, MODE_NORMAL, MODE_RUTHLESS } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
@@ -319,7 +319,7 @@ let gameXpPays = 0; // the most the game itself can have paid (the rest is a bon
 let gameXpBonus = 0; // of it, what came on top of a win's 1 point (the speed bonus, or the rest of the margin)
 var gameMode = MODE_NORMAL; // (var: startBot runs at load, before this line, and calls setGameMode) how the online game on the screen is played (Normal / Ruthless, from the server), shown by the devil in place of the VS
 let gameXpPartsShown = false; // its badges are already queued (they must not be twice)
-let gameXpParts = null; // an online game with the margin: its badges, [points, label] each (the flat part, the margin)
+let gameXpParts = null; // a Ruthless game: its badge(s), [points, label] each (the margin)
 let gameBotStrategy = "speed"; // the mode of the game just played against the bot (its badges differ)
 function refreshIfStale() {
     if (!currentUser() || Date.now() - lastRefreshAt < 15000) return;
@@ -699,6 +699,13 @@ document.querySelectorAll("#online-overlay [data-reason]").forEach((el) => el.ad
     closeOnlineOverlay();
     showToast(res.ok ? t("Thank you. We'll take a look.") : res.error === "slow_down" ? t("Too many tries. Wait a minute and try again.") : t("Can't send the report right now."));
 }));
+// Why a friend action did not go through, in words: not a catch-all.
+function friendErrorText(res) {
+    if (res?.error === "slow_down") return t("Too many tries. Wait a minute and try again.");
+    if (res?.error === "offline" || res?.error === "timeout" || res?.error === "no_hello") return `${t("Can't reach the server")}. ${t("Check your connection and try again.")}`;
+    if (res?.error === "sign_in") return t("Sign in first, then open the link again.");
+    return t("Can't add friends right now.");
+}
 document.getElementById("pc-add-friend").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     btn.hidden = true;
@@ -707,7 +714,7 @@ document.getElementById("pc-add-friend").addEventListener("click", async (e) => 
     if (!id) return askOpponentToBeFriend(btn.dataset.name);
     if (friendsDemo) return showToast(t("Request sent to {name}.", { name: btn.dataset.name }));
     const res = await onlineClient.friendRequest(id);
-    showToast(!res.ok ? t("Can't add friends right now.") : {
+    showToast(!res.ok ? friendErrorText(res) : {
         sent: t("Request sent to {name}.", { name: btn.dataset.name }),
         accepted: t("You are friends now."),
         already: t("You are already friends."),
@@ -2001,6 +2008,20 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
     pointsFlow.zeroLabel = !earn ? t("Video closed") : winner === 0 ? t("Draw") : winner !== (controller.mode === "online" ? LOCAL_PLAYER : 1) ? t("Game lost") : t("Victory");
     const me = controller.mode === "online" ? LOCAL_PLAYER : 1;
     const other = me === 1 ? 2 : 1;
+    // A Ruthless game of an account against another: what the opponent gained or lost is told on the points screen too
+    // (not when they left, nor against a guest, who keeps no account points).
+    if (mode !== "bot" && gameMode === MODE_RUTHLESS && gameState.players[other].level != null && (overReason === "normal" || overReason === "idle")) {
+        pointsFlow.opponent = {
+            name: gameState.players[other].name,
+            points: onlinePayout({
+                won: winner === other,
+                abandoned: overReason === "idle" && winner === me, // they let 3 turns run out
+                points: gameState.players[other].points,
+                opponentPoints: gameState.players[me].points,
+                ruthless: true,
+            }),
+        };
+    }
     // Any finished online game, and a win against the bot, may raise the
     // level: asked again once the game is recorded (by the server for an
     // online game, by recordGame for one against the bot).
@@ -4502,7 +4523,7 @@ function onModeOffer({ mode, name }) {
     modeEl("offer-title").textContent = t(offered === MODE_RUTHLESS ? "{name} chose Ruthless" : "{name} chose Normal", { name: name || t("Your opponent") });
     if (offered === MODE_RUTHLESS) modeEl("offer-title").append(" ", devilIcon());
     modeEl("offer-text").textContent = offered === MODE_RUTHLESS
-        ? t("In a Ruthless game the points the game is decided by also count: you can win more, and lose more. Play it?")
+        ? t("In a Ruthless game you win or lose the points you are ahead or behind by. Play it?")
         : t("A Normal game: +4 for a win, +2 for a loss, whatever the score. Play it?");
     showOnlineView("mode-offer");
     buzz(40);
@@ -4553,7 +4574,7 @@ async function joinFriendByCode(code, { fromLink = false, confirmed = false } = 
     if (res.ok) return; // game_start follows right away
     if (res.error === "confirm_ruthless") { // a Ruthless room: its owner's choice, said to the one who comes in
         pendingRuthlessJoin = { code, fromLink };
-        byId("ruthless-join-text").textContent = t("{name} opened this room as Ruthless: the points the game is decided by also count, so you can win more and lose more. Join it?", { name: res.host || t("Your friend") });
+        byId("ruthless-join-text").textContent = t("{name} opened this room as Ruthless: you win or lose the points you are ahead or behind by. Join it?", { name: res.host || t("Your friend") });
         showOnlineView("ruthless-join");
         return;
     }
@@ -4764,6 +4785,7 @@ byId("st-level-help").addEventListener("click", () => showOnlineView("level-help
 // ...and the same one from the level road, under its title.
 byId("road-how").addEventListener("click", () => showOnlineView("level-help"));
 // (In the rules, every value is in bold with its pt in the page's own markup, translated with the text.)
+document.querySelectorAll(".level-help-open").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); showOnlineView("level-help"); })); // from the help page: the points are told there
 byId("level-help-back").addEventListener("click", hideOnlineOverlay); // back to the stats page under it
 byId("account-delete-confirm").addEventListener("click", (e) => loginStep(e.currentTarget, byId("account-delete-error"), async () => {
     await deleteAccount();
@@ -5130,7 +5152,7 @@ const pointsStack = { nextAt: 0, queued: 0, timer: 0 };
 // the winner card, the points screen, the level screen.
 const pointsFlow = { on: false, shown: false, promise: null, ready: null, resolveReady: null, base: null, after: null, badges: [], levels: [], zeroLabel: "" };
 function beginPointsFlow() {
-    Object.assign(pointsFlow, { on: true, shown: false, promise: null, base: null, after: null, badges: [], levels: [], zeroLabel: "" });
+    Object.assign(pointsFlow, { on: true, shown: false, promise: null, base: null, after: null, badges: [], levels: [], zeroLabel: "", opponent: null });
     pointsFlow.ready = new Promise((resolve) => { pointsFlow.resolveReady = resolve; });
 }
 const flowHolding = () => pointsFlow.on && !pointsFlow.shown;
@@ -5172,9 +5194,15 @@ async function showPointsFlow() {
         for (const [before, after] of f.levels.splice(0)) celebrateLevel(before, after);
         await sleep(350);
         await levelScreensDone();
+        await menuClosed(); // LEVEL ROAD on a level screen opened the menu: what comes next (the home, the rematch) waits for it to close
         f.on = false;
     })();
     return f.promise;
+}
+
+// Waits for the menu (LEVEL ROAD opened it from a level screen) to be closed, so the home does not cover it.
+async function menuClosed() {
+    for (let i = 0; i < 2400 && !optionsOverlay.classList.contains("hidden"); i++) await sleep(250);
 }
 
 // Waits for the level screens (up or down) to be gone.
@@ -5193,6 +5221,17 @@ function openPointsScreen(f) {
         box.replaceChildren();
         screen.classList.remove("bar-in");
         byId("ps-title").textContent = t(((net) => (net === 0 ? "No points this time" : net < 0 ? "Points lost" : "Points earned"))(f.badges.reduce((sum, [points]) => sum + points, 0)));
+        // What the opponent gained or lost (a Ruthless game), under the bar.
+        const opp = byId("ps-opponent");
+        opp.classList.remove("in", "is-loss");
+        opp.hidden = !f.opponent;
+        if (f.opponent) {
+            const { name, points } = f.opponent, who = name || t("Your opponent");
+            const amount = Object.assign(document.createElement("b"), { textContent: `${points < 0 ? "\u2212" : "+"}${t("{n} pts", { n: Math.abs(points) })}` });
+            opp.classList.toggle("is-loss", points < 0);
+            if (points === 0) opp.textContent = t("{name} got no points", { name: who });
+            else opp.replaceChildren(t(points < 0 ? "{name} lost" : "{name} gained", { name: who }) + " ", amount);
+        }
         const hasBar = f.base !== null && f.after !== null;
         byId("ps-bar-block").hidden = !hasBar;
         if (hasBar) setPointsBar(f.base, f.base);
@@ -5202,6 +5241,7 @@ function openPointsScreen(f) {
         // The badges one after the other, then the bar.
         f.badges.forEach(([points, label], i) => at(500 + i * 850, () => addPointsBadge(points, label, { container: box })));
         at(500 + f.badges.length * 850 + 250, () => {
+            opp.classList.add("in");
             if (!hasBar) return;
             screen.classList.add("bar-in");
             setPointsBar(f.base, f.after);
@@ -5313,7 +5353,7 @@ async function showGameXp() {
     await refreshPro({ fresh: true, celebrate: gameXpBase === null });
     const after = lastKnownXp();
     if (after === null || gameXpBase === null) return;
-    // A Ruthless game's badges always say why, even when the reasons cancel out (+2 played, -2 margin: the level stays put).
+    // A Ruthless game's badge is told even when it is a 0 (a draw: the level stays put).
     if (gameXpParts && !gameXpPartsShown) {
         gameXpPartsShown = true;
         for (const [points, label] of gameXpParts) queuePointsGain(points, label);
@@ -5341,13 +5381,11 @@ function setGameMode(mode) {
     document.querySelector(".vs")?.classList.toggle("ruthless", ruthless);
 }
 
-// What an online game was worth with the margin counted (shared/level.js, onlinePayout), for the points screen: the
-// total, and its badges: the flat part (+4 a win, +2 otherwise) and, when the game was won or lost by some points,
-// the margin (+ for a win, - for a loss, a grey 0 for a draw) in a badge of its own, always.
+// What an online game was worth in a Ruthless game (shared/level.js, onlinePayout), for the points screen: the total, in
+// one badge that says what it is: the margin the game was won or lost by (a grey 0 for a draw).
 function onlineGameParts(won, me, other) {
     const total = onlinePayout({ won, points: gameState.players[me].points, opponentPoints: gameState.players[other].points, ruthless: true });
-    const flat = won ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
-    return { total, parts: [[flat, gameBadgeLabel(won)], [total - flat, t("Point margin")]] };
+    return { total, parts: [[total, total === 0 ? t("Draw") : t("Point margin")]] };
 }
 
 function resetXpGain() {
@@ -6269,7 +6307,7 @@ const demoDrop = (id) => { for (const k of ["friends", "incoming", "outgoing"]) 
 let friendsData = null; // the last answer of friends_list
 let friendsRefresh = 0; // timer that asks again while the sheet is open
 
-const friendLink = (code) => `${location.origin}/f/${code}`;
+const friendLink = (code) => `${shareOrigin()}/f/${code}`;
 const stateText = (state) => ({ online: t("Online"), busy: t("Busy"), playing: t("In a game"), offline: t("Offline") }[state] || "");
 const STATE_ORDER = { online: 0, busy: 1, playing: 2, offline: 3 };
 
@@ -6496,7 +6534,7 @@ byId("fr-confirm-yes").addEventListener("click", async () => {
     if (friendsDemo) { showToast(t("{name} is now your friend.", { name: "Sofia" })); return openFriends(); }
     const res = await onlineClient.friendAddCode(use.code);
     if (res.ok) showToast(res.result === "already" ? t("You are already friends.") : t("You are friends now."));
-    else showToast(res.result === "full" ? t("Your list of friends is full.") : t("Can't add friends right now."));
+    else showToast(res.result === "full" ? t("Your list of friends is full.") : friendErrorText(res));
     friendsData = null;
     openFriends();
 });
@@ -6515,11 +6553,24 @@ async function autoFriendFromLink() {
     useFriendCode(code, { fromLink: true });
 }
 
+// The Android app opened by an invite or friend link (https://site/j/ABCD, https://site/f/ABCDEF; see AndroidManifest.xml):
+// the same as the link opened in a browser, but here, where the player is signed in.
+(() => {
+    const app = window.Capacitor?.Plugins?.App;
+    if (!window.Capacitor?.isNativePlatform?.() || !app) return;
+    const open = (url) => {
+        const m = /^https:\/\/[^/]+\/([jf])\/([A-Za-z0-9]+)/.exec(url || "");
+        if (m) location.href = `/?${m[1] === "j" ? "join" : "friend"}=${m[2].toUpperCase()}`;
+    };
+    app.addListener("appUrlOpen", (e) => open(e.url));
+    app.getLaunchUrl?.().then((e) => open(e?.url)).catch(() => {});
+})();
+
 // "Add friend" on an opponent's card (or the winner card): a request they can accept or not.
 async function askOpponentToBeFriend(name) {
     if (friendsDemo) { showToast(t("Request sent to {name}.", { name })); return; }
     const res = await onlineClient.friendRequestOpponent();
-    if (!res.ok) { showToast(res.error === "slow_down" ? t("Too many tries. Wait a minute and try again.") : t("Can't add friends right now.")); return; }
+    if (!res.ok) { showToast(friendErrorText(res)); return; }
     showToast({
         sent: t("Request sent to {name}.", { name }),
         accepted: t("You are friends now."),

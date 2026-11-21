@@ -12,6 +12,30 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.4] - 2026-11-21
+
+### Fixed
+- "Can't add friends right now" when the app's connection to the game server had dropped while it sat idle (the friend actions answered "offline" at once). Friend requests, codes and answers now wait for the connection (up to 25 seconds, a sleeping server wakes), and when something still fails the message says why (no connection, too many tries, not signed in).
+- The web app's manifest asks to be the one that opens the site's links (`handle_links`, `launch_handler`), so an installed web app takes an invite or friend link instead of a browser tab. Only a hint: whether the phone does it is Android's choice.
+- Friend and invite links made inside the Android app started with https://localhost, which opens nowhere; they now start with the public site.
+
+### Added
+- **Android: invite and friend links open the app** (`https://linotte-web.vercel.app/j/ABCD` and `/f/ABCDEF`), where the player is signed in, instead of a web page where they are not. Needs the site's `/.well-known/assetlinks.json` (new, with this build's signing certificate) and a new APK; the release signing key's fingerprint has to be added to that file when the app is signed for the store.
+
+### Changed
+- **Ruthless pays the margin alone**: a win pays the points you are ahead by (at least 1), a loss costs the points you are behind by, a draw pays 0. The flat +4 / +2 are gone from Ruthless games (Normal is as ever); leaving still costs 6 plus the margin. The points screen has one badge ("Point margin", a grey 0 for a draw), and the rules texts (the two differences lists, level help, help page, offers) say so in the five languages.
+- The margin is explained where the Ruthless rule is told: "Margin: the points you are ahead or behind by. 9 to 6 is a margin of 3." under the two ways in "Ready to play?", "Play a friend", the invite and the friend sheet, and with the same example in "How levels work".
+- **Before publishing: run `supabase/online_margin.sql` again** (it replaces both functions; safe to run twice). Until then the server counts the old flat +4 / +2 for Ruthless games.
+
+### Added
+- In a Ruthless game against another account, the points screen says what the opponent gained or lost ("Anna lost -3 pt", "Anna gained +6 pt"), under the badges. Not when they left, nor against a guest.
+
+### Fixed
+- LEVEL ROAD on the level-up (or level-down) screen opened the level road for a moment and then the home covered it. What follows the points screens (the home on EXIT, the rematch on REMATCH) now waits until the menu is closed.
+
+### Changed
+- The help page's "Online games" section is down to the minimum (who chooses the way, play a game to the end, nothing lost against the bot) with a link that opens "How levels work" for every point value, so the scores are told in one place only.
+
 ## [2.35.3] - 2026-11-20
 
 ### Changed

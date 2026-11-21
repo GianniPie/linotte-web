@@ -196,7 +196,8 @@
                     <summary data-i18n>What's the difference?</summary>
                     <div class="bot-help-body">
                         <p><b data-i18n>NORMAL</b> <span data-i18n>Win +4 pt, loss +2 pt, whatever the score. Leaving −3 pt.</span></p>
-                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +4 pt plus the margin. Loss +2 pt minus the margin. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +margin, loss −margin, draw 0. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                        <p class="margin-note" data-i18n>Margin: the points you are ahead or behind by. 9 to 6 is a margin of 3.</p>
                     </div>
                 </details>
                 <div class="sheet-text mode-warn"></div>
@@ -385,7 +386,8 @@
                     <summary data-i18n>What's the difference?</summary>
                     <div class="bot-help-body">
                         <p><b data-i18n>NORMAL</b> <span data-i18n>Win +4 pt, loss +2 pt, whatever the score. Leaving −3 pt.</span></p>
-                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +4 pt plus the margin. Loss +2 pt minus the margin. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +margin, loss −margin, draw 0. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                        <p class="margin-note" data-i18n>Margin: the points you are ahead or behind by. 9 to 6 is a margin of 3.</p>
                     </div>
                 </details>
                 <div class="sheet-text mode-warn"></div>
@@ -424,7 +426,8 @@
                     <summary data-i18n>What's the difference?</summary>
                     <div class="bot-help-body">
                         <p><b data-i18n>NORMAL</b> <span data-i18n>Win +4 pt, loss +2 pt, whatever the score. Leaving −3 pt.</span></p>
-                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +4 pt plus the margin. Loss +2 pt minus the margin. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +margin, loss −margin, draw 0. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                        <p class="margin-note" data-i18n>Margin: the points you are ahead or behind by. 9 to 6 is a margin of 3.</p>
                     </div>
                 </details>
                 <div class="sheet-text mode-warn"></div>
@@ -438,7 +441,8 @@
                     <summary data-i18n>What's the difference?</summary>
                     <div class="bot-help-body">
                         <p><b data-i18n>NORMAL</b> <span data-i18n>Win +4 pt, loss +2 pt, whatever the score. Leaving −3 pt.</span></p>
-                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +4 pt plus the margin. Loss +2 pt minus the margin. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                        <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>Win +margin, loss −margin, draw 0. Leaving −6 pt, plus the margin if you're behind.</span></p>
+                        <p class="margin-note" data-i18n>Margin: the points you are ahead or behind by. 9 to 6 is a margin of 3.</p>
                     </div>
                 </details>
                 <div class="sheet-text mode-warn"></div>
@@ -452,7 +456,7 @@
                 <ul class="sheet-list level-rules">
                     <li data-i18n-html>Online win: <b>+4 pt</b></li>
                     <li data-i18n-html>Online loss or draw, played to the end: <b>+2 pt</b></li>
-                    <li><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n-html>Ruthless: win <b>+4 pt</b> plus the margin, loss <b>+2 pt</b> minus the margin. The margin is the points you win or lose by.</span></li>
+                    <li><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n-html>Ruthless: win <b>+margin</b>, loss <b>−margin</b>, draw <b>0 pt</b>. The margin is the points you win or lose by: 9 to 6 is a margin of 3.</span></li>
                     <li data-i18n-html>Leaving, or 3 missed turns: <b>−3 pt</b></li>
                     <li><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n-html>Ruthless: <b>−6 pt</b>, plus the margin if you're behind</span></li>
                     <li data-i18n-html>Win against the bot: <b>+1 pt</b></li>
@@ -1248,9 +1252,9 @@
                     <section class="rules-section" aria-labelledby="rules-online">
                         <h2 class="title rules-h" id="rules-online" data-i18n>Online games</h2>
                         <div class="rules-block">
-                            <p><b data-i18n>NORMAL</b> <span data-i18n>The game as it has always been: +4 points for a win, +2 for a game played to the end, whatever the score. Leaving costs 3 points.</span></p>
-                            <p><b><img class="devil-icon" src="resources/images/devil-2.svg" alt=""> <span data-i18n>RUTHLESS</span></b> <span data-i18n>The points the game is decided by count too. A win pays +4 and the points you win by. A loss pays +2 minus the points you lose by, so it can cost points. A draw pays +2. Leaving costs 6 points and one more for each point your opponent is ahead by.</span></p>
-                            <p class="rules-note" data-i18n>Whoever opens the game chooses how to play it. If the opponent found chose the other way, you are asked whether to play it. Against the bot nothing is ever lost.</p>
+                            <p data-i18n>Whoever opens the game chooses Normal or Ruthless. In Ruthless only the points you win or lose by count. If the opponent found chose the other way, you are asked whether to play it.</p>
+                            <p data-i18n>Once a game has started, play it to the end: leaving costs points. Against the bot nothing is ever lost.</p>
+                            <p><a href="#level-help" class="level-help-open" data-i18n>How levels work</a></p>
                         </div>
                     </section>
 
@@ -1356,6 +1360,7 @@
                 </div>
                 <div class="ps-bar"><div id="ps-fill"></div></div>
             </div>
+            <div class="ps-opponent" id="ps-opponent" hidden></div>
             <div class="lu-buttons ps-buttons">
                 <button class="lu-btn lu-ok" id="ps-continue" type="button" data-i18n>CONTINUE</button>
             </div>
