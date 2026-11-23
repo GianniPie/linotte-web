@@ -319,6 +319,7 @@ let gameXpPays = 0; // the most the game itself can have paid (the rest is a bon
 let gameXpBonus = 0; // of it, what came on top of a win's 1 point (the speed bonus, or the rest of the margin)
 var gameMode = MODE_NORMAL; // (var: startBot runs at load, before this line, and calls setGameMode) how the online game on the screen is played (Normal / Ruthless, from the server), shown by the devil in place of the VS
 let gameXpPartsShown = false; // its badges are already queued (they must not be twice)
+let gameXpBadgesQueued = false; // the same for the badges of any other game: queued from the rules, before the server's answer
 let gameXpParts = null; // a Ruthless game: its badge(s), [points, label] each (the margin)
 let gameBotStrategy = "speed"; // the mode of the game just played against the bot (its badges differ)
 function refreshIfStale() {
@@ -2064,6 +2065,7 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
             gameXpPays = mode === "bot" ? BOT_WIN_POINTS + bonus : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
             gameXpParts = null;
             gameXpPartsShown = false;
+            gameXpBadgesQueued = false;
             if (mode !== "bot" && gameMode === MODE_RUTHLESS) {
                 const game = onlineGameParts(winner === me, me, other, iAbandoned);
                 gameXpPays = game.total;
@@ -2071,6 +2073,16 @@ function noteGameResult(winner, { earn = true, videoShown = false } = {}) {
             }
             gameXpBonus = bonus;
             gameBotStrategy = botStrategy;
+            // What the game paid is known from the rules: its badges are queued at once, they do not wait for the server (slow, it
+            // left the points screen with a 0 and the badges dropping in after it). The server's word is for the level bar.
+            if (gameXpParts) {
+                gameXpPartsShown = true;
+                for (const [points, label] of gameXpParts) queuePointsGain(points, label);
+            } else {
+                const expected = mode === "bot" ? BOT_WIN_POINTS + bonus : iAbandoned ? -ABANDON_PENALTY : winner === me ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
+                queueGameBadges(expected, bonus, gameXpLabel);
+                gameXpBadgesQueued = true;
+            }
             await showGameXp();
             if (heldBonus) { queuePointsGain(heldBonus.points, t("Daily bonus")); heldBonus = null; } // told while the video was up
             return;
@@ -4443,7 +4455,7 @@ async function prepareOnline() {
     }
     const slow = setTimeout(() => {
         if (onlineOverlay.dataset.view === "searching") {
-            searchingText.textContent = t("Getting the game ready. After a quiet spell this can take up to a minute.");
+            searchingText.textContent = t("Getting the game ready...");
         }
     }, 4000);
     const hello = await Promise.race([
@@ -5164,12 +5176,13 @@ const pointsStack = { nextAt: 0, queued: 0, timer: 0 };
 // the winner card, the points screen, the level screen.
 const pointsFlow = { on: false, shown: false, promise: null, ready: null, resolveReady: null, base: null, after: null, badges: [], levels: [], zeroLabel: "" };
 function beginPointsFlow() {
-    Object.assign(pointsFlow, { on: true, shown: false, promise: null, base: null, after: null, badges: [], levels: [], zeroLabel: "", opponent: null });
+    Object.assign(pointsFlow, { on: true, shown: false, promise: null, base: null, after: null, badges: [], levels: [], zeroLabel: "", opponent: null, placeholder: false });
     pointsFlow.ready = new Promise((resolve) => { pointsFlow.resolveReady = resolve; });
 }
 const flowHolding = () => pointsFlow.on && !pointsFlow.shown;
 function queuePointsGain(points, label) {
     if (flowHolding()) pointsFlow.badges.push([points, label]);
+    else if (psLive) addLatePointsBadge(points, label);
     else showPointsGain(points, label);
 }
 // The game's own points as a badge, and what came on top of the 1 point of a win against the
@@ -5187,6 +5200,7 @@ function queueGameBadges(earned, bonus, label) {
 function noteXpGain(before, after) {
     if (pointsFlow.base === null) pointsFlow.base = before;
     pointsFlow.after = after;
+    revealPointsBar(); // the screen was open already (a slow server): the bar comes in now
 }
 // Leaving the winner card some other way (a menu, the home): the same screens, over the new one.
 function startPointsFlowIfPending() { if (flowHolding()) showPointsFlow(); }
@@ -5200,6 +5214,7 @@ async function showPointsFlow() {
         f.shown = true;
         if (!f.badges.length) { // a game worth nothing still gets its screen: a grey 0 and the level it stays at
             f.badges.push([0, f.zeroLabel || t("Game played")]);
+            f.placeholder = true; // a badge that comes late replaces it (addLatePointsBadge)
             const known = currentUser() ? lastKnownXp() : guestXp();
             if (f.base === null && known !== null) f.base = f.after = known;
         }
@@ -5226,6 +5241,27 @@ async function levelScreensDone() {
     }
 }
 
+// While the points screen is open: what news that comes late (a badge, the level bar) has to join. Null otherwise.
+let psLive = null;
+const pointsTitle = (badges) => t(((net) => (net === 0 ? "No points this time" : net < 0 ? "Points lost" : "Points earned"))(badges.reduce((sum, [points]) => sum + points, 0)));
+// A badge that comes after the points screen opened (the server was slow): it joins the stack there, it does not drop from above
+// the screen. The grey placeholder 0 the screen opened with, if any, gives way to it.
+function addLatePointsBadge(points, label) {
+    const { f, box } = psLive;
+    if (f.placeholder) { f.placeholder = false; f.badges.length = 0; box.replaceChildren(); }
+    f.badges.push([points, label]);
+    byId("ps-title").textContent = pointsTitle(f.badges);
+    addPointsBadge(points, label, { container: box });
+}
+// The level bar, once the account's points are known: the total in the level box, as it would have been at once.
+function revealPointsBar() {
+    const f = pointsFlow;
+    if (!psLive || f.base === null || f.after === null) return;
+    byId("ps-bar-block").hidden = false;
+    byId("points-screen").classList.add("bar-in");
+    setPointsBar(f.base, f.after);
+}
+
 function openPointsScreen(f) {
     return new Promise((resolve) => {
         const dim = byId("points-dim"), screen = byId("points-screen"), box = byId("ps-badges");
@@ -5233,7 +5269,8 @@ function openPointsScreen(f) {
         const at = (ms, fn) => timers.push(setTimeout(fn, ms));
         box.replaceChildren();
         screen.classList.remove("bar-in");
-        byId("ps-title").textContent = t(((net) => (net === 0 ? "No points this time" : net < 0 ? "Points lost" : "Points earned"))(f.badges.reduce((sum, [points]) => sum + points, 0)));
+        byId("ps-title").textContent = pointsTitle(f.badges);
+        psLive = { f, box };
         // What the opponent gained or lost (a Ruthless game), under the bar.
         const opp = byId("ps-opponent");
         opp.classList.remove("in", "is-loss");
@@ -5263,6 +5300,7 @@ function openPointsScreen(f) {
         button.focus({ preventScroll: true });
         button.onclick = () => {
             timers.forEach(clearTimeout);
+            psLive = null;
             dim.hidden = true;
             screen.hidden = true;
             document.body.classList.remove("ps-open");
@@ -5379,7 +5417,7 @@ async function showGameXp() {
     noteXpGain(gameXpBase, after);
     // The game's own points get a badge too (the bonus has its own, see onBonus).
     const earned = Math.min(gameXpPays, after - gameXpBase);
-    if (first && !gameXpParts) queueGameBadges(earned, gameXpBonus, gameXpLabel);
+    if (first && !gameXpParts && !gameXpBadgesQueued) queueGameBadges(earned, gameXpBonus, gameXpLabel);
     celebrateLevel(shown, after); // held with the points screen
 }
 
@@ -6363,10 +6401,15 @@ async function openFriends() {
     if (!currentUser() && !friendsDemo) { renderFriends(null); showOnlineView("friends"); return; }
     if (friendsData) renderFriends(friendsData); // what was known, until the fresh answer comes
     else renderFriends({ ok: true, friends: [], incoming: [], outgoing: [], loading: true });
+    byId("fr-updating").hidden = false; // the list on screen may be old: say it is being asked again
     showOnlineView("friends");
-    if (!friendsDemo && !(await prepareOnline())) return;
+    const started = Date.now();
+    if (!friendsDemo && !(await prepareOnline())) { byId("fr-updating").hidden = true; return; }
     showOnlineView("friends");
     await updateFriends();
+    // (kept long enough to be seen when the answer is quick)
+    await sleep(Math.max(0, 700 - (Date.now() - started)));
+    byId("fr-updating").hidden = true;
     // The games starting and ending are not announced: ask again every so often while it is open.
     friendsRefresh = setInterval(() => { if (onlineOverlay.dataset.view === "friends") updateFriends(); else stopFriendsRefresh(); }, 20000);
 }

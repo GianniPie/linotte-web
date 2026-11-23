@@ -378,6 +378,25 @@
   animation: sheetSpin 0.9s linear infinite;
 }
 
+/* "Updating..." under the title of the friends sheet while the list is being asked again */
+.fr-updating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5em;
+  font-size: .85em;
+  opacity: .7;
+}
+
+.spinner-sm {
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 50%;
+  border: .18em solid rgba(0, 0, 0, .12);
+  border-top-color: rgba(0, 0, 0, .5);
+  animation: sheetSpin 0.9s linear infinite;
+}
+
 @keyframes sheetSpin {
   to { transform: rotate(360deg); }
 }

@@ -12,6 +12,17 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.7] - 2026-11-23
+
+### Changed
+- **The points bot weighs closing a five instead of always holding it back.** It still builds on while there is a long way to go, but it closes early (and stops rolling) when it wins and (a) it has 3 pieces or fewer left and is clearly ahead (a lead of 3 or more), or (b) the opponent has 4 pieces or fewer left, enough to overturn the lead (the lead is no more than about a point per piece of theirs, plus one). A draw is never closed on early, and a lead the opponent's few pieces cannot reach is kept building. The thresholds are in `POINTS_CLOSING` (`public/shared/botAI.js`).
+- **Friends: a feedback when the list is being refreshed.** Opening the sheet again showed the old list with nothing to say it was being asked again. A small spinner with "Updating..." now sits under the title while the answer comes (at least 0.7 seconds, so a quick answer is still seen).
+- **The wait text when the game server is waking up is just "Getting the game ready..."** (the explanation about a minute is gone).
+
+### Fixed
+- **The speed bot kept rolling with a winning placement in hand.** With a brelan on the first roll that closed a five of its own (and won the game), the bot still rolled all three times for carré, full or yam, because the "roll for an upgrade" rule only protected placements that were at risk, not winning ones. Now, whenever the best placement in hand wins the game, it stops at once, before any chase for a block, the sec tile or an upgrade (and no taught stop model can overrule it).
+- **A win against the bot in speed mode (and any game of a signed-in account) could open the points screen with a 0 and then drop the badges (+1, +9...) from above it.** The badges waited for the server's answer, which can be slow, and the screen opened after 3.5 seconds without them. The badges of a game are now queued at once from the rules (a win against the bot: +1 and the speed bonus; online: +4 / +2 / -3, or the Ruthless margin), and the server's answer is only for the level bar. A badge or the bar that still comes late joins the open screen (the stack and the total in the level box), replacing the grey placeholder 0, and the title follows.
+
 ## [2.35.6] - 2026-11-23
 
 ### Changed

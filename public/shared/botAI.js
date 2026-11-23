@@ -1438,9 +1438,21 @@ function worthRollingFor(comboKey, state, player, { fromCarre = false } = {}) {
   return false;
 }
 
+function holdsWinningPlacement(state, player, strategy) {
+  if (!state.possibleMoves.some((row) => row.some((v) => v === 1))) return false;
+  const opponent = player === 1 ? 2 : 1;
+  const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+  const best = bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy);
+  return Boolean(best && best.wouldWinGame);
+}
+
 function botShouldStop(state, player, strategy, focus = null) {
   const hasAnyLegalMove = state.possibleMoves.some((row) => row.some((v) => v === 1));
   if (!hasAnyLegalMove) return false; // keep rolling, nothing to place yet
+
+  // What is in hand already wins the game (a five, with the lead): nothing a roll can add is worth the risk, whatever
+  // the chase for blocks, sec, an upgrade or a point would say.
+  if (holdsWinningPlacement(state, player, strategy)) return true;
 
   // Blocking comes first: with a cell the opponent must not get still to be reached (see blockPlan) the bot keeps rolling for it,
   // unless what it holds already wins the game.
@@ -1582,6 +1594,7 @@ export function stopFeatures(state, player, strategy, botStops) {
 
 export function shouldStopRolling(state, player, strategy, focus = null) {
   const botStops = botShouldStop(state, player, strategy, focus);
+  if (botStops && holdsWinningPlacement(state, player, strategy)) return true; // (no taught model argues with a win)
   const model = strategy === "speed" ? speedModels.stop : null;
   if (!model) return botStops;
   // nothing to place yet: stopping isn't possible, whatever was taught
@@ -1636,19 +1649,34 @@ export function labStop(state, player, strategy) {
   };
 }
 
-// "points" plays for as many points as it can with ALL its pieces, so it never closes a
-// five early: the five stays on the board (whoever is ahead can close it later, whoever
-// is behind loses by closing) and the bot builds points elsewhere, until its last piece
+// "points" plays for as many points as it can with ALL its pieces, so it does not close a
+// five early by default: the five stays on the board (whoever is ahead can close it later,
+// whoever is behind loses by closing) and the bot builds points elsewhere, until its last piece
 // (or five turns in a row without a piece down, see `passStreak`, so a game can't stall).
+// It weighs the closing, though (POINTS_CLOSING): it closes early when
+//  - it has few pieces left and is clearly ahead (little more to gain, nothing to gain by waiting), or
+//  - the opponent has few pieces left but enough to overturn the lead (waiting only gives them the chance).
+// With a long way to go, or a lead the opponent's pieces cannot reach, it keeps building.
 // "speed" is the opposite: it closes at once (see compareSpeed).
-export const POINTS_CLOSING = { piecesLeft: 0, lead: Infinity };
+export const POINTS_CLOSING = {
+  piecesLeft: 0, // with no piece left after this one it always closes
+  fewPieces: 3, // "few pieces left" for the bot (after the closing piece)...
+  clearLead: 3, // ...and the lead (after closing) that counts as clear
+  oppPieces: 4, // "few pieces left" for the opponent...
+  perPiece: 1, // ...each worth about this many points to them...
+  slack: 1, // ...and a lead of up to their reach plus this could still be overturned
+};
 // Turns in a row without a piece down after which the points bot takes a closing five anyway.
 export const POINTS_PASS_LIMIT = 5;
 
-function holdsOffClosing(candidate) {
+function holdsOffClosing(candidate, opponentPiecesLeft) {
   if (!candidate.wouldWinGame) return false;
   if (candidate.piecesLeftAfter <= POINTS_CLOSING.piecesLeft) return false;
-  if (candidate.leadAfter >= POINTS_CLOSING.lead) return false;
+  const lead = candidate.leadAfter;
+  if (lead < 1) return true; // a draw is not worth closing on: build on
+  if (candidate.piecesLeftAfter <= POINTS_CLOSING.fewPieces && lead >= POINTS_CLOSING.clearLead) return false;
+  if (opponentPiecesLeft >= 1 && opponentPiecesLeft <= POINTS_CLOSING.oppPieces
+    && lead <= opponentPiecesLeft * POINTS_CLOSING.perPiece + POINTS_CLOSING.slack) return false;
   return true;
 }
 
@@ -1665,7 +1693,7 @@ function allCandidates(state, player, opponent, piecesLeftAfter, strategy = null
   // keeps the piece and plays on), but not for ever: after POINTS_PASS_LIMIT turns running without a piece down
   // (`passStreak`) it closes, which keeps a game from stalling.
   // `passStreak`, how many turns in a row it placed nothing, keeps a game from stalling.
-  if (strategy === "points" && passStreak < POINTS_PASS_LIMIT) return candidates.filter((c) => !holdsOffClosing(c));
+  if (strategy === "points" && passStreak < POINTS_PASS_LIMIT) return candidates.filter((c) => !holdsOffClosing(c, state.players[opponent].remainingPieces));
   return candidates;
 }
 

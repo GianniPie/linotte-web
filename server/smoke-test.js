@@ -1219,6 +1219,34 @@ const lobby = new Lobby(io, store);
   assert.ok(chooseDiceToLock(junk.dice.values, junk, 1, "points").every((l) => !l), "...all five dice");
   assert.equal(shouldStopRolling(secDice(sidesOfSec, [4, 4, 4, 1, 2], 2), 1, "points"), false, "a brelan that scores nothing at once does not stop it");
   assert.equal(shouldStopRolling(secDice([...sidesOfSec, ["ap2", 1], ["ca2", 2], ["fu2", 2]], [4, 4, 4, 1, 2], 2), 1, "points"), true, "a brelan whose tile scores at once does (nothing above it left to roll for)");
+  // What it holds already wins the game: a brelan whose tile closes a five of its own. Carré, full and yam are all still free
+  // (and worth a roll in any other game), but the speed bot stops on the first roll. (The points bot holds a closing five back
+  // on purpose, to play all its pieces: see holdsOffClosing.)
+  {
+    const [wr, wc] = [Number(tile.b41[0]), Number(tile.b41[1])];
+    const size = createInitialGameState().table.length;
+    let line = null;
+    for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) for (let k = 0; k < 5 && !line; k++) {
+      const cells = [...Array(5)].map((_, i) => [wr + dr * (i - k), wc + dc * (i - k)]);
+      if (cells.every(([r, c]) => r >= 0 && c >= 0 && r < size && c < size && !(r === wr && c === wc && false))) line = cells;
+    }
+    assert.ok(line, "a line of five through the brelan tile");
+    const st = createInitialGameState();
+    st.currentPlayer = 1;
+    for (const [r, c] of line) if (!(r === wr && c === wc)) st.table[r][c] = 1;
+    updateGame(st, { type: "ROLL_DICE", values: [4, 4, 4, 1, 2] });
+    st.dice.rollsLeft = 2;
+    updateGame(st, { type: "STOP_ROLL" });
+    assert.equal(shouldStopRolling(st, 1, "speed"), true, "speed: a brelan that wins the game is placed, not rolled over");
+    // The points bot weighs the closing: with a long way to go it builds on (and rolls), it closes when it is clearly ahead with few
+    // pieces left, or when the opponent's few pieces could still overturn a small lead, and holds when they could not.
+    const withPieces = (mine, theirs) => { const c = structuredClone(st); c.players[1].remainingPieces = mine; c.players[2].remainingPieces = theirs; return c; };
+    assert.equal(shouldStopRolling(withPieces(7, 12), 1, "points"), false, "points: a long way to go: it builds on");
+    assert.equal(shouldStopRolling(withPieces(7, 3), 1, "points"), true, "points: the opponent's three pieces could overturn a lead of three: it closes");
+    assert.equal(shouldStopRolling(withPieces(7, 1), 1, "points"), false, "points: one piece of theirs cannot catch three points: it builds on");
+    assert.equal(shouldStopRolling(withPieces(3, 10), 1, "points"), true, "points: three pieces left and a clear lead: it closes");
+    assert.equal(shouldStopRolling(withPieces(1, 10), 1, "points"), true, "points: its last pieces: it closes");
+  }
   console.log("ok: the bot rolls for what is there");
 }
 
