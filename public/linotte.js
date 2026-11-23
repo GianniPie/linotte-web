@@ -2823,16 +2823,14 @@ function setRollsLeftUI(n) {
 }
 
 // After the dice locks change: ROLL greys out with all five locked, and a
-// call the locks made impossible (a Carré with 4 dice kept, any call with
-// all 5) is dropped by the engine -- shown here, and said once.
+// call the locks made impossible (any call with all 5 dice kept) is dropped
+// by the engine -- shown here, and said once.
 function afterLocksChanged({ mine = true } = {}) {
     rollBtn.classList.toggle("is-inactive", gameState.dice.rollsLeft < 1 || gameState.dice.locked.every(Boolean));
     const before = ccElements.findIndex((cc) => cc.classList.contains("checked"));
     showCalls();
     if (mine && before >= 3 && !gameState.called[before]) {
-        showToast(before === 4 && !gameState.dice.locked.every(Boolean)
-            ? t("Carré call cancelled: you can't call it with 4 dice locked.")
-            : t("Call cancelled: with all the dice locked there's nothing to roll."), 3500);
+        showToast(t("Call cancelled: with all the dice locked there's nothing to roll."), 3500);
     }
 }
 
@@ -3501,8 +3499,8 @@ document.querySelectorAll(".result").forEach(el => {
 
         // The rules of a call live in the engine (callBlockedBy): after the
         // first roll, changeable before each roll (never mid-roll: see
-        // rollBtnEnabled above), never with all 5 dice locked, a Carré never
-        // with 4 locked nor when a Carré is already made.
+        // rollBtnEnabled above), never with all 5 dice locked, a Carré not
+        // when a Carré is already on the dice.
         if (gameState.called[targetId]) {
             gameState.called[targetId] = 0;
         } else {
@@ -3510,7 +3508,7 @@ document.querySelectorAll(".result").forEach(el => {
             if (why) {
                 const say = {
                     all_locked: t("Unlock at least one die to call."),
-                    carre_four_locked: t("You can't call Carré with 4 dice locked."),
+                    carre_made: t("There is already a Carré on the dice."),
                 }[why];
                 if (say) showToast(say);
                 return;

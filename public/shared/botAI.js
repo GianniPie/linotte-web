@@ -372,9 +372,9 @@ function isTooFarFromAssembly(table, r, c, player, opponent) {
 function isDeadPlacement(state, candidate, player, opponent, strategy = null) {
   if (candidate.wouldWinGame) return false; // an outright win is never dead weight
   if (candidate.pointsGained > 0) return false;
-  // The points bot plays to score, not to get in the way: only a block that stops the
-  // opponent winning on the spot keeps a cell with nothing for the bot alive.
-  if (strategy === "points" ? candidate.criticalBlock : candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
+  // The points bot plays to score, not to get in the way: only a block that matters keeps a cell with nothing for the
+  // bot alive: one that stops the opponent winning on the spot, completes a four of theirs, or takes 2 points or more.
+  if (strategy === "points" ? candidate.criticalBlock || candidate.urgentBlock || candidate.deniedPoints >= 2 : candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
   return !hasFutureLinePotential(state.table, candidate.r, candidate.c, player, opponent);
 }
 
@@ -393,8 +393,8 @@ function isLowPriorityPlacement(state, candidate, player, opponent, strategy = n
 
   // A cell we can never build our own alignment on is still worth a piece
   // when it takes a point (or the game) away from the opponent (the points bot
-  // only for a block that stops the opponent winning on the spot).
-  if (strategy === "points" ? candidate.criticalBlock : candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
+  // only for a block that matters: see isDeadPlacement).
+  if (strategy === "points" ? candidate.criticalBlock || candidate.urgentBlock || candidate.deniedPoints >= 2 : candidate.criticalBlock || candidate.urgentBlock || candidate.deniesPoint) return false;
 
   // The flip side of wouldWinGame: completing our own five here would end
   // the game with FEWER points than the opponent already has — a
@@ -452,6 +452,22 @@ function wouldGiveOpponentTheWin(state, r, c, opponent, botPoints) {
   return totalPoints(trial, opponent) >= botPoints;
 }
 
+// How far the opponent's best line through (r,c) has got: the most pieces of theirs in a row, column or main diagonal through
+// the cell that has none of the player's own (so it can still become a line for them). 4 is a line that this cell completes
+// to five (see blocksOpponentFour); 3 is a line that starts to be worth blocking.
+function opponentLineThreat(table, r, c, player, opponent) {
+  const lines = [[0, 1, 2, 3, 4].map((cc) => [r, cc]), [0, 1, 2, 3, 4].map((rr) => [rr, c])];
+  if (r === c) lines.push([0, 1, 2, 3, 4].map((i) => [i, i]));
+  if (r + c === 4) lines.push([0, 1, 2, 3, 4].map((i) => [i, 4 - i]));
+  let best = 0;
+  for (const cells of lines) {
+    if (cells.some(([rr, cc]) => table[rr][cc] === player)) continue;
+    const count = cells.filter(([rr, cc]) => (rr !== r || cc !== c) && table[rr][cc] === opponent).length;
+    if (count > best) best = count;
+  }
+  return best;
+}
+
 function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
   const before = totalPoints(state.table, player);
 
@@ -497,8 +513,14 @@ function evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter) {
   // unrelated cell. lineConnection counts how many of this cell's (up to 4)
   // lines actually carry one of the bot's own pieces, gap or no gap.
   const lineConnection = countLinesWithOwn(state.table, r, c, player);
+  // The wish to block grows with the opponent's line: a three starts to be worth it (more when the cell also builds the
+  // bot's own lines), a four is a priority.
+  const threat = opponentLineThreat(state.table, r, c, player, opponent);
+  const propedeutic = lineConnection >= 1 || clusterScore >= 1;
 
   return {
+    threat,
+    propedeutic,
     r,
     c,
     pointsGained,
@@ -565,19 +587,26 @@ function bigScore(c) {
   return c.pointsGained + (c.deniedPoints >= 2 ? c.deniedPoints * DENIAL_DISCOUNT : 0);
 }
 
-// The points bot's own scale: what a move is worth to it, in points. It plays for
-// its own points; stopping the opponent is the exception, not the aim. A block only
-// counts when the opponent would win the game on the spot (a five worth at least the
-// bot's own points: as much as two points of its own), or when it takes away a lot
-// (2 or more points: 0.4 of each, so a single point of its own is always worth more).
-// A single point denied, a four that would lose them the game anyway and the "block
-// pressure" of a cell are not looked at at all. (From 1000-game simulations: the bot's
-// choice differs from the one it would make thinking only of its own points in about
-// 4% of its decisions, 7% before; it wins 38% against the speed bot, 45% before.)
-const CRITICAL_BLOCK_VALUE = 2;
-const BIG_DENIAL_VALUE = 0.4;
+// The points bot's own scale: what a move is worth to it, in points. It plays for its own points, and the wish to block
+// grows with the threat (see blockValue): a three, then a cell that would score the opponent 2 points or more, then a four
+// (a priority), then a five that would win them the game. A point of its own beats a block of a three or a crossing, a four beats it.
+const CRITICAL_BLOCK_VALUE = 3;
+// What blocking is worth, in points, as the threat grows: nothing for a two; for a three 0.4 (0.8 when the cell also builds the
+// bot's own lines); for a cell that would score the opponent 2 points or more by crossing two lines 0.9 (1.2 when it builds
+// the bot's own lines), and 0.3 more for each point beyond the second, never as much as a four; a four is a priority (2);
+// a five that would win them the game, above all (CRITICAL_BLOCK_VALUE). So a point of its own comes before blocking a
+// three or a crossing, unless the block builds its own lines, and a four comes before a point of its own.
+function blockValue(c) {
+  if (c.criticalBlock) return CRITICAL_BLOCK_VALUE;
+  if (c.threat >= 4) return 2;
+  if (c.deniedPoints >= 2) return Math.min(1.8, (c.propedeutic ? 1.2 : 0.9) + 0.3 * (c.deniedPoints - 2));
+  if (c.threat === 3) return c.propedeutic ? 0.8 : 0.4;
+  return 0;
+}
+// The same for the speed bot's ladder (see compareSpeed): only a three counts there (a four is a hard tier of its own).
+const speedThreat = (c) => (c.threat === 3 && !c.urgentBlock ? (c.propedeutic ? 2 : 1) : 0);
 function pointsValue(c) {
-  return c.pointsGained + (c.criticalBlock ? CRITICAL_BLOCK_VALUE : 0) + (c.deniedPoints >= 2 ? c.deniedPoints * BIG_DENIAL_VALUE : 0);
+  return c.pointsGained + blockValue(c);
 }
 
 function comparePoints(a, b) {
@@ -611,6 +640,7 @@ function compareSpeed(a, b) {
   const aScore = bigScore(a);
   const bScore = bigScore(b);
   if (bScore !== aScore) return bScore - aScore;
+  if (speedThreat(b) !== speedThreat(a)) return speedThreat(b) - speedThreat(a); // an opponent's three starts to be worth blocking
   if (b.lineConnection !== a.lineConnection) return b.lineConnection - a.lineConnection;
   if (b.clusterScore !== a.clusterScore) return b.clusterScore - a.clusterScore;
   if (b.blockScore !== a.blockScore) return b.blockScore - a.blockScore;
@@ -751,6 +781,7 @@ function candidateWeight(cand, strategy) {
       (cand.urgentBlock ? 400_000 : 0) +
       cand.longestLineAfter * 10_000 +
       bigScore(cand) * 1_000 +
+      speedThreat(cand) * 600 +
       cand.lineConnection * 4 +
       cand.clusterScore * 2 +
       cand.blockScore +
@@ -832,7 +863,7 @@ function targetCellsFor(comboKey, state) {
 // or not, so the call is better spent as a hedge on a *different*
 // plausible outcome from the same dice (e.g. locking for full but
 // calling carre, so a carre landing instead still has somewhere to go).
-function callOptions(state, player, strategy) {
+function callOptions(state, player, strategy, focus = null) {
   if (state.dice.rollsLeft === 3) return null; // only possible after the first throw
   if (state.dice.locked.every(Boolean)) return null; // not possible to fix 5 dice and call
 
@@ -848,7 +879,7 @@ function callOptions(state, player, strategy) {
   // to keep this roll, so a call can only ever be a hedge on an outcome
   // still compatible with that lock (e.g. holding a triple covers both
   // full and carre) — never on one the reroll is about to destroy.
-  const target = chooseTarget(state, player, strategy);
+  const target = chooseTarget(state, player, strategy, focus);
   const actualLock = target
     ? lockForTarget(state.dice.values, target.comboKey)
     : state.dice.values.map(() => false);
@@ -880,7 +911,7 @@ function callOptions(state, player, strategy) {
 
   const options = [];
   // The dice that will be locked for the next roll: with all five there is
-  // no roll to call for; with four, no Carré (see callBlockedBy).
+  // no roll to call for. (With four kept a Carré can be called: the fifth die is the gamble.)
   const lockedNext = actualLock.filter((l, i) => l || state.dice.locked[i]).length;
   if (lockedNext >= 5) return null;
 
@@ -889,7 +920,6 @@ function callOptions(state, player, strategy) {
     options.push(option);
     // Not possible to call carre if a carre is already realized this throw.
     if (comboKey === "carre" && state.combinationsRealized[4] === 1) { option.reason = "a carré is already realized this throw"; continue; }
-    if (comboKey === "carre" && lockedNext >= 4) { option.reason = "four dice kept: no carré to call"; continue; }
 
     // Calling the very combo already being chased is only ever useful when
     // its own two tiles are both taken — then the call is the ONLY way it
@@ -997,8 +1027,8 @@ export function pickCall(options, model = null) {
   return best.combo === "none" ? null : best.combo;
 }
 
-export function chooseCallToMake(state, player, strategy) {
-  const result = callOptions(state, player, strategy);
+export function chooseCallToMake(state, player, strategy, focus = null) {
+  const result = callOptions(state, player, strategy, focus);
   if (!result) return null;
   const combo = pickCall(result.options, strategy === "speed" ? speedModels.call : null);
   return combo ? CALL_INDEX[combo] : null;
@@ -1069,7 +1099,70 @@ export function pickTarget(options, model = null) {
   return best;
 }
 
-function chooseTarget(state, player, strategy) {
+// ---------- Blocking comes first ----------
+// A cell the opponent must not get: it would give them the win (criticalBlock: a five worth at least the bot's own
+// points, so above all when they are ahead) or complete any line of theirs that is four short of five (urgentBlock). If such a cell cannot be placed with the dice as they are but a combo that reaches it still can come
+// up with the rolls left, the bot goes for that combo and does not settle for another good combination, however good:
+// only a placement that wins the game outright (or blocks anyway) is worth more.
+function blockPlan(state, player, strategy) {
+  if (state.dice.rollsLeft <= 0) return null;
+  const opponent = player === 1 ? 2 : 1;
+  const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+  const mustBlock = [];
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      if (state.table[r][c] !== 0) continue;
+      const cand = evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter);
+      if (cand.criticalBlock || cand.urgentBlock) mustBlock.push(`${r}${c}`);
+    }
+  }
+  if (mustBlock.length === 0) return null;
+  if (mustBlock.some((rc) => state.possibleMoves[Number(rc[0])][Number(rc[1])] === 1)) return null; // it can be placed now: the placement ranking takes it
+  const needed = neededDiceEstimate(state.dice.values);
+  // The chance is worked out as if every die were free: the bot sets the locks anew for each roll, so what it kept before
+  // is no obstacle. A combo that the dice kept so far make impossible is still tried, by rolling the others (or all) again.
+  const fresh = { ...state, dice: { ...state.dice, locked: state.dice.locked.map(() => false) } };
+  let best = null;
+  for (const comboKey of Object.keys(COMBO_CELLS)) {
+    if (comboKey === "appel") continue;
+    if (!placementCellsFor(comboKey, state).some((rc) => rc && mustBlock.includes(rc))) continue;
+    // (the sec tile: a combo raw with no die kept, so every die is rolled again, as often as there are rolls left)
+    const probability = comboKey === "sec" ? secChance(state.dice.rollsLeft) : liveProbability(comboKey, fresh, needed);
+    if (probability > 0 && (!best || probability > best.probability)) {
+      best = { comboKey, attractiveness: 1e9, need: needed[comboKey] ?? 3, cellWeight: 1e9, probability, viaAppel: false };
+    }
+  }
+  return best;
+}
+
+// The chance that a roll of all five dice is a yam, carré, full, suite or petit as it falls (what the sec tile asks for):
+// about 10% (a yam 6/7776, a carré about 1.9%, a full 3.9%, a suite 3.1%, a petit 0.7%), tried again with each roll left.
+const SEC_CHANCE_PER_ROLL = 0.1;
+const secChance = (rollsLeft) => 1 - (1 - SEC_CHANCE_PER_ROLL) ** Math.max(0, rollsLeft);
+
+// The sec tile is what scores points at once (and nothing placeable now does): the bot rolls all five dice again and again
+// for it, as many times as it has rolls, and stops as soon as something that scores at once can be placed (a brelan, say).
+function secScorePlan(state, player, strategy) {
+  if (state.dice.rollsLeft <= 0) return null;
+  const opponent = player === 1 ? 2 : 1;
+  const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+  const scoring = COMBO_CELLS.sec.some((rc) => {
+    const r = Number(rc[0]);
+    const c = Number(rc[1]);
+    return state.table[r][c] === 0 && evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter).pointsGained > 0;
+  });
+  if (!scoring) return null;
+  if (COMBO_CELLS.sec.some((rc) => state.possibleMoves[Number(rc[0])][Number(rc[1])] === 1)) return null; // it is there now
+  const best = bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy);
+  if (best && best.pointsGained > 0) return null; // something else already scores at once
+  return { comboKey: "sec", attractiveness: 1e9, need: 0, cellWeight: 1e9, probability: secChance(state.dice.rollsLeft), viaAppel: false };
+}
+
+// `focus` ({ ignoreBlock, ignoreSec }): for the humanized bot, which loses its focus on the block or on the sec tile now and then;
+// the perfect bot never passes it.
+function chooseTarget(state, player, strategy, focus = null) {
+  const plan = (!focus?.ignoreBlock && blockPlan(state, player, strategy)) || (!focus?.ignoreSec && secScorePlan(state, player, strategy)) || null;
+  if (plan) return plan;
   const options = targetOptions(state, player, strategy);
   return pickTarget(options, strategy === "speed" ? speedModels.aim : null);
 }
@@ -1233,8 +1326,8 @@ function neededDiceEstimate(diceValues) {
 }
 
 // ---------- Which dice to lock before the next roll ----------
-export function chooseDiceToLock(diceValues, state, player, strategy) {
-  const target = chooseTarget(state, player, strategy);
+export function chooseDiceToLock(diceValues, state, player, strategy, focus = null) {
+  const target = chooseTarget(state, player, strategy, focus);
   if (!target) return diceValues.map(() => false);
   return lockForTarget(diceValues, target.comboKey);
 }
@@ -1324,11 +1417,41 @@ function nextLockWouldTouchDice(state, target) {
   return lockForTarget(state.dice.values, target.comboKey).some(Boolean);
 }
 
-function botShouldStop(state, player, strategy) {
+// Rolling on, with something already in hand, is only worth it for a combo whose tile is free AND that pays when it lands:
+// it would score points at once (the cells around make a line), or block a line of the opponent's four short of five, or
+// leave the promise of points later (a line through the tile that is not blocked by the opponent: hasFutureLinePotential,
+// which for the yam tile, nearly always free, asks for a piece of the bot's own on it). A free tile alone is no reason.
+// The yam's promise of later points counts only from a carré (`fromCarre`): from a brelan it must pay at once or block.
+function worthRollingFor(comboKey, state, player, { fromCarre = false } = {}) {
+  const opponent = player === 1 ? 2 : 1;
+  const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
+  for (const rc of targetCellsFor(comboKey, state)) {
+    if (!rc) continue;
+    const r = Number(rc[0]);
+    const c = Number(rc[1]);
+    if (state.table[r][c] !== 0) continue;
+    const cand = evaluateCandidate(state, r, c, player, opponent, piecesLeftAfter);
+    if (cand.pointsGained > 0 || cand.urgentBlock || cand.criticalBlock) return true;
+    if (comboKey === "yam" && !fromCarre) continue;
+    if (hasFutureLinePotential(state.table, r, c, player, opponent)) return true;
+  }
+  return false;
+}
+
+function botShouldStop(state, player, strategy, focus = null) {
   const hasAnyLegalMove = state.possibleMoves.some((row) => row.some((v) => v === 1));
   if (!hasAnyLegalMove) return false; // keep rolling, nothing to place yet
 
-  const target = chooseTarget(state, player, strategy);
+  // Blocking comes first: with a cell the opponent must not get still to be reached (see blockPlan) the bot keeps rolling for it,
+  // unless what it holds already wins the game.
+  if ((!focus?.ignoreBlock && blockPlan(state, player, strategy)) || (!focus?.ignoreSec && secScorePlan(state, player, strategy))) {
+    const opponentNow = player === 1 ? 2 : 1;
+    const piecesLeft = Math.max(0, state.players[player].remainingPieces - 1);
+    const best = bestPlaceableCandidate(state, player, opponentNow, piecesLeft, strategy);
+    if (!(best && best.wouldWinGame)) return false;
+  }
+
+  const target = chooseTarget(state, player, strategy, focus);
   if (!target) return true; // nothing left worth chasing, take what we have
 
   // Sec only counts landing raw with zero dice ever locked this turn.
@@ -1380,12 +1503,14 @@ function botShouldStop(state, player, strategy) {
     // matter how the dice land, so take the lower combo instead.
     const isSubsetCombo = target.comboKey.startsWith("brelan") || target.comboKey === "carre";
     const hasFreeDice = lockForTarget(state.dice.values, target.comboKey).some((locked) => !locked);
+    // The combos to roll on for: carré and full from a brelan, yam from a carré, each only if worth it (worthRollingFor).
     const upperCombos = target.comboKey.startsWith("brelan")
-      ? ["carre", "yam"]
+      ? ["carre", "full", "yam"]
       : target.comboKey === "carre"
       ? ["yam"]
       : [];
-    const upperAvailable = upperCombos.some((comboKey) => comboHasAvailableCell(comboKey, state));
+    const upperAvailable = upperCombos.some((comboKey) => comboHasAvailableCell(comboKey, state)
+      && worthRollingFor(comboKey, state, player, { fromCarre: target.comboKey === "carre" }));
     if (isSubsetCombo && hasFreeDice && upperAvailable && state.dice.rollsLeft > 0) {
       // The target combo's own realization is guaranteed safe — but this
       // throw's dice can raw-realize OTHER combos too (petit, full, a
@@ -1399,10 +1524,19 @@ function botShouldStop(state, player, strategy) {
       const opponent = player === 1 ? 2 : 1;
       const piecesLeftAfter = Math.max(0, state.players[player].remainingPieces - 1);
       const current = bestPlaceableCandidate(state, player, opponent, piecesLeftAfter, strategy);
-      const tooGoodToRisk =
-        current && (current.criticalBlock || current.urgentBlock || current.pointsGained > 0);
+      // What the locked dice secure is not at risk: a placement on the target's own tile (the carré's, or the brelan's;
+      // with the call on it, the appel tiles too) is still there after the reroll, so it never holds the bot back.
+      const safe = current && placementCellsFor(target.comboKey, state).includes(`${current.r}${current.c}`);
+      const tooGoodToRisk = current && !safe
+        && (current.criticalBlock || current.urgentBlock || current.pointsGained > 0);
       if (!tooGoodToRisk) return false;
     }
+    return true;
+  }
+
+  // Something is already placeable and the chase is for another combo: the same rule as for the upgrades above. A combo
+  // whose tile is taken (or that would pay nothing) is no reason to roll on (sec is left to its own rule).
+  if (target.comboKey !== "sec" && !worthRollingFor(target.comboKey, state, player, { fromCarre: state.combinationsRealized[4] === 1 })) {
     return true;
   }
 
@@ -1446,8 +1580,8 @@ export function stopFeatures(state, player, strategy, botStops) {
   ];
 }
 
-export function shouldStopRolling(state, player, strategy) {
-  const botStops = botShouldStop(state, player, strategy);
+export function shouldStopRolling(state, player, strategy, focus = null) {
+  const botStops = botShouldStop(state, player, strategy, focus);
   const model = strategy === "speed" ? speedModels.stop : null;
   if (!model) return botStops;
   // nothing to place yet: stopping isn't possible, whatever was taught

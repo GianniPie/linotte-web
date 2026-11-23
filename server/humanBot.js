@@ -26,8 +26,9 @@ import {
   chooseCallToMake, chooseDiceToLock, shouldStopRolling, explainPlacement, explainTarget,
 } from "../public/shared/botAI.js";
 import { callAllowed } from "../public/shared/gameEngine.js";
+import { tile } from "../public/shared/utils.js";
 import { BOT_TIME_SCALE } from "./config.js";
-import { makePersona, think, slips, rand, rematchAnswer } from "./humanize.js";
+import { makePersona, think, slips, rand, rematchAnswer, inaccuracy } from "./humanize.js";
 import { randomName } from "./names.js";
 import { scoringCells, newPieceCell, touches, placementMargin, nearness, indexOfRc } from "./botSense.js";
 import { pickFor, pickWeighted, replyTo, wrongOne, cooledHeat, activity, HEAT_PER_EMOTE } from "./botChat.js";
@@ -53,9 +54,12 @@ const shuffled = (list) => {
 };
 
 export class HumanBot {
-  constructor({ avoidName = "", timeScale = BOT_TIME_SCALE, persona = null, name = null, country = null, emotesSent = 0 } = {}) {
+  // `level`: the level of the player it plays against (undefined: not told, a guest's is not known to the server): the lower, the
+  // more the bot slips (humanize.js, inaccuracy). It is kept in the persona, which is saved with the game.
+  constructor({ avoidName = "", timeScale = BOT_TIME_SCALE, persona = null, name = null, country = null, emotesSent = 0, level } = {}) {
     // A bot saved by an earlier version lacks the newer traits: fill them in.
     this.persona = { patience: 0.7, emojiSlip: 0.05, ...(persona || makePersona()) };
+    if (this.persona.inaccuracy === undefined && level !== undefined) this.persona.inaccuracy = inaccuracy(level === null ? NaN : level);
     this.name = name || randomName(avoidName);
     this.country = country ?? randomCountry();
     this.timeScale = timeScale;
@@ -74,7 +78,27 @@ export class HumanBot {
     this.oppFlags = { rolled: false, yam: false };
   }
 
-  freshTurn() { return { slips: 0, blocked: false, yam: false }; }
+  freshTurn() { return { slips: 0, blocked: false, yam: false, focus: null, bigSlip: false }; }
+
+  // Whether it loses sight of the block or of the sec tile this turn (decided once a turn, as a lapse of attention is), and
+  // never more than one of the bigger slips (a lost focus, a useless call, a block missed) in a turn: not a bot that is hopeless.
+  turnFocus() {
+    if (!this.turn.focus) {
+      const lostBlock = !this.turn.bigSlip && slips.loseBlockFocus(this.persona);
+      const lostSec = !lostBlock && !this.turn.bigSlip && slips.loseSecFocus(this.persona);
+      if (lostBlock || lostSec) this.turn.bigSlip = true;
+      this.turn.focus = { ignoreBlock: lostBlock, ignoreSec: lostSec };
+    }
+    return this.turn.focus;
+  }
+
+  // A call that is no use: a combo whose own tiles are both taken (the rules let it be made, it just never pays).
+  pointlessCall() {
+    const taken = (a, b) => [a, b].every((rc) => !rc || this.room.state.table[Number(rc[0])][Number(rc[1])] !== 0);
+    const options = [[3, tile.fu1, tile.fu2], [4, tile.ca1, tile.ca2], [5, tile.pe1, tile.pe2], [6, tile.su1, tile.su2], [7, tile.yam, null]]
+      .filter(([index, a, b]) => taken(a, b) && callAllowed(this.room.state, index));
+    return options.length ? rand.pick(options)[0] : null;
+  }
 
   // The same bot (character, name, emoji count) after a server restart; see
   // Room.toJSON / fromJSON.
@@ -362,7 +386,8 @@ export class HumanBot {
 
       if (s.dice.rollsLeft <= 0) return;
 
-      const wantsStop = shouldStopRolling(s, seat, strategy);
+      const focus = this.turnFocus();
+      const wantsStop = shouldStopRolling(s, seat, strategy, focus);
       if (wantsStop && !slips.rollOn(this.persona)) return;
       if (wantsStop) this.slipped();
       if (!wantsStop && slips.stopEarly(this.persona)) {
@@ -373,8 +398,12 @@ export class HumanBot {
       // A call only matters for the next throw, so it is made now, after
       // seeing this one, once we know we are rolling again. A person makes it
       // before tapping the dice, between two taps, or after them.
-      let callIndex = chooseCallToMake(s, seat, strategy);
+      let callIndex = chooseCallToMake(s, seat, strategy, focus);
       if (callIndex !== null && callIndex !== undefined && slips.skipCall(this.persona)) { callIndex = null; this.slipped(); }
+      else if ((callIndex === null || callIndex === undefined) && !this.turn.bigSlip && slips.badCall(this.persona)) {
+        const useless = this.pointlessCall();
+        if (useless !== null) { callIndex = useless; this.turn.bigSlip = true; this.slipped(); }
+      }
       const hasCall = callIndex !== null && callIndex !== undefined;
       const moment = !hasCall ? null : pickWeighted([["before", 4], ["during", 2.5], ["after", 3.5]]);
       if (moment === "before") {
@@ -384,7 +413,7 @@ export class HumanBot {
 
       await this.pause("afterLock");
       if (!this.live(turnId)) return;
-      const tapped = await this.applyLock(chooseDiceToLock(s.dice.values, s, seat, strategy), moment === "during" ? callIndex : null);
+      const tapped = await this.applyLock(chooseDiceToLock(s.dice.values, s, seat, strategy, focus), moment === "during" ? callIndex : null);
       if (!this.live(turnId)) return;
       if (moment === "after" && callAllowed(room.state, callIndex)) {
         await this.applyCall(callIndex);
@@ -445,6 +474,11 @@ export class HumanBot {
     if (ranked.length > 1 && slips.placement(this.persona)) {
       pick = ranked[Math.min(ranked.length - 1, Math.random() < 0.7 ? 1 : 2)];
       this.slipped();
+    } else if (ranked.length > 1 && !this.turn.bigSlip && (pick.urgentBlock || pick.criticalBlock)
+      && slips.missBlock(this.persona, { critical: Boolean(pick.criticalBlock) })) {
+      // Loses sight of the block: puts the piece on the best cell that does not block.
+      const other = ranked.find((c) => !c.urgentBlock && !c.criticalBlock);
+      if (other) { pick = other; this.turn.bigSlip = true; this.slipped(); }
     }
 
     // Unsure when two placements are about as good as each other; quick when
@@ -459,14 +493,23 @@ export class HumanBot {
     const opp = room.otherSeat(seat);
     if (scoringCells(room.state.table, opp).has(indexOfRc(pick.rc))) this.turn.blocked = true;
 
-    // Changing one's mind: tap one tile, hesitate, then tap the right one.
-    // The client sends "take back the first" and "place the second" together.
+    // Changing one's mind: tap one tile, hesitate, then tap another; now and then again (up to three times), either wandering over
+    // several different tiles or going back and forth between the same two. The client sends "take back the first" and "place the
+    // second" together. It does not go on when the clock is low.
     if (ranked.length > 1 && slips.indecision(this.persona)) {
-      const first = ranked.find((c) => c.rc !== pick.rc) || pick;
-      this.act({ type: "PLACE_PIECE", coordinates: first.rc, player: this.seat });
-      await this.pause("tentativeRedo");
-      if (!this.live(turnId)) return;
-      this.act({ type: "PLACE_PIECE", coordinates: first.rc, player: 0 });
+      const others = ranked.filter((c) => c.rc !== pick.rc);
+      let changes = 1;
+      while (changes < 3 && room.timeLeftMs() > 20000 && slips.changesAgain(this.persona, changes)) changes++;
+      let tentative;
+      if (others.length > 1 && changes > 1 && Math.random() < 0.5) tentative = others.slice(0, changes); // several different tiles
+      else if (changes > 1) tentative = Array.from({ length: changes % 2 ? changes : changes - 1 }, (_, i) => (i % 2 ? pick : others[0])); // the same two
+      else tentative = [others[0] || pick];
+      for (const cell of tentative) {
+        this.act({ type: "PLACE_PIECE", coordinates: cell.rc, player: this.seat });
+        await this.pause("tentativeRedo");
+        if (!this.live(turnId)) return;
+        this.act({ type: "PLACE_PIECE", coordinates: cell.rc, player: 0 });
+      }
     }
     this.act({ type: "PLACE_PIECE", coordinates: pick.rc, player: this.seat });
   }

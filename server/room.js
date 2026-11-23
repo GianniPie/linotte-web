@@ -262,8 +262,8 @@ export class Room {
         let n = 0;
         for (let i = 3; i < 8; i++) if (c[i]) { called[i] = 1; n++; }
         if (n > 1) return this.reject("bad_action"); // one call at a time
-        // never mid-roll (above); never with all dice locked; a Carré never
-        // with 4 locked (see callBlockedBy in gameEngine.js)
+        // never mid-roll (above); never with all dice locked; a Carré not when
+        // one is already on the dice (see callBlockedBy in gameEngine.js)
         for (let i = 3; i < 8; i++) if (called[i] && !callAllowed(s, i)) return this.reject("cannot_call");
         updateGame(s, { type: "SELEC_CALL", called });
         return this.relay(seat, { type: "SELEC_CALL", called: called.slice() });

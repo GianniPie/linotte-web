@@ -1087,14 +1087,22 @@ const lobby = new Lobby(io, store);
 
   st = fresh();
   updateGame(st, { type: "LOCK_DICE", locked: [true, true, true, true, false] });
-  assert.equal(callBlockedBy(st, 4), "carre_four_locked", "no Carré with 4 dice locked");
+  assert.equal(callBlockedBy(st, 4), null, "a Carré can be called with 4 dice locked (three 2s kept: the fifth die is the gamble)");
   assert.equal(callBlockedBy(st, 3), null, "another call is fine");
+  st = createInitialGameState();
+  updateGame(st, { type: "ROLL_DICE", values: [3, 3, 3, 3, 6] });
+  updateGame(st, { type: "STOP_ROLL" });
+  assert.equal(callBlockedBy(st, 4), "carre_made", "no Carré call when there is a Carré on the dice");
+  updateGame(st, { type: "LOCK_DICE", locked: [true, true, true, true, false] });
+  assert.equal(callBlockedBy(st, 4), "carre_made", "...also with four dice locked");
 
   st = fresh();
   updateGame(st, { type: "SELEC_CALL", called: [null, null, null, 0, 1, 0, 0, 0] });
   assert.equal(st.called[4], 1, "Carré called with 3 dice locked... ");
   updateGame(st, { type: "LOCK_DICE", locked: [true, true, true, true, false] });
-  assert.ok(!st.called[4], "...and dropped once a fourth die is locked");
+  assert.equal(st.called[4], 1, "...and kept when a fourth die is locked");
+  updateGame(st, { type: "LOCK_DICE", locked: [true, true, true, true, true] });
+  assert.ok(!st.called[4], "...but dropped once all five are locked");
 
   st = fresh();
   updateGame(st, { type: "SELEC_CALL", called: [null, null, null, 1, 0, 0, 0, 0] });
@@ -1114,7 +1122,10 @@ const lobby = new Lobby(io, store);
   const act = (x) => room.handleAction(seat, x);
   assert.ok(act({ type: "ROLL_DICE" }).ok && act({ type: "STOP_ROLL" }).ok);
   assert.ok(act({ type: "LOCK_DICE", locked: [true, true, true, true, false] }).ok);
-  assert.equal(act({ type: "SELEC_CALL", called: [null, null, null, 0, 1, 0, 0, 0] }).reason, "cannot_call", "server: no Carré with 4 locked");
+  const carreOnDice = room.state.combinationsRealized[4] === 1; // (the roll is random)
+  const carreCall = act({ type: "SELEC_CALL", called: [null, null, null, 0, 1, 0, 0, 0] });
+  if (carreOnDice) assert.equal(carreCall.reason, "cannot_call", "server: no Carré call when there is a Carré on the dice");
+  else assert.ok(carreCall.ok, "server: a Carré can be called with 4 locked");
   assert.ok(act({ type: "SELEC_CALL", called: [null, null, null, 1, 0, 0, 0, 0] }).ok, "server: a Full is fine");
   assert.ok(act({ type: "LOCK_DICE", locked: [true, true, true, true, true] }).ok);
   assert.equal(act({ type: "ROLL_DICE" }).reason, "cannot_roll", "server: no roll with all five locked");
@@ -1126,6 +1137,155 @@ const lobby = new Lobby(io, store);
   assert.ok(act({ type: "SELEC_CALL", called: [null, null, null, 0, 0, 0, 0, 1] }).ok, "server: a new call before the next roll");
   room.forfeit(seat, "left");
   console.log("ok: roll and call rules");
+}
+
+//--------- 17b. the bot rolls again for what is there to be had ---------
+{
+  const { updateGame } = await import("../public/shared/gameEngine.js");
+  const { createInitialGameState, tile, matrixFill } = await import("../public/shared/utils.js");
+  const state = (taken, values, rollsLeft = 2) => {
+    const st = createInitialGameState();
+    st.currentPlayer = 1;
+    for (const key of taken) for (const rc of [tile[key]]) matrixFill(rc, 2, st.table);
+    updateGame(st, { type: "ROLL_DICE", values });
+    st.dice.rollsLeft = rollsLeft;
+    updateGame(st, { type: "STOP_ROLL" });
+    return st;
+  };
+  // Three 4s (a brelan, its tile free) and the rest free: carré and full tiles free, so the bot rolls the two others again.
+  assert.equal(shouldStopRolling(state([], [4, 4, 4, 1, 2]), 1, "points"), false, "a brelan with carré and full free: it rolls for them");
+  // Carré and full tiles all taken, only the yam left: two dice short of it, it is no reason to roll.
+  assert.equal(shouldStopRolling(state(["ca1", "ca2", "fu1", "fu2"], [4, 4, 4, 1, 2]), 1, "points"), true, "a brelan, carré and full gone: yam alone is not worth a roll");
+  // The yam tile is free nearly always, so a shot at the yam is taken only when landing there pays: points at once, a block of
+  // the opponent's four-short-of-five line, or (from a carré) cells around it that promise points later.
+  const kept = (cells, rollsLeft, values = [4, 4, 4, 4, 2]) => {
+    const st = createInitialGameState();
+    st.currentPlayer = 1;
+    for (const [rc, who] of cells) matrixFill(tile[rc], who, st.table);
+    st.dice.values = values;
+    st.dice.locked = [true, true, true, false, false];
+    st.dice.rollsLeft = rollsLeft;
+    updateGame(st, { type: "STOP_ROLL" });
+    return st;
+  };
+  assert.equal(shouldStopRolling(kept([], 1), 1, "points"), true, "a carré kept, yam free but nothing around it: it takes the carré");
+  assert.equal(shouldStopRolling(kept([["b22", 1], ["b52", 1]], 1), 1, "points"), true, "...also when the carré tile scores and the yam tile has nothing around it");
+  assert.equal(shouldStopRolling(kept([["pe1", 1], ["fu2", 1]], 1), 1, "points"), false, "the yam tile would complete three of its own: it rolls");
+  assert.equal(shouldStopRolling(kept([["pe1", 2], ["fu2", 2], ["ap2", 2], ["su1", 2]], 1), 1, "points"), false, "the yam tile is the gap in the opponent's four: it rolls");
+  assert.equal(shouldStopRolling(kept([["pe1", 1]], 1), 1, "points"), false, "from a carré, a line through the yam tile with a piece of its own is promise enough");
+  assert.equal(shouldStopRolling(kept([["pe1", 1], ["fu2", 1], ["yam", 2]], 1), 1, "points"), true, "the yam tile taken: nothing to roll for");
+  // Blocking comes first: the opponent has four of a row and the yam tile is the gap. With a brelan in hand the bot keeps rolling
+  // for the yam (the speed bot for any four, the points bot because the five would win them the game), but a yam on the dice is placed.
+  const gap = [["pe1", 2], ["fu2", 2], ["ap2", 2], ["su1", 2]];
+  const open = (values, rollsLeft) => {
+    const st = createInitialGameState();
+    st.currentPlayer = 1;
+    for (const [rc, who] of gap) matrixFill(tile[rc], who, st.table);
+    st.dice.values = values;
+    st.dice.rollsLeft = rollsLeft;
+    updateGame(st, { type: "STOP_ROLL" });
+    return st;
+  };
+  assert.equal(shouldStopRolling(open([4, 4, 4, 1, 2], 2), 1, "speed"), false, "speed: a four to block, only a brelan: it rolls for the yam");
+  assert.equal(shouldStopRolling(open([4, 4, 4, 1, 2], 1), 1, "speed"), false, "...down to its last roll");
+  assert.equal(shouldStopRolling(open([4, 4, 4, 1, 2], 2), 1, "points"), false, "points: the five would win them the game: the same");
+  assert.equal(shouldStopRolling(open([5, 5, 5, 5, 5], 2), 1, "speed"), true, "a yam on the dice is placed");
+  // The gap is the carré tile, and the four dice kept so far (1 2 3 4) are no use for it: the bot lets them go and rolls again, all
+  // of them but at most the one it keeps for the carré (the dice it kept before do not stop it).
+  const carreGap = [["b21", 2], ["se1", 2], ["fu1", 2], ["b51", 2]];
+  const stuck = createInitialGameState();
+  stuck.currentPlayer = 1;
+  for (const [rc, who] of carreGap) matrixFill(tile[rc], who, stuck.table);
+  stuck.dice.values = [1, 2, 3, 4, 6];
+  stuck.dice.locked = [true, true, true, true, false];
+  stuck.dice.rollsLeft = 2;
+  updateGame(stuck, { type: "STOP_ROLL" });
+  assert.equal(shouldStopRolling(stuck, 1, "speed"), false, "a carré to reach with four useless dice kept: it goes on");
+  assert.ok(chooseDiceToLock(stuck.dice.values, stuck, 1, "speed").filter(Boolean).length <= 1, "...and keeps at most one die, rolling the others");
+  // The sec tile is what scores at once (the bot has the pieces on both sides of it): with nothing useful on the dice it rolls all
+  // five again, and again; a brelan whose tile scores at once is taken.
+  const secDice = (cells, values, rollsLeft) => {
+    const st = createInitialGameState();
+    st.currentPlayer = 1;
+    for (const [rc, who] of cells) matrixFill(tile[rc], who, st.table);
+    st.dice.values = values;
+    st.dice.rollsLeft = rollsLeft;
+    updateGame(st, { type: "STOP_ROLL" });
+    return st;
+  };
+  const sidesOfSec = [["ca1", 1], ["fu1", 1]];
+  const junk = secDice(sidesOfSec, [1, 3, 4, 5, 6], 2);
+  assert.equal(shouldStopRolling(junk, 1, "points"), false, "sec scores at once, nothing on the dice: it rolls again");
+  assert.ok(chooseDiceToLock(junk.dice.values, junk, 1, "points").every((l) => !l), "...all five dice");
+  assert.equal(shouldStopRolling(secDice(sidesOfSec, [4, 4, 4, 1, 2], 2), 1, "points"), false, "a brelan that scores nothing at once does not stop it");
+  assert.equal(shouldStopRolling(secDice([...sidesOfSec, ["ap2", 1], ["ca2", 2], ["fu2", 2]], [4, 4, 4, 1, 2], 2), 1, "points"), true, "a brelan whose tile scores at once does (nothing above it left to roll for)");
+  console.log("ok: the bot rolls for what is there");
+}
+
+//--------- 17c. the wish to block grows with the opponent's line ---------
+{
+  const { createInitialGameState, tile, matrixFill } = await import("../public/shared/utils.js");
+  const { chooseBestMove } = await import("../public/shared/botAI.js");
+  const position = (cells, moves) => {
+    const st = createInitialGameState();
+    st.currentPlayer = 1;
+    for (const [k, who] of cells) matrixFill(tile[k], who, st.table);
+    for (const k of moves) matrixFill(tile[k], 1, st.possibleMoves);
+    st.players[1].remainingPieces = 8;
+    st.players[2].remainingPieces = 8;
+    return st;
+  };
+  const three = [["pe1", 2], ["fu2", 2], ["ap2", 2]]; // the opponent's three in row 2: su1 (24) is one of its gaps
+  const four = [...three, ["su1", 2]]; // four: the yam tile (22) is the gap
+  const ownPoint = [["ca1", 1], ["fu1", 1]]; // the bot's own two on row 1: se1 (12) scores
+  for (const strategy of ["points", "speed"]) {
+    assert.equal(chooseBestMove(position(three, ["su1", "se1"]), 1, strategy), "24", `${strategy}: it starts to block a three, over a rare tile`);
+    assert.equal(chooseBestMove(position([...three, ...ownPoint], ["su1", "se1"]), 1, strategy), "12", `${strategy}: its own point comes before blocking a three`);
+    assert.equal(chooseBestMove(position([...four, ...ownPoint], ["yam", "se1"]), 1, strategy), "22", `${strategy}: a four is a priority, before its own point`);
+  }
+  // In between a three and a four: a cell that would score the opponent 2 points by crossing two of their threes (the yam tile
+  // crosses row 2 and column 2 here). The points bot puts it before a plain tile, after a point of its own; a four is above both.
+  const cross = [["pe1", 2], ["fu2", 2], ["ap1", 2], ["se1", 2]];
+  const rowFour = [["b22", 1], ["b52", 1]]; // the bot's own two on row 4: ca2 (42) scores, away from the lines of the yam tile
+  assert.equal(chooseBestMove(position(cross, ["yam", "b62"]), 1, "points"), "22", "points: a cell that crosses two threes is blocked over a plain tile");
+  assert.equal(chooseBestMove(position(cross, ["yam", "b62"]), 1, "speed"), "22", "speed: the same");
+  assert.equal(chooseBestMove(position([...cross, ...rowFour], ["yam", "ca2"]), 1, "points"), "42", "points: ...but its own point comes first");
+  console.log("ok: the wish to block grows");
+}
+
+//--------- 17d. the humanized bot slips less as the player's level rises ---------
+{
+  const { inaccuracy, MIN_INACCURACY, slips, makePersona } = await import("./humanize.js");
+  const { HumanBot } = await import("./humanBot.js");
+  assert.equal(inaccuracy(0), 1, "a beginner meets the bot's full slips");
+  assert.equal(inaccuracy(-4), 1, "...below zero too");
+  assert.ok(inaccuracy(10) < inaccuracy(5) && inaccuracy(20) < inaccuracy(10) && inaccuracy(50) < inaccuracy(20), "the higher the level, the fewer the slips");
+  assert.ok(inaccuracy(500) >= MIN_INACCURACY && inaccuracy(500) < 0.2, "...to a floor, never zero, never perfect");
+  assert.equal(inaccuracy(NaN), 0.8, "an unknown level (a guest) is in between");
+  assert.equal(new HumanBot({ level: 30 }).persona.inaccuracy, inaccuracy(30), "the bot keeps the index of the player's level");
+  assert.equal(new HumanBot({ level: null }).persona.inaccuracy, 0.8, "a guest: unknown");
+  assert.equal(new HumanBot().persona.inaccuracy, undefined, "no level told: the slips as they were");
+  const rate = (inaccuracyValue, kind) => {
+    const persona = { ...makePersona(), skill: 0.8, inaccuracy: inaccuracyValue };
+    let n = 0;
+    for (let i = 0; i < 40000; i++) if (slips[kind](persona)) n++;
+    return n / 40000;
+  };
+  for (const kind of ["placement", "stopEarly", "rollOn", "skipCall", "badCall", "loseBlockFocus", "loseSecFocus", "missBlock"]) {
+    const beginner = rate(inaccuracy(0), kind);
+    const strong = rate(inaccuracy(40), kind);
+    assert.ok(strong < beginner * 0.5, `${kind}: a strong player's bot slips much less (${strong.toFixed(3)} vs ${beginner.toFixed(3)})`);
+    assert.ok(beginner <= 0.6, `${kind}: even for a beginner it is not hopeless (${beginner.toFixed(3)})`);
+  }
+  assert.ok(rate(1, "loseBlockFocus") <= 0.12 && rate(1, "loseSecFocus") <= 0.12 && rate(1, "missBlock") <= 0.12 && rate(1, "badCall") <= 0.2, "the new slips are capped: 12% for a lost focus or a missed block, 20% for a useless call");
+  // Changing one's mind again is rare: a second change in a quarter to under half of the cases, a third half as often.
+  const impulsive = { ...makePersona(), impulsive: 0.5 };
+  let second = 0;
+  let third = 0;
+  for (let i = 0; i < 40000; i++) { if (slips.changesAgain(impulsive, 1)) second++; if (slips.changesAgain(impulsive, 2)) third++; }
+  assert.ok(second / 40000 > 0.15 && second / 40000 < 0.45, `a second change of mind is not the rule (${(second / 40000).toFixed(2)})`);
+  assert.ok(third < second * 0.7, "a third one is rarer still");
+  console.log("ok: the humanized bot slips less as the level rises");
 }
 
 //--------- 18. chat reactions and the bell ---------

@@ -61,6 +61,18 @@ export function think(kind, persona, { timeLeftMs = 60000, extra = 0, tempo = 1 
 // --- slips: each returns true when this decision should go wrong ---
 const sloppy = (persona) => 1 - persona.skill; // 0.05 .. 0.28
 
+// How inaccurate the bot is for a player of this level: 1 for a beginner (level 0 or below, the bot's own slips as they are),
+// falling with the level (0.5 at level 10, 0.3 at 20) to a floor of 0.15, so that a strong player meets a bot that is nearly
+// perfect and a beginner one that errs. An unknown level (a guest, whose points the server does not see) is taken as 0.8.
+export const MIN_INACCURACY = 0.15;
+export function inaccuracy(level) {
+  if (!Number.isFinite(level)) return 0.8;
+  return Math.min(1, Math.max(MIN_INACCURACY, MIN_INACCURACY + (1 - MIN_INACCURACY) * Math.exp(-Math.max(0, level) / 12)));
+}
+const care = (persona) => persona.inaccuracy ?? 1; // a bot saved before the index existed slips as it did
+// A chance of going wrong: the bot's own sloppiness x how inaccurate it is for this player, never above `cap`.
+const slip = (p, weight, cap = 0.3) => Math.random() < Math.min(cap, sloppy(p) * weight * care(p));
+
 // Asked for a rematch by the person it just played: whether it wants one and
 // after how long, like a person would. More likely when it lost (a revenge),
 // and when chatty; now and then it is simply done for the day.
@@ -71,17 +83,26 @@ export function rematchAnswer(persona, { botWon }) {
 
 export const slips = {
   // Takes the 2nd/3rd best placement instead of the best.
-  placement: (p) => Math.random() < sloppy(p) * 0.8,
+  placement: (p) => slip(p, 0.8),
   // Stops rolling although the AI wanted another throw.
-  stopEarly: (p) => Math.random() < sloppy(p) * 0.3,
-  // Rolls again although the AI was happy with what it had.
-  rollOn: (p) => Math.random() < sloppy(p) * 0.2,
+  stopEarly: (p) => slip(p, 0.3),
+  // Rolls again although the AI was happy with what it had (a throw that is no use).
+  rollOn: (p) => slip(p, 0.2),
   // Forgets to make the call the AI would have made.
-  skipCall: (p) => Math.random() < sloppy(p) * 0.6,
+  skipCall: (p) => slip(p, 0.6),
+  // Makes a call that is no use (its tile is taken): it harms no one, so it can be the most frequent of the bigger slips.
+  badCall: (p) => slip(p, 0.7, 0.2),
+  // Loses sight of a block it should be going for (rolls for something else), and of the sec tile.
+  loseBlockFocus: (p) => slip(p, 0.4, 0.12),
+  loseSecFocus: (p) => slip(p, 0.4, 0.12),
+  // Puts the piece elsewhere when it should block: less often when the opponent would win with the cell.
+  missBlock: (p, { critical = false } = {}) => slip(p, critical ? 0.2 : 0.4, critical ? 0.08 : 0.12),
   // Taps one die the wrong way.
-  lock: (p) => Math.random() < sloppy(p) * 0.35,
+  lock: (p) => slip(p, 0.35),
   // Puts the piece on another tile first, then moves it.
   indecision: (p) => Math.random() < 0.06 + 0.12 * p.impulsive,
+  // ...and, having changed its mind once, changes it again (a second time 25-45% of the time, a third half as often: rare overall).
+  changesAgain: (p, times) => Math.random() < (0.25 + 0.2 * p.impulsive) * 0.5 ** Math.max(0, times - 1),
 };
 
 // Reactions the humanized bot sends back, keyed by what the opponent sent

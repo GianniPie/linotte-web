@@ -46,8 +46,8 @@ function stopRoll(state) {
 
 function lockDice(state, locked) {
     state.dice.locked = locked;
-    // A call still open that these locks make impossible is dropped (a
-    // Carré with 4 dice kept, any call with all 5): see callAllowed.
+    // A call still open that these locks make impossible is dropped (any call
+    // with all 5 dice kept): see callAllowed.
     for (let i = 3; i < 8; i++) if (state.called[i] && !callAllowed(state, i)) state.called[i] = 0;
     return state;
 }
@@ -75,13 +75,12 @@ export function canRoll(state) {
 // Why a call (index 3..7: full, carre, petite, suite, yam) can't be made now,
 // or null when it can: after the turn's first roll and before its last
 // (it can change before each roll, never while the dice roll); never with all
-// 5 dice locked (nothing left to roll); a Carré never with 4 dice locked (one
-// die to roll for it is no gamble) nor when a Carré is already made.
+// 5 dice locked (nothing left to roll); a Carré also with 4 dice locked (the
+// fifth die is the gamble), but not when a Carré is already on the dice.
 export function callBlockedBy(state, index) {
     if (state.dice.rollsLeft === 3 || state.dice.rollsLeft <= 0) return "timing";
     const n = lockedCount(state);
     if (n >= 5) return "all_locked";
-    if (index === 4 && n >= 4) return "carre_four_locked";
     if (index === 4 && state.combinationsRealized[4] === 1) return "carre_made";
     return null;
 }

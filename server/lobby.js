@@ -237,7 +237,7 @@ export class Lobby {
     if (!entry || !entry.socket.connected) { this.leaveQueue(playerId); return; }
     this.leaveQueue(playerId);
     const { socket, mode } = entry;
-    const bot = new HumanBot({ avoidName: socket.data.name });
+    const bot = new HumanBot({ avoidName: socket.data.name, level: Number.isFinite(socket.data.level) ? socket.data.level : null }); // not known (a guest): null
     // Mostly what was asked; now and then the other way, which is offered like a person's.
     const botMode = Math.random() < BOT_MODE.same ? mode : (mode === MODE_RUTHLESS ? MODE_NORMAL : MODE_RUTHLESS);
     if (botMode !== mode) {

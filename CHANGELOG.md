@@ -12,6 +12,27 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.6] - 2026-11-23
+
+### Changed
+- **The humanized bot slips less as the player's level rises.** An inaccuracy index (1 at level 0 or below, 0.5 at level 10, 0.3 at 20, a floor of 0.15; 0.8 for a guest, whose level the server does not see) multiplies every slip of the bot, the old ones too (a worse placement, stopping early, a throw that is no use, a forgotten call, a wrong tap), so a beginner meets a bot that errs and a strong player one that is nearly perfect. It is kept with the bot's character, so it survives a server restart.
+- **New slips for the new rules**, all limited: a call that is no use (a combo whose two tiles are taken), losing the focus on a block or on the sec tile for a turn (the bot goes back to the plain rules for it), and a piece put elsewhere when it should block (rarer when the cell would give the opponent the win). Each has a ceiling (12% for a lost focus or a missed block, 20% for a useless call, which harms no one, 8% for missing a block that would lose the game), and never more than one of these bigger slips in a turn.
+- **The humanized bot can change its mind about a piece more than once** (the old single change stays the usual case): after the first it changes again 25-45% of the time, a third time half as often, wandering over several tiles or going back and forth between the same two; the chance of changing its mind at all is as it was, and it does not go on when the clock is low.
+
+### Changed
+- **The wish to block grows with the opponent's line.** The bot plays for its own points first. An opponent's three in a line (one that has none of the bot's pieces) starts to be worth blocking: half a point to the points bot (a whole one when the cell also builds its own lines), a place in the speed bot's ladder after its own points. A four is a priority for both: a point and a half to the points bot's ranking (a five that wins them the game still two), and the rolls go to reaching that cell (the blocking plan now holds for any line of four, not only for the speed bot). In between, a cell that would score the opponent 2 points or more by crossing two of their lines (0.9 points, 1.2 when it builds its own lines; the points bot keeps such a cell alive even with nothing in it for itself). A point of its own beats a block of a three or of a crossing (unless it builds its own lines); a four beats a point of its own.
+
+### Changed
+- **The sec tile, tried again and again**: when sec is what blocks the opponent or what scores points at once, the bot rolls all five dice again (nothing kept, as sec asks), with every roll it has left, and stops as soon as something that scores at once can be placed (a brelan, say). The chance of a combo raw on one roll is taken as about 10%. It cannot loop: a turn has three rolls at most.
+- **The bot puts blocking first.** When the opponent could take a cell that wins them the game (above all when they are ahead) or, for the speed bot, any cell that completes four of their row to five, and the dice as they are cannot place there but a combo that reaches it can still come up with the rolls left, the bot keeps rolling for that combo and does not settle for another good combination, however good (it did, whenever the chance of the blocking combo was lower than what it held). Only a placement that wins the game outright is worth more. A block it can place now is taken by the placement ranking as before. The chance of reaching the blocking combo is worked out with every die free (the bot sets its locks anew for each roll), so even with four useless dice kept it lets them go and rolls them all again, keeping at most what the blocking combo needs.
+
+### Changed
+- The bot keeps rolling for a combo (carré, full, petit, suite, yam, a brelan, also through the Appel tiles) with something already placeable only if its tile is free **and** it pays: it scores points at once, or blocks a line of the opponent's four short of five, or leaves the promise of points later (a line through the tile not blocked by the opponent; for the yam, nearly always free, a piece of its own on it, and only from a carré: from a brelan it must pay at once or block). A free tile alone is no reason, and the chance of getting the combo does not matter. A placement on the tile of the combo it keeps (the carré's) no longer counts as "too good to risk" when it decides to roll for something that is available.
+- The bot follows the same call rule: it may call a Carré with four dice kept (before it never did). And holding a brelan it rolls the free dice again only for what can still be placed: a carré or a full whose tile is free (a full did not count before).
+
+### Fixed
+- A Carré can be called with four dice locked (the fifth die is the gamble), as the help page says ("at least one die must be rolled again"). It was refused. It is still refused when a Carré is already on the dice, and now says so ("There is already a Carré on the dice."); with all five locked no call is possible. The server and the engine follow the same rule (`callBlockedBy`). The bot's own choice is unchanged (it never calls a Carré with four kept).
+
 ## [2.35.5] - 2026-11-21
 
 ### Changed
