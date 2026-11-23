@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A petal that drifts across the spring background now and then (petalOnce in linotte.js). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <defs><radialGradient id="p" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#ffe3ee"/><stop offset="1" stop-color="#ff9ec3"/></radialGradient></defs>
+  <path d="M12 2 C20 6 22 16 12 22 C2 16 4 6 12 2 Z" fill="url(#p)" stroke="#e7709f" stroke-width=".8" stroke-opacity=".6"/>
+  <path d="M12 5 C12 10 12 15 12 19" stroke="#e7709f" stroke-width=".7" stroke-opacity=".5" fill="none"/>
+</svg>

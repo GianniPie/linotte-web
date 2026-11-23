@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Spring theme piece: a ladybird seen from above. Red shell with a centre line and black spots, black head with white eyes, antennae and legs. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="184" height="184" viewBox="6 2 172 172">
+  <defs>
+    <radialGradient id="shell" cx=".38" cy=".3" r=".85">
+      <stop offset="0" stop-color="#ff6b6b"/>
+      <stop offset=".5" stop-color="#e63946"/>
+      <stop offset="1" stop-color="#a8161f"/>
+    </radialGradient>
+    <radialGradient id="head" cx=".4" cy=".3" r=".9">
+      <stop offset="0" stop-color="#4a3a3e"/>
+      <stop offset="1" stop-color="#1a0d10"/>
+    </radialGradient>
+    <clipPath id="clipShell"><ellipse cx="92" cy="106" rx="56" ry="64"/></clipPath>
+  </defs>
+  <!-- legs -->
+  <g stroke="#2a1218" stroke-width="6" stroke-linecap="round" fill="none">
+    <path d="M44 84 L20 74"/><path d="M40 108 L14 108"/><path d="M46 132 L22 146"/>
+    <path d="M140 84 L164 74"/><path d="M144 108 L170 108"/><path d="M138 132 L162 146"/>
+  </g>
+  <!-- antennae -->
+  <g stroke="#2a1218" stroke-width="4.5" stroke-linecap="round" fill="none">
+    <path d="M80 30 Q70 12 58 10"/><path d="M104 30 Q114 12 126 10"/>
+  </g>
+  <circle cx="57" cy="10" r="4" fill="#2a1218"/><circle cx="127" cy="10" r="4" fill="#2a1218"/>
+  <!-- shell -->
+  <ellipse cx="92" cy="106" rx="56" ry="64" fill="url(#shell)" stroke="#2a1218" stroke-width="5"/>
+  <g clip-path="url(#clipShell)">
+    <path d="M92 40 L92 172" stroke="#2a1218" stroke-width="4"/>
+    <g fill="#2a1218">
+      <circle cx="66" cy="86" r="11"/><circle cx="118" cy="86" r="11"/>
+      <circle cx="58" cy="122" r="9.5"/><circle cx="126" cy="122" r="9.5"/>
+      <circle cx="74" cy="150" r="7.5"/><circle cx="110" cy="150" r="7.5"/>
+    </g>
+    <path d="M52 78 Q56 62 74 56" stroke="#fff" stroke-opacity=".6" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <circle cx="54" cy="92" r="2.8" fill="#fff" opacity=".55"/>
+  </g>
+  <ellipse cx="92" cy="106" rx="56" ry="64" fill="none" stroke="#2a1218" stroke-width="5"/>
+  <!-- head -->
+  <path d="M60 52 Q62 26 92 24 Q122 26 124 52 Q108 60 92 60 Q76 60 60 52 Z" fill="url(#head)" stroke="#2a1218" stroke-width="5" stroke-linejoin="round"/>
+  <ellipse cx="78" cy="42" rx="8.5" ry="10" fill="#fff"/><ellipse cx="106" cy="42" rx="8.5" ry="10" fill="#fff"/>
+  <circle cx="80" cy="44" r="4.2" fill="#2a1218"/><circle cx="104" cy="44" r="4.2" fill="#2a1218"/>
+  <circle cx="81.5" cy="42" r="1.4" fill="#fff"/><circle cx="105.5" cy="42" r="1.4" fill="#fff"/>
+</svg>

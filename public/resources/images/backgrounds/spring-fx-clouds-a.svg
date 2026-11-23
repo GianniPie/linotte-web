@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A layer of the spring background's clouds, still: three copies side by side (a period of 1000), slid by one period with CSS so that it loops without a seam. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3000 1000" preserveAspectRatio="none">
+  <defs>
+    <g id="set" fill="#ffffff" fill-opacity="0.92">
+    <g><ellipse cx="42" cy="242" rx="84" ry="46"/><ellipse cx="73" cy="257" rx="71" ry="48"/><ellipse cx="227" cy="254" rx="68" ry="50"/><ellipse cx="198" cy="268" rx="96" ry="35"/><ellipse cx="141" cy="270" rx="61" ry="47"/><ellipse cx="213" cy="261" rx="64" ry="44"/><ellipse cx="226" cy="256" rx="68" ry="36"/><ellipse cx="128" cy="288" rx="151" ry="26"/></g>
+    <g><ellipse cx="420" cy="126" rx="97" ry="36"/><ellipse cx="557" cy="136" rx="90" ry="43"/><ellipse cx="389" cy="142" rx="91" ry="53"/><ellipse cx="417" cy="132" rx="99" ry="46"/><ellipse cx="474" cy="142" rx="92" ry="40"/><ellipse cx="486" cy="153" rx="82" ry="39"/><ellipse cx="545" cy="142" rx="72" ry="42"/><ellipse cx="449" cy="173" rx="159" ry="28"/></g>
+    <g><ellipse cx="629" cy="111" rx="97" ry="51"/><ellipse cx="732" cy="118" rx="89" ry="47"/><ellipse cx="645" cy="98" rx="73" ry="58"/><ellipse cx="617" cy="97" rx="111" ry="67"/><ellipse cx="490" cy="86" rx="83" ry="51"/><ellipse cx="591" cy="143" rx="197" ry="34"/></g>
+    <g><ellipse cx="951" cy="302" rx="111" ry="44"/><ellipse cx="876" cy="313" rx="109" ry="62"/><ellipse cx="870" cy="307" rx="74" ry="45"/><ellipse cx="738" cy="309" rx="97" ry="49"/><ellipse cx="802" cy="317" rx="107" ry="54"/><ellipse cx="816" cy="335" rx="98" ry="55"/><ellipse cx="832" cy="356" rx="191" ry="33"/></g>
+    </g>
+  </defs>
+  <use href="#set"/><use href="#set" x="1000"/><use href="#set" x="2000"/>
+</svg>

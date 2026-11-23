@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The bolt of one lightning flash of the storm background, still, with its halo. It flickers by CSS (see flashOnce in linotte.js). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
+  <g fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M610 0 L575 70 L612 92 L560 190 L590 205 L540 300" stroke="#9ec8ff" stroke-width="24" opacity=".7"/>
+    <path d="M610 0 L575 70 L612 92 L560 190 L590 205 L540 300" stroke="#fff" stroke-width="7"/>
+  </g>
+</svg>

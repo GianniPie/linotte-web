@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The glow of one lightning flash of the storm background, still: the sky lit from within. CSS fades it (see flashOnce in linotte.js). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="flash">
+      <stop offset="0" stop-color="#f2f8ff" stop-opacity="1"/>
+      <stop offset=".3" stop-color="#9ec8ff" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#5f9bf0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="640" cy="150" rx="640" ry="330" fill="url(#flash)"/>
+</svg>

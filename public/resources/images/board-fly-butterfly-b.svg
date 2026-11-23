@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A butterfly seen from above, facing up, for the spring board (flyOnce in linotte.js): CSS flaps it (a scale of its width) and the game moves it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <g stroke="#2c5a9a" stroke-width="1.1" stroke-linejoin="round">
+    <path d="M20 18 C16 6 5 3 3 10 C2 16 10 20 20 20 Z" fill="#7cb8ff"/>
+    <path d="M20 18 C24 6 35 3 37 10 C38 16 30 20 20 20 Z" fill="#7cb8ff"/>
+    <path d="M20 21 C12 21 5 25 6 32 C7 37 16 36 20 26 Z" fill="#c3defd"/>
+    <path d="M20 21 C28 21 35 25 34 32 C33 37 24 36 20 26 Z" fill="#c3defd"/>
+  </g>
+  <g fill="#ffffff" opacity=".9"><circle cx="9" cy="10" r="2"/><circle cx="31" cy="10" r="2"/><circle cx="11" cy="31" r="1.5"/><circle cx="29" cy="31" r="1.5"/></g>
+  <ellipse cx="20" cy="22" rx="1.6" ry="8" fill="#3b2a24"/>
+  <circle cx="20" cy="13" r="1.8" fill="#3b2a24"/>
+  <path d="M19.5 12 Q16 6 13 5 M20.5 12 Q24 6 27 5" stroke="#3b2a24" stroke-width=".8" fill="none" stroke-linecap="round"/>
+</svg>

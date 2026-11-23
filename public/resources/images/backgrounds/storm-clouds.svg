@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Storm background, the still part: the sky (grey-blues) and a soft shade at the top and bottom. Everything that moves is drawn apart and moved by the GPU (storm-fx-*.svg, .bg-fx in linotte.css): an animation inside a background picture is redrawn by the CPU at every frame. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#33486c"/>
+      <stop offset=".5" stop-color="#273b5b"/>
+      <stop offset="1" stop-color="#1a2a44"/>
+    </linearGradient>
+    <linearGradient id="vignette" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1424" stop-opacity="0"/>
+      <stop offset=".25" stop-color="#0b1424" stop-opacity="0"/>
+      <stop offset=".8" stop-color="#0b1424" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0b1424" stop-opacity=".3"/>
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="1000" fill="url(#sky)"/>
+  <rect width="1000" height="1000" fill="url(#vignette)"/>
+</svg>

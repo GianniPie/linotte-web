@@ -40,7 +40,7 @@
   border-radius: 1.2em;
   padding: 1.2em 1.2em 1.4em;
   text-align: center;
-  color: #3d240c;
+  color: var(--ink);
   box-shadow: 0 14px 40px rgba(0, 0, 0, .35);
   display: flex;
   flex-direction: column;
@@ -301,7 +301,7 @@
   border: .0722em solid rgba(0, 0, 0, .35); /* 3px at the phone's 41.6px */
   border-radius: .3em;
   background: #fff;
-  color: #3d240c;
+  color: var(--ink);
 }
 
 /* the email field on the sign-in sheet: same frame as the code boxes */
@@ -314,7 +314,7 @@
   border: .15625em solid rgba(0, 0, 0, .35); /* 3px at the phone's 19.2px, like .code-input */
   border-radius: .5em;
   background: #fff;
-  color: #3d240c;
+  color: var(--ink);
 }
 
 .sheet-btn[hidden] {
@@ -551,6 +551,7 @@
   border: 0;
   background: none;
   color: rgba(61, 36, 12, .5);
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
   cursor: pointer;
 }
 
@@ -716,6 +717,7 @@
 .level-ad:disabled {
   background: rgba(0, 0, 0, .08);
   color: rgba(61, 36, 12, .6);
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
   cursor: default;
 }
 
@@ -876,13 +878,14 @@
   border-radius: .6em;
   background: none;
   color: rgba(61, 36, 12, .7);
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
   font: .9em "Changa One", sans-serif;
   cursor: pointer;
 }
 
 .lb-tab.is-on {
   background: white;
-  color: #3d240c;
+  color: var(--ink);
   box-shadow: 0 .1em .3em rgba(0, 0, 0, .15);
 }
 
@@ -1138,6 +1141,13 @@ body.daily-open .sheet-daily {
 }
 
 /* A friend just made, until the list has been seen. */
+/* the flag's slot: the same width with or without a flag, so the names start at the same place */
+.fr-name span.fr-flag {
+  display: inline-block;
+  width: 1.7em;
+  overflow: visible;
+}
+
 .fr-name span.fr-new {
   display: inline-block;
   overflow: visible;
@@ -1177,7 +1187,7 @@ body.daily-open .sheet-daily {
   border: .2em solid rgba(0, 0, 0, .35);
   border-radius: 1em;
   background: whitesmoke;
-  color: #3d240c;
+  color: var(--ink);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
   font: 15px sans-serif;
   animation: invitePeek .35s cubic-bezier(.2, 1.2, .4, 1) both;

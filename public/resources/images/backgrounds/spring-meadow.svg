@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Spring background, the still part: a bright sky, a soft sun, two hills. The clouds, the grass and the flowers that sway and the petals that drift are drawn apart and moved by the GPU (spring-fx-*.svg, .bg-fx in linotte.css). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5fb9ee"/>
+      <stop offset=".45" stop-color="#98d6f7"/>
+      <stop offset=".78" stop-color="#d6f0f5"/>
+      <stop offset="1" stop-color="#e6f6dd"/>
+    </linearGradient>
+    <radialGradient id="sun" cx=".82" cy=".1" r=".5">
+      <stop offset="0" stop-color="#fffbd6" stop-opacity=".95"/>
+      <stop offset=".4" stop-color="#fff3a8" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#fff3a8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hillA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a9dc8a"/><stop offset="1" stop-color="#86c46e"/></linearGradient>
+    <linearGradient id="hillB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc462"/><stop offset="1" stop-color="#55a64a"/></linearGradient>
+  </defs>
+  <rect width="1000" height="1000" fill="url(#sky)"/>
+  <rect width="1000" height="1000" fill="url(#sun)"/>
+  <path d="M0 800 C160 740 300 760 470 790 C650 820 800 740 1000 770 L1000 1000 L0 1000 Z" fill="url(#hillA)"/>
+  <path d="M0 880 C180 840 340 870 520 892 C700 912 860 850 1000 868 L1000 1000 L0 1000 Z" fill="url(#hillB)"/>
+</svg>

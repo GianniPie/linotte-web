@@ -3,6 +3,20 @@
    ============================================ */
 
 :root {
+  /* The ink of the texts. --ink is the text on the panels (light, translucent white), --ink-bg the one that sits straight
+     on the background (the title, "BOT turn"...). A background that does not suit them says its own (body.ink-*, see
+     syncInk in linotte.js): a dark sky has light texts on it and a slate ink on the panels. */
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  /* the tiles of the combinations and the calls under them: white symbols on a translucent veil, which a bright sky
+     would swallow (a background with a bright sky says a deeper veil, body.ink-*) */
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8; /* the blue of a combination the dice make (a theme gives its own) */
+  --call-on-border: #ffea00; /* the border of a call that lights up yellow (a dark one keeps it readable on a bright theme) */
+
   /* "only light" opts out of the browsers that darken pages by themselves
      (Samsung Internet's dark mode for websites, Chrome's auto dark mode). */
   color-scheme: only light !important;
@@ -623,8 +637,9 @@ body.table-flipped .tile::before {
 
 .tile_highlighted {
   /* Tiles are all position:relative (for the ::before symbol layer), so
-     without this a later neighbour paints over this tile's outline. */
-  z-index: 1;
+     without this a later neighbour paints over this tile's outline. Above everything on the board: the pieces (2) and
+     a skin's sheen and drops (1). */
+  z-index: 3;
   /* All three in em of the board's scale (see .div-table), so the highlight
      keeps the phone's proportions on any board size: on the phone these are
      exactly -5px / 10px / 5px, so the 10px ring sits half inside the tile
@@ -861,11 +876,11 @@ body.table-flipped .tile::before {
 }
 
 .result {
-  background-color: #ffffff5e;
+  background-color: var(--zone-bg);
   background-position: center;
   background-size: 100%;
   background-repeat: no-repeat;
-  border: .125em solid #fff; /* 2px on the phone */
+  border: .125em solid var(--zone-border); /* 2px on the phone */
   border-radius: .5em; /* 8px on the phone */
   /* The background art behind the tile is blurred, so its shapes don't
      read as part of the combination's symbol. */
@@ -906,7 +921,7 @@ body.table-flipped .tile::before {
 }
 
 .result.highlighted {
-  background-color: #409ff8;
+  background-color: var(--result-on);
 }
 
 .calls {
@@ -923,8 +938,8 @@ body.table-flipped .tile::before {
 
 .call {
   height: 30%;
-  background-color: #ffffff5e;
-  border: .125em solid #fff; /* 2px on the phone */
+  background-color: var(--zone-bg);
+  border: .125em solid var(--zone-border); /* 2px on the phone */
   border-radius: 20px;
   margin: .5em .25em 1em;
   visibility: hidden;
@@ -940,7 +955,7 @@ body.table-flipped .tile::before {
    it on its own layer and softens its edges. The animation is only the lift. */
 .call.checked {
   background-color: #ffea00;
-  border: .125em solid #ffea00;
+  border: .125em solid var(--call-on-border);
   border-radius: 20px;
   margin: .5em .25em .7em; /* .7em = the phone's 3vw */
   animation: bounceCall .3s ease-out; /* 2.7.0 timing */
@@ -1252,8 +1267,7 @@ summary:focus-visible {
   font-family: "Changa One", sans-serif;
   font-size: 1.05em;
   letter-spacing: .04em;
-  color: #3d240c;
-  opacity: .75;
+  color: var(--ink-bg-soft);
 }
 
 /* font-size lives on the child, not .turn-label itself -- same split as
@@ -1263,7 +1277,8 @@ summary:focus-visible {
 .turn-label-text {
   font-family: "Changa One", sans-serif;
   font-size: 1.6em;
-  color: #3d240c;
+  color: var(--ink-bg);
+  text-shadow: var(--ink-bg-shadow);
   text-align: center;
 }
 
@@ -1760,8 +1775,8 @@ html.is-resizing *::after {
   font-weight: 400;
   font-size: 1.5em;
   line-height: 1.1;
-  color: #3d240c;
-  -webkit-text-fill-color: #3d240c;
+  color: var(--ink);
+  -webkit-text-fill-color: var(--ink);
 }
 
 .opt-flow #rules-goal,
@@ -1851,7 +1866,7 @@ html.is-resizing *::after {
   text-align: center;
   font-family: "Changa One", sans-serif;
   font-size: .95em;
-  color: #3d240c;
+  color: var(--ink);
   opacity: .65;
 }
 
@@ -1877,7 +1892,7 @@ html.is-resizing *::after {
   border: .125em solid rgba(0, 0, 0, .18);
   border-radius: .9em;
   background: rgba(255, 255, 255, .88);
-  color: #3d240c;
+  color: var(--ink);
 }
 
 /* A page title in its own island, like the level road's and Options'. It has no
@@ -1891,7 +1906,7 @@ html.is-resizing *::after {
   border-radius: .55em;
   background: rgba(255, 255, 255, .88);
   border: .075em solid rgba(0, 0, 0, .18);
-  color: #3d240c;
+  color: var(--ink);
 }
 
 /* The end of the help page is not about how to play: a short thick line, more room than between the
@@ -1919,7 +1934,7 @@ html.is-resizing *::after {
   border: .125em solid rgba(0, 0, 0, .18);
   border-radius: .9em;
   background: rgba(255, 255, 255, .88);
-  color: #3d240c;
+  color: var(--ink);
   text-align: center;
 }
 
@@ -2410,16 +2425,378 @@ button.car-button.next {
   rotate: 180deg;
 }
 
-.board-options {
-  border-radius: .35em;
+.car-item[hidden], #page-options section[hidden] {
+  display: none !important;
+}
+
+/* a theme's card: the size and corners of the other options (its name is the line under the title). Its picture has the
+   same rounded corners as theirs (transparent, in the png). */
+.theme-options {
+  cursor: pointer;
+}
+
+.theme-options img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The storm sky is dark: light texts on it, a slate ink on the panels. */
+body.ink-storm {
+  --ink: #22303d;
+  --ink-bg: #eaf2fb;
+  --ink-bg-soft: rgba(234, 242, 251, .72);
+  --ink-bg-shadow: 0 .04em .1em rgba(8, 16, 28, .6);
+  --call-on-border: #243241;
+}
+
+/* The insects that fly over the spring board now and then (flyOnce in linotte.js): over the tiles and the pieces, under the
+   highlights. The game moves the insect; its wings flap by themselves (a scale of the width, on the GPU). */
+.board-fly {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  contain: paint;
+  border-radius: inherit;
+  transition: rotate .6s ease;
+}
+
+body.table-flipped .board-fly {
+  rotate: 180deg;
+}
+
+.board-fly .fly {
+  position: absolute;
+  left: 0;
+  top: 0;
+  aspect-ratio: 1;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.board-fly .fly i {
+  position: absolute;
+  inset: 0;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 .06em .06em rgba(20, 50, 20, .35));
+  animation: flyFlap var(--flap, .32s) ease-in-out infinite alternate;
+}
+
+@keyframes flyFlap {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(var(--flap-to, .3)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-fly .fly i { animation: none; }
+}
+
+/* The spring sky is bright: a deep green ink. */
+body.ink-spring {
+  --ink: #2b3a1f;
+  --ink-bg: rgba(22, 48, 30, .85);
+  --ink-bg-soft: rgba(22, 48, 30, .62);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .6);
+  --zone-bg: rgba(255, 255, 255, .58);
+  --zone-border: rgba(126, 190, 106, .9);
+  --call-on-border: #2b6a2f;
+  --result-on: #4fae4b;
+}
+
+/* the symbols of the combinations, in the border's soft green instead of white (the same drawings), and back to white on the
+   leaf green of a combination the dice make */
+body.ink-spring #rr0 { background-image: url("resources/images/g1-ink.svg"); }
+body.ink-spring #rr1 { background-image: url("resources/images/g2-ink.svg"); }
+body.ink-spring #rr2 { background-image: url("resources/images/g3-ink.svg"); }
+body.ink-spring #rr3 { background-image: url("resources/images/g4-ink.svg"); }
+body.ink-spring #rr4 { background-image: url("resources/images/g5-ink.svg"); }
+body.ink-spring #rr5 { background-image: url("resources/images/g6-ink.svg"); }
+body.ink-spring #rr6 { background-image: url("resources/images/g7-ink.svg"); }
+body.ink-spring #rr7 { background-image: url("resources/images/g8-ink.svg"); }
+body.ink-spring #rr0.highlighted { background-image: url("resources/images/g1.svg"); }
+body.ink-spring #rr1.highlighted { background-image: url("resources/images/g2.svg"); }
+body.ink-spring #rr2.highlighted { background-image: url("resources/images/g3.svg"); }
+body.ink-spring #rr3.highlighted { background-image: url("resources/images/g4.svg"); }
+body.ink-spring #rr4.highlighted { background-image: url("resources/images/g5.svg"); }
+body.ink-spring #rr5.highlighted { background-image: url("resources/images/g6.svg"); }
+body.ink-spring #rr6.highlighted { background-image: url("resources/images/g7.svg"); }
+body.ink-spring #rr7.highlighted { background-image: url("resources/images/g8.svg"); }
+
+/* ============================================
+   BOARD SKINS (body.board-<id>, see the Board options; "classic" is the plain one)
+   ============================================ */
+/* Storm: a light, wet stone. Cool pale tiles in a slate frame, symbols in dark slate, a sheen across the board
+   and drops of water in the margins of the tiles (the symbols stay clear). */
+body.board-storm .div-table {
+  background: linear-gradient(145deg, #62737e, #3d4a54);
+  border-color: #3d4a54;
+  box-shadow: 0 .25em .9em rgba(10, 20, 30, .4), inset 0 0 0 .08em rgba(255, 255, 255, .22);
+}
+
+body.board-storm .grid {
+  position: relative;
+  background: linear-gradient(145deg, #62737e, #3d4a54);
+}
+
+body.board-storm .grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1; /* over the tiles, under the pieces (z-index 2) */
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, transparent 28%, rgba(255, 255, 255, .3) 43%, rgba(255, 255, 255, .06) 52%, transparent 62%),
+    url("resources/images/board-storm-drops.svg") center / 100% 100% no-repeat;
+}
+
+/* Turned for the player on the other side (FLIP, same table): the board stays where it is, and the symbols turn. The
+   water turns with them, so it runs down for whoever it is turned to (and the sheen comes from their side too). */
+body.board-storm .grid::after {
+  transition: rotate .6s ease;
+}
+
+body.board-storm.table-flipped .grid::after,
+body.board-spring.table-flipped .grid::after {
+  rotate: 180deg;
+}
+
+body.board-storm .tile {
+  border-color: #485862;
+  background-color: #d6e2e7;
+  background-image: linear-gradient(160deg, #eef4f6 0%, #d6e2e7 55%, #c3d3da 100%);
+  box-shadow: inset 0 .1em .14em rgba(255, 255, 255, .75), inset 0 -.12em .22em rgba(55, 85, 100, .28);
+}
+
+/* the symbols, in the frame's slate (the drawing is only the shape: the colour is this one) */
+body.board-storm .tile::before {
+  background-image: none;
+  background-color: #2b3944;
+  -webkit-mask: var(--tile-img) center / contain no-repeat;
+  mask: var(--tile-img) center / contain no-repeat;
+}
+
+/* The water that slides down the storm board now and then: drawn by startBoardRain (linotte.js) on a layer of its own over the
+   tiles and under the pieces; it turns with the symbols when the table is turned (FLIP). */
+.board-rain {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  contain: paint;
+  border-radius: inherit;
+  transition: rotate .6s ease;
+}
+
+body.table-flipped .board-rain {
+  rotate: 180deg;
+}
+
+.board-rain .rdrop {
+  position: absolute;
+  width: 4.2%;
+  aspect-ratio: 1;
+  background: url("resources/images/board-storm-drop.svg") center / 100% 100% no-repeat;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.board-rain .rtrail {
+  position: absolute;
+  width: .75%;
+  border-radius: 99px;
+  background: linear-gradient(#eaf5fb, rgba(234, 245, 251, .6));
+  transform-origin: 50% 0;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+/* ============================================
+   STORM BACKGROUND, THE PART THAT MOVES
+   ============================================
+   The still sky is the background picture; the rest is drawn once and moved by the GPU (transform and opacity only), in
+   a layer of its own inside whatever shows the background (see syncBgFx in linotte.js). An animation inside the
+   background picture would be redrawn by the CPU at every frame. The clouds step at a lower rate: they look the same
+   and wake the screen less. */
+.bg-fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: paint;
+}
+
+body > .bg-fx {
+  position: fixed;
+  z-index: -1;
+}
+
+.bg-fx > i {
+  position: absolute;
+  display: block;
+}
+
+.fx-cloud {
+  top: 0;
+  left: 0;
+  height: 100%;
+  aspect-ratio: 3 / 1; /* three periods, slid by one */
+  background-size: 100% 100%;
+  will-change: transform;
+}
+
+.fx-far { background-image: url("resources/images/backgrounds/storm-fx-far.svg"); animation: fxDrift 110s steps(1100) infinite; }
+.fx-mid { background-image: url("resources/images/backgrounds/storm-fx-mid.svg"); animation: fxDrift 70s steps(1050) infinite; }
+.fx-near { background-image: url("resources/images/backgrounds/storm-fx-near.svg"); animation: fxDrift 42s steps(840) infinite; }
+
+/* the spring meadow: soft clouds, grass and flowers that sway in the breeze, petals that drift (petalOnce) */
+.fx-sp-a { background-image: url("resources/images/backgrounds/spring-fx-clouds-a.svg"); animation: fxDrift 160s steps(1600) infinite; }
+.fx-sp-b { background-image: url("resources/images/backgrounds/spring-fx-clouds-b.svg"); animation: fxDrift 100s steps(1000) infinite; }
+
+.fx-grass {
+  left: -3%;
+  width: 106%;
+  bottom: 0;
+  background-size: 100% 100%;
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+
+.fx-grass-back { height: 21%; background-image: url("resources/images/backgrounds/spring-fx-grass-back.svg"); animation: fxSway 7s steps(84) infinite alternate; }
+.fx-grass-front { height: 16%; background-image: url("resources/images/backgrounds/spring-fx-grass-front.svg"); animation: fxSway 5.2s steps(62) infinite alternate-reverse; }
+
+@keyframes fxSway {
+  from { transform: skewX(-1.9deg); }
+  to { transform: skewX(1.9deg); }
+}
+
+.fx-petal {
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+@keyframes fxDrift {
+  to { transform: translate3d(-33.3333%, 0, 0); }
+}
+
+.fx-glow,
+.fx-bolt {
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  will-change: opacity;
+}
+
+.fx-glow-a { background-image: url("resources/images/backgrounds/storm-fx-glow-a.svg"); }
+.fx-glow-b { background-image: url("resources/images/backgrounds/storm-fx-glow-b.svg"); }
+.fx-bolt-a { background-image: url("resources/images/backgrounds/storm-fx-bolt-a.svg"); }
+.fx-bolt-b { background-image: url("resources/images/backgrounds/storm-fx-bolt-b.svg"); }
+
+/* a lighter band at the very top, behind the menu icons and the players' boxes (they are dark and would get lost) */
+.fx-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: max(15%, 130px);
+  background: linear-gradient(rgba(176, 198, 230, .62), rgba(176, 198, 230, .3) 55%, rgba(176, 198, 230, 0));
+}
+
+/* the light of a flash over the whole sky, clouds included */
+.fx-light {
+  inset: 0;
+  background: #cfe4ff;
+  opacity: 0;
+  will-change: opacity;
+}
+
+/* a drop that falls now and then (dropOnce in linotte.js) */
+.fx-drop {
+  top: 0;
+  width: 12px;
+  height: 60px;
+  background: url("resources/images/backgrounds/storm-fx-streak.svg") center / 100% 100% no-repeat;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-cloud, .fx-grass { animation: none; }
+}
+
+/* Spring: a lawn. A hedge-green frame, tiles of mown grass (two greens, in a chequer, with faint blades), symbols in deep
+   green, and in the margins of the tiles daisies, buttercups, little pink flowers, clover and leaves. */
+body.board-spring .div-table {
+  background: linear-gradient(145deg, #3f8f36, #28692b);
+  border-color: #2b6e2d;
+  box-shadow: 0 .25em .9em rgba(15, 45, 18, .35), inset 0 0 0 .08em rgba(255, 255, 255, .25);
+}
+
+body.board-spring .grid {
+  position: relative;
+  background: linear-gradient(145deg, #3f8f36, #28692b);
+}
+
+body.board-spring .grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1; /* over the tiles, under the pieces (z-index 2) */
+  pointer-events: none;
+  transition: rotate .6s ease;
+  background:
+    linear-gradient(118deg, transparent 28%, rgba(255, 250, 200, .3) 43%, rgba(255, 250, 200, .05) 52%, transparent 62%),
+    url("resources/images/board-spring-flowers.svg") center / 100% 100% no-repeat;
+}
+
+body.board-spring .tile {
+  border-color: #3a8032;
+  background-color: #b0e18a;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .1) 0 .12em, transparent .12em .42em),
+    linear-gradient(170deg, #b8e68f 0%, #a2d97a 60%, #8ccb66 100%);
+  box-shadow: inset 0 .1em .14em rgba(255, 255, 255, .55), inset 0 -.12em .22em rgba(30, 90, 30, .25);
+}
+
+body.board-spring .tile:nth-child(even) {
+  background-color: #9bd673;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .08) 0 .12em, transparent .12em .42em),
+    linear-gradient(170deg, #a6dc7d 0%, #90cf68 60%, #7bbf59 100%);
+}
+
+body.board-spring .tile::before {
+  background-image: none;
+  background-color: #1f4d27;
+  -webkit-mask: var(--tile-img) center / contain no-repeat;
+  mask: var(--tile-img) center / contain no-repeat;
+}
+
+.board-options,
+.skin-options {
+  border-radius: .35em; /* the board previews: the outline and corners of "Table style" */
 }
 
 .die-options {
   border-radius: 1em;
 }
 
-.bg-options {
-  border-radius: 1em;
+/* The background previews carry their own rounded corners (transparent, in the png: 14.4% of the side), so the
+   selection ring follows them and nothing is clipped: the same for every one, locked or not. */
+.car-item-content.bg-options,
+.theme-options {
+  overflow: visible;
+  border-radius: 14.4%;
 }
 
 .selected {
@@ -3027,7 +3404,7 @@ body.chat-on .chat-slot {
   padding: .15em .7em;
   border-radius: 1em;
   background: rgba(255, 255, 255, .9);
-  color: #3d240c;
+  color: var(--ink);
   font: 15px/1.25 "Changa One", sans-serif;
   white-space: nowrap;
   box-shadow: 0 2px 5px rgba(0, 0, 0, .18);
@@ -3468,7 +3845,7 @@ body.rooms-need-pro:not(.is-pro) #friend-create::after {
   border-radius: .7em;
   white-space: nowrap;
   background: rgba(255, 255, 255, .95) .35em center / .85em no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233d240c' stroke-width='2.6' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2' fill='%233d240c'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
-  color: #3d240c;
+  color: var(--ink);
   border: 1.5px solid rgba(0, 0, 0, .35);
   font-family: "Changa One", sans-serif;
   pointer-events: none;

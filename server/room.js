@@ -12,7 +12,7 @@
 import { updateGame, canRoll, callAllowed } from "../public/shared/gameEngine.js";
 import { createInitialGameState, rndNum } from "../public/shared/utils.js";
 import { piecesPath, pieces } from "../public/shared/assets.js";
-import { assignPieces, isPlayPiece } from "../public/shared/pieces.js";
+import { assignPieces, isPlayPiece, isThemePiece } from "../public/shared/pieces.js";
 import { tableSeat, ownsBackground, FREE_LOOKS, validMode } from "../public/shared/level.js";
 import { NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs, EMOTE_WINDOW_MS } from "../public/shared/chat.js";
 import {
@@ -86,7 +86,7 @@ export class Room {
       // their level has unlocked (nothing can be bought yet).
       background: ownsBackground(background, xp) ? background : FREE_LOOKS.background, bought: false,
       // Choosing one's piece is part of Pro; the server checks it itself.
-      piece: pro && isPlayPiece(piece) ? piece : -1, socketId: socket.id, connected: true,
+      piece: pro && isPlayPiece(piece) && !isThemePiece(piece) ? piece : -1, socketId: socket.id, connected: true,
     };
     this.bindSocket(seat, socket);
     this.onChange(this);

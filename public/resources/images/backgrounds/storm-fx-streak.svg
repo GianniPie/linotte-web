@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- One falling drop of the storm background: a short slanted streak, slid across the screen by CSS (see dropOnce in linotte.js). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 120" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e4f2fa" stop-opacity="0"/>
+      <stop offset=".75" stop-color="#e4f2fa" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".95"/>
+    </linearGradient>
+  </defs>
+  <path d="M5 4 L19 112" stroke="url(#s)" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+  <circle cx="19" cy="112" r="3.4" fill="#fff" opacity=".9"/>
+</svg>

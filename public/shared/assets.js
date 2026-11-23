@@ -9,14 +9,16 @@ export const diceFaces = [
     "flat_sprite.svg",
     "chinese_sprite.png",
     "persian_sprite.png",
-    "candy_sprite.webp",
-    "space_sprite.webp"
+    "candy2_sprite.webp",
+    "space_sprite.webp",
+    "storm_sprite.svg", // the storm theme's dice (THEME_LOOKS.dice, level.js)
+    "spring_sprite.svg", // the spring theme's dice
 ];
 
 // The corner radius of each die's drawing, as a share of its side (measured on the art: the
 // outline included). The die on the board and its tile in the options take this radius, so the
 // shadow and the yellow selection ring follow the die's own corners instead of one shared curve.
-export const diceRadius = [15.5, 19.5, 14, 19.5, 14, 14.1, 19.3, 10.2];
+export const diceRadius = [15.5, 19.5, 14, 19.5, 14, 14.1, 19.3, 10.2, 19.5, 19.5];
 
 export const dicePos = [
     "0% 0%",
@@ -37,6 +39,8 @@ export const diceNames = [
     "PERSIAN",
     "CANDY",
     "SPACE",
+    "STORM",
+    "SPRING",
 ];
 
 
@@ -50,9 +54,15 @@ export const backgrounds = [
     "pattern-randomized.svg",
     "subtle-prism.svg",
     "parabolic-ellipse.svg",
-    "repeating-triangles.svg"
+    "repeating-triangles.svg",
+    "storm-clouds.svg",
+    "spring-meadow.svg"
 ];
 
+
+// The look of the board (CSS: body.board-<id>); "classic" is the plain one. The others come with a theme (themes.js).
+export const boardSkins = ["classic", "storm", "spring"];
+export const boardSkinNames = ["Classic", "Storm", "Spring"];
 
 export const piecesPath = "/resources/images/pieces/";
 export const pieces =  [
@@ -101,11 +111,16 @@ export const pieces =  [
     "p043_aa8967ff.svg",
     "p044_b87cc7ff.svg",
     "p045_f1e9d6ff.svg",
+    "p046_3d6df0ff.svg", // the storm theme's umbrella: a theme piece (themePieces), after all the others
+    "p047_e63946ff.svg", // the spring theme's ladybird
 ];
+// Pieces that come with a theme (themes.js), not for everyone: piece index -> theme id. They are no profile picture and never
+// come out of the random draw (see shared/pieces.js).
+export const themePieces = { 45: "storm", 46: "spring" };
 // Profile pictures: for now the pieces themselves, named by their number
 // ("p012" is pieces[11]). See public/shared/playerNames.js for the rest of
 // the profile.
-export const avatarIds = pieces.map((f) => f.slice(0, 4));
+export const avatarIds = pieces.filter((f, i) => !(i in themePieces)).map((f) => f.slice(0, 4)); // (the theme pieces are the last ones)
 export const isAvatar = (id) => typeof id === "string" && avatarIds.includes(id);
 export const avatarUrl = (id) => (isAvatar(id) ? piecesPath + pieces[avatarIds.indexOf(id)] : "");
 

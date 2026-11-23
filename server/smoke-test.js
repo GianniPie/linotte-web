@@ -375,6 +375,12 @@ const lobby = new Lobby(io, store);
     const [x, y] = assignPieces(20, 1, 20, 2).pieces;
     assert.ok(colorDistance(hex(x), hex(y)) >= 120, "still clearly different");
   }
+  // A theme's piece (the umbrella) is never drawn at random, is no profile picture, and a favorite of it is honored locally only.
+  const { themePieces, avatarIds } = await import("../public/shared/assets.js");
+  const umbrella = Number(Object.keys(themePieces)[0]);
+  for (let n = 0; n < 300; n++) assert.ok(!assignPieces(-1, 0, -1, 0).pieces.includes(umbrella), "the umbrella does not come out at random");
+  assert.ok(!avatarIds.includes(pieces[umbrella].slice(0, 4)), "...and is not a profile picture");
+  assert.equal(assignPieces(umbrella, 0, -1, 0).pieces[0], umbrella, "a favorite of it is kept (this device)");
   console.log("ok: favorite pieces");
 }
 

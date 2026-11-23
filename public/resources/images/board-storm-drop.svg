@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- One drop of the storm board (the same as in board-storm-drops.svg), for the ones that slide down it (startBoardRain in linotte.js). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+  <ellipse cx="10.1" cy="10.6" rx="9" ry="8.6" fill="#16262f" opacity=".26"/>
+  <ellipse cx="10" cy="10" rx="9" ry="8.6" fill="#e4f2fa" fill-opacity=".6" stroke="#3c5a69" stroke-opacity=".5" stroke-width="1.1"/>
+  <ellipse cx="7.3" cy="6.9" rx="2.5" ry="2.2" fill="#fff" opacity=".92"/>
+</svg>

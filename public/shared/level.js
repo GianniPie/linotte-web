@@ -15,6 +15,8 @@
 //
 // Finishing a game is worth something even when it's lost: every game
 // played to the end moves the player on, and staying beats leaving.
+import { themePieces } from "./assets.js";
+
 export const ONLINE_WIN_POINTS = 4;
 export const ONLINE_FINISHED_POINTS = 2;
 export const BOT_WIN_POINTS = 1; // a win against the bot (it used to be 1 point for 5 wins: no progress to see)
@@ -107,6 +109,10 @@ export const LEVEL_UNLOCKS = {
     dice: { 1: 2, 2: 4, 0: 6, 6: 10, 7: 15 },
     background: { 0: 1, 1: 3, 2: 5, 3: 7, 5: 9, 6: 12, 7: 16, 8: 20 },
 };
+// Looks that come with a theme (themes.js), not with a level: kind -> option index -> theme id. They are
+// never unlocked by level, and the server does not accept them until themes are sold.
+export const THEME_LOOKS = { dice: { 8: "storm", 9: "spring" }, background: { 9: "storm", 10: "spring" }, board: { 1: "storm", 2: "spring" }, piece: themePieces };
+export const themeOfLook = (kind, index) => THEME_LOOKS[kind]?.[index] ?? null;
 export const unlockLevel = (kind, index) => LEVEL_UNLOCKS[kind][index] ?? 0;
 
 // What a level brings: [{ kind: "badge", tier } | { kind: "dice" | "background", index }]
@@ -179,7 +185,7 @@ export function tableSeat(p1, p2) {
 }
 
 // A background this account may show: unlocked at its level (or bought).
-export const ownsBackground = (index, xp) => Number.isInteger(index) && levelOf(xp) >= unlockLevel("background", index);
+export const ownsBackground = (index, xp) => Number.isInteger(index) && !themeOfLook("background", index) && levelOf(xp) >= unlockLevel("background", index);
 
 //--------- matching ---------
 // Random opponents: a player below zero (who leaves games) only meets others

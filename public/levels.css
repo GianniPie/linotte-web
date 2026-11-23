@@ -37,7 +37,7 @@
   border-radius: 999px;
   /* Flat, like the rest of the app: two bands of colour instead of a gradient. */
   background: linear-gradient(180deg, #ffe27a 0 46%, #f2b02a 46% 100%);
-  color: #3d240c;
+  color: var(--ink);
   font-family: "Changa One", sans-serif;
   font-size: 20px;
   line-height: 1.1;
@@ -587,7 +587,7 @@ body.ps-open #winner-overlay {
   padding: 0 .8em 3em;
   box-sizing: border-box;
   font-size: 16px;
-  color: #3d240c;
+  color: var(--ink);
   text-align: left;
 }
 
@@ -643,7 +643,7 @@ body.ps-open #winner-overlay {
   border: .15em solid rgba(0, 0, 0, .28);
   font: .95em "Changa One", sans-serif;
   white-space: nowrap;
-  color: #3d240c;
+  color: var(--ink);
   box-sizing: border-box;
 }
 
@@ -835,7 +835,7 @@ body.ps-open #winner-overlay {
   padding: 0 0 0 1.35em;
   border: 0;
   background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='8.6' fill='none' stroke='%233d240c' stroke-width='1.5'/%3E%3Cpath d='M7.7 7.7a2.4 2.4 0 1 1 3.3 2.2c-.6.3-1 .8-1 1.5v.4' fill='none' stroke='%233d240c' stroke-width='1.6' stroke-linecap='round'/%3E%3Ccircle cx='10' cy='14.4' r='.9' fill='%233d240c'/%3E%3C/svg%3E") left center / 1.05em no-repeat;
-  color: #3d240c;
+  color: var(--ink);
   font: .5em/1.5 "Changa One", sans-serif;
   opacity: .7;
   text-decoration: underline dotted;

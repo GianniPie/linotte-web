@@ -76,6 +76,7 @@ function entitlement() {
 // answer is kept so the badge shows at once next time, even offline.
 const PRO_KEY = "linotte-pro";
 const STAR_KEY = "linotte-star"; // the mark of a bought Pro (a gifted one has Pro's things and no star)
+const ROLE_KEY = "linotte-role"; // the account's role (see server/entitlements.js)
 const XP_KEY = "linotte-xp";
 const RECORD_KEY = "linotte-record"; // { played, won } online, for the player card
 const TODAY_KEY = "linotte-today"; // { day, dailyDone, adsLeft } for the account
@@ -87,8 +88,12 @@ export function lastKnownStar() {
     const saved = read(STAR_KEY);
     return saved === null || saved === "" ? lastKnownPro() : saved === "1";
 }
+export function lastKnownRole() {
+    return read(ROLE_KEY) || "";
+}
 // What the server said about the account (hello, auth, /api/me): kept for the next launch.
 function rememberAccess(me) {
+    write(ROLE_KEY, me.role || "");
     write(PRO_KEY, me.pro ? "1" : "");
     write(STAR_KEY, me.pro && me.star !== false ? "1" : "0");
 }

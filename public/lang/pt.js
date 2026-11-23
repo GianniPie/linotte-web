@@ -474,7 +474,14 @@ export default {
     "PERSIAN": "PERSAS",
     "CANDY": "DOCES",
     "SPACE": "ESPACIAIS",
+    "STORM": "TEMPESTADE",
+    "SPRING": "PRIMAVERA",
     "Background": "Fundo",
+    "Themes": "Temas",
+    "Board": "Tabuleiro",
+    "Classic": "Clássico",
+    "Storm": "Tempestade",
+    "Spring": "Primavera",
     "Language": "Idioma",
 
     // how to play

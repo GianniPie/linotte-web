@@ -958,11 +958,19 @@
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do6"><img
-                                        src="resources/images/dice/candy01.webp"></div>
+                                        src="resources/images/dice/candy02.webp"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do7"><img
                                         src="resources/images/dice/space01.webp"></div>
+                            </li>
+                            <li class="car-item" hidden><!-- a theme's look: shown to whoever has the theme (applyThemeAccess) -->
+                                <div class="car-item-content die-options" id="do8"><img
+                                        src="resources/images/dice/storm01.png"></div>
+                            </li>
+                            <li class="car-item" hidden>
+                                <div class="car-item-content die-options" id="do9"><img
+                                        src="resources/images/dice/spring01.png"></div>
                             </li>
                         </ul>
                         <button class="car-button previous" data-carousel="die" data-direction="previous"
@@ -1014,10 +1022,40 @@
                                 <div class="car-item-content bg-options" id="bg8"><img
                                         src="resources/images/backgrounds/repeating-triangles-prev.png"></div>
                             </li>
+                            <li class="car-item" hidden><!-- a theme's look: shown to whoever has the theme (applyThemeAccess) -->
+                                <div class="car-item-content bg-options" id="bg9"><img
+                                        src="resources/images/backgrounds/storm-clouds-prev.png"></div>
+                            </li>
+                            <li class="car-item" hidden>
+                                <div class="car-item-content bg-options" id="bg10"><img
+                                        src="resources/images/backgrounds/spring-meadow-prev.png"></div>
+                            </li>
                         </ul>
                         <button class="car-button previous" data-carousel="bg" data-direction="previous"
                             type="button"></button>
                         <button class="car-button next" data-carousel="bg" data-direction="next" type="button"></button>
+                    </div>
+                </section>
+
+                <!-- the look of the board: Classic, and those that come with a theme (shown to whoever has it) -->
+                <section>
+                    <div class="title" data-i18n>Board</div>
+                    <div class="opt-current" id="boardskin-current"></div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered">
+                            <div class="car-item skin-options" id="bs0"><img src="resources/images/board-classic-prev.png"></div>
+                            <div class="car-item skin-options" id="bs1" hidden><img src="resources/images/board-storm-prev.png"></div>
+                            <div class="car-item skin-options" id="bs2" hidden><img src="resources/images/board-spring-prev.png"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- packages of looks sold apart (shared/themes.js); only for those who have one -->
+                <section id="themes-section" hidden>
+                    <div class="title" data-i18n>Themes</div>
+                    <div class="opt-current" id="theme-current"></div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered" id="theme-list"></div>
                     </div>
                 </section>
 

@@ -178,7 +178,7 @@ window.addEventListener('orientationchange', onViewportChange);
 
 //----------- GAME STATE ---------------
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
-import { dicePath, diceFaces, dicePos, diceNames, diceRadius, bgPath, backgrounds, piecesPath, pieces, avatarIds, avatarUrl, avatarOrDefault } from "./shared/assets.js";
+import { dicePath, diceFaces, dicePos, diceNames, diceRadius, bgPath, backgrounds, boardSkins, boardSkinNames, piecesPath, pieces, avatarIds, avatarUrl, avatarOrDefault } from "./shared/assets.js";
 import { updateGame, canRoll, callBlockedBy } from "./shared/gameEngine.js";
 import { cannotWin } from "./shared/giveUp.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget, labCandidates, setSpeedWeights, setSpeedModels, labAim, labCall, labStop, labLock } from "./shared/botAI.js";
@@ -190,14 +190,15 @@ import { CHAT, chatImage, chatScale, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAM
 import { TURN_FREEZE_CAP_MS } from "./shared/turn.js";
 import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
 import { nameProblem, cleanPlayerName, nameChangeWaitMs, COUNTRIES, flagOf } from "./shared/playerNames.js";
-import { pickPieceIndexes, isPlayPiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
+import { pickPieceIndexes, isPlayPiece, isThemePiece, FIRST_PLAY_PIECE } from "./shared/pieces.js";
 import { recordGame, moveLocalGamesToAccount, loadStats, guestXp, noteGuestAbandon, guestToday, guestAdReward } from "./stats.js";
 import { ROOMS_NEED_PRO } from "./shared/accounts.js";
 import { renderBanner, interstitial, rewarded } from "./ads.js";
 import { recentErrors } from "./diagnostics.js"; // the last errors of the page, for a problem report
 import "./a11y.js"; // roles, names, keyboard and states for the buttons that are not <button>s
-import { OnlineClient, shareOrigin, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer, sendFeedback, getPlayerId } from "./online.js";
-import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY, ABANDON_BASE, onlinePayout, validMode, MODE_NORMAL, MODE_RUTHLESS } from "./shared/level.js";
+import { THEMES, themeById } from "./shared/themes.js";
+import { OnlineClient, shareOrigin, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownRole, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer, sendFeedback, getPlayerId } from "./online.js";
+import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, themeOfLook, THEME_LOOKS, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY, ABANDON_BASE, onlinePayout, validMode, MODE_NORMAL, MODE_RUTHLESS } from "./shared/level.js";
 let gameState = createInitialGameState();
 gameState.players[1].name = t("YOU");
 gameState.players[2].name = "BOT";
@@ -388,9 +389,10 @@ function assignRandomPieces(state) {
 // cookie: this runs before the options section is set up. Only Pro players
 // play with it; the choice is kept for if they become Pro again.
 function favoritePiece() {
-    if (!lastKnownPro()) return -1;
     const i = Number(getCookie("piece", -1));
-    return isPlayPiece(i) ? i : -1;
+    if (!isPlayPiece(i)) return -1;
+    // A theme's piece belongs to the theme (bought apart), not to Pro; any other favorite is Pro's.
+    return isThemePiece(i) ? (ownsLook("piece", i) ? i : -1) : (lastKnownPro() ? i : -1);
 }
 
 assignRandomPieces(gameState);
@@ -970,12 +972,19 @@ let tidyness = getCookie("tidyness", 2);
 document.getElementById("bo" + tidyness).classList.add("selected"); //option section
 renderTidyness(tidyness);
 
+// Themes (shared/themes.js) are packages of looks sold apart. Whoever has one picks it under "Themes" and gets all its
+// looks; each look is also an item of its own in its field, free to be changed. For now only the admin has them.
+// (function declarations: favoritePiece needs them early, at start-up)
+function isAdmin() { return lastKnownRole() === "admin"; }
+function ownsTheme(id) { return isAdmin() && Boolean(themeById(id)); }
+function ownsLook(kind, index) { const theme = themeOfLook(kind, index); return !theme || ownsTheme(theme); }
+
 // Dice and backgrounds come with levels (see shared/level.js): a saved
 // choice that is locked at this level (a new device, or points lost) falls
 // back to the free one. At start-up the account isn't known yet: the level
 // last seen on this phone.
 const startLevel = levelOf(lastKnownXp() ?? guestXp());
-const lookOrFree = (kind, saved) => (startLevel >= unlockLevel(kind, saved) ? saved : FREE_LOOKS[kind]);
+const lookOrFree = (kind, saved) => (ownsLook(kind, saved) && startLevel >= unlockLevel(kind, saved) ? saved : FREE_LOOKS[kind]);
 let dieCookie = lookOrFree("dice", Number(getCookie("diceFaces", FREE_LOOKS.dice)));
 document.getElementById("do" + dieCookie).classList.add("selected"); //option section
 document.getElementById("dice-current").textContent = t(diceNames[dieCookie]);
@@ -990,6 +999,251 @@ function showBackground(bgId) {
     body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
     optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]));
     modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
+    syncBgFx(backgrounds[bgId]);
+    syncInk(backgrounds[bgId]);
+}
+
+// The texts follow the background: a dark sky wants light texts on it and a slate ink on the panels (CSS: body.ink-*).
+const BG_INK = { "storm-clouds.svg": "storm", "spring-meadow.svg": "spring" };
+function syncInk(file) {
+    for (const ink of new Set(Object.values(BG_INK))) document.body.classList.toggle("ink-" + ink, BG_INK[file] === ink);
+}
+
+//----- the storm background's moving parts -----
+// The background picture is still (the sky). The clouds are layers drawn once and slid by the GPU (CSS, see .bg-fx in
+// linotte.css), mounted in whatever shows the background; the lightning and a falling drop are played now and then by a
+// timer, on the GPU too (nothing runs between two of them). An animated picture would be redrawn by the CPU at every
+// frame, which heats the phone and drains the battery.
+const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+let bgFxTimer = 0;
+let bgDropTimer = 0;
+let bgPetalTimer = 0;
+// What each moving background is made of (bottom to top), and what plays now and then on it.
+const BG_FX_LAYERS = {
+    "storm-clouds.svg": ["fx-cloud fx-far", "fx-glow fx-glow-a", "fx-glow fx-glow-b", "fx-cloud fx-mid", "fx-bolt fx-bolt-a", "fx-bolt fx-bolt-b", "fx-cloud fx-near", "fx-top", "fx-light"],
+    "spring-meadow.svg": ["fx-cloud fx-sp-a", "fx-cloud fx-sp-b", "fx-grass fx-grass-back", "fx-grass fx-grass-front"],
+};
+function syncBgFx(file) {
+    document.querySelectorAll(".bg-fx").forEach((el) => el.remove());
+    clearTimeout(bgFxTimer);
+    clearTimeout(bgDropTimer);
+    clearTimeout(bgPetalTimer);
+    const layers = BG_FX_LAYERS[file];
+    if (!layers) return;
+    for (const host of [document.body, ...optBgs]) {
+        const fx = document.createElement("div");
+        fx.className = "bg-fx";
+        for (const cls of layers) {
+            const layer = document.createElement("i");
+            layer.className = cls;
+            fx.append(layer);
+        }
+        host.append(fx);
+    }
+    if (reducedMotion()) return;
+    if (file === "storm-clouds.svg") {
+        bgFxTimer = setTimeout(flashOnce, 4000 + Math.random() * 4000);
+        bgDropTimer = setTimeout(dropOnce, 2500 + Math.random() * 3000);
+    } else {
+        bgPetalTimer = setTimeout(petalOnce, 2500 + Math.random() * 3000);
+    }
+}
+// A flash: the glow fades, the bolt flickers twice, and the light goes over the whole sky. Two of them, as it was.
+const FLASHES = {
+    a: { glow: [1800, [[0, 0], [0.1, 1], [0.3, 0.2], [0.45, 0.85], [1, 0]]], bolt: [1080, [[0, 0], [0.1667, 1], [0.4167, 0], [0.667, 1], [1, 0]]], light: [1260, [[0, 0], [0.143, 0.5], [0.43, 0], [0.643, 0.38], [1, 0]]] },
+    b: { glow: [2860, [[0, 0], [0.091, 1], [0.273, 0.15], [0.409, 0.8], [1, 0]]], bolt: [1560, [[0, 0], [0.1667, 1], [0.4167, 0], [0.667, 1], [1, 0]]], light: [1820, [[0, 0], [0.143, 0.48], [0.429, 0], [0.643, 0.36], [1, 0]]] },
+};
+const play = (els, [duration, steps]) => els.forEach((el) => el.animate(steps.map(([offset, opacity]) => ({ offset, opacity })), { duration }));
+function flashOnce() {
+    if (!document.hidden) {
+        const which = Math.random() < 0.5 ? "a" : "b";
+        const f = FLASHES[which];
+        play(document.querySelectorAll(".fx-glow-" + which), f.glow);
+        play(document.querySelectorAll(".fx-bolt-" + which), f.bolt);
+        play(document.querySelectorAll(".bg-fx .fx-light"), f.light);
+    }
+    bgFxTimer = setTimeout(flashOnce, 7000 + Math.random() * 9000);
+}
+// A drop that falls across the screen now and then (sometimes two or three, one after the other).
+function fallOne(x) {
+    const fall = window.innerHeight + 140;
+    document.querySelectorAll(".bg-fx").forEach((fx) => {
+        if (!fx.getClientRects().length) return; // (not on screen: nothing to draw)
+        const drop = document.createElement("i");
+        drop.className = "fx-drop";
+        drop.style.left = x + "%";
+        fx.append(drop);
+        drop.animate([
+            { opacity: 0, transform: "translate(0, -70px)", offset: 0 },
+            { opacity: 0.8, transform: `translate(${fall * 0.06}px, ${fall * 0.12 - 70}px)`, offset: 0.12 },
+            { opacity: 0.8, transform: `translate(${fall * 0.13}px, ${fall * 0.9 - 70}px)`, offset: 0.9 },
+            { opacity: 0, transform: `translate(${fall * 0.14}px, ${fall - 70}px)`, offset: 1 },
+        ], { duration: fall / 0.9, easing: "cubic-bezier(.4,0,.9,.7)" }).onfinish = () => drop.remove();
+    });
+}
+function dropOnce() {
+    if (!document.hidden) {
+        const count = Math.random() < 0.3 ? 2 + Math.floor(Math.random() * 2) : 1;
+        for (let i = 0; i < count; i++) setTimeout(() => fallOne(4 + Math.random() * 92), i * (250 + Math.random() * 400));
+    }
+    bgDropTimer = setTimeout(dropOnce, 5000 + Math.random() * 7000);
+}
+
+// A petal or a small leaf drifts across the spring meadow on the breeze now and then.
+function petalOnce() {
+    if (!document.hidden) {
+        const W = window.innerWidth, H = window.innerHeight;
+        const kind = Math.random() < 0.65 ? "petal" : "leaf";
+        const y0 = H * (0.08 + Math.random() * 0.5), amp = H * (0.05 + Math.random() * 0.08), turns = (Math.random() < 0.5 ? -1 : 1) * (240 + Math.random() * 360);
+        const phase = Math.random() * 6;
+        const steps = Array.from({ length: 9 }, (_, k) => {
+            const t = k / 8;
+            return {
+                offset: t,
+                opacity: k === 0 || k === 8 ? 0 : 0.92,
+                transform: `translate(${-30 + (W + 60) * t}px, ${y0 + amp * Math.sin(phase + t * 6) + H * 0.14 * t}px) rotate(${turns * t}deg)`,
+            };
+        });
+        document.querySelectorAll(".bg-fx").forEach((fx) => {
+            if (!fx.getClientRects().length) return;
+            const el = document.createElement("i");
+            el.className = "fx-petal";
+            el.style.backgroundImage = `url("resources/images/backgrounds/spring-fx-${kind}.svg")`;
+            fx.append(el);
+            el.animate(steps, { duration: 12000 + Math.random() * 5000, easing: "linear" }).onfinish = () => el.remove();
+        });
+    }
+    bgPetalTimer = setTimeout(petalOnce, 7000 + Math.random() * 8000);
+}
+
+//----- the spring board's insects -----
+// A butterfly or a bee flies over the lawn now and then (sometimes two): a wandering path from one side of the board to
+// another, turned the way it flies, drawn by the GPU on a layer of its own. Between two of them nothing runs.
+let boardFlyTimer = 0;
+function syncBoardFly(on) {
+    clearTimeout(boardFlyTimer);
+    document.querySelectorAll(".board-fly").forEach((el) => el.remove());
+    if (!on || reducedMotion()) return;
+    const layer = document.createElement("div");
+    layer.className = "board-fly";
+    document.querySelector(".grid")?.append(layer);
+    boardFlyTimer = setTimeout(flyOnce, 3500 + Math.random() * 3000);
+}
+function flyOnce() {
+    const layer = document.querySelector(".board-fly");
+    if (layer && !document.hidden) {
+        const count = Math.random() < 0.25 ? 2 : 1;
+        for (let n = 0; n < count; n++) setTimeout(() => flyInsect(layer), n * 1800);
+    }
+    boardFlyTimer = setTimeout(flyOnce, 7000 + Math.random() * 10000);
+}
+// A point on the smooth curve (Catmull-Rom) through the points, for t from 0 to 1.
+function curveAt(points, t) {
+    const n = points.length - 1, x = Math.min(n - 1e-9, Math.max(0, t * n)), i = Math.floor(x), f = x - i;
+    const p0 = points[Math.max(0, i - 1)], p1 = points[i], p2 = points[i + 1], p3 = points[Math.min(n, i + 2)];
+    const cr = (k) => 0.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * f + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * f * f + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * f * f * f);
+    return [cr(0), cr(1)];
+}
+function flyInsect(layer) {
+    const size = layer.getBoundingClientRect().width;
+    if (!size) return;
+    const bee = Math.random() < 0.35;
+    const kind = bee ? "bee" : Math.random() < 0.5 ? "butterfly-a" : "butterfly-b";
+    const px = size * (bee ? 0.058 : 0.075);
+    const duration = bee ? 2300 + Math.random() * 1100 : 9000 + Math.random() * 4000;
+    const rnd = () => Math.random();
+    // from a random edge to the opposite one: a bee darts almost straight, a butterfly wanders in wide, slow curves
+    const side = Math.floor(rnd() * 4);
+    const edge = (s, v) => [[-px, v * size], [size + px, v * size], [v * size, -px], [v * size, size + px]][s];
+    const a = edge(side, rnd() * 0.8 + 0.1), b = edge(side ^ 1, rnd() * 0.8 + 0.1);
+    const controls = [a], count = bee ? 3 : 5, wander = bee ? 0.22 : 0.5;
+    for (let k = 1; k <= count; k++) {
+        const f = k / (count + 1);
+        controls.push([a[0] + (b[0] - a[0]) * f + (rnd() - 0.5) * size * wander, a[1] + (b[1] - a[1]) * f + (rnd() - 0.5) * size * wander]);
+    }
+    controls.push(b);
+    const phase = rnd() * 6.28, phase2 = rnd() * 6.28;
+    const frames = Math.round(duration / 70);
+    const pos = [], head = [];
+    for (let k = 0; k <= frames; k++) {
+        const t = k / frames;
+        // a butterfly beats and glides: its progress speeds up and slows down; a bee buzzes (a quick small tremble)
+        const progress = bee ? t : Math.min(1, Math.max(0, t + 0.011 * Math.sin(phase + t * (duration / 1000) * 5.6)));
+        const [x, y] = curveAt(controls, progress);
+        const ahead = curveAt(controls, Math.min(1, progress + 0.01)), behind = curveAt(controls, Math.max(0, progress - 0.01));
+        const dx = ahead[0] - behind[0], dy = ahead[1] - behind[1], len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len, ny = dx / len; // across the path
+        const wave = phase + t * (duration / 1000) * 5.6 + 1.2;
+        const bob = bee ? size * 0.006 * Math.sin(phase + t * duration / 1000 * 38) + size * 0.004 * Math.sin(phase2 + t * duration / 1000 * 23)
+            : size * 0.03 * Math.sin(wave);
+        pos.push([x + nx * bob, y + ny * bob]);
+        // it faces where the path goes (not the bobbing), and a butterfly banks a little with each beat
+        head.push((Math.atan2(dy, dx) * 180) / Math.PI + 90 + (bee ? 0 : 11 * Math.cos(wave)));
+    }
+    let angle = head[0];
+    const steps = pos.map((p, k) => {
+        angle += ((((head[k] - angle) % 360) + 540) % 360 - 180) * (bee ? 0.5 : 0.35);
+        const edgeFade = k < 4 ? k / 4 : k > frames - 4 ? (frames - k) / 4 : 1;
+        return { offset: k / frames, opacity: edgeFade, transform: `translate(${p[0] - px / 2}px, ${p[1] - px / 2}px) rotate(${angle}deg)` };
+    });
+    const fly = document.createElement("div");
+    fly.className = "fly" + (bee ? " bee" : "");
+    fly.style.width = fly.style.height = px + "px";
+    fly.style.setProperty("--flap", (bee ? 0.05 + rnd() * 0.02 : 0.26 + rnd() * 0.16) + "s");
+    fly.style.setProperty("--flap-to", bee ? 0.5 : 0.25 + rnd() * 0.15);
+    const wings = document.createElement("i");
+    wings.style.backgroundImage = `url("resources/images/board-fly-${kind}.svg")`;
+    fly.append(wings);
+    layer.append(fly);
+    fly.animate(steps, { duration, easing: "linear" }).onfinish = () => fly.remove();
+}
+
+//----- the storm board's water that slides -----
+// Now and then (a minute or so) a drop swells, slides down a margin of the tiles leaving a thin trail, slows down as it
+// shrinks, stops and fades. Drawn by the GPU on a layer of its own; between two of them nothing runs.
+let boardRainTimer = 0;
+const RAIN_LANES = [[2.9, 8, 34], [77.3, 46, 30], [42.9, 22, 38], [17.2, 50, 30], [62.8, 12, 32]]; // x, y, how far (% of the board)
+function syncBoardRain(on) {
+    clearTimeout(boardRainTimer);
+    document.querySelectorAll(".board-rain").forEach((el) => el.remove());
+    if (!on || reducedMotion()) return;
+    const layer = document.createElement("div");
+    layer.className = "board-rain";
+    document.querySelector(".grid")?.append(layer);
+    boardRainTimer = setTimeout(rainOnce, 6000 + Math.random() * 4000);
+}
+function rainOnce() {
+    const layer = document.querySelector(".board-rain");
+    if (layer && !document.hidden) {
+        const [x, y, dist] = RAIN_LANES[Math.floor(Math.random() * RAIN_LANES.length)];
+        const drop = document.createElement("i");
+        drop.className = "rdrop";
+        drop.style.cssText = `left:${x - 2.1}%;top:${y - 2.1}%`;
+        const trail = document.createElement("i");
+        trail.className = "rtrail";
+        trail.style.cssText = `left:${x - 0.375}%;top:${y + 0.8}%;height:${dist}%`;
+        layer.append(trail, drop);
+        const total = 11300; // fade in .6, wait 1.2, slide 5.5, hold 1.2, fade out 2.8 (seconds)
+        const at = (s) => s / (total / 1000);
+        const far = dist / 4.2 * 100; // the drop's own heights
+        const slide = drop.animate([
+            { opacity: 0, transform: "translateY(0) scale(1)", offset: 0 },
+            { opacity: 1, transform: "translateY(0) scale(1)", offset: at(0.6) },
+            { opacity: 1, transform: "translateY(0) scale(1.08)", offset: at(1.8), easing: "ease-in-out" },
+            { opacity: 1, transform: `translateY(${far}%) scale(.62)`, offset: at(7.3) },
+            { opacity: 1, transform: `translateY(${far}%) scale(.6)`, offset: at(8.5) },
+            { opacity: 0, transform: `translateY(${far}%) scale(.55)`, offset: 1 },
+        ], { duration: total });
+        trail.animate([
+            { opacity: 0, transform: "scaleY(0)", offset: 0 },
+            { opacity: 0.55, transform: "scaleY(0)", offset: at(1.8), easing: "ease-in-out" },
+            { opacity: 0.5, transform: "scaleY(1)", offset: at(7.3) },
+            { opacity: 0.45, transform: "scaleY(1)", offset: at(8.5) },
+            { opacity: 0, transform: "scaleY(1)", offset: 1 },
+        ], { duration: total });
+        slide.onfinish = () => { drop.remove(); trail.remove(); };
+    }
+    boardRainTimer = setTimeout(rainOnce, 25000 + Math.random() * 30000);
 }
 // This player's own: the one selected in the options (a saved one still
 // locked at this level isn't, see lookOrFree).
@@ -1020,6 +1274,8 @@ for (let i = 0; i < backgrounds.length; i++) {
 body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
 optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]));
 modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
+syncBgFx(backgrounds[selectedBg]);
+syncInk(backgrounds[selectedBg]);
 // Kept for the next visit's first paint (see the head of index.html).
 const rememberOwnBg = (id) => { try { localStorage.setItem("linotte-own-bg", bgPath + backgrounds[id]); } catch { /* storage off */ } };
 rememberOwnBg(selectedBg);
@@ -1687,6 +1943,7 @@ dieOptions.forEach(dieOption => {
         diceSpriteImg.src = selectedDie;
         setCookie("diceFaces", dieId);
         renderDiceFace(dieId);
+        markThemeSelected();
         centerLists(true);
     });
 });
@@ -1699,14 +1956,37 @@ bgOptions.forEach(bgOption => {
         bgOptions.forEach(t => t.classList.remove("selected"));
         bgOption.classList.add("selected");
 
-        var bgId = Number(bgOption.id[2]);
+        var bgId = Number(bgOption.id.slice(2));
         document.getElementById("bg-current").textContent = humanizeBgName(backgrounds[bgId]);
 
         showBackground(bgId);
         rememberOwnBg(bgId);
         setCookie("background", bgId);
         onlineClient?.setLook(bgId);
+        markThemeSelected();
         centerLists(true);
+    });
+});
+
+
+//----- the look of the board (options) -----
+// "Classic", or one that comes with a theme (shared/themes.js): the board takes the look through a body class (CSS:
+// body.board-<id>). A saved one the account does not have falls back to Classic.
+const skinOptions = document.querySelectorAll(".skin-options");
+function showBoardSkin(index) {
+    boardSkins.forEach((id, i) => document.body.classList.toggle("board-" + id, i === index));
+    skinOptions.forEach((el) => el.classList.toggle("selected", el.id === "bs" + index));
+    document.getElementById("boardskin-current").textContent = t(boardSkinNames[index]);
+    syncBoardRain(boardSkins[index] === "storm");
+    syncBoardFly(boardSkins[index] === "spring");
+}
+showBoardSkin(ownsLook("board", Number(getCookie("boardSkin", 0))) ? Number(getCookie("boardSkin", 0)) || 0 : 0);
+skinOptions.forEach((skinOption) => {
+    skinOption.addEventListener("click", () => {
+        const index = Number(skinOption.id.slice(2));
+        showBoardSkin(index);
+        setCookie("boardSkin", index);
+        markThemeSelected();
     });
 });
 
@@ -1723,7 +2003,7 @@ bgOptions.forEach(bgOption => {
         const li = document.createElement("li");
         li.className = "car-item";
         const item = document.createElement("div");
-        item.className = "car-item-content piece-options" + (i === -1 ? " is-random" : " is-pro-only");
+        item.className = "car-item-content piece-options" + (i === -1 ? " is-random" : isThemePiece(i) ? "" : " is-pro-only");
         item.id = "po" + i;
         item.setAttribute("aria-label", label);
         const img = document.createElement("img");
@@ -1733,7 +2013,7 @@ bgOptions.forEach(bgOption => {
         li.appendChild(item);
         list.appendChild(li);
         item.addEventListener("click", () => {
-            if (i !== -1 && !lastKnownPro()) return showToast(t("Pro version only"));
+            if (i !== -1 && !isThemePiece(i) && !lastKnownPro()) return showToast(t("Pro version only"));
             selectPiece(i);
         });
     };
@@ -5119,6 +5399,7 @@ function setPro(pro) {
     document.body.classList.toggle("game-ad", !pro); // the room kept for the in-game banner (--ad-h)
     showHomeBadge();
     showPieceChoice(favoritePiece()); // the favorite piece is Pro only
+    applyThemeAccess();
     if (onlineOverlay.dataset.view === "pro") fillProSheet();
 }
 
@@ -5932,7 +6213,7 @@ async function backgroundTint(url) {
             const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, dl = max - min;
             let h = 0;
             if (dl) h = max === r ? ((g - b) / dl) % 6 : max === g ? (b - r) / dl + 2 : (r - g) / dl + 4;
-            tint = { h: Math.round((h * 60 + 360) % 360), s: Math.round(dl ? (dl / (1 - Math.abs(2 * l - 1))) * 100 : 0) };
+            tint = { h: Math.round((h * 60 + 360) % 360), s: Math.round(dl ? (dl / (1 - Math.abs(2 * l - 1))) * 100 : 0), l };
         }
     } catch { /* the default colours */ }
     tintCache.set(url, tint);
@@ -5943,8 +6224,10 @@ function tintRoad(list) {
     backgroundTint(bgPath + backgrounds[ownBackground()]).then((tint) => {
         if (!tint) return;
         const s = Math.max(25, Math.min(70, tint.s));
-        list.style.setProperty("--road-done", `hsl(${tint.h} ${s}% 30%)`);
-        list.style.setProperty("--road-todo", `hsl(${tint.h} ${s}% 20% / .4)`);
+        // a dark background gets a light road (the line, the dashes and the rings), a light one a dark road
+        const dark = tint.l < 0.42;
+        list.style.setProperty("--road-done", dark ? `hsl(${tint.h} ${s}% 82%)` : `hsl(${tint.h} ${s}% 30%)`);
+        list.style.setProperty("--road-todo", dark ? `hsl(${tint.h} ${s}% 90% / .5)` : `hsl(${tint.h} ${s}% 20% / .4)`);
     });
 }
 byId("account-road").addEventListener("click", () => { hideOnlineOverlay(); openMenuPage("road"); });
@@ -5978,10 +6261,49 @@ function applyLevelLocks() {
         const list = first?.closest(".car-list");
         if (!list) continue;
         const items = [...list.querySelectorAll(":scope > .car-item")];
-        const levelOfItem = (li) => unlockLevel(kind, Number(li.querySelector(`[id^="${prefix}"]`).id.slice(2)));
+        const levelOfItem = (li) => { const index = Number(li.querySelector(`[id^="${prefix}"]`).id.slice(2)); return themeOfLook(kind, index) ? Infinity : unlockLevel(kind, index); };
         items.sort((a, b) => levelOfItem(a) - levelOfItem(b)).forEach((li) => list.appendChild(li));
     }
 })();
+// What the account's themes show: the Themes section (a card for each theme it has) and the looks of those
+// themes as items in their own fields. Picking a theme puts all its looks on at once; each can then be changed alone.
+const lookPrefix = { dice: "do", background: "bg", board: "bs", piece: "po" };
+function applyThemeAccess() {
+    for (const [kind, items] of Object.entries(THEME_LOOKS)) {
+        for (const [index, id] of Object.entries(items)) {
+            const li = document.getElementById(lookPrefix[kind] + index)?.closest(".car-item");
+            if (li) li.hidden = !ownsTheme(id);
+        }
+    }
+    const owned = THEMES.filter((theme) => ownsTheme(theme.id));
+    const section = document.getElementById("themes-section");
+    if (!section) return;
+    section.hidden = !owned.length;
+    document.getElementById("theme-list").replaceChildren(...owned.map((theme) => {
+        const card = Object.assign(document.createElement("div"), { className: "car-item theme-options", id: "th-" + theme.id });
+        card.setAttribute("aria-label", t(theme.name));
+        card.append(Object.assign(document.createElement("img"), { src: theme.preview, alt: "" }));
+        card.addEventListener("click", () => {
+            for (const [kind, index] of Object.entries(theme.looks)) document.getElementById(lookPrefix[kind] + index)?.click();
+            markThemeSelected();
+        });
+        return card;
+    }));
+    markThemeSelected();
+}
+// A theme is the chosen one while every look it brings is the one in use.
+function markThemeSelected() {
+    let current = "";
+    for (const theme of THEMES) {
+        const on = Object.entries(theme.looks).every(([kind, index]) => document.getElementById(lookPrefix[kind] + index)?.classList.contains("selected"));
+        document.getElementById("th-" + theme.id)?.classList.toggle("selected", on);
+        if (on && ownsTheme(theme.id)) current = t(theme.name);
+    }
+    const label = document.getElementById("theme-current");
+    if (label) label.textContent = current;
+}
+applyThemeAccess();
+
 function lockedToast(el) {
     if (!el.classList.contains("is-level-locked")) return false;
     const at = LEVEL_UNLOCKS[el.id.startsWith("do") ? "dice" : "background"][Number(el.id.slice(2))];
@@ -6425,7 +6747,9 @@ async function updateFriends() {
 function friendRow(person, { dot = "", sub = "", actions = [], onOpen, isNew = false }) {
     const li = document.createElement("li");
     const name = Object.assign(document.createElement("button"), { className: "fr-name", type: "button" });
-    const title = span("", nameWithFlag(person));
+    // The flag has a slot of its own, empty when there is none, so the names line up down the list.
+    const title = span("");
+    title.append(span("fr-flag", person.country ? flagOf(person.country) : "\u00a0"), person.name);
     if (isNew) title.append(" ", span("fr-new", t("NEW")));
     name.append(title, span("fr-state", sub));
     name.addEventListener("click", onOpen);

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A layer of the storm background's clouds, still: three copies side by side (a period of 1000), so that it can be slid by one period with CSS and loop without a seam. It is drawn once and moved by the GPU (see .bg-fx in linotte.css). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3000 1000" preserveAspectRatio="none">
+  <defs>
+    <radialGradient id="cloudDark">
+      <stop offset="0" stop-color="#142036" stop-opacity=".8"/>
+      <stop offset=".6" stop-color="#1c2c48" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#243756" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cloudMid">
+      <stop offset="0" stop-color="#22344f" stop-opacity=".8"/>
+      <stop offset=".6" stop-color="#2a3e5c" stop-opacity=".4"/>
+      <stop offset="1" stop-color="#334a6d" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cloudLight">
+      <stop offset="0" stop-color="#a9bcd6" stop-opacity=".7"/>
+      <stop offset=".6" stop-color="#8fa5c4" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#7f98ba" stop-opacity="0"/>
+    </radialGradient>
+    <g id="set">
+    <ellipse cx="211" cy="888" rx="207" ry="82" fill="url(#cloudDark)"/>
+    <ellipse cx="-30" cy="857" rx="236" ry="98" fill="url(#cloudDark)"/>
+    <ellipse cx="-70" cy="964" rx="218" ry="106" fill="url(#cloudDark)"/>
+    <ellipse cx="-26" cy="867" rx="243" ry="132" fill="url(#cloudDark)"/>
+    <ellipse cx="163" cy="965" rx="187" ry="129" fill="url(#cloudDark)"/>
+    <ellipse cx="44" cy="914" rx="280" ry="98" fill="url(#cloudDark)"/>
+    <ellipse cx="430" cy="965" rx="212" ry="127" fill="url(#cloudDark)"/>
+    <ellipse cx="89" cy="-4" rx="197" ry="130" fill="url(#cloudMid)"/>
+    <ellipse cx="271" cy="17" rx="212" ry="124" fill="url(#cloudMid)"/>
+    <ellipse cx="519" cy="-13" rx="275" ry="87" fill="url(#cloudMid)"/>
+    <ellipse cx="195" cy="39" rx="258" ry="96" fill="url(#cloudMid)"/>
+    <ellipse cx="326" cy="39" rx="246" ry="104" fill="url(#cloudMid)"/>
+    <ellipse cx="459" cy="53" rx="201" ry="93" fill="url(#cloudMid)"/>
+    <ellipse cx="447" cy="81" rx="261" ry="134" fill="url(#cloudMid)"/>
+    <ellipse cx="567" cy="87" rx="213" ry="127" fill="url(#cloudMid)"/>
+    <ellipse cx="461" cy="986" rx="274" ry="76" fill="url(#cloudDark)"/>
+    <ellipse cx="771" cy="953" rx="187" ry="74" fill="url(#cloudDark)"/>
+    <ellipse cx="547" cy="982" rx="260" ry="76" fill="url(#cloudDark)"/>
+    <ellipse cx="693" cy="1007" rx="154" ry="80" fill="url(#cloudDark)"/>
+    <ellipse cx="600" cy="990" rx="285" ry="75" fill="url(#cloudDark)"/>
+    <ellipse cx="435" cy="914" rx="221" ry="107" fill="url(#cloudDark)"/>
+    <ellipse cx="624" cy="963" rx="166" ry="71" fill="url(#cloudDark)"/>
+    <ellipse cx="1102" cy="-8" rx="259" ry="120" fill="url(#cloudMid)"/>
+    <ellipse cx="866" cy="63" rx="155" ry="118" fill="url(#cloudMid)"/>
+    <ellipse cx="893" cy="28" rx="191" ry="92" fill="url(#cloudMid)"/>
+    <ellipse cx="987" cy="72" rx="227" ry="67" fill="url(#cloudMid)"/>
+    <ellipse cx="1007" cy="25" rx="171" ry="91" fill="url(#cloudMid)"/>
+    <ellipse cx="892" cy="-17" rx="173" ry="76" fill="url(#cloudMid)"/>
+    <ellipse cx="989" cy="74" rx="266" ry="110" fill="url(#cloudMid)"/>
+    </g>
+  </defs>
+  <use href="#set"/>
+  <use href="#set" x="1000"/>
+  <use href="#set" x="2000"/>
+</svg>

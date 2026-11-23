@@ -475,7 +475,14 @@ export default {
     "PERSIAN": "波斯",
     "CANDY": "糖果",
     "SPACE": "太空",
+    "STORM": "暴风雨",
+    "SPRING": "春天",
     "Background": "背景",
+    "Themes": "主题",
+    "Board": "棋盘",
+    "Classic": "经典",
+    "Storm": "暴风雨",
+    "Spring": "春天",
     "Language": "语言",
 
     // how to play

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The storm theme's dice: seven faces side by side (blank, 1 to 6), each 220 x 220, like the other sprites. A light stone die (pale cool body, slate rim, a sheen) with pips in the slate of the storm board's symbols, softly shaded. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1540" height="220" viewBox="0 0 1540 220">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3f8fa"/>
+      <stop offset=".6" stop-color="#d8e4ea"/>
+      <stop offset="1" stop-color="#bccfd8"/>
+    </linearGradient>
+    <linearGradient id="sheen" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".5"/>
+      <stop offset=".38" stop-color="#fff" stop-opacity=".08"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#16262f" stop-opacity=".1"/>
+    </linearGradient>
+    <linearGradient id="pip" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b4a57"/>
+      <stop offset="1" stop-color="#26343f"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(0 0)">
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#body)" stroke="#3d4a54" stroke-width="15"/>
+  <rect x="18" y="18" width="184" height="184" rx="25.9" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#sheen)"/>
+  </g>
+<g transform="translate(220 0)">
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#body)" stroke="#3d4a54" stroke-width="15"/>
+  <rect x="18" y="18" width="184" height="184" rx="25.9" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>
+  <circle cx="111.5" cy="113.5" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="110.0" cy="110.0" r="21" fill="url(#pip)"/>
+  <path d="M93.6 105.8 A16.8 16.8 0 0 1 121.5 97.8" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#sheen)"/>
+  </g>
+<g transform="translate(440 0)">
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#body)" stroke="#3d4a54" stroke-width="15"/>
+  <rect x="18" y="18" width="184" height="184" rx="25.9" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>
+  <circle cx="60.9" cy="164.1" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="59.4" cy="160.6" r="21" fill="url(#pip)"/>
+  <path d="M43.0 156.4 A16.8 16.8 0 0 1 71.0 148.4" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="162.1" cy="62.9" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="160.6" cy="59.4" r="21" fill="url(#pip)"/>
+  <path d="M144.2 55.2 A16.8 16.8 0 0 1 172.2 47.2" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#sheen)"/>
+  </g>
+<g transform="translate(660 0)">
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#body)" stroke="#3d4a54" stroke-width="15"/>
+  <rect x="18" y="18" width="184" height="184" rx="25.9" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>
+  <circle cx="60.9" cy="164.1" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="59.4" cy="160.6" r="21" fill="url(#pip)"/>
+  <path d="M43.0 156.4 A16.8 16.8 0 0 1 71.0 148.4" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="111.5" cy="113.5" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="110.0" cy="110.0" r="21" fill="url(#pip)"/>
+  <path d="M93.6 105.8 A16.8 16.8 0 0 1 121.5 97.8" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="162.1" cy="62.9" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="160.6" cy="59.4" r="21" fill="url(#pip)"/>
+  <path d="M144.2 55.2 A16.8 16.8 0 0 1 172.2 47.2" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#sheen)"/>
+  </g>
+<g transform="translate(880 0)">
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#body)" stroke="#3d4a54" stroke-width="15"/>
+  <rect x="18" y="18" width="184" height="184" rx="25.9" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>
+  <circle cx="60.9" cy="62.9" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="59.4" cy="59.4" r="21" fill="url(#pip)"/>
+  <path d="M43.0 55.2 A16.8 16.8 0 0 1 71.0 47.2" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="60.9" cy="164.1" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="59.4" cy="160.6" r="21" fill="url(#pip)"/>
+  <path d="M43.0 156.4 A16.8 16.8 0 0 1 71.0 148.4" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="162.1" cy="62.9" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="160.6" cy="59.4" r="21" fill="url(#pip)"/>
+  <path d="M144.2 55.2 A16.8 16.8 0 0 1 172.2 47.2" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="162.1" cy="164.1" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="160.6" cy="160.6" r="21" fill="url(#pip)"/>
+  <path d="M144.2 156.4 A16.8 16.8 0 0 1 172.2 148.4" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#sheen)"/>
+  </g>
+<g transform="translate(1100 0)">
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#body)" stroke="#3d4a54" stroke-width="15"/>
+  <rect x="18" y="18" width="184" height="184" rx="25.9" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>
+  <circle cx="60.9" cy="62.9" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="59.4" cy="59.4" r="21" fill="url(#pip)"/>
+  <path d="M43.0 55.2 A16.8 16.8 0 0 1 71.0 47.2" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="60.9" cy="164.1" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="59.4" cy="160.6" r="21" fill="url(#pip)"/>
+  <path d="M43.0 156.4 A16.8 16.8 0 0 1 71.0 148.4" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="111.5" cy="113.5" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="110.0" cy="110.0" r="21" fill="url(#pip)"/>
+  <path d="M93.6 105.8 A16.8 16.8 0 0 1 121.5 97.8" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="162.1" cy="62.9" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="160.6" cy="59.4" r="21" fill="url(#pip)"/>
+  <path d="M144.2 55.2 A16.8 16.8 0 0 1 172.2 47.2" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="162.1" cy="164.1" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="160.6" cy="160.6" r="21" fill="url(#pip)"/>
+  <path d="M144.2 156.4 A16.8 16.8 0 0 1 172.2 148.4" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#sheen)"/>
+  </g>
+<g transform="translate(1320 0)">
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#body)" stroke="#3d4a54" stroke-width="15"/>
+  <rect x="18" y="18" width="184" height="184" rx="25.9" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>
+  <circle cx="60.9" cy="62.9" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="59.4" cy="59.4" r="21" fill="url(#pip)"/>
+  <path d="M43.0 55.2 A16.8 16.8 0 0 1 71.0 47.2" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="60.9" cy="113.5" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="59.4" cy="110.0" r="21" fill="url(#pip)"/>
+  <path d="M43.0 105.8 A16.8 16.8 0 0 1 71.0 97.8" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="60.9" cy="164.1" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="59.4" cy="160.6" r="21" fill="url(#pip)"/>
+  <path d="M43.0 156.4 A16.8 16.8 0 0 1 71.0 148.4" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="162.1" cy="62.9" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="160.6" cy="59.4" r="21" fill="url(#pip)"/>
+  <path d="M144.2 55.2 A16.8 16.8 0 0 1 172.2 47.2" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="162.1" cy="113.5" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="160.6" cy="110.0" r="21" fill="url(#pip)"/>
+  <path d="M144.2 105.8 A16.8 16.8 0 0 1 172.2 97.8" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="162.1" cy="164.1" r="21" fill="#16262f" opacity=".18"/>
+  <circle cx="160.6" cy="160.6" r="21" fill="url(#pip)"/>
+  <path d="M144.2 156.4 A16.8 16.8 0 0 1 172.2 148.4" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="7.5" y="7.5" width="205" height="205" rx="35.4" fill="url(#sheen)"/>
+  </g>
+</svg>

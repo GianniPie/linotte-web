@@ -10,11 +10,14 @@
 // at least ~27 valid partners. When two favorites clash, player 1's wins and
 // player 2 gets a random piece that stands apart from it.
 
-import { pieces } from "./assets.js";
+import { pieces, themePieces } from "./assets.js";
 
 // The first 8 pieces are plain colours, kept for profile pictures only.
 export const FIRST_PLAY_PIECE = 8;
 export const isPlayPiece = (i) => Number.isInteger(i) && i >= FIRST_PLAY_PIECE && i < pieces.length;
+
+// A theme's piece: only for who has the theme, never drawn at random, and not accepted by the server until themes are sold.
+export const isThemePiece = (i) => i in themePieces;
 
 const MIN_COLOR_DISTANCE = 120;
 const hexOf = (i) => pieces[i].split("_")[1].slice(0, 6);
@@ -32,7 +35,7 @@ const randomOf = (list) => list[Math.floor(Math.random() * list.length)];
 // Pieces that stand apart from piece `i` (any other one if, impossibly, none does).
 function partnersOf(i) {
   const others = [];
-  for (let k = FIRST_PLAY_PIECE; k < pieces.length; k++) if (k !== i) others.push(k);
+  for (let k = FIRST_PLAY_PIECE; k < pieces.length; k++) if (k !== i && !isThemePiece(k)) others.push(k);
   const far = others.filter((k) => colorDistance(hexOf(i), hexOf(k)) >= MIN_COLOR_DISTANCE);
   return far.length ? far : others;
 }
@@ -41,7 +44,7 @@ function partnersOf(i) {
 // favorites (anything else = no favorite).
 export function pickPieceIndexes(want1 = -1, want2 = -1) {
   const all = [];
-  for (let k = FIRST_PLAY_PIECE; k < pieces.length; k++) all.push(k);
+  for (let k = FIRST_PLAY_PIECE; k < pieces.length; k++) if (!isThemePiece(k)) all.push(k);
   // Only player 2 has a favorite: theirs first, player 1 fits around it.
   if (!isPlayPiece(want1) && isPlayPiece(want2)) return [randomOf(partnersOf(want2)), want2];
   const p1 = isPlayPiece(want1) ? want1 : randomOf(all);

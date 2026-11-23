@@ -32,7 +32,7 @@
   /* The phone's 16px, scaled by whichever side runs out first. */
   font-size: var(--home-scale);
   font-family: "Changa One", sans-serif;
-  color: #3d240c;
+  color: var(--ink);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -229,7 +229,8 @@ body:not(.has-star) .home-pro-owned {
 .home-title {
   font-size: calc(min(70cqh, 11.875em, 100cqw) * .25);
   line-height: 1.1;
-  text-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  color: var(--ink-bg);
+  text-shadow: var(--ink-bg-shadow);
 }
 
 /* ---------- main block ---------- */
