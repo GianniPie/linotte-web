@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The runs of water on the storm board, still. The drops are elements of their own (syncBoardDrops in linotte.js: they slide away when a piece lands on their tile), and the ones that slide now and then too (rainOnce). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="streak" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".1"/>
+    </linearGradient>
+  </defs>
+  <path d="M81.36 67.80v6.29" stroke="url(#streak)" stroke-width=".5" stroke-linecap="round"/>
+  <path d="M41.43 56.04v8.89" stroke="url(#streak)" stroke-width=".5" stroke-linecap="round"/>
+  <path d="M78.70 65.57v5.51" stroke="url(#streak)" stroke-width=".5" stroke-linecap="round"/>
+  <path d="M62.56 39.10v5.05" stroke="url(#streak)" stroke-width=".5" stroke-linecap="round"/>
+  <path d="M57.64 81.97v8.87" stroke="url(#streak)" stroke-width=".5" stroke-linecap="round"/>
+  <path d="M57.13 57.27v5.33" stroke="url(#streak)" stroke-width=".5" stroke-linecap="round"/>
+  <path d="M57.13 14.24v7.83" stroke="url(#streak)" stroke-width=".5" stroke-linecap="round"/>
+  <path d="M82.78 24.17v7.67" stroke="url(#streak)" stroke-width=".5" stroke-linecap="round"/>
+</svg>

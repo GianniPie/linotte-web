@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The colour of the small icon of a push notification (the board's brown) -->
+    <color name="push_accent">#7A4B24</color>
+</resources>

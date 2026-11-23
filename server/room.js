@@ -13,8 +13,8 @@ import { updateGame, canRoll, callAllowed } from "../public/shared/gameEngine.js
 import { createInitialGameState, rndNum } from "../public/shared/utils.js";
 import { piecesPath, pieces } from "../public/shared/assets.js";
 import { assignPieces, isPlayPiece, isThemePiece } from "../public/shared/pieces.js";
-import { tableSeat, ownsBackground, FREE_LOOKS, validMode } from "../public/shared/level.js";
-import { NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs, EMOTE_WINDOW_MS } from "../public/shared/chat.js";
+import { tableSeat, ownsBackground, themeOfLook, FREE_LOOKS, validMode } from "../public/shared/level.js";
+import { CHAT, chatAllowed, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs, EMOTE_WINDOW_MS } from "../public/shared/chat.js";
 import {
   TURN_SECONDS, TURN_SLACK_MS, TURN_GRACE_MS, COIN_FLIP_MS, IDLE_TURNS_LIMIT,
   RECONNECT_GRACE_MS, TURN_FREEZE_CAP_MS, EMOTES,
@@ -78,13 +78,17 @@ export class Room {
 
   freeSeat() { return !this.seats[1] ? 1 : !this.seats[2] ? 2 : 0; }
 
-  addHuman(seat, socket, { playerId, name, userId = null, pro = false, star = pro, avatar = "", country = "", piece = -1, level = 0, xp = 0, record = null, background = FREE_LOOKS.background }) {
+  addHuman(seat, socket, { playerId, name, userId = null, pro = false, star = pro, avatar = "", country = "", piece = -1, level = 0, xp = 0, record = null, background = FREE_LOOKS.background, board = null, dice = null, role = "", presence = false }) {
+    // A theme (a package of looks, admin-only for now) puts its background, board and dice on the table for both players.
+    const themed = role === "admin" && Boolean(themeOfLook("background", background));
     this.seats[seat] = {
       kind: "human", playerId, name, userId: userId || null, pro: Boolean(pro), star: Boolean(star), avatar: avatar || "", country: country || "",
       level: Number(level) || 0, xp: Number(xp) || 0, record: record || { played: 0, won: 0 },
       // The background they'd show (the table, see tableSeat): only one
       // their level has unlocked (nothing can be bought yet).
-      background: ownsBackground(background, xp) ? background : FREE_LOOKS.background, bought: false,
+      background: themed || ownsBackground(background, xp) ? background : FREE_LOOKS.background, bought: false,
+      themed, board: themed && Number.isInteger(board) ? board : null, dice: themed && Number.isInteger(dice) ? dice : null,
+      presence: Boolean(presence), // the app answers "are you there?" (see Room#hereAck)
       // Choosing one's piece is part of Pro; the server checks it itself.
       piece: pro && isPlayPiece(piece) && !isThemePiece(piece) ? piece : -1, socketId: socket.id, connected: true,
     };
@@ -92,10 +96,23 @@ export class Room {
     this.onChange(this);
   }
 
+  // Is the person of this seat really there? A phone that has just been locked keeps a connection the server
+  // doesn't know is dead yet for a while, so a seat that says it can answer is asked, and must answer in a moment.
+  // (An app that can't answer, or a seat restored after a restart, counts as there, as before.)
+  async hereAck(seat, ms = 2500) {
+    const s = this.seats[seat];
+    if (s?.kind !== "human") return true;
+    if (!s.connected) return false;
+    const sock = this.io.sockets?.sockets?.get(s.socketId);
+    if (!s.presence || typeof sock?.timeout !== "function") return true;
+    try { await sock.timeout(ms).emitWithAck("presence"); return true; } catch { return false; }
+  }
+
   bindSocket(seat, socket) {
     this.seats[seat].socketId = socket.id;
     this.seats[seat].connected = true;
     this.seats[seat].awaySince = null;
+    this.seats[seat].presence = Boolean(socket.data?.presence);
     socket.join(this.channel);
     socket.data.roomId = this.id;
     socket.data.seat = seat;
@@ -144,9 +161,11 @@ export class Room {
     // The player who didn't get their favorite hears why (see startOnline).
     if (denied) state.players[denied].pieceDenied = true;
     // One background for both (the table), or each their own (null).
-    const look = (x) => ({ xp: x.kind === "human" ? x.xp || 0 : 0, background: x.background ?? FREE_LOOKS.background, bought: Boolean(x.bought) });
+    const look = (x) => ({ xp: x.kind === "human" ? x.xp || 0 : 0, background: x.background ?? FREE_LOOKS.background, bought: Boolean(x.bought), themed: Boolean(x.themed) });
     const table = tableSeat(look(this.seats[1]), look(this.seats[2]));
-    state.tableLook = table ? { seat: table, background: look(this.seats[table]).background } : null;
+    const owner = table ? this.seats[table] : null;
+    // A theme's table brings its board and dice too (the piece stays each one's own).
+    state.tableLook = table ? { seat: table, background: look(owner).background, ...(owner.themed ? { themed: true, board: owner.board, dice: owner.dice } : {}) } : null;
     state.currentPlayer = Math.random() < 0.5 ? 1 : 2;
     this.state = state;
     this.starter = state.currentPlayer;
@@ -357,8 +376,9 @@ export class Room {
   }
 
   //--------- emotes ---------
-  emote(seat, id) {
+  emote(seat, id, role = "") {
     if (this.status !== "playing" || !EMOTES.includes(id)) return { ok: false };
+    if (!chatAllowed(CHAT.find((c) => c.id === id), role)) return { ok: false }; // the special ones, from the special roles only
     const now = Date.now();
     if (now - (this.lastEmoteAt[seat] || 0) < 800) return { ok: false };
     // Two in a row, then a wait: for a person and for the computer opponent alike.

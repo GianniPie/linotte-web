@@ -88,12 +88,13 @@ async function resolveRole(userId, key, grantKey, url, fetchImpl) {
 }
 
 // `userId`: the verified account id, or null for a guest.
-// `devToken`: "dev-pro" unlocks Pro for testing outside production.
+// `devToken`: "dev-pro" unlocks Pro, "dev-admin" everything, for testing outside production.
 // `key` / `grantKey` / `url` / `fetch` are only passed by the smoke test.
 export async function accessFor({ userId = null, devToken = "" } = {}, {
   key = REVENUECAT_SECRET_KEY, grantKey = SUPABASE_SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch,
 } = {}) {
   if (ALLOW_DEV_PRO && devToken === "dev-pro") return accessOf("pro");
+  if (ALLOW_DEV_PRO && devToken === "dev-admin") return accessOf("admin"); // to try the themes and the special things
   if (typeof userId !== "string" || !userId) return accessOf("guest");
   if (!key && !grantKey) return accessOf("member");
 

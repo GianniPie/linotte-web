@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The umbrella's dome shading, glint and cap: they stay still over fx/umbrella-canopy.svg while it twirls. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="184" height="184" viewBox="9 9 166 166">
+  <defs>
+    <radialGradient id="dome" cx="92" cy="92" r="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".35" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".8" stop-color="#1b0b2a" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#1b0b2a" stop-opacity=".34"/>
+    </radialGradient>
+    <radialGradient id="glint" cx=".35" cy=".3" r=".8">
+      <stop offset="0" stop-color="#fff" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="canopy"><path d="M92 92 L61.39 18.09 Q92.00 28.00 122.61 18.09 Z M92 92 L122.61 18.09 Q137.25 46.75 165.91 61.39 Z M92 92 L165.91 61.39 Q156.00 92.00 165.91 122.61 Z M92 92 L165.91 122.61 Q137.25 137.25 122.61 165.91 Z M92 92 L122.61 165.91 Q92.00 156.00 61.39 165.91 Z M92 92 L61.39 165.91 Q46.75 137.25 18.09 122.61 Z M92 92 L18.09 122.61 Q28.00 92.00 18.09 61.39 Z M92 92 L18.09 61.39 Q46.75 46.75 61.39 18.09 Z"/></clipPath>
+  </defs>
+  <g clip-path="url(#canopy)">
+    <rect width="184" height="184" fill="url(#dome)"/>
+    <ellipse cx="62" cy="52" rx="30" ry="15" transform="rotate(-38 62 52)" fill="url(#glint)"/>
+  </g>
+  <circle cx="92" cy="92" r="7.5" fill="#e9e6f2" stroke="#2b1530" stroke-width="3"/>
+  <circle cx="90" cy="89.5" r="2.4" fill="#fff"/>
+</svg>

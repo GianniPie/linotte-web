@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The umbrella's canopy alone: the eight panels, the ribs and the edge, without the shine and the cap (fx/umbrella-shine.svg), so the game can twirl it. Same size and viewBox as p046_3d6df0ff.svg. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="184" height="184" viewBox="9 9 166 166">
+  <defs>
+    <radialGradient id="dome" cx="92" cy="92" r="80" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".35" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".8" stop-color="#1b0b2a" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#1b0b2a" stop-opacity=".34"/>
+    </radialGradient>
+    <radialGradient id="glint" cx=".35" cy=".3" r=".8">
+      <stop offset="0" stop-color="#fff" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="canopy"><path d="M92 92 L61.39 18.09 Q92.00 28.00 122.61 18.09 Z M92 92 L122.61 18.09 Q137.25 46.75 165.91 61.39 Z M92 92 L165.91 61.39 Q156.00 92.00 165.91 122.61 Z M92 92 L165.91 122.61 Q137.25 137.25 122.61 165.91 Z M92 92 L122.61 165.91 Q92.00 156.00 61.39 165.91 Z M92 92 L61.39 165.91 Q46.75 137.25 18.09 122.61 Z M92 92 L18.09 122.61 Q28.00 92.00 18.09 61.39 Z M92 92 L18.09 61.39 Q46.75 46.75 61.39 18.09 Z"/></clipPath>
+  </defs>
+  <path d="M92 92 L61.39 18.09 Q92.00 28.00 122.61 18.09 Z" fill="#ef3b3b"/>
+  <path d="M92 92 L122.61 18.09 Q137.25 46.75 165.91 61.39 Z" fill="#ff9a1f"/>
+  <path d="M92 92 L165.91 61.39 Q156.00 92.00 165.91 122.61 Z" fill="#ffd23a"/>
+  <path d="M92 92 L165.91 122.61 Q137.25 137.25 122.61 165.91 Z" fill="#4cc55a"/>
+  <path d="M92 92 L122.61 165.91 Q92.00 156.00 61.39 165.91 Z" fill="#2fb6e6"/>
+  <path d="M92 92 L61.39 165.91 Q46.75 137.25 18.09 122.61 Z" fill="#3d6df0"/>
+  <path d="M92 92 L18.09 122.61 Q28.00 92.00 18.09 61.39 Z" fill="#8e4fd8"/>
+  <path d="M92 92 L18.09 61.39 Q46.75 46.75 61.39 18.09 Z" fill="#f061a8"/>
+  <path d="M92 92 L61.39 18.09" stroke="#2b1530" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <path d="M92 92 L122.61 18.09" stroke="#2b1530" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <path d="M92 92 L165.91 61.39" stroke="#2b1530" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <path d="M92 92 L165.91 122.61" stroke="#2b1530" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <path d="M92 92 L122.61 165.91" stroke="#2b1530" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <path d="M92 92 L61.39 165.91" stroke="#2b1530" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <path d="M92 92 L18.09 122.61" stroke="#2b1530" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <path d="M92 92 L18.09 61.39" stroke="#2b1530" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <path d="M92 92 L61.39 18.09 Q92.00 28.00 122.61 18.09 Z M92 92 L122.61 18.09 Q137.25 46.75 165.91 61.39 Z M92 92 L165.91 61.39 Q156.00 92.00 165.91 122.61 Z M92 92 L165.91 122.61 Q137.25 137.25 122.61 165.91 Z M92 92 L122.61 165.91 Q92.00 156.00 61.39 165.91 Z M92 92 L61.39 165.91 Q46.75 137.25 18.09 122.61 Z M92 92 L18.09 122.61 Q28.00 92.00 18.09 61.39 Z M92 92 L18.09 61.39 Q46.75 46.75 61.39 18.09 Z" fill="none" stroke="#2b1530" stroke-width="4.2" stroke-linejoin="round"/>
+</svg>

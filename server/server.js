@@ -27,6 +27,7 @@ import { REPORT_REASONS, createReportBook, saveReport, notifyReport } from "./re
 import { createFeedbackBudget, parseScreenshot, buildReport, emailOf, sendFeedback, MAX_MESSAGE } from "./feedback.js";
 import { VERSION } from "../public/version.js";
 import { createBotLab, BOTLAB_ENABLED } from "./botlab.js";
+import { createPush, isPushToken, pushLanguage, PUSH_PLATFORMS } from "./push.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -215,7 +216,10 @@ app.get("/j/:code", (req, res) => {
 });
 
 const store = await createStore();
-const lobby = new Lobby(io, store, { afterRecord: (socket) => setStats(socket) });
+// Push notifications (push.js, docs/PUSH.md): a friend who comes to a room whose owner isn't there alerts the owner's devices.
+const push = createPush();
+console.log(`push notifications: ${push.enabled ? "on (FCM)" : "off (no FCM_SERVICE_ACCOUNT)"}`);
+const lobby = new Lobby(io, store, { afterRecord: (socket) => setStats(socket), alertHost: (userId, who) => push.notifyJoin(userId, who) });
 
 //--------- friends: who is where, and invitations ---------
 // "offline" | "online" | "busy" | "playing" (friends.js). The server knows who is in an online game;
@@ -341,6 +345,9 @@ io.on("connection", (socket) => {
     socket.data.devToken = typeof p.entitlement?.devToken === "string" ? p.entitlement.devToken : "";
     socket.data.piece = Number.isInteger(p.piece) ? p.piece : -1; // favorite piece, see shared/pieces.js
     socket.data.background = Number.isInteger(p.background) ? p.background : FREE_LOOKS.background; // see tableSeat
+    socket.data.board = Number.isInteger(p.board) ? p.board : null; // a theme's board and dice come with its background
+    socket.data.dice = Number.isInteger(p.dice) ? p.dice : null;
+    socket.data.presence = p.presence === true; // an app that answers "are you there?" (Room#hereAck)
     await refreshAccess(socket);
     return {
       ok: true,
@@ -375,6 +382,8 @@ io.on("connection", (socket) => {
   // ...and the background (the table, see tableSeat in shared/level.js).
   on("look", {}, (p) => {
     if (Number.isInteger(p.background)) socket.data.background = p.background;
+    if (Number.isInteger(p.board)) socket.data.board = p.board;
+    if (Number.isInteger(p.dice)) socket.data.dice = p.dice;
     return { ok: true };
   });
 
@@ -449,7 +458,21 @@ io.on("connection", (socket) => {
 
   on("emote", {}, (p) => {
     const room = lobby.roomOfSocket(socket);
-    return room ? room.emote(socket.data.seat, p.id) : { ok: false };
+    return room ? room.emote(socket.data.seat, p.id, socket.data.role) : { ok: false };
+  });
+
+  //--------- push notifications (push.js): the app sends its device's token once the player said yes ---------
+  on("push_register", {}, async (p) => {
+    const userId = socket.data.userId;
+    if (!userId) return { ok: false, error: "sign_in" }; // guests have no account to send to
+    if (!isPushToken(p.token)) return { ok: false, error: "bad_token" };
+    const platform = PUSH_PLATFORMS.includes(p.platform) ? p.platform : "android";
+    return { ok: await push.tokens.save(userId, p.token, { platform, lang: pushLanguage(p.lang) }), enabled: push.enabled };
+  });
+  on("push_unregister", {}, async (p) => {
+    const userId = socket.data.userId;
+    if (!userId || !isPushToken(p.token)) return { ok: true };
+    return { ok: await push.tokens.remove(userId, p.token) };
   });
 
   //--------- the friends the player chooses (friendships.js, docs/FRIENDS.md) ---------

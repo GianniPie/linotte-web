@@ -19,10 +19,17 @@ export const CHAT = [
     { id: "🙏🏻", file: "thx", label: "thanks" },
     { id: "🎲", file: "roll", label: "roll" },
     { id: "⏳", file: "tick", label: "wait" },
+    // special: only for the close circle and up (SPECIAL_CHAT_ROLES): the fan shows them to those roles and the server relays them from those roles only
+    { id: "🐷", file: "pig", label: "porrc", special: true },
+    { id: "🍑", file: "peach", label: "checü", special: true },
     { id: "🔔", file: "ding", label: "ding!" },
 ];
 
 export const CHAT_IDS = CHAT.map((c) => c.id);
+// Who may send the special ones (the roles of server/entitlements.js from `special` up).
+export const SPECIAL_CHAT_ROLES = ["special", "collaborator", "admin"];
+export const chatAllowed = (c, role) => !c.special || SPECIAL_CHAT_ROLES.includes(role);
+export const chatFor = (role) => CHAT.filter((c) => chatAllowed(c, role));
 export const chatScale = (id) => CHAT.find((c) => c.id === id)?.scale ?? 1;
 export const chatImage = (id) => `resources/images/chat/${CHAT.find((c) => c.id === id)?.file ?? "wow"}.svg`;
 

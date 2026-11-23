@@ -101,6 +101,17 @@
                 </div>
             </div>
 
+            <div class="home-continue home-room" id="home-room" hidden>
+                <button class="home-continue-end" id="home-room-end" type="button" aria-label="Cancel the room"></button>
+                <div class="home-continue-text">
+                    <b data-i18n>Waiting for your friend</b>
+                    <span id="home-room-desc"></span>
+                </div>
+                <div class="button home-continue-btn" id="home-room-btn">
+                    <div class="text-button" data-i18n>OPEN</div>
+                </div>
+            </div>
+
             <div class="home-buttons">
                 <div class="button home-mode-btn home-mode-online has-soon" id="home-online-btn">
                     <div class="text-button" data-i18n>ONLINE</div>
@@ -290,6 +301,13 @@
                 <div class="sheet-text" data-i18n>Send the link, or tell them the code. The game starts as soon as they join.</div>
                 <div class="button sheet-btn go" id="room-share"><div class="text-button" data-i18n>SHARE LINK</div></div>
                 <div class="button sheet-btn alt" id="room-copy"><div class="text-button" data-i18n>COPY LINK</div></div>
+                <div class="button sheet-btn alt" id="room-home"><div class="text-button" data-i18n>HOME</div></div>
+                <div class="sheet-text" data-i18n>Go home to play against the bot meanwhile: you are told when they join.</div>
+                <!-- the store apps only, signed in, and not answered yet: see public/push.js -->
+                <div id="room-notify" hidden>
+                    <div class="sheet-text" data-i18n>Get a notification when your friend arrives, even with the phone locked?</div>
+                    <div class="button sheet-btn alt" id="room-notify-btn"><div class="text-button" data-i18n>NOTIFY ME</div></div>
+                </div>
                 <div class="button sheet-btn cancel" id="room-cancel"><div class="text-button" data-i18n>CANCEL</div></div>
             </div>
 
@@ -972,6 +990,10 @@
                                 <div class="car-item-content die-options" id="do9"><img
                                         src="resources/images/dice/spring01.png"></div>
                             </li>
+                            <li class="car-item" hidden>
+                                <div class="car-item-content die-options" id="do10"><img
+                                        src="resources/images/dice/ice03.webp"></div>
+                            </li>
                         </ul>
                         <button class="car-button previous" data-carousel="die" data-direction="previous"
                             type="button"></button>
@@ -1030,6 +1052,10 @@
                                 <div class="car-item-content bg-options" id="bg10"><img
                                         src="resources/images/backgrounds/spring-meadow-prev.png"></div>
                             </li>
+                            <li class="car-item" hidden>
+                                <div class="car-item-content bg-options" id="bg11"><img
+                                        src="resources/images/backgrounds/ice-glacier-prev.png"></div>
+                            </li>
                         </ul>
                         <button class="car-button previous" data-carousel="bg" data-direction="previous"
                             type="button"></button>
@@ -1037,8 +1063,8 @@
                     </div>
                 </section>
 
-                <!-- the look of the board: Classic, and those that come with a theme (shown to whoever has it) -->
-                <section>
+                <!-- the look of the board: Classic, and those that come with a theme (the whole section shows once the account has a theme) -->
+                <section id="boardskin-section" hidden>
                     <div class="title" data-i18n>Board</div>
                     <div class="opt-current" id="boardskin-current"></div>
                     <div class="car-list-wrapper">
@@ -1046,7 +1072,11 @@
                             <div class="car-item skin-options" id="bs0"><img src="resources/images/board-classic-prev.png"></div>
                             <div class="car-item skin-options" id="bs1" hidden><img src="resources/images/board-storm-prev.png"></div>
                             <div class="car-item skin-options" id="bs2" hidden><img src="resources/images/board-spring-prev.png"></div>
+                            <div class="car-item skin-options" id="bs3" hidden><img src="resources/images/board-ice-prev.png"></div>
                         </div>
+                        <button class="car-button previous" data-carousel="boardskin" data-direction="previous"
+                            type="button"></button>
+                        <button class="car-button next" data-carousel="boardskin" data-direction="next" type="button"></button>
                     </div>
                 </section>
 
@@ -1056,6 +1086,9 @@
                     <div class="opt-current" id="theme-current"></div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered" id="theme-list"></div>
+                        <button class="car-button previous" data-carousel="theme" data-direction="previous"
+                            type="button"></button>
+                        <button class="car-button next" data-carousel="theme" data-direction="next" type="button"></button>
                     </div>
                 </section>
 
@@ -1080,6 +1113,18 @@
                         <div class="car-list list-centered">
                             <div class="car-btn"><div class="opt-btn" id="vibration-on" data-i18n>ON</div></div>
                             <div class="car-btn"><div class="opt-btn" id="vibration-off" data-i18n>OFF</div></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- notifications (the store apps, signed in): a friend who comes to a waiting room while the phone is locked.
+                     Opt-in, per account: see public/push.js -->
+                <section id="notifications-section" hidden>
+                    <div class="title" data-i18n>Notifications</div>
+                    <div class="car-list-wrapper">
+                        <div class="car-list list-centered">
+                            <div class="car-btn"><div class="opt-btn" id="notifications-on" data-i18n>ON</div></div>
+                            <div class="car-btn"><div class="opt-btn" id="notifications-off" data-i18n>OFF</div></div>
                         </div>
                     </div>
                 </section>

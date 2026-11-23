@@ -247,6 +247,9 @@ export class OnlineClient {
                     entitlement: entitlement(),
                     piece: this.h.getPiece?.() ?? -1,
                     background: this.h.getBackground?.(),
+                    board: this.h.getBoard?.(), // a theme's board and dice come with its background (the table)
+                    dice: this.h.getDice?.(),
+                    presence: true, // this app answers "are you there?" (a friend joining a room asks)
                     accessToken: await accessToken(),
                     tz: tzMinutes(),
                     claims: true, // this app plays the points video and asks for the points
@@ -279,6 +282,7 @@ export class OnlineClient {
         s.on("invite_declined", (msg) => this.h.onInviteDeclined?.(msg || {}));
         s.on("game_over", (msg) => this.h.onGameOver?.(msg));
         s.on("room_expired", () => this.h.onRoomExpired?.());
+        s.on("presence", (ack) => { if (typeof ack === "function") ack(); }); // yes, I'm here
         s.on("rematch_offer", () => this.h.onRematchOffer?.());
         s.on("mode_offer", (msg) => this.h.onModeOffer?.(msg || {}));
         s.on("offer_over", () => this.h.onOfferOver?.()); // an offer nobody answered is gone: back to looking // the other way to play (Normal / Ruthless) is offered
@@ -331,8 +335,8 @@ export class OnlineClient {
         if (this.socket?.connected) this.call("piece", { piece });
     }
     // ...and the background (the table the opponent may see).
-    setLook(background) {
-        if (this.socket?.connected) this.call("look", { background });
+    setLook(looks) {
+        if (this.socket?.connected) this.call("look", looks);
     }
 
     // For something the player asked for (a friend request): waits for the connection and the server's welcome (a socket that
@@ -358,7 +362,7 @@ export class OnlineClient {
     async rejoin() {
         const res = await this.call("rejoin");
         if (res?.ok && res.status === "playing") this.h.onSnapshot?.(res.snapshot);
-        else if (res?.ok && res.status === "waiting") this.h.onWaitingRoom?.(res.code);
+        else if (res?.ok && res.status === "waiting") this.h.onWaitingRoom?.(res.code, res.missed);
         else if (res && !res.ok && !res.error) setOnlineSession(false); // nothing to go back to
         return res;
     }

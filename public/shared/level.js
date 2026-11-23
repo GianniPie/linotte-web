@@ -111,7 +111,7 @@ export const LEVEL_UNLOCKS = {
 };
 // Looks that come with a theme (themes.js), not with a level: kind -> option index -> theme id. They are
 // never unlocked by level, and the server does not accept them until themes are sold.
-export const THEME_LOOKS = { dice: { 8: "storm", 9: "spring" }, background: { 9: "storm", 10: "spring" }, board: { 1: "storm", 2: "spring" }, piece: themePieces };
+export const THEME_LOOKS = { dice: { 8: "storm", 9: "spring", 10: "ice" }, background: { 9: "storm", 10: "spring", 11: "ice" }, board: { 1: "storm", 2: "spring", 3: "ice" }, piece: themePieces };
 export const themeOfLook = (kind, index) => THEME_LOOKS[kind]?.[index] ?? null;
 export const unlockLevel = (kind, index) => LEVEL_UNLOCKS[kind][index] ?? 0;
 
@@ -175,8 +175,13 @@ export function levelStart(level) {
 // sees their own); otherwise the player with more points shows theirs -- the
 // exact points, so the one nearer the next level wins a tie of levels -- and
 // with equal points each sees their own. Returns the seat whose background
-// both see, or 0 for "each their own". `p1`/`p2`: { xp, background, bought }.
+// both see, or 0 for "each their own". `p1`/`p2`: { xp, background, bought, themed }.
 export function tableSeat(p1, p2) {
+    // A theme (looks bought apart: background, board and dice) beats any level; two themes: the points decide.
+    if (p1.themed || p2.themed) {
+        if (p1.themed && p2.themed) return (p1.xp || 0) === (p2.xp || 0) ? 0 : (p1.xp || 0) > (p2.xp || 0) ? 1 : 2;
+        return p1.themed ? 1 : 2;
+    }
     if (p1.bought && p2.bought) return 0;
     if (p1.bought) return 1;
     if (p2.bought) return 2;

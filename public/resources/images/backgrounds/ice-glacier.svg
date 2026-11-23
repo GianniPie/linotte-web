@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ice background, the still part: a pale polar sky, a low sun, three ranges of icy mountains and a field of snow and ice. The snow, the aurora and the glints are drawn apart and moved by the GPU (ice-fx-*.svg, .bg-fx in linotte.css). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4d9fdc"/>
+      <stop offset=".38" stop-color="#8ec9f0"/>
+      <stop offset=".62" stop-color="#cfeaf8"/>
+      <stop offset=".72" stop-color="#f0f9fd"/>
+      <stop offset="1" stop-color="#f0f9fd"/>
+    </linearGradient>
+    <radialGradient id="sun" cx=".22" cy=".66" r=".4">
+      <stop offset="0" stop-color="#fff6dd" stop-opacity=".95"/>
+      <stop offset=".35" stop-color="#ffe6c4" stop-opacity=".4"/>
+      <stop offset="1" stop-color="#ffe6c4" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rangeFar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9f5fc"/><stop offset="1" stop-color="#b9d9ee"/></linearGradient>
+    <linearGradient id="rangeMid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6fbff"/><stop offset=".6" stop-color="#bddcf0"/><stop offset="1" stop-color="#8fbfe0"/></linearGradient>
+    <linearGradient id="rangeNear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#d3eaf7"/><stop offset="1" stop-color="#9dcbe8"/></linearGradient>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7fcff"/><stop offset="1" stop-color="#cfe7f5"/></linearGradient>
+  </defs>
+  <rect width="1000" height="1000" fill="url(#sky)"/>
+  <rect width="1000" height="1000" fill="url(#sun)"/>
+  <polygon points="0,690 -41,525 43,627 132,552 216,627 324,472 408,587 442,500 525,617 609,522 692,634 813,490 896,615 959,538 1042,607 1113,533 1196,604 1040,690 1040,1000 -40,1000" fill="url(#rangeFar)" opacity=".85"/>
+  <polygon points="0,760 -26,637 74,721 191,613 291,715 375,611 475,684 521,550 621,675 786,639 886,713 931,644 1031,719 1149,588 1249,682 1040,760 1040,1000 -40,1000" fill="url(#rangeMid)" opacity=".92"/>
+  <polygon points="0,830 -110,732 15,784 208,688 333,765 448,707 573,764 695,711 820,788 905,710 1030,767 1194,727 1319,780 1040,830 1040,1000 -40,1000" fill="url(#rangeNear)"/>
+  <path d="M0 880 C150 850 300 872 480 886 C660 900 820 856 1000 874 L1000 1000 L0 1000 Z" fill="url(#field)"/>
+  <path d="M0 930 C200 910 360 936 560 940 C740 944 880 918 1000 926 L1000 1000 L0 1000 Z" fill="#e6f3fb" opacity=".9"/>
+</svg>

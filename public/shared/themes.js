@@ -8,6 +8,7 @@
 export const THEMES = [
   { id: "storm", name: "Storm", preview: "resources/images/backgrounds/storm-clouds-prev.png", looks: { background: 9, board: 1, piece: 45, dice: 8 } },
   { id: "spring", name: "Spring", preview: "resources/images/backgrounds/spring-meadow-prev.png", looks: { background: 10, board: 2, piece: 46, dice: 9 } },
+  { id: "ice", name: "Ice", preview: "resources/images/backgrounds/ice-glacier-prev.png", looks: { background: 11, board: 3, piece: 47, dice: 10 } },
 ];
 
 export const themeById = (id) => THEMES.find((t) => t.id === id) || null;

@@ -273,6 +273,21 @@ html {
 }
 
 
+/* The box of a player takes the colour of their piece: when it is dark (the penguin, a black or a navy piece) the texts and
+   the little icons turn light and the edge turns pale, whatever the piece (applyPlayerVisuals in linotte.js). */
+.player.dark-box {
+  border-color: rgba(255, 255, 255, .4);
+}
+
+.player.dark-box .textPlayer {
+  color: #fff;
+}
+
+.player.dark-box .pawn,
+.player.dark-box .coin {
+  filter: invert(1);
+}
+
 .pawn {
   display: block;
   background-image: url("resources/images/p105-pawn.svg");
@@ -635,22 +650,29 @@ body.table-flipped .tile::before {
   border-bottom-right-radius: var(--corner-r);
 }
 
+/* A lit tile. From the bottom: the board's tiles, a skin's water and drops (1), the pieces (2), and over them all the
+   ring of the lit tile (3): it is a layer of its own (the ::after), because the tile itself stays at the bottom. The
+   ring is an outline drawn by it, in the colour the script gives the tile (outline-color, inherited). */
 .tile_highlighted {
-  /* Tiles are all position:relative (for the ::before symbol layer), so
-     without this a later neighbour paints over this tile's outline. Above everything on the board: the pieces (2) and
-     a skin's sheen and drops (1). */
+  outline-style: none; /* the ring is the ::after's */
+  border-radius: .3125em;
+}
+
+.tile_highlighted::after {
+  content: "";
+  position: absolute;
+  inset: -.125em; /* the tile's border box */
   z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
   /* All three in em of the board's scale (see .div-table), so the highlight
      keeps the phone's proportions on any board size: on the phone these are
      exactly -5px / 10px / 5px, so the 10px ring sits half inside the tile
      and half outside (on an edge tile it ends flush with the board's 5px
      frame). */
+  outline: .625em solid;
+  outline-color: inherit;
   outline-offset: -.3125em;
-  outline-width: .625em;
-  outline-style: solid;
-  /* z-index above is enough to keep the outline over its neighbours; the
-     old translate3d only moved the tile onto its own (blurry) layer. */
-  border-radius: .3125em;
 }
 
 .grid {
@@ -690,6 +712,75 @@ body.table-flipped .tile::before {
      underneath the token that just landed instead of covering it. */
   position: relative;
   z-index: 2;
+}
+
+/* The pieces of the themes that move (syncPieceFx in linotte.js): layers of their own in the piece, the size of its drawing
+   (80% of the tile, centred). The ones that draw the whole piece take its place (.pfx-on); the ladybird's lids go over its
+   drawing. Still nearly all the time: each cycle is a long rest and a short movement. */
+.piece.pfx-on {
+  background-image: none !important;
+}
+
+.pfx {
+  position: absolute;
+  inset: 10%;
+  pointer-events: none;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  will-change: transform, opacity;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+
+.pfx-lids {
+  opacity: 0;
+  animation-name: pfxBlink;
+  animation-timing-function: linear; /* a blink is quick and even */
+}
+
+.pfx-flip-l {
+  transform-origin: 26% 51%; /* the shoulder, in the layer */
+  animation-name: pfxFlapL;
+}
+
+.pfx-flip-r {
+  transform-origin: 74% 51%;
+  animation-name: pfxFlapR;
+}
+
+.pfx-spin {
+  animation-name: pfxTwirl;
+  animation-timing-function: cubic-bezier(.45, 0, .25, 1);
+}
+
+/* Each cycle is long (see PIECE_FX in linotte.js): the pieces rest nearly all of it and move in its last tenth. */
+@keyframes pfxBlink {
+  0%, 86.5% { opacity: 0; }
+  87%, 87.8% { opacity: 1; } /* closed for about a seventh of a second */
+  88.3%, 91% { opacity: 0; }
+  91.5%, 92.3% { opacity: 1; } /* a second blink right after the first */
+  92.8%, 100% { opacity: 0; }
+}
+
+@keyframes pfxFlapL {
+  0%, 88% { transform: rotate(0deg); }
+  91% { transform: rotate(22deg); }
+  94% { transform: rotate(0deg); }
+  97% { transform: rotate(18deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes pfxFlapR {
+  0%, 88% { transform: rotate(0deg); }
+  91% { transform: rotate(-22deg); }
+  94% { transform: rotate(0deg); }
+  97% { transform: rotate(-18deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes pfxTwirl {
+  0%, 94% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .img-bounce {
@@ -1053,6 +1144,11 @@ body.table-flipped .tile::before {
 
 .die.black-shadow {
   box-shadow: rgb(0, 0, 0, .4) .1875em .3125em .4375em .1875em;
+}
+
+/* the ice dice are transparent: their shadow is a soft cold blue, as seen through ice on a blue ground */
+body.dice-ice .die.black-shadow:not(.selected) {
+  box-shadow: rgba(60, 130, 200, .38) .1875em .3125em .5em .125em;
 }
 
 .die.red-shadow {
@@ -2358,8 +2454,25 @@ section {
   flex: 0 0 12px;
 }
 
+/* Centred when it all fits; when it doesn't, it starts at the left and scrolls (a plain `justify-content: center` would
+   cut off the start of an overflowing list, out of reach of the scrolling): the free space goes to margins on the two
+   end spacers. */
 .list-centered {
-  justify-content: center;
+  justify-content: flex-start;
+}
+
+.list-centered::before {
+  margin-left: auto;
+}
+
+.list-centered::after {
+  margin-right: auto;
+}
+
+/* A list with arrows: room at its two ends, so the first and the last item are not under an arrow (36px wide, 6px out). */
+.car-list-wrapper:has(> .car-button) .car-list::before,
+.car-list-wrapper:has(> .car-button) .car-list::after {
+  flex-basis: 38px;
 }
 
 .car-item {
@@ -2494,6 +2607,35 @@ body.table-flipped .board-fly {
   .board-fly .fly i { animation: none; }
 }
 
+/* The ice sky is pale: a deep blue ink, the icons of the combinations in the border's icy blue. */
+body.ink-ice {
+  --ink: #1d3a56;
+  --ink-bg: rgba(14, 44, 78, .9);
+  --ink-bg-soft: rgba(14, 44, 78, .66);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .7);
+  --zone-bg: rgba(255, 255, 255, .58);
+  --zone-border: rgba(110, 172, 216, .95);
+  --result-on: #3f9fd4;
+  --call-on-border: #3b82b9;
+}
+
+body.ink-ice #rr0 { background-image: url("resources/images/g1-ice.svg"); }
+body.ink-ice #rr1 { background-image: url("resources/images/g2-ice.svg"); }
+body.ink-ice #rr2 { background-image: url("resources/images/g3-ice.svg"); }
+body.ink-ice #rr3 { background-image: url("resources/images/g4-ice.svg"); }
+body.ink-ice #rr4 { background-image: url("resources/images/g5-ice.svg"); }
+body.ink-ice #rr5 { background-image: url("resources/images/g6-ice.svg"); }
+body.ink-ice #rr6 { background-image: url("resources/images/g7-ice.svg"); }
+body.ink-ice #rr7 { background-image: url("resources/images/g8-ice.svg"); }
+body.ink-ice #rr0.highlighted { background-image: url("resources/images/g1.svg"); }
+body.ink-ice #rr1.highlighted { background-image: url("resources/images/g2.svg"); }
+body.ink-ice #rr2.highlighted { background-image: url("resources/images/g3.svg"); }
+body.ink-ice #rr3.highlighted { background-image: url("resources/images/g4.svg"); }
+body.ink-ice #rr4.highlighted { background-image: url("resources/images/g5.svg"); }
+body.ink-ice #rr5.highlighted { background-image: url("resources/images/g6.svg"); }
+body.ink-ice #rr6.highlighted { background-image: url("resources/images/g7.svg"); }
+body.ink-ice #rr7.highlighted { background-image: url("resources/images/g8.svg"); }
+
 /* The spring sky is bright: a deep green ink. */
 body.ink-spring {
   --ink: #2b3a1f;
@@ -2550,7 +2692,7 @@ body.board-storm .grid::after {
   pointer-events: none;
   background:
     linear-gradient(118deg, transparent 28%, rgba(255, 255, 255, .3) 43%, rgba(255, 255, 255, .06) 52%, transparent 62%),
-    url("resources/images/board-storm-drops.svg") center / 100% 100% no-repeat;
+    url("resources/images/board-storm-streaks.svg") center / 100% 100% no-repeat;
 }
 
 /* Turned for the player on the other side (FLIP, same table): the board stays where it is, and the symbols turn. The
@@ -2584,15 +2726,45 @@ body.board-storm .tile::before {
 .board-rain {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 1; /* over the tiles (a lit one too), under the pieces (2) and the lit ring (3) */
   pointer-events: none;
   contain: paint;
   border-radius: inherit;
   transition: rotate .6s ease;
 }
 
-body.table-flipped .board-rain {
+body.table-flipped .board-rain,
+body.table-flipped .board-drops,
+body.table-flipped .board-flowers {
   rotate: 180deg;
+}
+
+/* The drops on the storm board (syncBoardDrops in linotte.js): still, until a piece lands on their tile. */
+.board-drops {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* over the tiles (a lit one too), under the pieces (2) and the lit ring (3) */
+  pointer-events: none;
+  contain: paint;
+  border-radius: inherit;
+  transition: rotate .6s ease;
+}
+
+.board-drops .sdrop {
+  position: absolute;
+  aspect-ratio: 1;
+  background: url("resources/images/board-storm-drop.svg") center / 100% 100% no-repeat;
+  will-change: transform, opacity;
+}
+
+.board-drops .dtrail {
+  position: absolute;
+  width: .75%;
+  border-radius: 99px;
+  background: linear-gradient(#eaf5fb, rgba(234, 245, 251, .6));
+  transform-origin: 50% 0;
+  opacity: 0;
+  will-change: transform, opacity;
 }
 
 .board-rain .rdrop {
@@ -2634,6 +2806,30 @@ body > .bg-fx {
   z-index: -1;
 }
 
+/* Turned for the player on the other side (FLIP, same table, portrait): the whole background turns with the game, so
+   for them the sky is above and the rain falls down. The picture is drawn again on a layer of its own (the body's own
+   background can't turn), under the moving parts, which turn with it. */
+@media (orientation: portrait) {
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: inherit;
+    transition: rotate .6s ease;
+  }
+
+  body > .bg-fx {
+    transition: rotate .6s ease;
+  }
+
+  body.table-flipped::before,
+  body.table-flipped > .bg-fx {
+    rotate: 180deg;
+  }
+}
+
 .bg-fx > i {
   position: absolute;
   display: block;
@@ -2656,22 +2852,22 @@ body > .bg-fx {
 .fx-sp-a { background-image: url("resources/images/backgrounds/spring-fx-clouds-a.svg"); animation: fxDrift 160s steps(1600) infinite; }
 .fx-sp-b { background-image: url("resources/images/backgrounds/spring-fx-clouds-b.svg"); animation: fxDrift 100s steps(1000) infinite; }
 
+/* The grass and flowers at the foot of the spring sky: a strip drawn once, as tall as the layer and as wide as its drawing
+   says (never stretched: on a narrow screen its two ends are cropped), still. A gust of wind leans it, from its base, now
+   and then (grassGustOnce in linotte.js). */
 .fx-grass {
   left: -3%;
   width: 106%;
   bottom: 0;
-  background-size: 100% 100%;
+  background-size: auto 100%;
+  background-position: center bottom;
+  background-repeat: repeat-x;
   transform-origin: 50% 100%;
   will-change: transform;
 }
 
-.fx-grass-back { height: 21%; background-image: url("resources/images/backgrounds/spring-fx-grass-back.svg"); animation: fxSway 7s steps(84) infinite alternate; }
-.fx-grass-front { height: 16%; background-image: url("resources/images/backgrounds/spring-fx-grass-front.svg"); animation: fxSway 5.2s steps(62) infinite alternate-reverse; }
-
-@keyframes fxSway {
-  from { transform: skewX(-1.9deg); }
-  to { transform: skewX(1.9deg); }
-}
+.fx-grass-back { height: 21%; background-image: url("resources/images/backgrounds/spring-fx-grass-back.svg"); }
+.fx-grass-front { height: 16%; background-image: url("resources/images/backgrounds/spring-fx-grass-front.svg"); }
 
 .fx-petal {
   top: 0;
@@ -2680,6 +2876,40 @@ body > .bg-fx {
   height: 22px;
   background-size: contain;
   background-repeat: no-repeat;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+/* the ice: the aurora breathes and drifts (at a low rate: a layer is redrawn at every step, and on a weak or software-rendered
+   screen that is what costs), now and then a glint twinkles (glintOnce) and a single flake falls (flakeOnce) */
+.fx-aurora {
+  top: 53%;
+  left: -10%;
+  width: 120%;
+  height: 24%;
+  background: url("resources/images/backgrounds/ice-fx-aurora.svg") 0 0 / 100% 100% no-repeat;
+  opacity: .7;
+  will-change: transform, opacity;
+  animation: fxAurora 38s steps(190) infinite alternate;
+}
+
+@keyframes fxAurora {
+  from { transform: translateX(-4%); opacity: .55; }
+  to { transform: translateX(4%); opacity: .95; }
+}
+
+.fx-flake {
+  top: 0;
+  left: 0;
+  background: url("resources/images/backgrounds/ice-fx-flake.svg") center / contain no-repeat;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.fx-glint {
+  width: 26px;
+  height: 26px;
+  background: url("resources/images/backgrounds/ice-fx-glint.svg") center / contain no-repeat;
   opacity: 0;
   will-change: transform, opacity;
 }
@@ -2730,7 +2960,7 @@ body > .bg-fx {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fx-cloud, .fx-grass { animation: none; }
+  .fx-cloud, .fx-grass, .fx-aurora { animation: none; }
 }
 
 /* Spring: a lawn. A hedge-green frame, tiles of mown grass (two greens, in a chequer, with faint blades), symbols in deep
@@ -2754,9 +2984,27 @@ body.board-spring .grid::after {
   z-index: 1; /* over the tiles, under the pieces (z-index 2) */
   pointer-events: none;
   transition: rotate .6s ease;
-  background:
-    linear-gradient(118deg, transparent 28%, rgba(255, 250, 200, .3) 43%, rgba(255, 250, 200, .05) 52%, transparent 62%),
-    url("resources/images/board-spring-flowers.svg") center / 100% 100% no-repeat;
+  background: linear-gradient(118deg, transparent 28%, rgba(255, 250, 200, .3) 43%, rgba(255, 250, 200, .05) 52%, transparent 62%);
+}
+
+/* The flowers of the spring board (syncBoardFlowers in linotte.js): each its own drawing, a gust moves them now and then. */
+.board-flowers {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  contain: paint;
+  border-radius: inherit;
+  transition: rotate .6s ease;
+}
+
+.board-flowers .bloom {
+  position: absolute;
+  display: block;
+  height: auto;
+  aspect-ratio: 1;
+  overflow: visible;
+  will-change: transform;
 }
 
 body.board-spring .tile {
@@ -2780,6 +3028,82 @@ body.board-spring .tile::before {
   background-color: #1f4d27;
   -webkit-mask: var(--tile-img) center / contain no-repeat;
   mask: var(--tile-img) center / contain no-repeat;
+}
+
+/* Ice: clean frosted tiles in a glacier-blue frame, symbols in deep blue; the ice is on the frame (icicles hanging from a lip
+   of ice, a pool of ice at the bottom, a mound of ice with crystals in each corner: board-ice-frame.svg), and little glints
+   twinkle on the tiles now and then (glintBoardOnce). */
+body.board-ice .div-table {
+  position: relative;
+  background: linear-gradient(145deg, #7cc2ea, #3b82b9);
+  border-color: #3f88bf;
+  box-shadow: 0 .25em .9em rgba(15, 50, 85, .35), inset 0 0 0 .08em rgba(255, 255, 255, .4);
+}
+
+/* over the frame and the board, under the pieces (z-index 2) */
+body.board-ice .div-table::after {
+  content: "";
+  position: absolute;
+  inset: -.3125em; /* the frame's own width: the layer starts at the outer edge */
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 1.3em;
+  transition: rotate .6s ease;
+  background: url("resources/images/board-ice-frame.svg") center / 100% 100% no-repeat;
+}
+
+body.board-ice.table-flipped .div-table::after { rotate: 180deg; }
+
+body.board-ice .grid {
+  position: relative;
+  background: linear-gradient(145deg, #7cc2ea, #3b82b9);
+}
+
+/* a cold sheen across the tiles */
+body.board-ice .grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;
+  pointer-events: none;
+  transition: rotate .6s ease;
+  background: linear-gradient(118deg, transparent 28%, rgba(255, 255, 255, .45) 43%, rgba(255, 255, 255, .08) 52%, transparent 62%);
+}
+
+body.board-ice .tile {
+  border-color: #79b3d8;
+  background-color: #e6f5fd;
+  background-image: linear-gradient(160deg, #fbfeff 0%, #e6f5fd 55%, #cfe8f6 100%);
+  box-shadow: inset 0 .1em .14em rgba(255, 255, 255, .9), inset 0 -.12em .22em rgba(60, 130, 185, .22);
+}
+
+body.board-ice .tile::before {
+  background-image: none;
+  background-color: #1f4f7d;
+  -webkit-mask: var(--tile-img) center / contain no-repeat;
+  mask: var(--tile-img) center / contain no-repeat;
+}
+
+body.board-ice.table-flipped .grid::after { rotate: 180deg; }
+
+.board-glint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  contain: paint;
+}
+
+body.table-flipped .board-glint { rotate: 180deg; }
+
+.board-glint i {
+  position: absolute;
+  width: 5.5%;
+  aspect-ratio: 1;
+  background: url("resources/images/backgrounds/ice-fx-glint.svg") center / contain no-repeat;
+  opacity: 0;
+  will-change: transform, opacity;
 }
 
 .board-options,
@@ -3049,7 +3373,7 @@ body.board-spring .tile::before {
   line-height: 1.1;
   white-space: nowrap;
   text-align: center;
-  color: rgba(0, 0, 0, .5);
+  color: var(--ink-bg-soft); /* the ink of what sits straight on the background: follows the theme */
 }
 
 .winner-text.wraps {

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The ladybird's eyelids, closed: over the eyes of p047_e63946ff.svg (same size and viewBox) for a blink, played by the game (syncPieceFx in linotte.js). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="184" height="184" viewBox="6 2 172 172">
+  <ellipse cx="78" cy="42" rx="9.6" ry="11" fill="#2b1c21"/><ellipse cx="106" cy="42" rx="9.6" ry="11" fill="#2b1c21"/>
+  <path d="M69.5 44 Q78 50 86.5 44" fill="none" stroke="#0d0608" stroke-width="2.4" stroke-linecap="round"/><path d="M97.5 44 Q106 50 114.5 44" fill="none" stroke="#0d0608" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

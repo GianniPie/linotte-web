@@ -19,7 +19,7 @@
 // Bump when sw.js's own strategy changes, or to flush stale copies. App files (see isAppShell) no
 // longer depend on this to update -- they are fetched network-first -- but a
 // new name evicts the stale copies older installs are holding.
-const CACHE_VERSION = "linotte-v2.35.8";
+const CACHE_VERSION = "linotte-v2.35.9";
 
 const PRECACHE_URLS = [
     "/",
@@ -38,6 +38,8 @@ const PRECACHE_URLS = [
     "/resources/images/chat/ok.svg",
     "/resources/images/chat/hahah.svg",
     "/resources/images/chat/wow.svg",
+    "/resources/images/chat/pig.svg",
+    "/resources/images/chat/peach.svg",
     "/resources/images/chat/roll.svg",
     "/resources/images/chat/heart.svg",
     "/resources/images/chat/grrr.svg",
@@ -52,6 +54,7 @@ const PRECACHE_URLS = [
     "/linotte.js",
     "/version.js",
     "/online.js",
+    "/push.js",
     "/botlab-client.js",
     "/auth.js",
     "/stats.js",
@@ -174,12 +177,27 @@ const PRECACHE_URLS = [
     "/resources/images/backgrounds/spring-fx-petal.svg",
     "/resources/images/backgrounds/spring-fx-leaf.svg",
     "/resources/images/backgrounds/spring-meadow-prev.png",
+    "/resources/images/backgrounds/ice-glacier.svg",
+    "/resources/images/backgrounds/ice-fx-aurora.svg",
+    "/resources/images/backgrounds/ice-fx-flake.svg",
+    "/resources/images/backgrounds/ice-fx-glint.svg",
+    "/resources/images/backgrounds/ice-glacier-prev.png",
     "/resources/images/board-classic-prev.png",
     "/resources/images/board-storm-prev.png",
-    "/resources/images/board-storm-drops.svg",
+    "/resources/images/board-storm-streaks.svg",
     "/resources/images/board-storm-drop.svg",
     "/resources/images/board-spring-prev.png",
-    "/resources/images/board-spring-flowers.svg",
+    "/resources/images/board-spring-blooms.svg",
+    "/resources/images/board-ice-prev.png",
+    "/resources/images/board-ice-frame.svg",
+    "/resources/images/g1-ice.svg",
+    "/resources/images/g2-ice.svg",
+    "/resources/images/g3-ice.svg",
+    "/resources/images/g4-ice.svg",
+    "/resources/images/g5-ice.svg",
+    "/resources/images/g6-ice.svg",
+    "/resources/images/g7-ice.svg",
+    "/resources/images/g8-ice.svg",
     "/resources/images/board-fly-butterfly-a.svg",
     "/resources/images/board-fly-butterfly-b.svg",
     "/resources/images/board-fly-bee.svg",
@@ -219,6 +237,8 @@ const PRECACHE_URLS = [
     "/resources/images/dice/storm_sprite.svg",
     "/resources/images/dice/spring01.png",
     "/resources/images/dice/spring_sprite.svg",
+    "/resources/images/dice/ice03.webp",
+    "/resources/images/dice/ice3_sprite.webp",
     "/resources/images/dice/tr101.png",
     "/resources/images/dice/traditional_sprite.png",
 
@@ -269,6 +289,13 @@ const PRECACHE_URLS = [
     "/resources/images/pieces/p045_f1e9d6ff.svg",
     "/resources/images/pieces/p046_3d6df0ff.svg",
     "/resources/images/pieces/p047_e63946ff.svg",
+    "/resources/images/pieces/p048_1b1d26ff.svg",
+    "/resources/images/pieces/fx/ladybug-lids.svg",
+    "/resources/images/pieces/fx/penguin-body.svg",
+    "/resources/images/pieces/fx/penguin-flipper-l.svg",
+    "/resources/images/pieces/fx/penguin-flipper-r.svg",
+    "/resources/images/pieces/fx/umbrella-canopy.svg",
+    "/resources/images/pieces/fx/umbrella-shine.svg",
 
     "/resources/sounds/combination.mp3",
     "/resources/sounds/roll.mp3",

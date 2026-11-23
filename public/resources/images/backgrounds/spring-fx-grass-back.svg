@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The grass and the little flowers behind. A strip drawn once; CSS sways it from its base (see .fx-grass in linotte.css). -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 260" preserveAspectRatio="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="260" viewBox="0 0 1000 260">
     <path d="M152.6 262 Q160.0 218.0 165.3 183.6 Q167.0 221.8 163.9 262 Z" fill="#6cc152"/>
   <path d="M994.8 262 Q1005.5 225.1 1023.6 196.5 Q1015.1 228.3 1004.3 262 Z" fill="#7fcf63"/>
   <path d="M226.2 262 Q229.1 240.6 224.1 224.8 Q232.3 242.4 235.3 262 Z" fill="#93d874"/>

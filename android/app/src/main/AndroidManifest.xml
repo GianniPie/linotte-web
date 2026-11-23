@@ -44,6 +44,12 @@
 
         </activity>
 
+        <!-- Push notifications (server/push.js, docs/PUSH.md): the small white icon in the status bar, its colour, and the
+             channel a notification goes to when the message names none (the app makes "friends", see public/push.js). -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_linotte" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/push_accent" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="friends" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -60,4 +66,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- navigator.vibrate() in the page (the little buzzes) needs it; it is a normal permission, nothing is asked -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Android 13+ asks the player before the first notification (public/push.js asks, once they chose to be notified) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

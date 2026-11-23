@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A snowflake that falls now and then on the ice background (flakeOnce in linotte.js). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <g stroke="#6aa7d6" stroke-width="3" stroke-opacity=".35" stroke-linecap="round" fill="none"><path d="M20 20 L36.0 20.0"/><path d="M30.0 20.0 L32.9 15.9"/><path d="M30.0 20.0 L32.9 24.1"/><path d="M20 20 L28.0 33.9"/><path d="M25.0 28.7 L30.0 29.1"/><path d="M25.0 28.7 L22.9 33.2"/><path d="M20 20 L12.0 33.9"/><path d="M15.0 28.7 L17.1 33.2"/><path d="M15.0 28.7 L10.0 29.1"/><path d="M20 20 L4.0 20.0"/><path d="M10.0 20.0 L7.1 24.1"/><path d="M10.0 20.0 L7.1 15.9"/><path d="M20 20 L12.0 6.1"/><path d="M15.0 11.3 L10.0 10.9"/><path d="M15.0 11.3 L17.1 6.8"/><path d="M20 20 L28.0 6.1"/><path d="M25.0 11.3 L22.9 6.8"/><path d="M25.0 11.3 L30.0 10.9"/></g>
+  <g stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" fill="none"><path d="M20 20 L36.0 20.0"/><path d="M30.0 20.0 L32.9 15.9"/><path d="M30.0 20.0 L32.9 24.1"/><path d="M20 20 L28.0 33.9"/><path d="M25.0 28.7 L30.0 29.1"/><path d="M25.0 28.7 L22.9 33.2"/><path d="M20 20 L12.0 33.9"/><path d="M15.0 28.7 L17.1 33.2"/><path d="M15.0 28.7 L10.0 29.1"/><path d="M20 20 L4.0 20.0"/><path d="M10.0 20.0 L7.1 24.1"/><path d="M10.0 20.0 L7.1 15.9"/><path d="M20 20 L12.0 6.1"/><path d="M15.0 11.3 L10.0 10.9"/><path d="M15.0 11.3 L17.1 6.8"/><path d="M20 20 L28.0 6.1"/><path d="M25.0 11.3 L22.9 6.8"/><path d="M25.0 11.3 L30.0 10.9"/></g>
+  <circle cx="20" cy="20" r="2.2" fill="#fff"/>
+</svg>

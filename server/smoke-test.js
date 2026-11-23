@@ -255,6 +255,10 @@ const lobby = new Lobby(io, store);
   assert.equal(vsBot2.status, "over", "the bot plays on after the restart");
 
   const guest = fakeSocket("player-nnnnnnnn", "Wren50");
+  assert.equal((await lobby2.joinByCode(guest, code)).error, "host_away", "nobody to play against: the owner is not back yet");
+  const host2 = fakeSocket("player-mmmmmmmm", "Gull40");
+  const back = await lobby2.rejoin(host2);
+  assert.ok(back.ok && back.status === "waiting" && back.missed === "Wren50", "the owner, back, is told who tried to join");
   assert.ok((await lobby2.joinByCode(guest, code)).ok, "a room code from before the restart still works");
   console.log("ok: games survive a server restart");
 }
@@ -1070,6 +1074,39 @@ const lobby = new Lobby(io, store);
   lobby8.register(room2);
   room2.addHuman(1, cheat, cheat.data);
   assert.equal(room2.seats[1].background, 4, "a background not unlocked yet falls back to the free one");
+
+  // A theme (admin only for now) puts its background, board and dice on the table, over any level.
+  const themer = fakeSocket("player-matchth8", "Elk8");
+  const climber = fakeSocket("player-matchcl9", "Hen9");
+  Object.assign(themer.data, { userId: "u-th", level: 1, xp: 5, role: "admin", background: 11, board: 3, dice: 10 });
+  Object.assign(climber.data, { userId: "u-cl", level: 20, xp: 900, background: 3 });
+  assert.ok(lobby8.createPrivate(themer).ok);
+  assert.ok((await lobby8.joinByCode(climber, lobby8.roomOfSocket(themer).code)).ok);
+  assert.deepEqual(lobby8.roomOfSocket(themer).state.tableLook, { seat: themer.data.seat, background: 11, themed: true, board: 3, dice: 10 }, "a theme beats the points, with its board and dice");
+  const faker = fakeSocket("player-matchfk0", "Ant0");
+  Object.assign(faker.data, { userId: "u-fk", level: 1, xp: 5, role: "member", background: 11, board: 3, dice: 10 });
+  const room3 = lobby8.newRoom({ kind: "random" });
+  lobby8.register(room3);
+  room3.addHuman(1, faker, faker.data);
+  assert.ok(!room3.seats[1].themed && room3.seats[1].background === 4, "a theme is not for everyone: a member's falls back");
+  const { tableSeat: ts } = await import("../public/shared/level.js");
+  assert.equal(ts({ xp: 5, themed: true }, { xp: 900 }), 1);
+  assert.equal(ts({ xp: 5, themed: true }, { xp: 900, themed: true }), 2, "two themes: the points decide");
+
+  // The owner of a room must answer a moment: a locked phone still looks connected.
+  const owner = fakeSocket("player-roomown1", "Ram1");
+  const visitor = fakeSocket("player-roomvis2", "Doe2");
+  let answers = false;
+  owner.timeout = () => ({ emitWithAck: async () => { if (!answers) throw new Error("timeout"); } });
+  owner.data.presence = true;
+  assert.ok(lobby8.createPrivate(owner).ok);
+  const ownerRoom = lobby8.roomOfSocket(owner);
+  ownerRoom.seats[owner.data.seat].presence = true;
+  const roomCode = ownerRoom.code;
+  assert.equal((await lobby8.joinByCode(visitor, roomCode)).error, "host_away", "a phone that doesn't answer: nobody joins, no game is lost");
+  assert.equal(ownerRoom.status, "waiting");
+  answers = true;
+  assert.ok((await lobby8.joinByCode(visitor, roomCode)).ok, "answering, it plays");
   console.log("ok: table and matching");
 }
 
@@ -1346,6 +1383,9 @@ const lobby = new Lobby(io, store);
   room.emoteTimes[seat] = room.emoteTimes[seat].map((x) => x - 13000); // 13 s later
   gap(); assert.ok(room.emote(seat, "👍").ok, "after the wait it goes through again");
   const wait = () => { room.lastEmoteAt[seat] = 0; room.emoteTimes[seat] = []; };
+  wait(); assert.ok(!room.emote(seat, "🐷").ok && !room.emote(seat, "🍑", "member").ok, "the pig and the peach are not for everyone");
+  wait(); assert.ok(room.emote(seat, "🐷", "special").ok, "but for a special one it is");
+  wait(); assert.ok(room.emote(seat, "🍑", "admin").ok, "and for the admin");
   wait(); assert.ok(room.emote(seat, "🔔").ok, "the bell rings");
   wait(); assert.equal(room.emote(seat, "🔔").error, "nudge_limit", "but not again within 10 seconds");
   for (let n = 2; n <= 5; n++) { room.nudges[seat].at -= 11000; wait(); assert.ok(room.emote(seat, "🔔").ok, `bell ${n} of 5`); }
@@ -1851,6 +1891,163 @@ const lobby = new Lobby(io, store);
   assert.equal(resultRows({ kind: "random", mode: "ruthless", winner: 1, seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: { kind: "human", userId: "b", name: "B" } }, state: { players: { 1: { points: 6 }, 2: { points: 2 } } } }).every((r) => r.ruthless === true), true, "the rows say it was Ruthless");
   assert.equal(resultRows({ kind: "random", mode: "normal", winner: 1, seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: null }, state: { players: { 1: { points: 6 }, 2: { points: 2 } } } })[0].ruthless, false);
   console.log("ok: Normal and Ruthless");
+}
+
+//--------- 18. push notifications: a friend at a room whose owner isn't there ---------
+{
+  const { createMemoryTokenStore, createSupabaseTokenStore, createFcm, createPush, createPushBudget, parseServiceAccount, pushText, isPushToken, MAX_TOKENS_PER_ACCOUNT } = await import("./push.js");
+  const { exportPKCS8, decodeProtectedHeader, decodeJwt } = await import("jose");
+  const tok = (n) => `fcm-token-${String(n).padStart(3, "0")}-abcdefghijklmnopqrstuvwxyz`;
+
+  // what is said: the friend's name and a line, in the language of the device
+  assert.equal(pushText("en", "join", { name: "Anna" }).body, "Anna wants to play with you. Open Linotte to start the game.");
+  assert.ok(pushText("it", "join", { name: "Anna" }).body.startsWith("Anna vuole giocare con te"), "in the device's language");
+  assert.equal(pushText("xx", "join", { name: "Anna" }).title, "Linotte");
+  assert.ok(isPushToken(tok(1)) && !isPushToken("short") && !isPushToken("x y".repeat(20)) && !isPushToken(null), "only token-shaped strings are kept");
+
+  // the service account: pasted as it is, or as base64; anything else is nothing
+  const { privateKey, publicKey } = await generateKeyPair("RS256", { extractable: true });
+  const pem = await exportPKCS8(privateKey);
+  const account = { project_id: "linotte-test", client_email: "push@linotte-test.iam.gserviceaccount.com", private_key: pem };
+  assert.equal(parseServiceAccount(JSON.stringify(account)).projectId, "linotte-test");
+  assert.equal(parseServiceAccount(Buffer.from(JSON.stringify(account)).toString("base64")).clientEmail, account.client_email);
+  assert.equal(parseServiceAccount("nonsense"), null);
+  assert.equal(parseServiceAccount(""), null);
+
+  // device tokens: kept per account, the newest few, taken over by whoever signs in on the phone
+  const mem = createMemoryTokenStore();
+  for (let i = 0; i < MAX_TOKENS_PER_ACCOUNT + 2; i++) { await mem.save("user-a", tok(i), { platform: "android", lang: "it" }); await wait(2); }
+  const kept = await mem.list("user-a");
+  assert.equal(kept.length, MAX_TOKENS_PER_ACCOUNT, "an account keeps its newest devices only");
+  assert.equal(kept[0].token, tok(MAX_TOKENS_PER_ACCOUNT + 1));
+  await mem.save("user-b", tok(MAX_TOKENS_PER_ACCOUNT + 1));
+  assert.ok(!(await mem.list("user-a")).some((d) => d.token === tok(MAX_TOKENS_PER_ACCOUNT + 1)), "a phone passed to someone else is theirs now");
+  await mem.remove("user-a", tok(MAX_TOKENS_PER_ACCOUNT + 1)); // not theirs any more: nothing happens
+  assert.equal((await mem.list("user-b")).length, 1);
+  await mem.remove("user-b", tok(MAX_TOKENS_PER_ACCOUNT + 1));
+  assert.equal((await mem.list("user-b")).length, 0, "switched off: forgotten");
+
+  // the same in Supabase's table (a fake database)
+  const rows = new Map();
+  const dbCalls = [];
+  const fakeDb = async (url, init = {}) => {
+    const u = new URL(url);
+    dbCalls.push(`${init.method || "GET"} ${u.pathname}${u.search}`);
+    const eq = (name) => u.searchParams.get(name)?.replace(/^eq\./, "");
+    if (init.method === "POST") { const r = JSON.parse(init.body); rows.set(r.token, r); return { ok: true, status: 201, json: async () => [] }; }
+    if (init.method === "DELETE") {
+      for (const [k, r] of [...rows]) if ((!eq("user_id") || r.user_id === eq("user_id")) && (!eq("token") || r.token === eq("token"))) rows.delete(k);
+      return { ok: true, status: 204 };
+    }
+    const mine = [...rows.values()].filter((r) => r.user_id === eq("user_id")).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    return { ok: true, status: 200, json: async () => mine };
+  };
+  const db = createSupabaseTokenStore({ key: "secret", url: "https://example.supabase.co", fetch: fakeDb });
+  assert.ok(await db.save("u1", tok(1), { platform: "android", lang: "fr" }));
+  assert.ok(dbCalls[0].includes("on_conflict=token"), "one row per token: saving again updates it");
+  assert.deepEqual(await db.list("u1"), [{ token: tok(1), platform: "android", lang: "fr" }]);
+  await db.remove("u2", tok(1));
+  assert.equal((await db.list("u1")).length, 1, "only the account's own token is removed");
+  await db.removeToken(tok(1));
+  assert.equal((await db.list("u1")).length, 0);
+  const downDb = createSupabaseTokenStore({ key: "secret", url: "https://example.supabase.co", fetch: async () => { throw new Error("down"); } });
+  assert.equal(await downDb.save("u1", tok(1)), false, "a database that is down is not a crash");
+  assert.deepEqual(await downDb.list("u1"), []);
+
+  // FCM: the service account's signed request for an access token (asked once), then the message
+  const calls = [];
+  let fcmAnswer = () => ({ ok: true, status: 200, json: async () => ({ name: "m" }) });
+  const fakeGoogle = async (url, init) => {
+    calls.push({ url: String(url), init });
+    if (String(url).startsWith("https://oauth2.googleapis.com/token")) return { ok: true, status: 200, json: async () => ({ access_token: `at-${calls.length}`, expires_in: 3600 }) };
+    return fcmAnswer(init);
+  };
+  const fcm = createFcm({ account: parseServiceAccount(JSON.stringify(account)), fetch: fakeGoogle });
+  assert.equal(await fcm.send(tok(1), { title: "Linotte", body: "Anna wants to play with you.", data: { type: "join" }, tag: "room-join" }), "ok");
+  assert.equal(await fcm.send(tok(2), { title: "Linotte", body: "x", data: { type: "join" } }), "ok");
+  assert.equal(calls.filter((c) => c.url.includes("oauth2")).length, 1, "the access token is kept for its hour");
+  const assertion = new URLSearchParams(calls[0].init.body).get("assertion");
+  assert.equal(decodeProtectedHeader(assertion).alg, "RS256");
+  assert.equal(decodeJwt(assertion).iss, account.client_email);
+  assert.equal(decodeJwt(assertion).scope, "https://www.googleapis.com/auth/firebase.messaging");
+  const sent = calls.find((c) => c.url.includes("/messages:send"));
+  assert.equal(sent.url, "https://fcm.googleapis.com/v1/projects/linotte-test/messages:send");
+  assert.ok(sent.init.headers.Authorization.startsWith("Bearer at-"));
+  const msg = JSON.parse(sent.init.body).message;
+  assert.equal(msg.token, tok(1));
+  assert.deepEqual(msg.data, { type: "join" }, "nothing in the payload but what the app needs to open the room");
+  assert.equal(msg.android.priority, "HIGH");
+  assert.equal(msg.notification.body, "Anna wants to play with you.");
+  let first = true;
+  fcmAnswer = () => (first ? ((first = false), { ok: false, status: 401, json: async () => ({}) }) : { ok: true, status: 200, json: async () => ({}) });
+  assert.equal(await fcm.send(tok(3), { title: "t", body: "b" }), "ok", "a stale access token is renewed once");
+  fcmAnswer = () => ({ ok: false, status: 404, json: async () => ({ error: { status: "NOT_FOUND", details: [{ errorCode: "UNREGISTERED" }] } }) });
+  assert.equal(await fcm.send(tok(4), { title: "t", body: "b" }), "gone", "a dead token is said to be gone");
+  fcmAnswer = () => ({ ok: false, status: 500, json: async () => ({}) });
+  const quiet = console.error; console.error = () => {};
+  assert.equal(await fcm.send(tok(5), { title: "t", body: "b" }), "failed");
+  console.error = quiet;
+  assert.equal(createFcm({ account: null }).enabled, false, "without a service account nothing is sent");
+
+  // the whole: tokens, language, forgetting dead devices, not too many
+  fcmAnswer = () => ({ ok: true, status: 200, json: async () => ({}) });
+  const store18 = createMemoryTokenStore();
+  const push = createPush({ tokens: store18, fcm: createFcm({ account: parseServiceAccount(JSON.stringify(account)), fetch: fakeGoogle }), budget: createPushBudget({ perHour: 3 }) });
+  assert.equal(await push.notifyJoin("owner-1", { name: "Anna", visitor: "v1" }), 0, "no device, no push");
+  await store18.save("owner-1", tok(10), { lang: "it" });
+  await store18.save("owner-1", tok(11), { lang: "en" });
+  calls.length = 0;
+  assert.equal(await push.notifyJoin("owner-1", { name: "Anna", visitor: "v1" }), 2, "every device of the account");
+  const bodies = calls.filter((c) => c.url.includes("/messages:send")).map((c) => JSON.parse(c.init.body).message.notification.body).sort();
+  assert.deepEqual(bodies, ["Anna vuole giocare con te. Apri Linotte per cominciare la partita.", "Anna wants to play with you. Open Linotte to start the game."], "each in its own language");
+  assert.equal(await push.notifyJoin("owner-1", { name: "Anna", visitor: "v1" }), 0, "the same visitor trying again a moment later does not buzz again");
+  fcmAnswer = (init) => (JSON.parse(init.body).message.token === tok(10)
+    ? { ok: false, status: 404, json: async () => ({ error: { details: [{ errorCode: "UNREGISTERED" }] } }) } : { ok: true, status: 200, json: async () => ({}) });
+  assert.equal(await push.notifyJoin("owner-1", { name: "Bo", visitor: "v2" }), 1);
+  assert.deepEqual((await store18.list("owner-1")).map((d) => d.token), [tok(11)], "a device that is gone is forgotten");
+  assert.equal(createPush({ tokens: store18, fcm: createFcm({ account: null }) }).enabled, false);
+  assert.equal(await createPush({ tokens: store18, fcm: createFcm({ account: null }) }).notifyJoin("owner-1", { name: "Cy" }), 0);
+
+  // the lobby: a friend comes, the owner's phone doesn't answer -> the owner's account is alerted, the friend is told
+  const alerts = [];
+  const lobby18 = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async () => false, befriend: async () => {}, alertHost: async (userId, who) => { alerts.push({ userId, ...who }); return userId === "user-owner-signed" ? 1 : 0; } });
+  const owner = fakeSocket("player-pushown1", "Ram1");
+  owner.data.userId = "user-owner-signed";
+  owner.data.presence = true;
+  let answers = false;
+  owner.timeout = () => ({ emitWithAck: async () => { if (!answers) throw new Error("timeout"); } });
+  assert.ok(lobby18.createPrivate(owner).ok);
+  const room18 = lobby18.roomOfSocket(owner);
+  room18.seats[owner.data.seat].presence = true;
+  const visitor = fakeSocket("player-pushvis02", "Doe2");
+  visitor.data.userId = "user-visitor";
+  const refused = await lobby18.joinByCode(visitor, room18.code);
+  assert.deepEqual([refused.ok, refused.error, refused.alerted], [false, "host_away", true], "the one who comes is told the owner was alerted");
+  assert.deepEqual(alerts, [{ userId: "user-owner-signed", name: "Doe2", visitor: "user-visitor" }], "only the friend's name is given, to the owner's account");
+  assert.equal(room18.missedJoin?.name, "Doe2", "and the owner, back, is told who tried");
+  answers = true;
+  assert.ok((await lobby18.joinByCode(visitor, room18.code)).ok, "an owner who answers needs no notification");
+  assert.equal(alerts.length, 1, "none sent for a game that started");
+  // the owner is gone for good (closed the app): the same
+  const away = fakeSocket("player-pushaway3", "Gull3");
+  away.data.userId = "user-owner-signed";
+  assert.ok(lobby18.createPrivate(away).ok);
+  const awayRoom = lobby18.roomOfSocket(away);
+  lobby18.handleDisconnect(away);
+  awayRoom.seats[away.data.seat].awaySince = Date.now() - 100000;
+  const friend = fakeSocket("player-pushfrd04", "Fox4");
+  const gone = await lobby18.joinByCode(friend, awayRoom.code);
+  assert.deepEqual([gone.error, gone.alerted], ["host_away", true]);
+  assert.equal(alerts.at(-1).visitor, "player-pushfrd04", "a guest visitor is told apart by their device");
+  // an owner who is a guest has no account: nobody to alert, the visitor is just told
+  const guestOwner = fakeSocket("player-pushgst05", "Hen5");
+  assert.ok(lobby18.createPrivate(guestOwner).ok);
+  const guestRoom = lobby18.roomOfSocket(guestOwner);
+  lobby18.handleDisconnect(guestOwner);
+  guestRoom.seats[guestOwner.data.seat].awaySince = Date.now() - 100000;
+  const gone2 = await lobby18.joinByCode(fakeSocket("player-pushfrd06", "Elk6"), guestRoom.code);
+  assert.deepEqual([gone2.error, gone2.alerted], ["host_away", undefined], "a guest can't be alerted");
+  console.log("ok: push notifications");
 }
 
 console.log("all smoke tests passed");

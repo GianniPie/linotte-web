@@ -186,7 +186,7 @@ import { labOn, labSend, labListen } from "./botlab-client.js";
 import GameController from './shared/gameController.js';
 import { playFairyTrail, cancelFairyTrails } from "./shared/fairyTrail.js";
 import { initCombinationDemos } from "./demo.js";
-import { CHAT, chatImage, chatScale, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs } from "./shared/chat.js";
+import { CHAT, chatFor, chatImage, chatScale, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs } from "./shared/chat.js";
 import { TURN_FREEZE_CAP_MS } from "./shared/turn.js";
 import { ACCOUNTS_AVAILABLE, EMAIL_HAS_CODE, enabledProviders, initAuth, onUserChange, currentUser, signInWith, sendEmailCode, verifyEmailCode, signOut, deleteAccount, loadProfile, saveProfile } from "./auth.js";
 import { nameProblem, cleanPlayerName, nameChangeWaitMs, COUNTRIES, flagOf } from "./shared/playerNames.js";
@@ -197,6 +197,7 @@ import { renderBanner, interstitial, rewarded } from "./ads.js";
 import { recentErrors } from "./diagnostics.js"; // the last errors of the page, for a problem report
 import "./a11y.js"; // roles, names, keyboard and states for the buttons that are not <button>s
 import { THEMES, themeById } from "./shared/themes.js";
+import { pushOffered, pushEnabled, pushUndecided, enablePush, disablePush, syncPush, forgetPushSync, listenForPushTaps } from "./push.js";
 import { OnlineClient, shareOrigin, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownRole, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer, sendFeedback, getPlayerId } from "./online.js";
 import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, themeOfLook, THEME_LOOKS, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY, ABANDON_BASE, onlinePayout, validMode, MODE_NORMAL, MODE_RUTHLESS } from "./shared/level.js";
 let gameState = createInitialGameState();
@@ -333,7 +334,8 @@ function showHomeScreen() {
     startPointsFlowIfPending(); // left another way: the points screens come over the home
     gameXpBase = null; // the winner card is gone
     refreshIfStale();
-    showBackground(ownBackground()); // an online game's table was someone else's
+    showOwnLooks(); // an online game's table was someone else's
+    refreshRoomCard();
     setTimeout(chatSync, 0);
     optionsOverlay.classList.add("hidden");
     flipPending = false;
@@ -403,6 +405,14 @@ renderPlayerBox(gameState.currentPlayer);
 renderPieceCounts();
 renderPointCounts();
 
+// How light a colour looks (0 black to 1 white): the weights of the eye for red, green and blue.
+function lightnessOf(hex) {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+// A box of a dark colour has light texts (and the other way round): one rule for every piece.
+function isDarkColor(hex) { return lightnessOf(hex) < 0.36; }
+
 function applyPlayerVisuals() {
     selectedColor[1] = gameState.players[1].color;
     selectedColor[2] = gameState.players[2].color;
@@ -410,6 +420,8 @@ function applyPlayerVisuals() {
     preload(gameState.players[2].pieceImage);
     boxPlayer1.style.backgroundColor = gameState.players[1].color;
     boxPlayer2.style.backgroundColor = gameState.players[2].color;
+    boxPlayer1.classList.toggle("dark-box", isDarkColor(gameState.players[1].color));
+    boxPlayer2.classList.toggle("dark-box", isDarkColor(gameState.players[2].color));
 }
 
 //clearForNextTurn();
@@ -1004,7 +1016,7 @@ function showBackground(bgId) {
 }
 
 // The texts follow the background: a dark sky wants light texts on it and a slate ink on the panels (CSS: body.ink-*).
-const BG_INK = { "storm-clouds.svg": "storm", "spring-meadow.svg": "spring" };
+const BG_INK = { "storm-clouds.svg": "storm", "spring-meadow.svg": "spring", "ice-glacier.svg": "ice" };
 function syncInk(file) {
     for (const ink of new Set(Object.values(BG_INK))) document.body.classList.toggle("ink-" + ink, BG_INK[file] === ink);
 }
@@ -1018,16 +1030,23 @@ const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce
 let bgFxTimer = 0;
 let bgDropTimer = 0;
 let bgPetalTimer = 0;
+let bgGustTimer = 0;
+let bgGlintTimer = 0;
+let bgFlakeTimer = 0;
 // What each moving background is made of (bottom to top), and what plays now and then on it.
 const BG_FX_LAYERS = {
     "storm-clouds.svg": ["fx-cloud fx-far", "fx-glow fx-glow-a", "fx-glow fx-glow-b", "fx-cloud fx-mid", "fx-bolt fx-bolt-a", "fx-bolt fx-bolt-b", "fx-cloud fx-near", "fx-top", "fx-light"],
     "spring-meadow.svg": ["fx-cloud fx-sp-a", "fx-cloud fx-sp-b", "fx-grass fx-grass-back", "fx-grass fx-grass-front"],
+    "ice-glacier.svg": ["fx-aurora"],
 };
 function syncBgFx(file) {
     document.querySelectorAll(".bg-fx").forEach((el) => el.remove());
     clearTimeout(bgFxTimer);
     clearTimeout(bgDropTimer);
     clearTimeout(bgPetalTimer);
+    clearTimeout(bgGustTimer);
+    clearTimeout(bgGlintTimer);
+    clearTimeout(bgFlakeTimer);
     const layers = BG_FX_LAYERS[file];
     if (!layers) return;
     for (const host of [document.body, ...optBgs]) {
@@ -1044,10 +1063,35 @@ function syncBgFx(file) {
     if (file === "storm-clouds.svg") {
         bgFxTimer = setTimeout(flashOnce, 4000 + Math.random() * 4000);
         bgDropTimer = setTimeout(dropOnce, 2500 + Math.random() * 3000);
+    } else if (file === "ice-glacier.svg") {
+        bgGlintTimer = setTimeout(glintOnce, 1200 + Math.random() * 1500);
+        bgFlakeTimer = setTimeout(flakeOnce, 2500 + Math.random() * 3000);
     } else {
         bgPetalTimer = setTimeout(petalOnce, 2500 + Math.random() * 3000);
+        bgGustTimer = setTimeout(grassGustOnce, 5000 + Math.random() * 4000);
     }
 }
+// A gust of wind over the spring meadow, now and then: the grass and the flowers at the foot lean from their base, the
+// ones in front a little more, and settle back (the layers are still the rest of the time).
+function grassGustOnce() {
+    if (!document.hidden) {
+        const way = Math.random() < 0.5 ? 1 : -1;
+        document.querySelectorAll(".fx-grass").forEach((el) => {
+            if (!el.getClientRects().length) return;
+            const front = el.classList.contains("fx-grass-front");
+            const a = way * (front ? 3.6 : 2.4);
+            el.animate([
+                { transform: "skewX(0deg)", offset: 0 },
+                { transform: `skewX(${a}deg)`, offset: 0.3 },
+                { transform: `skewX(${-a * 0.6}deg)`, offset: 0.6 },
+                { transform: `skewX(${a * 0.25}deg)`, offset: 0.82 },
+                { transform: "skewX(0deg)", offset: 1 },
+            ], { duration: 3000 + Math.random() * 800, delay: front ? 0 : 250, easing: "ease-in-out" });
+        });
+    }
+    bgGustTimer = setTimeout(grassGustOnce, 22000 + Math.random() * 28000);
+}
+
 // A flash: the glow fades, the bolt flickers twice, and the light goes over the whole sky. Two of them, as it was.
 const FLASHES = {
     a: { glow: [1800, [[0, 0], [0.1, 1], [0.3, 0.2], [0.45, 0.85], [1, 0]]], bolt: [1080, [[0, 0], [0.1667, 1], [0.4167, 0], [0.667, 1], [1, 0]]], light: [1260, [[0, 0], [0.143, 0.5], [0.43, 0], [0.643, 0.38], [1, 0]]] },
@@ -1089,6 +1133,54 @@ function dropOnce() {
     bgDropTimer = setTimeout(dropOnce, 5000 + Math.random() * 7000);
 }
 
+// A single snowflake falls, swaying, now and then (a falling snow all the time was too heavy to draw).
+function flakeOnce() {
+    if (!document.hidden) {
+        const W = window.innerWidth, H = window.innerHeight;
+        const size = 14 + Math.random() * 14, x0 = Math.random() * W, sway = 18 + Math.random() * 30, phase = Math.random() * 6.28;
+        const turns = (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 240), ms = 7500 + Math.random() * 5000;
+        const steps = Array.from({ length: 13 }, (_, k) => {
+            const t = k / 12;
+            return { offset: t, opacity: k === 0 || k === 12 ? 0 : 0.9, transform: `translate(${x0 + sway * Math.sin(phase + t * 7)}px, ${-30 + (H * 0.9 + 30) * t}px) rotate(${turns * t}deg)` };
+        });
+        document.querySelectorAll(".bg-fx").forEach((fx) => {
+            if (!fx.getClientRects().length) return;
+            const el = document.createElement("i");
+            el.className = "fx-flake";
+            el.style.width = el.style.height = size + "px";
+            fx.append(el);
+            el.animate(steps, { duration: ms, easing: "linear" }).onfinish = () => el.remove();
+        });
+    }
+    bgFlakeTimer = setTimeout(flakeOnce, 4000 + Math.random() * 7000);
+}
+
+// A glint twinkles on the ice now and then (one or two at a time, anywhere on the lower part of the screen).
+function twinkle(el, ms) {
+    el.animate([
+        { opacity: 0, transform: "scale(.2) rotate(0deg)", offset: 0 },
+        { opacity: 1, transform: "scale(1) rotate(45deg)", offset: 0.4 },
+        { opacity: 0, transform: "scale(.3) rotate(90deg)", offset: 1 },
+    ], { duration: ms, easing: "ease-in-out" }).onfinish = () => el.remove();
+}
+function glintOnce() {
+    if (!document.hidden) {
+        const count = Math.random() < 0.4 ? 2 : 1;
+        for (let n = 0; n < count; n++) {
+            const x = 4 + Math.random() * 92, y = 38 + Math.random() * 56, size = 16 + Math.random() * 22, ms = 900 + Math.random() * 900;
+            document.querySelectorAll(".bg-fx").forEach((fx) => {
+                if (!fx.getClientRects().length) return;
+                const el = document.createElement("i");
+                el.className = "fx-glint";
+                el.style.cssText = `left:${x}%;top:${y}%;width:${size}px;height:${size}px`;
+                fx.append(el);
+                twinkle(el, ms);
+            });
+        }
+    }
+    bgGlintTimer = setTimeout(glintOnce, 1300 + Math.random() * 2400);
+}
+
 // A petal or a small leaf drifts across the spring meadow on the breeze now and then.
 function petalOnce() {
     if (!document.hidden) {
@@ -1114,6 +1206,35 @@ function petalOnce() {
         });
     }
     bgPetalTimer = setTimeout(petalOnce, 7000 + Math.random() * 8000);
+}
+
+//----- the ice board's glints -----
+// Little glints twinkle on the frost now and then; between two of them nothing runs.
+let boardGlintTimer = 0;
+function syncBoardGlint(on) {
+    clearTimeout(boardGlintTimer);
+    document.querySelectorAll(".board-glint").forEach((el) => el.remove());
+    if (!on || reducedMotion()) return;
+    const layer = document.createElement("div");
+    layer.className = "board-glint";
+    document.querySelector(".grid")?.append(layer);
+    boardGlintTimer = setTimeout(glintBoardOnce, 1500 + Math.random() * 2000);
+}
+function glintBoardOnce() {
+    const layer = document.querySelector(".board-glint");
+    if (layer && !document.hidden) {
+        const count = Math.random() < 0.35 ? 2 : 1;
+        for (let n = 0; n < count; n++) {
+            const el = document.createElement("i");
+            // in the margins of the tiles: near a tile's edge, away from its symbol
+            const tx = Math.floor(Math.random() * 5), ty = Math.floor(Math.random() * 5);
+            const x = tx * 20 + (Math.random() < 0.5 ? 2 + Math.random() * 3 : 14 + Math.random() * 3), y = ty * 20 + 2 + Math.random() * 14;
+            el.style.cssText = `left:${x}%;top:${y}%`;
+            layer.append(el);
+            twinkle(el, 900 + Math.random() * 700);
+        }
+    }
+    boardGlintTimer = setTimeout(glintBoardOnce, 900 + Math.random() * 2200);
 }
 
 //----- the spring board's insects -----
@@ -1245,6 +1366,174 @@ function rainOnce() {
     }
     boardRainTimer = setTimeout(rainOnce, 25000 + Math.random() * 30000);
 }
+//----- the pieces of the themes come alive -----
+// The ladybird blinks now and then, the penguin flaps its flippers a little, the umbrella twirls. Each piece starts the moment it
+// is put on the board (its drawing is set): a few seconds later it moves for the first time, then rarely (a movement every
+// 15 to 30 seconds), a little slower or faster than the next, so they never move
+// together. They are layers of their own over (or instead of) the piece's drawing, moved by the GPU (transform, opacity): the
+// still drawing stays as the piece's background-image, for everything else that reads it. See .pfx in linotte.css.
+const PIECE_FX_DIR = "resources/images/pieces/fx/";
+const PIECE_FX = {
+    "p047_e63946ff.svg": { cycle: 16, layers: [["pfx-lids", "ladybug-lids.svg"]], over: true }, // the ladybird: the lids over the drawing
+    "p048_1b1d26ff.svg": { cycle: 22, layers: [["pfx-flip-l", "penguin-flipper-l.svg"], ["pfx-flip-r", "penguin-flipper-r.svg"], ["pfx-still", "penguin-body.svg"]] },
+    "p046_3d6df0ff.svg": { cycle: 26, layers: [["pfx-spin", "umbrella-canopy.svg"], ["pfx-still", "umbrella-shine.svg"]] },
+};
+function syncPieceFx(piece) {
+    const url = piece.style.backgroundImage || "";
+    const file = Object.keys(PIECE_FX).find((f) => url.includes(f));
+    if (piece.dataset.fx === (file || "")) return; // already as it should be (the observer fires for every change of the style)
+    piece.querySelectorAll(":scope > .pfx").forEach((el) => el.remove());
+    piece.classList.remove("pfx-on");
+    delete piece.dataset.fx;
+    if (!file || reducedMotion()) return;
+    const fx = PIECE_FX[file];
+    piece.dataset.fx = file;
+    if (!fx.over) piece.classList.add("pfx-on"); // the layers draw the whole piece: its own drawing steps aside
+    const cycle = fx.cycle * (0.85 + Math.random() * 0.3); // each its own pace
+    const firstAt = 5 + Math.random() * 9; // seconds after landing
+    for (const [cls, img] of fx.layers) {
+        const layer = document.createElement("i");
+        layer.className = "pfx " + cls;
+        layer.style.backgroundImage = `url("${PIECE_FX_DIR}${img}")`;
+        layer.style.animationDuration = cycle + "s";
+        layer.style.animationDelay = -(cycle * 0.87 - firstAt) + "s"; // the first movement comes a few seconds after the piece lands
+        piece.append(layer);
+    }
+}
+const pieceFxObserver = new MutationObserver((list) => { for (const m of list) syncPieceFx(m.target); });
+document.querySelectorAll(".piece").forEach((piece) => pieceFxObserver.observe(piece, { attributes: true, attributeFilter: ["style"] }));
+
+//----- the spring board's flowers, moved now and then by a gust of wind -----
+// The flowers are small drawings of their own (board-spring-blooms.svg, x and y of the centre and size in % of the board, and
+// the kind: daisy, buttercup, pink flower, clover, leaf), on a layer over the tiles and under the pieces: never stretched,
+// whatever the board's proportions. Every minute or so a gust runs over the board from one side: each one, as the wind
+// reaches it, leans, shivers and settles back, the leaves and clover more than the flowers. Between two gusts nothing
+// runs; the GPU does it (transform).
+const SPRING_BLOOMS = [[17.77,4.08,4.16,"d"],[50.91,40.93,4.54,"d"],[62.15,13.61,4.21,"b"],[97.69,50.98,3.91,"p"],[82.11,4.78,5.13,"c"],[2.19,55.57,3.97,"l"],[22.11,64.5,4.8,"d"],[75.4,1.17,3.94,"d"],[46.41,57.27,3.43,"b"],[57.77,34.24,3.57,"p"],[28.46,82.07,4.87,"c"],[58.2,91.59,3.38,"l"],[27.04,57.06,4.01,"d"],[15.95,61.26,4.6,"d"],[45.79,96.8,4.07,"b"],[34.78,36.76,3.82,"p"],[82.25,96.13,4.9,"c"],[67.36,17.41,3.54,"l"],[17.74,32.68,4.01,"d"],[37.92,4.54,4.31,"d"],[57.9,53.8,4.19,"b"],[15.57,20.91,3.35,"p"],[42.41,87.05,3.92,"c"],[78.05,36.4,3.42,"l"],[63.27,81.52,4.19,"d"],[17.94,95.81,4.18,"d"],[2.14,1.05,4.29,"b"],[61.63,22.48,3.36,"p"],[77.95,84.62,4.82,"c"],[42.07,37.49,3.38,"l"],[72.35,20.9,4.88,"d"],[21.74,50.2,3.98,"d"],[37.94,64.48,4.14,"b"],[56.75,77.24,3.55,"p"],[57.8,28.98,5.08,"c"],[69.93,97.75,3.59,"l"],[93.88,36.68,4.24,"d"],[77.49,47.31,3.84,"d"]];
+let bloomGustTimer = 0;
+let blooms = [];
+function syncBoardFlowers(on) {
+    clearTimeout(bloomGustTimer);
+    document.querySelectorAll(".board-flowers").forEach((el) => el.remove());
+    blooms = [];
+    const grid = document.querySelector(".grid");
+    if (!on || !grid) return;
+    const layer = document.createElement("div");
+    layer.className = "board-flowers";
+    SPRING_BLOOMS.forEach(([x, y, size, kind], i) => {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "bloom");
+        svg.setAttribute("viewBox", `${x - size / 2} ${y - size / 2} ${size} ${size}`);
+        svg.style.cssText = `left:${x - size / 2}%;top:${y - size / 2}%;width:${size}%`;
+        const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+        use.setAttribute("href", `resources/images/board-spring-blooms.svg#f${i}`);
+        svg.append(use);
+        layer.append(svg);
+        blooms.push({ el: svg, x, kind });
+    });
+    grid.append(layer);
+    if (!reducedMotion()) bloomGustTimer = setTimeout(gustOnce, 7000 + Math.random() * 5000);
+}
+function gustOnce() {
+    if (!document.hidden && blooms.length) {
+        const fromLeft = Math.random() < 0.5;
+        const flipped = document.body.classList.contains("table-flipped"); // the layer turns with the table: its left is the screen's right
+        const way = (fromLeft ? 1 : -1) * (flipped ? -1 : 1);
+        const reach = 1500 + Math.random() * 600; // how long the wind takes across the board
+        for (const b of blooms) {
+            const near = ((fromLeft !== flipped) ? b.x : 100 - b.x) / 100; // 0 where the wind comes in
+            const delay = near * reach + Math.random() * 160;
+            const lift = b.kind === "c" || b.kind === "l" ? 1 : 0.55; // leaves and clover move more
+            const dur = 1300 + Math.random() * 500;
+            b.el.animate([
+                { transform: "translate(0, 0) rotate(0deg) scale(1)", offset: 0 },
+                { transform: `translate(${way * 22 * lift}%, ${-5 * lift}%) rotate(${way * 17 * lift}deg) scale(${1 + 0.07 * lift})`, offset: 0.32, easing: "ease-in-out" },
+                { transform: `translate(${-way * 8 * lift}%, ${2 * lift}%) rotate(${-way * 9 * lift}deg) scale(1)`, offset: 0.62, easing: "ease-in-out" },
+                { transform: `translate(${way * 3 * lift}%, 0) rotate(${way * 3 * lift}deg) scale(1)`, offset: 0.82, easing: "ease-in-out" },
+                { transform: "translate(0, 0) rotate(0deg) scale(1)", offset: 1 },
+            ], { duration: dur, delay, easing: "ease-in-out" });
+        }
+    }
+    bloomGustTimer = setTimeout(gustOnce, 40000 + Math.random() * 40000);
+}
+
+//----- the storm board's drops, which slide away when a piece lands on their tile -----
+// The drops on the board are small elements (x, y of the centre and width, in % of the board) on a layer of their own,
+// over the tiles and under the pieces. When a piece lands, the drops of its tile slide down, leaving a trail; one that
+// meets another on its way merges into it, which swells a little. A game starting (or any redraw of the board) puts
+// back the drops of the empty tiles. Only the GPU moves them (transform, opacity), and only at that moment.
+const STORM_DROPS = [[24.7, 2.3, 3.4], [49.1, 38.0, 3.2], [86.1, 17.5, 2.8], [82.4, 7.0, 3.2], [29.8, 42.2, 3.0], [77.9, 2.8, 3.6], [87.9, 37.5, 2.9], [3.7, 57.8, 2.8], [74.1, 38.0, 3.2], [16.0, 81.8, 3.2], [76.1, 57.6, 3.0], [37.9, 85.1, 3.5], [95.7, 18.1, 3.5], [62.1, 28.2, 3.2], [15.1, 2.3, 2.8], [82.2, 96.0, 3.2], [2.4, 34.7, 3.0], [35.2, 22.4, 2.7], [63.0, 62.4, 2.8], [18.1, 72.0, 2.8], [10.9, 57.9, 3.2], [82.0, 25.5, 3.6], [17.8, 53.0, 3.6], [52.0, 77.9, 3.4], [61.7, 9.3, 2.7], [97.0, 77.5, 2.9], [29.4, 37.8, 3.2], [41.9, 64.8, 3.2], [30.8, 78.2, 2.9], [93.4, 62.3, 3.5], [77.7, 44.6, 3.0], [6.4, 18.2, 3.2], [97.6, 69.3, 3.0], [82.2, 90.8, 2.9], [42.1, 88.9, 3.4], [82.1, 74.2, 3.4], [6.7, 62.4, 2.9], [68.5, 62.1, 3.6], [49.4, 61.7, 2.7], [26.6, 62.4, 3.2], [38.3, 73.8, 3.0], [21.7, 9.6, 2.8], [38.0, 14.7, 3.5], [50.0, 22.2, 2.9]];
+let stormDrops = []; // { el, x, y, w, gone, grow }
+const tileOfDrop = (d, flipped) => { // the tile (row, column) a drop is on, as seen on the screen
+    const row = Math.min(4, Math.floor(d.y / 20)), col = Math.min(4, Math.floor(d.x / 20));
+    return flipped ? [4 - row, 4 - col] : [row, col];
+};
+function syncBoardDrops(on) {
+    document.querySelectorAll(".board-drops").forEach((el) => el.remove());
+    stormDrops = [];
+    const grid = document.querySelector(".grid");
+    if (!on || !grid) return;
+    const flipped = document.body.classList.contains("table-flipped");
+    let table = null;
+    try { table = gameState?.table; } catch { /* the game is not set up yet (the page is loading) */ }
+    const layer = document.createElement("div");
+    layer.className = "board-drops";
+    for (const [x, y, w] of STORM_DROPS) {
+        const d = { x, y, w, gone: false, grow: 1 };
+        const [r, c] = tileOfDrop(d, flipped);
+        if (table?.[r]?.[c]) continue; // a piece is already there: its drops have slid away
+        d.el = document.createElement("i");
+        d.el.className = "sdrop";
+        d.el.style.cssText = `left:${x - w / 2}%;top:${y - w / 2}%;width:${w}%`;
+        layer.append(d.el);
+        stormDrops.push(d);
+    }
+    grid.append(layer);
+}
+function dropsSlideAway(r, c) {
+    const layer = document.querySelector(".board-drops");
+    if (!layer) return;
+    const flipped = document.body.classList.contains("table-flipped");
+    const here = stormDrops.filter((d) => !d.gone && tileOfDrop(d, flipped).join() === `${r},${c}`);
+    for (const d of here) {
+        d.gone = true;
+        const el = d.el;
+        // Another drop below it, in its way: it runs into it and merges. Else it slides a bit and fades.
+        const reach = 8 + Math.random() * 14;
+        const meet = stormDrops.filter((o) => !o.gone && Math.abs(o.x - d.x) < 3.2 && o.y > d.y + d.w && o.y < d.y + reach + 4)
+            .sort((a, b) => a.y - b.y)[0];
+        const dist = Math.min(meet ? meet.y - d.y : reach, 99 - d.y);
+        if (reducedMotion() || dist <= 0) { el.remove(); continue; }
+        const run = dist / d.w * 100; // translateY is in % of the drop's own height
+        const ms = 1500 + dist * 95; // 2.3 to 3.6 seconds: slower than a touch, like the water that slides by itself
+        const trail = document.createElement("i");
+        trail.className = "dtrail";
+        trail.style.cssText = `left:${d.x - 0.2}%;top:${d.y}%;height:${dist}%`;
+        layer.append(trail);
+        const wait = Math.random() * 120;
+        el.animate([
+            { transform: "translateY(0) scale(1)", offset: 0 },
+            { transform: "translateY(0) scale(1.12)", offset: 0.18, easing: "ease-in" },
+            { transform: `translateY(${run}%) scale(${meet ? 1 : 0.7})`, offset: 1 },
+        ], { duration: ms, delay: wait, easing: "ease-in-out", fill: "both" });
+        trail.animate([
+            { opacity: 0, transform: "scaleY(0)", offset: 0 },
+            { opacity: 0.55, transform: "scaleY(0)", offset: 0.18, easing: "ease-in" },
+            { opacity: 0.5, transform: "scaleY(1)", offset: 1 },
+        ], { duration: ms, delay: wait, easing: "ease-in-out", fill: "both" });
+        setTimeout(() => {
+            if (meet && !meet.gone) { // swells, as if it had taken the other's water
+                meet.grow = Math.min(1.4, meet.grow + 0.2);
+                meet.el.animate([{ transform: `scale(${meet.grow - 0.2})` }, { transform: `scale(${meet.grow + 0.12})`, offset: 0.4 }, { transform: `scale(${meet.grow})` }], { duration: 420, fill: "forwards" });
+                el.remove();
+            } else {
+                el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 500, fill: "forwards" }).onfinish = () => el.remove();
+            }
+            trail.animate([{ opacity: 0.5 }, { opacity: 0 }], { duration: 900, fill: "forwards" }).onfinish = () => trail.remove();
+        }, ms + wait);
+    }
+}
+
 // This player's own: the one selected in the options (a saved one still
 // locked at this level isn't, see lookOrFree).
 const ownBackground = () => {
@@ -1252,11 +1541,57 @@ const ownBackground = () => {
     return id ? Number(id.slice(2)) : FREE_LOOKS.background;
 };
 
-// Online, one table for both (see tableSeat in shared/level.js): the
-// background of whoever has more points (or bought theirs), or each their
-// own. Said once, at the start: a nudge to climb, or a little pride.
+const ownBoard = () => {
+    const id = document.querySelector(".skin-options.selected")?.id;
+    return id ? Number(id.slice(2)) : 0;
+};
+const ownDice = () => {
+    const id = document.querySelector(".die-options.selected")?.id;
+    return id ? Number(id.slice(2)) : FREE_LOOKS.dice;
+};
+// What the screen shows of the looks, whoever's they are: the dice the same way for every die.
+function showDiceLook(id) {
+    faces = diceFaces[id];
+    selectedDie = dicePath + faces;
+    preload(selectedDie);
+    renderDiceFace(id);
+}
+// This player's own background, board and dice (the home, a game against the bot, after an online game).
+function showOwnLooks() {
+    tableLookNow = null;
+    showBackground(ownBackground());
+    paintBoardSkin(ownBoard());
+    showDiceLook(ownDice());
+}
+// The looks of an online game's table, while the game is on: a change made in the options waits for the next game
+// (the table is the same for both, and the opponent keeps seeing it as it was).
+let tableLookNow = null;
+const tableHeld = () => Boolean(tableLookNow) && controller.mode === "online" && gameInProgress && !isGameOver;
+// Sent to the server, which gives it to the opponent when this player's table is the one both play at.
+function sendLook() {
+    onlineClient?.setLook({ background: ownBackground(), board: ownBoard(), dice: ownDice() });
+}
+
+// Online, one table for both (see tableSeat in shared/level.js): a theme's looks (background, board, dice) beat
+// anything, then the background of whoever has more points (or bought theirs), or each their own. Said once, at the
+// start: a nudge to climb, or a little pride.
 function showTableLook(look, fresh) {
-    if (!look || look.background === ownBackground()) { showBackground(ownBackground()); return; }
+    if (!look) { showOwnLooks(); return; }
+    if (look.themed) {
+        tableLookNow = look;
+        showBackground(look.background);
+        paintBoardSkin(Number.isInteger(look.board) ? look.board : 0);
+        showDiceLook(Number.isInteger(look.dice) ? look.dice : ownDice());
+        if (!fresh) return;
+        const owner = gameState.players[look.seat === 1 ? 1 : 2];
+        setTimeout(() => showToast(look.seat === LOCAL_PLAYER
+            ? t("Your theme is on the table: you both play with it.")
+            : t("{name}'s theme is on the table: you play with it.", { name: owner?.name || t("Your opponent") }), 4000), 5200);
+        return;
+    }
+    if (look.background === ownBackground()) { showOwnLooks(); tableLookNow = look; return; }
+    showOwnLooks();
+    tableLookNow = look;
     showBackground(look.background);
     if (!fresh) return;
     const other = gameState.players[look.seat === 1 ? 1 : 2];
@@ -1498,6 +1833,7 @@ document.querySelectorAll(".die").forEach(el => {
 });
 
 function renderDiceFace(id) {
+    document.body.classList.toggle("dice-ice", diceFaces[id] === "ice3_sprite.webp");
     document.querySelectorAll(".die").forEach(el => {
         el.style.backgroundImage = `url(${selectedDie})`;
     });
@@ -1535,6 +1871,7 @@ function openOptions(context, page) {
     optionsOverlay.dataset.context = context;
     if (context === "game") updateGameTab();
     optionsOverlay.classList.remove("hidden");
+    showNotificationsOption();
     alignWithHome();
     handleTab(page);
     centerLists();
@@ -1709,6 +2046,43 @@ for (const id of ["vibration-on", "vibration-off"]) {
     });
 }
 
+// Notifications (the store apps, signed in): a friend who comes to a waiting room while the phone is locked is
+// told to the owner by a notification. Opt-in, per account: the first answer is asked on the waiting sheet, this
+// switch changes it any time (public/push.js).
+function showNotificationsOption() {
+    const offered = pushOffered();
+    document.getElementById("notifications-section").hidden = !offered;
+    const on = offered && pushEnabled();
+    document.getElementById("notifications-on").classList.toggle("selected", on);
+    document.getElementById("notifications-off").classList.toggle("selected", offered && !on);
+    document.getElementById("room-notify").hidden = !pushUndecided();
+}
+function pushRefusalText(reason) {
+    return {
+        denied: t("Notifications are blocked: allow them for Linotte in the phone's settings."),
+        offline: t("No connection: try again in a moment."),
+    }[reason] || t("Notifications can't be turned on on this phone.");
+}
+async function turnNotificationsOn() {
+    if (!currentUser()) { showToast(t("Sign in to get notifications.")); return false; }
+    const res = await enablePush(onlineClient);
+    showNotificationsOption();
+    showToast(res.ok ? t("You will be notified when a friend arrives.") : pushRefusalText(res.reason), res.ok ? 3000 : 5000);
+    return res.ok;
+}
+document.getElementById("notifications-on").addEventListener("click", turnNotificationsOn);
+document.getElementById("notifications-off").addEventListener("click", async () => {
+    await disablePush(onlineClient);
+    showNotificationsOption();
+});
+document.getElementById("room-notify-btn").addEventListener("click", turnNotificationsOn);
+// A tap on a notification: back to the waiting room, and told who tried to come in.
+listenForPushTaps(async (data) => {
+    if (data?.type !== "join" || !hasConsent() || !onlineClient.available()) return;
+    if (onlineClient.isConnected() && onlineClient.helloOk) onlineClient.rejoin();
+    else await onlineClient.connect(); // the hello that follows asks for the room by itself
+});
+
 const volumeOptions = document.querySelectorAll(".sound-btn");
 volumeOptions.forEach(volumeOption => {
     volumeOption.addEventListener("click", () => {
@@ -1839,7 +2213,7 @@ botStrategyButtons.forEach(btn => {
 
 function newGameVsBot(strategy, startingPlayer = 1) {
     startPointsFlowIfPending();
-    showBackground(ownBackground()); // after an online game at someone else's table
+    showOwnLooks(); // after an online game at someone else's table
     leaveOnlineGameIfAny();
     clearSavedGame(); // a new game replaces any saved one
     myTurns = 0;
@@ -1881,7 +2255,7 @@ function newGameVsBot(strategy, startingPlayer = 1) {
 // either side's controls since there's only one local player either way.
 function newGameOffline(startingPlayer = 1) {
     startPointsFlowIfPending();
-    showBackground(ownBackground()); // after an online game at someone else's table
+    showOwnLooks(); // after an online game at someone else's table
     leaveOnlineGameIfAny();
     clearSavedGame(); // a new game replaces any saved one
     gameInProgress = true;
@@ -1914,6 +2288,7 @@ function newGameOffline(startingPlayer = 1) {
 
 function clearBoardVisuals() {
     forcedWinner = null; // every new game (any mode) starts with no forfeit on record
+    if (document.body.classList.contains("board-storm")) syncBoardDrops(true); // the drops of the tiles with no piece
     for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 5; c++) {
             const piece = document.getElementById("p" + r + c);
@@ -1935,14 +2310,11 @@ dieOptions.forEach(dieOption => {
         dieOptions.forEach(t => t.classList.remove("selected"));
         dieOption.classList.add("selected");
 
-        var dieId = Number(dieOption.id[2]);
+        var dieId = Number(dieOption.id.slice(2));
         document.getElementById("dice-current").textContent = t(diceNames[dieId]);
-        faces = diceFaces[dieId];
-        selectedDie = dicePath + faces;
-        const diceSpriteImg = new Image();
-        diceSpriteImg.src = selectedDie;
         setCookie("diceFaces", dieId);
-        renderDiceFace(dieId);
+        if (!tableHeld()) showDiceLook(dieId); // in an online game the table's dice stay until the next game
+        sendLook();
         markThemeSelected();
         centerLists(true);
     });
@@ -1959,10 +2331,10 @@ bgOptions.forEach(bgOption => {
         var bgId = Number(bgOption.id.slice(2));
         document.getElementById("bg-current").textContent = humanizeBgName(backgrounds[bgId]);
 
-        showBackground(bgId);
+        if (!tableHeld()) showBackground(bgId); // in an online game the table's background stays until the next game
         rememberOwnBg(bgId);
         setCookie("background", bgId);
-        onlineClient?.setLook(bgId);
+        sendLook();
         markThemeSelected();
         centerLists(true);
     });
@@ -1974,11 +2346,17 @@ bgOptions.forEach(bgOption => {
 // body.board-<id>). A saved one the account does not have falls back to Classic.
 const skinOptions = document.querySelectorAll(".skin-options");
 function showBoardSkin(index) {
-    boardSkins.forEach((id, i) => document.body.classList.toggle("board-" + id, i === index));
     skinOptions.forEach((el) => el.classList.toggle("selected", el.id === "bs" + index));
     document.getElementById("boardskin-current").textContent = t(boardSkinNames[index]);
+    if (!tableHeld()) paintBoardSkin(index); // in an online game the table's board stays until the next game
+}
+function paintBoardSkin(index) {
+    boardSkins.forEach((id, i) => document.body.classList.toggle("board-" + id, i === index));
     syncBoardRain(boardSkins[index] === "storm");
+    syncBoardDrops(boardSkins[index] === "storm");
+    syncBoardFlowers(boardSkins[index] === "spring");
     syncBoardFly(boardSkins[index] === "spring");
+    syncBoardGlint(boardSkins[index] === "ice");
 }
 showBoardSkin(ownsLook("board", Number(getCookie("boardSkin", 0))) ? Number(getCookie("boardSkin", 0)) || 0 : 0);
 skinOptions.forEach((skinOption) => {
@@ -1986,6 +2364,7 @@ skinOptions.forEach((skinOption) => {
         const index = Number(skinOption.id.slice(2));
         showBoardSkin(index);
         setCookie("boardSkin", index);
+        sendLook();
         markThemeSelected();
     });
 });
@@ -2988,6 +3367,7 @@ function placePiece(pieceId) {
     applyTidyness(piece);
     selectedTileId = pieceId;
     buzz(45); // the piece lands
+    if (document.body.classList.contains("board-storm")) dropsSlideAway(Number(pieceId[1]), Number(pieceId[2])); // the water of its tile runs off
 
     if (prewPiece !== null) {
         if (prewPiece !== piece) {
@@ -3978,25 +4358,36 @@ const chatTossStage = document.getElementById("chat-toss-stage");
 
 let chatAnchor = { x: 0, y: 0, size: 44 };
 
-CHAT.forEach((c, i) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "chat-fan-item";
-    btn.dataset.id = c.id;
-    btn.style.setProperty("--i", i);
-    btn.style.setProperty("--n", CHAT.length);
-    const img = document.createElement("img");
-    img.src = chatImage(c.id);
-    img.alt = "";
-    if (chatScale(c.id) !== 1) img.style.scale = chatScale(c.id);
-    const label = document.createElement("span");
-    label.className = "chat-fan-label";
-    label.textContent = t(c.label);
-    btn.setAttribute("aria-label", t(c.label));
-    btn.append(img, label);
-    btn.addEventListener("click", () => pickChat(c.id, btn));
-    chatFanItems.appendChild(btn);
-});
+// The fan's icons: the special ones only for the roles that may send them (chatFor). Built again when the
+// account's role changes (signing in or out), when the fan opens.
+let chatFanRole = null;
+function buildChatFan() {
+    const role = lastKnownRole();
+    if (role === chatFanRole) return;
+    chatFanRole = role;
+    chatFanItems.replaceChildren();
+    const list = chatFor(role);
+    list.forEach((c, i) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chat-fan-item";
+        btn.dataset.id = c.id;
+        btn.style.setProperty("--i", i);
+        btn.style.setProperty("--n", list.length);
+        const img = document.createElement("img");
+        img.src = chatImage(c.id);
+        img.alt = "";
+        if (chatScale(c.id) !== 1) img.style.scale = chatScale(c.id);
+        const label = document.createElement("span");
+        label.className = "chat-fan-label";
+        label.textContent = t(c.label);
+        btn.setAttribute("aria-label", t(c.label));
+        btn.append(img, label);
+        btn.addEventListener("click", () => pickChat(c.id, btn));
+        chatFanItems.appendChild(btn);
+    });
+}
+buildChatFan();
 
 // Shown only while an online game is being played.
 function chatAvailable() {
@@ -4061,7 +4452,7 @@ function placeChatFab() {
 // the room needs (straight up or down on a phone held upright, diagonal on
 // a wide, short screen), bending away from the edge like the Dock's stacks.
 function layoutChatFan() {
-    const n = CHAT.length;
+    const n = chatFanItems.children.length;
     const vw = innerWidth, vh = innerHeight, margin = 10;
     const item = vh < 720 ? 40 : 44; // smaller on short screens, to fit all twelve
     const step = item + 3;
@@ -4076,7 +4467,7 @@ function layoutChatFan() {
     // labels land on the neighbouring icons. Columns instead, each label right
     // by its own icon with room to itself.
     if (vh < 500 && vw > vh) { layoutChatFanColumns({ item, step, down, roomY, margin }); return; }
-    const spots = CHAT.map((_, i) => {
+    const spots = [...chatFanItems.children].map((_, i) => {
         const k = i + 1;
         const along = k * step;
         return {
@@ -4145,6 +4536,7 @@ let chatFanTimer = null;
 function openChatFan() {
     if (!chatAvailable()) return;
     clearTimeout(chatFanTimer);
+    buildChatFan();
     chatFan.hidden = false;
     layoutChatFan();
     const bell = chatFanItems.querySelector(`[data-id="${NUDGE}"]`);
@@ -4492,7 +4884,7 @@ function throwChatEmoji(emoji, originRect) {
 
 const onlineClient = new OnlineClient({
     onConnection: (connected) => {
-        if (connected) { lastPresence = ""; refreshFriendsBadge(); } // a new connection is "home" to the server until told
+        if (connected) { lastPresence = ""; refreshFriendsBadge(); syncPush(onlineClient); } // a new connection is "home" to the server until told; the notifications' token is given again
         // Back after a drop while looking for an opponent (e.g. the server
         // restarted for an update): the new server's queue is empty, so join
         // it again. A game that had started is picked up by rejoin instead.
@@ -4508,11 +4900,16 @@ const onlineClient = new OnlineClient({
             holdClock(false); // the snapshot the app now asks for sets the clock
         }
     },
-    onGameStart: (snap) => beginOnlineGame(snap),
+    onGameStart: (snap) => { announceFriendJoined(snap); beginOnlineGame(snap); },
     onModeOffer: (msg) => onModeOffer(msg),
     onOfferOver: () => { if (onlineOverlay.dataset.view === "mode-offer") showOnlineView("searching"); }, // nobody answered: the search goes on
     onSnapshot: (snap) => beginOnlineGame({ ...snap, fresh: false }),
-    onWaitingRoom: (code) => showWaitingRoom(code),
+    onWaitingRoom: (code, missed) => {
+        // Back from a drop: the waiting sheet again, unless the player is at the home or in a game against the bot meanwhile.
+        if (isHomeShown() || gameInProgress) { setOnlineSession(true); currentRoomCode = code; refreshRoomCard(); }
+        else showWaitingRoom(code);
+        if (missed !== undefined) showToast(t("{name} tried to join while you were away. Ask them to try again.", { name: missed || t("Your friend") }), 6000);
+    },
     onAction: onRemoteAction,
     onEmote: ({ from, id }) => {
         if (!CHAT.some((c) => c.id === id)) return; // one this app doesn't know
@@ -4573,7 +4970,11 @@ const onlineClient = new OnlineClient({
     },
     getPiece: () => favoritePiece(),
     getBackground: () => ownBackground(),
+    getBoard: () => ownBoard(),
+    getDice: () => ownDice(),
     onRoomExpired: () => {
+        currentRoomCode = null;
+        refreshRoomCard();
         showMessage(t("Room expired"), t("Nobody joined in time. Create a new room to try again."));
     },
 });
@@ -4760,7 +5161,9 @@ function describeOnlineError(res) {
         case "bad_code": return [t("Room not found"), t("Check the code and try again. Rooms close after 15 minutes.")];
         case "room_full": return [t("Room is full"), t("That game already has two players.")];
         case "own_room": return [t("That's your room"), t("Send the link or code to your friend instead.")];
-        case "host_away": return [t("Nobody is there"), t("The owner of this room isn't here right now. Ask them for a new link.")];
+        case "host_away": return [t("Nobody is there"), res.alerted
+            ? t("The owner of this room isn't here right now. We sent them a notification: try again in a moment.")
+            : t("The owner of this room isn't here right now. Ask them for a new link.")];
         case "already_in_game": return null; // handled by rejoin()
         default: return [t("Something went wrong"), t("Please try again in a moment.")];
     }
@@ -4902,13 +5305,37 @@ modeEl("ruthless-join-go").addEventListener("click", () => {
 });
 modeEl("ruthless-join-back").addEventListener("click", () => { pendingRuthlessJoin = null; closeOnlineOverlay(); });
 
-let currentRoomCode = null;
+var currentRoomCode = null; // (var: the home asks for it while the page loads) the room this player made and waits in
 function showWaitingRoom(code) {
     setOnlineSession(true);
     currentRoomCode = code;
     document.getElementById("room-code").textContent = code;
+    showNotificationsOption(); // asks about notifications, once, if this is a store app
     hideHomeScreen();
     showOnlineView("waiting");
+    refreshRoomCard();
+}
+
+// The room waits while its owner goes home (or plays the bot): the home shows it, like "Continue your game", until a
+// friend joins or the room is cancelled or expires.
+function refreshRoomCard() {
+    const card = document.getElementById("home-room");
+    if (!card) return;
+    card.hidden = !currentRoomCode;
+    if (currentRoomCode) document.getElementById("home-room-desc").textContent = t("Room {code}: the game starts when they join.", { code: currentRoomCode });
+}
+
+// A friend joined the room (or accepted the invitation): the game starts at once, so the player is told loudly, a game
+// against the bot they were playing meanwhile is put on hold, like when an invitation is accepted.
+function announceFriendJoined(snap) {
+    if (!currentRoomCode) return;
+    currentRoomCode = null;
+    refreshRoomCard();
+    if (gameInProgress && !isGameOver && controller.mode !== "online") { saveOfflineGame(); leaveToHome(); }
+    const other = snap?.state?.players?.[snap.seat === 1 ? 2 : 1];
+    playNudgeSound();
+    buzz([90, 50, 90, 50, 160]);
+    showToast(t("{name} joined: the game starts!", { name: other?.name || t("Your friend") }), 5000);
 }
 
 // An invite link (https://host/j/ABCD -> /?join=ABCD) opens the app already
@@ -5052,6 +5479,7 @@ byId("login-code-input").addEventListener("keydown", (e) => { if (e.key === "Ent
 byId("account-signout").addEventListener("click", () => showOnlineView("account-signout"));
 byId("account-signout-back").addEventListener("click", () => showOnlineView("account"));
 byId("account-signout-confirm").addEventListener("click", async () => {
+    if (pushEnabled()) await disablePush(onlineClient, { remember: false }).catch(() => {}); // this phone stops getting this account's notifications
     try { await signOut(); } catch (err) { console.error("sign-out:", err); }
     closeOnlineOverlay();
     showToast(t("Signed out. You're playing as a guest."));
@@ -5364,8 +5792,10 @@ onUserChange((user) => {
     if (user && /^login/.test(onlineOverlay.dataset.view || "")) closeOnlineOverlay();
     // Only a sign-in/out on this page: not the session found at start-up.
     const id = user?.id ?? null;
+    showNotificationsOption();
     if (lastUserId !== undefined && id !== lastUserId) {
-        onlineClient.reauth();
+        forgetPushSync();
+        onlineClient.reauth().then(() => syncPush(onlineClient));
         refreshPro();
         if (id) showToast(t("Signed in."));
     }
@@ -5375,7 +5805,8 @@ onUserChange((user) => {
 // after the game server already got a guest hello.
 initAuth().then(() => {
     lastUserId = currentUser()?.id ?? null;
-    if (lastUserId) onlineClient.reauth();
+    if (lastUserId) onlineClient.reauth().then(() => syncPush(onlineClient));
+    showNotificationsOption();
     refreshPro();
 });
 
@@ -6279,6 +6710,7 @@ function applyThemeAccess() {
     const section = document.getElementById("themes-section");
     if (!section) return;
     section.hidden = !owned.length;
+    document.getElementById("boardskin-section").hidden = !owned.length; // the Board field is only worth it with a theme
     document.getElementById("theme-list").replaceChildren(...owned.map((theme) => {
         const card = Object.assign(document.createElement("div"), { className: "car-item theme-options", id: "th-" + theme.id });
         card.setAttribute("aria-label", t(theme.name));
@@ -7073,6 +7505,7 @@ function onInviteExpired({ inviteId }) {
         showToast(t("No answer. The invitation has run out."), 3500);
         setOnlineSession(false);
         currentRoomCode = null;
+        refreshRoomCard();
         closeOnlineOverlay();
     }
 }
@@ -7313,8 +7746,16 @@ document.getElementById("room-cancel").addEventListener("click", () => {
     setOnlineSession(false);
     onlineClient.leaveRoom();
     currentRoomCode = null;
+    refreshRoomCard();
     closeOnlineOverlay();
 });
+// HOME: the room stays; meanwhile the home shows it (and a game against the bot can be played).
+document.getElementById("room-home").addEventListener("click", () => {
+    hideOnlineOverlay();
+    showHomeScreen();
+});
+document.getElementById("home-room-btn").addEventListener("click", () => showOnlineView("waiting"));
+document.getElementById("home-room-end").addEventListener("click", () => document.getElementById("room-cancel").click());
 
 async function copyInviteLink() {
     if (!currentRoomCode) return;

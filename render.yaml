@@ -33,6 +33,7 @@ services:
       paths:
         - server/**
         - public/shared/**
+        - public/lang/** # the push notifications' texts (server/push.js) are the app's translations
         - package.json
         - package-lock.json
     envVars:
@@ -48,6 +49,10 @@ services:
       - key: SUPABASE_SECRET_KEY
         sync: false
       - key: REVENUECAT_SECRET_KEY
+        sync: false
+      # Push notifications (server/push.js, docs/PUSH.md): the JSON key of a Firebase service account,
+      # pasted whole or as base64. Without it the server sends none, and nothing else changes.
+      - key: FCM_SERVICE_ACCOUNT
         sync: false
       # Where games are saved so a restart (every deploy) doesn't end them.
       - key: REDIS_URL

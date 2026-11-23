@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The aurora of the ice background, still: soft ribbons of green, cyan and violet. CSS drifts it slowly and lets it breathe (.fx-aurora in linotte.css). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 520" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3de6a6" stop-opacity="0"/><stop offset=".35" stop-color="#3de6a6" stop-opacity=".95"/><stop offset="1" stop-color="#3de6a6" stop-opacity="0"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38c6f5" stop-opacity="0"/><stop offset=".4" stop-color="#38c6f5" stop-opacity=".9"/><stop offset="1" stop-color="#38c6f5" stop-opacity="0"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9a7bff" stop-opacity="0"/><stop offset=".45" stop-color="#9a7bff" stop-opacity=".9"/><stop offset="1" stop-color="#9a7bff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <path d="M0 90 L100 121 L200 109 L300 106 L400 113 L500 79 L600 53 L700 72 L800 79 L900 77 L1000 110 L1100 130 L1200 104 L1300 93 L1400 94 L1400 265 L1300 233 L1200 235 L1100 282 L1000 297 L900 285 L800 281 L700 243 L600 192 L500 210 L400 265 L300 294 L200 318 L100 323 L0 260 Z" fill="url(#g3)" opacity="0.75"/>
+  <path d="M0 150 L100 188 L200 173 L300 170 L400 178 L500 137 L600 105 L700 128 L800 137 L900 134 L1000 175 L1100 199 L1200 167 L1300 154 L1400 154 L1400 326 L1300 293 L1200 298 L1100 350 L1000 361 L900 343 L800 339 L700 299 L600 244 L500 268 L400 330 L300 357 L200 382 L100 389 L0 320 Z" fill="url(#g2)" opacity="0.8"/>
+  <path d="M0 210 L100 244 L200 230 L300 228 L400 235 L500 198 L600 170 L700 191 L800 198 L900 196 L1000 232 L1100 253 L1200 225 L1300 213 L1400 214 L1400 385 L1300 353 L1200 356 L1100 405 L1000 418 L900 405 L800 400 L700 361 L600 309 L500 329 L400 387 L300 415 L200 439 L100 445 L0 380 Z" fill="url(#g1)" opacity="0.8"/>
+</svg>

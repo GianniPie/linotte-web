@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A glint on the ice: a four-point star that twinkles now and then (glintOnce in linotte.js). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <defs><radialGradient id="h"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#cdeeff" stop-opacity="0"/></radialGradient></defs>
+  <circle cx="20" cy="20" r="14" fill="url(#h)"/>
+  <path d="M20 2 L23.5 16.5 L38 20 L23.5 23.5 L20 38 L16.5 23.5 L2 20 L16.5 16.5 Z" fill="#fff"/>
+</svg>

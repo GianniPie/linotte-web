@@ -40,7 +40,7 @@ export class Lobby {
   // its own.
   // `afterRecord` brings a connection's own points up to date once its game
   // is saved (server.js).
-  constructor(io, store = noStore, { record = recordResults, grantDaily = grantDailyBonus, befriend = noteFriends, afterRecord = async () => {}, claim = claimGameXp, video = logVideo } = {}) {
+  constructor(io, store = noStore, { record = recordResults, grantDaily = grantDailyBonus, befriend = noteFriends, afterRecord = async () => {}, claim = claimGameXp, video = logVideo, alertHost = async () => 0 } = {}) {
     this.io = io;
     this.store = store;
     this.record = record;
@@ -49,6 +49,7 @@ export class Lobby {
     this.afterRecord = afterRecord;
     this.claim = claim;
     this.video = video; // what became of each points video (videoLog.js)
+    this.alertHost = alertHost; // a push notification to the owner of a room nobody could reach (push.js): (userId, { name, visitor }) -> devices alerted
     this.pending = new Map(); // userId -> a finished game whose points wait for the video
     this.queue = new Map(); // playerId -> { socket, timer, mode }
     this.offers = new Map(); // playerId -> the other way to play offered to him (see makeOffer)
@@ -273,9 +274,21 @@ export class Lobby {
     if (!room || room.status === "over") return { ok: false, error: "bad_code" };
     if (room.seatOf(me.playerId)) return { ok: false, error: "own_room" };
     if (room.status !== "waiting" || !room.freeSeat()) return { ok: false, error: "room_full" };
-    if (room.hostAway(HOST_AWAY_MS)) return { ok: false, error: "host_away" }; // nobody to play against
+    const owner = [1, 2].find((s) => room.seats[s]?.kind === "human");
+    // Nobody to play against: the owner's phone is locked or the app closed. The one who comes in is told, the owner
+    // is alerted by a push notification (when they said yes to those), and told too when back (see rejoin).
+    const unreachable = async () => {
+      room.missedJoin = { name: me.name || "", at: Date.now() };
+      const alerted = await this.alertHost(room.seats[owner]?.userId, { name: me.name || "", visitor: me.userId || me.playerId });
+      return { ok: false, error: "host_away", ...(alerted ? { alerted: true } : {}) };
+    };
+    if (room.hostAway(HOST_AWAY_MS)) return unreachable();
     if (this.activeRoom(me.playerId)) return { ok: false, error: "already_in_game" };
     if (room.mode === MODE_RUTHLESS && !confirmed) return { ok: false, error: "confirm_ruthless", mode: room.mode, host: room.seats[1]?.name || room.seats[2]?.name || "" };
+    // The owner must answer a moment: a phone just locked still looks connected, and a game started with nobody
+    // there is lost for them.
+    if (owner && !(await room.hereAck(owner))) return unreachable();
+    if (room.status !== "waiting" || !room.freeSeat()) return { ok: false, error: "room_full" }; // (while we waited)
     this.leaveQueue(me.playerId);
     this.dropOffer(me.playerId);
 
@@ -318,7 +331,11 @@ export class Lobby {
     if (!room) return { ok: false };
     const seat = room.seatOf(me.playerId);
     room.onReconnect(seat, socket);
-    if (room.status === "waiting") return { ok: true, status: "waiting", code: room.code };
+    if (room.status === "waiting") {
+      const missed = room.missedJoin?.name ?? null; // someone tried to come in while this phone was away
+      room.missedJoin = null;
+      return { ok: true, status: "waiting", code: room.code, ...(missed !== null ? { missed } : {}) };
+    }
     return { ok: true, status: "playing", snapshot: room.snapshot(seat) };
   }
 
