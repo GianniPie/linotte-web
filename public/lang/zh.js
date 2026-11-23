@@ -330,6 +330,7 @@ export default {
     "You don't lose any level points.": "不会扣等级分。",
     "Your opponent wins, and you lose {n} level points.": "对手获胜，你将扣 {n} 分等级分。",
     "Your opponent has stopped playing: you can leave without losing points.": "对手已停止游戏：你可以退出而不扣分。",
+    "Your opponent had stopped playing: you left without losing points.": "对手已停止游戏：你退出了，没有扣分。",
     "You have more points: you both play at your table.": "你的分数更高：双方都在你的牌桌上对局。",
     "{name} has more points: you play at their table.": "{name} 的分数更高：你在对方的牌桌上对局。",
     "Your opponent": "你的对手",

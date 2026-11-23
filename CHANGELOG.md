@@ -12,6 +12,15 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.10] - 2026-11-23
+
+### Added
+- **A ledger of what each game paid.** Until now an account's level was recomputed from counts of rows, so a game's row said won / points / abandoned but never what it paid (a 0 - 0 win at +4 looked like "points 0"). Each online game now has its points written with it, once, and never recomputed (`game_results.xp_delta`: +4 / +2 / -3 or the Ruthless margin, with `xp_detail` = reason, flat rate and what Ruthless added), how this player's game ended (`exit`: played, abandoned, **excused** = left a game whose opponent was gone or idle, **opponent_gone** = stayed and the opponent left or idled out; `exit_reason`: left / idle / disconnect) and an id shared by both players' rows (`game_ref`); the daily bonus (`xp_bonuses.game_ref`) names the game that paid it, also when it waits for the video. The app's own bot games get their `xp_delta` from a trigger in the database (the app can't write it) and it can't be changed once set. A view `xp_ledger` lists every point an account earned or lost, one line each. **The level is still counted as before** (`accountStats`): nobody's points change. To compare the two: `xp_ledger_report(uid)` (used by `ledgerReport` in `server/results.js`), `SUPABASE_SECRET_KEY=... node server/ledger-check.js <user-id>` (the account and its latest lines) or `--all` (every account where the ledger and the level disagree, from `xp_ledger_audit()`). Run `supabase/xp_ledger.sql` first (the server still records games and bonuses without the new columns until then); `supabase/xp_ledger_backfill.sql` is optional and writes the points of the games from before, marked `backfilled`. Smoke test 19.
+
+### Fixed
+- Leaving an online game whose opponent had stopped playing (gone, or letting turns run out) now says so ("you left without losing points"); before, nothing was shown after leaving, and nothing told why no points went.
+- Online: a theme's piece (the umbrella, the ladybird, the penguin) is played by whoever has the theme (admin for now); the server took it for a Pro's favourite and gave a random one instead.
+
 ## [2.35.9] - 2026-11-23
 
 ### Added

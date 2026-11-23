@@ -1089,6 +1089,15 @@ const lobby = new Lobby(io, store);
   lobby8.register(room3);
   room3.addHuman(1, faker, faker.data);
   assert.ok(!room3.seats[1].themed && room3.seats[1].background === 4, "a theme is not for everyone: a member's falls back");
+  Object.assign(faker.data, { pro: true });
+  const roomP = lobby8.newRoom({ kind: "random" });
+  lobby8.register(roomP);
+  roomP.addHuman(1, faker, { ...faker.data, piece: 47 });
+  assert.equal(roomP.seats[1].piece, -1, "a theme's piece is not Pro's: a Pro who is not admin does not get it");
+  const adminP = fakeSocket("player-matchad1", "Cow1");
+  Object.assign(adminP.data, { userId: "u-ad", level: 1, xp: 5, role: "admin", pro: true, piece: 47 });
+  roomP.addHuman(2, adminP, adminP.data);
+  assert.equal(roomP.seats[2].piece, 47, "the one who has the theme plays with its piece");
   const { tableSeat: ts } = await import("../public/shared/level.js");
   assert.equal(ts({ xp: 5, themed: true }, { xp: 900 }), 1);
   assert.equal(ts({ xp: 5, themed: true }, { xp: 900, themed: true }), 2, "two themes: the points decide");
@@ -2048,6 +2057,97 @@ const lobby = new Lobby(io, store);
   const gone2 = await lobby18.joinByCode(fakeSocket("player-pushfrd06", "Elk6"), guestRoom.code);
   assert.deepEqual([gone2.error, gone2.alerted], ["host_away", undefined], "a guest can't be alerted");
   console.log("ok: push notifications");
+}
+
+//--------- 19. the ledger: what each game paid is written with it ---------
+{
+  const { ledgerReport } = await import("./results.js");
+  const recorded = [], dailyCalls = [];
+  const lobbyL = new Lobby(io, createMemoryStore(), { record: async (rows) => recorded.push(...rows), grantDaily: async (u, o) => { dailyCalls.push([u, o?.gameRef]); return true; }, afterRecord: async () => {}, befriend: async () => {} });
+  const open = async (idA, idB, ua, ub) => {
+    const a = fakeSocket(idA, "Ledg" + idA.slice(-2)), b = fakeSocket(idB, "Ledg" + idB.slice(-2));
+    a.data.userId = ua; b.data.userId = ub;
+    assert.ok(lobbyL.createPrivate(a).ok);
+    assert.ok((await lobbyL.joinByCode(b, lobbyL.roomOfSocket(a).code)).ok);
+    return { a, b, room: lobbyL.roomOfSocket(a) };
+  };
+  const rowOf = (u) => recorded.filter((r) => r.user_id === u).at(-1);
+
+  // A game left while the opponent was playing: -3 for the one who left, +4 and "opponent gone" for the other.
+  const g1 = await open("player-ledgeraa01", "player-ledgerbb02", "led-a1", "led-b1");
+  g1.room.forfeit(g1.a.data.seat, "left");
+  await wait(10);
+  const quitter = rowOf("led-a1"), stayer = rowOf("led-b1");
+  assert.deepEqual([quitter.xp_delta, quitter.exit, quitter.exit_reason, quitter.abandoned], [-3, "abandoned", "left", true], "the one who left paid 3");
+  assert.deepEqual(quitter.xp_detail, { reason: "abandoned", flat: -3, margin: 0 });
+  assert.deepEqual([stayer.xp_delta, stayer.exit, stayer.exit_reason, stayer.won], [4, "opponent_gone", "left", true], "the one who stayed won 4");
+  assert.deepEqual(stayer.xp_detail, { reason: "win", flat: 4, margin: 0 });
+  assert.ok(quitter.game_ref && quitter.game_ref === stayer.game_ref && quitter.game_ref === g1.room.gameRef, "both rows carry the game's own id");
+  assert.deepEqual(dailyCalls.filter(([u]) => u.startsWith("led-")), [["led-b1", g1.room.gameRef]], "the daily bonus names the game that paid it");
+
+  // The opponent had gone idle and the player left: the exit is excused, and the idle one wins at 0 - 0.
+  const g2 = await open("player-ledgercc03", "player-ledgerdd04", "led-a2", "led-b2");
+  const idleSeat = g2.room.state.currentPlayer === g2.a.data.seat ? g2.b.data.seat : g2.a.data.seat; // the one who stays "idle"
+  const idleUser = idleSeat === g2.a.data.seat ? "led-a2" : "led-b2", leaverUser = idleUser === "led-a2" ? "led-b2" : "led-a2";
+  g2.room.idleTurns[idleSeat] = 1;
+  g2.room.forfeit(g2.room.otherSeat(idleSeat), "left");
+  await wait(10);
+  const excused = rowOf(leaverUser), idler = rowOf(idleUser);
+  assert.deepEqual([excused.exit, excused.abandoned, excused.xp_delta, excused.exit_reason], ["excused", false, 2, "left"], "leaving an idle opponent: excused, nothing lost");
+  assert.deepEqual([idler.exit, idler.won, idler.points, idler.opponent_points, idler.xp_delta], ["opponent_gone", true, 0, 0, 4], "a win at 0 - 0 paid 4, and the row says why");
+
+  // A game played to the end: exit "played", no reason.
+  const played = resultRows({ kind: "random", winner: 1, gameRef: "ref-1", seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: { kind: "human", userId: "b", name: "B" } }, state: { players: { 1: { points: 6 }, 2: { points: 2 } } } });
+  assert.deepEqual(played.map((r) => [r.xp_delta, r.exit, r.exit_reason, r.game_ref]), [[4, "played", null, "ref-1"], [2, "played", null, "ref-1"]], "+4 and +2 for a game played to the end");
+
+  // Ruthless: the margin alone (the flat rate and what Ruthless added are both in the detail).
+  const ruth = (winner, p1, p2, extra = {}) => resultRows({ kind: "random", mode: "ruthless", winner, ...extra, seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: { kind: "human", userId: "b", name: "B" } }, state: { players: { 1: { points: p1 }, 2: { points: p2 } } } });
+  assert.deepEqual(ruth(1, 9, 2).map((r) => [r.xp_delta, r.xp_detail.margin]), [[7, 3], [-7, -9]], "Ruthless: +7 and -7 for a 9 - 2 game");
+  assert.deepEqual(ruth(1, 3, 3).map((r) => r.xp_delta), [1, 0], "a win is never worth less than 1, a draw loser pays 0");
+  assert.deepEqual(ruth(2, 2, 5, { forfeitedBy: 1 }).map((r) => r.xp_delta), [-9, 3], "Ruthless: leaving costs 6 and the lead (3 behind); the one who stayed wins by the margin");
+
+  // Held for the video: recorded with what it will pay, which counts once earns_xp is true.
+  const heldRows = resultRows({ kind: "random", winner: 1, seats: { 1: { kind: "human", userId: "a", name: "A" }, 2: { kind: "human", userId: "b", name: "B" } }, state: { players: { 1: { points: 6 }, 2: { points: 2 } } } }, new Set([1]));
+  assert.deepEqual(heldRows.map((r) => [r.earns_xp, r.xp_delta]), [[false, 4], [true, 2]]);
+
+  // Before xp_ledger.sql is run the columns don't exist: the game goes in without them, and the bonus too.
+  const bodies = [];
+  const refusing = async (u, o) => { const body = JSON.parse(o.body); bodies.push(body); return bodies.length % 2 ? { ok: false, status: 400, text: async () => "column" } : { ok: true, status: 201 }; };
+  const sentOk = await recordResults(played, { key: "k", url: "https://example.supabase.co", fetch: refusing });
+  assert.equal(sentOk, true, "recorded anyway");
+  assert.ok("xp_delta" in bodies[0][0] && !("xp_delta" in bodies[1][0]) && !("game_ref" in bodies[1][0]) && bodies[1][0].won === true, "retried without the ledger's columns, the rest intact");
+  const { grantDailyBonus } = await import("./bonuses.js");
+  bodies.length = 0;
+  assert.equal(await grantDailyBonus("u-led", { key: "k", url: "https://example.supabase.co", gameRef: "ref-2", fetch: refusing }), true);
+  assert.deepEqual([bodies[0].game_ref, "game_ref" in bodies[1], bodies[1].kind], ["ref-2", false, "daily"], "the daily bonus keeps going in without game_ref");
+  bodies.length = 0;
+  assert.equal(await grantDailyBonus("u-led", { key: "k", url: "https://example.supabase.co", fetch: async (u, o) => { bodies.push(JSON.parse(o.body)); return { ok: false, status: 409 }; } }), false, "a refused daily (409) is not retried");
+  assert.equal(bodies.length, 1);
+
+  // The daily bonus of a held game, given when the video is watched, names that game too.
+  const claimCalls = [];
+  const lobbyH = new Lobby(io, createMemoryStore(), { record: async () => {}, grantDaily: async (u, o) => { claimCalls.push([u, o?.gameRef]); return true; }, claim: async () => true, afterRecord: async () => {} });
+  const hw = fakeSocket("player-ledgerhw05", "Ledghw"); hw.data.userId = "led-hw"; hw.data.claims = true;
+  lobbyH.heldSeats({ gameRef: "ref-held", forfeitedBy: null, winner: 1, seats: { 1: { kind: "human", userId: "led-hw", socketId: hw.id, pro: false } } });
+  await lobbyH.claimPoints(hw);
+  assert.deepEqual(claimCalls, [["led-hw", "ref-held"]], "claimed: the bonus carries the game's id");
+
+  // The report: the ledger's sum against the level the server counts.
+  const answer = (ledger) => async (u) => {
+    if (u.includes("/rpc/xp_ledger_report")) return ledger;
+    if (u.includes("/rpc/")) return { ok: true, json: async () => 0 };
+    const n = u.includes("kind=eq.daily") ? 3 : (u.includes("source=eq.server&won=is.true&earns_xp=is.true&played_at=gte.") ? 5 : 0);
+    return { ok: true, headers: { get: () => `0-0/${n}` } };
+  };
+  const opts = (ledger) => ({ key: "k", url: "https://example.supabase.co", fetch: answer(ledger) });
+  const okRows = { ok: true, json: async () => [{ game_xp: 20, bonus_xp: 6, ledger_xp: 26, legacy_games: 0 }] };
+  assert.deepEqual(await ledgerReport("u-rep", opts(okRows)), { userId: "u-rep", xp: 26, ledger: { games: 20, bonuses: 6, total: 26 }, legacyGames: 0, diff: 0, match: true }, "5 wins and 3 daily bonuses = 26 both ways");
+  const shortRows = { ok: true, json: async () => [{ game_xp: 16, bonus_xp: 6, ledger_xp: 22, legacy_games: 1 }] };
+  const short = await ledgerReport("u-rep", opts(shortRows));
+  assert.deepEqual([short.diff, short.match, short.legacyGames], [4, false, 1], "a game without its points written leaves the ledger short, and says so");
+  assert.ok((await ledgerReport("u-rep", opts({ ok: false, status: 404 }))).error.includes("xp_ledger.sql"), "the function missing is said, not thrown");
+  assert.deepEqual(await ledgerReport("u-rep", { key: "" }), { error: "no secret key" });
+  console.log("ok: the ledger");
 }
 
 console.log("all smoke tests passed");

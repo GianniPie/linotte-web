@@ -7925,6 +7925,10 @@ function leaveOnlineGameIfAny() {
             celebrateLevel(xpBefore, myXp());
         }, 800);
     }
+    else if (gameInProgress && !isGameOver) {
+        // Left a game the opponent had stopped playing: nothing is lost, and the player is told so (it shows over the home).
+        setTimeout(() => showToast(t("Your opponent had stopped playing: you left without losing points."), 5000), 400);
+    }
     setOnlineSession(false);
     onlineClient.leaveRoom();
     remoteGen++;

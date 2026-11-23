@@ -9,6 +9,7 @@
 // Transport-agnostic on purpose: the room only needs `io.to(id).emit`, so it
 // can later move behind Redis or a Durable Object without touching the rules.
 
+import { randomUUID } from "node:crypto";
 import { updateGame, canRoll, callAllowed } from "../public/shared/gameEngine.js";
 import { createInitialGameState, rndNum } from "../public/shared/utils.js";
 import { piecesPath, pieces } from "../public/shared/assets.js";
@@ -31,6 +32,8 @@ let roomCounter = 0;
 export class Room {
   constructor({ io, kind, code = null, mode = "normal", onClose = () => {}, onChange = () => {} }) {
     this.id = "r" + (++roomCounter).toString(36) + Math.random().toString(36).slice(2, 6);
+    // What the game's rows in the database (game_results, xp_bonuses) share, so what it paid can be followed (results.js, xp_ledger.sql).
+    this.gameRef = randomUUID();
     this.io = io;
     this.kind = kind; // "random" | "private"
     this.mode = validMode(mode); // "normal" | "ruthless": how the points are counted (shared/level.js)
@@ -90,7 +93,8 @@ export class Room {
       themed, board: themed && Number.isInteger(board) ? board : null, dice: themed && Number.isInteger(dice) ? dice : null,
       presence: Boolean(presence), // the app answers "are you there?" (see Room#hereAck)
       // Choosing one's piece is part of Pro; the server checks it itself.
-      piece: pro && isPlayPiece(piece) && !isThemePiece(piece) ? piece : -1, socketId: socket.id, connected: true,
+      // A theme's piece comes with the theme (admin only for now), the others are Pro's; the server checks both itself.
+      piece: isPlayPiece(piece) && (isThemePiece(piece) ? role === "admin" : pro) ? piece : -1, socketId: socket.id, connected: true,
     };
     this.bindSocket(seat, socket);
     this.onChange(this);
@@ -439,6 +443,7 @@ export class Room {
     const excused = reason === "left" && other?.kind === "human"
       && (!other.connected || (this.idleTurns[this.otherSeat(seat)] || 0) > 0);
     this.forfeitedBy = excused ? 0 : seat;
+    this.leaver = { seat, reason, excused }; // who went and why, even when it cost nothing (forfeitedBy 0): the ledger says it (results.js)
     this.finish(this.otherSeat(seat), reason);
   }
 

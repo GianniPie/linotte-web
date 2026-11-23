@@ -47,9 +47,16 @@ function client({ key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch
     },
     // true if the row went in; false if refused (e.g. today's daily already there)
     async add(row) {
-      const res = await fetchImpl(`${url}/rest/v1/xp_bonuses`, {
-        method: "POST", headers: { ...headers, Prefer: "return=minimal" }, body: JSON.stringify(row),
+      const post = (body) => fetchImpl(`${url}/rest/v1/xp_bonuses`, {
+        method: "POST", headers: { ...headers, Prefer: "return=minimal" }, body: JSON.stringify(body),
       });
+      const res = await post(row);
+      // game_ref is the ledger's (supabase/xp_ledger.sql): before it is run (400, unknown column) the bonus still goes in, without it.
+      if (res.status === 400 && row.game_ref !== undefined) {
+        console.error("bonus without its game_ref (xp_ledger.sql run?)");
+        const { game_ref, ...plain } = row;
+        return (await post(plain)).ok;
+      }
       return res.ok;
     },
     async rpc(name, args) {
@@ -90,11 +97,12 @@ export async function todayStatus(userId, options) {
 
 // After an online game played to the end: today's first? (The table allows
 // one daily row per account and day, so two games at once can't both get it.)
+// options.gameRef: the game that paid it (Room#gameRef), written on the row so the ledger can say so.
 export async function grantDailyBonus(userId, options) {
   const db = client(options);
   if (!db || !userId) return false;
   try {
-    return await db.add({ user_id: userId, kind: "daily", points: DAILY_BONUS_POINTS, day: today(options?.tz) });
+    return await db.add({ user_id: userId, kind: "daily", points: DAILY_BONUS_POINTS, day: today(options?.tz), ...(options?.gameRef ? { game_ref: options.gameRef } : {}) });
   } catch (err) {
     console.error("daily bonus not given:", err.message);
     return false;

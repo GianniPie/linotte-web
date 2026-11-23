@@ -478,7 +478,7 @@ export class Lobby {
       const player = room.seats[seat];
       if (player?.kind !== "human" || !player.userId || room.forfeitedBy === seat || held.has(seat)) continue;
       const socket = this.io.sockets.sockets.get(player.socketId);
-      if (!(await this.grantDaily(player.userId, { tz: socket?.data?.tz }))) continue;
+      if (!(await this.grantDaily(player.userId, { tz: socket?.data?.tz, gameRef: room.gameRef }))) continue;
       socket?.emit("bonus", { kind: "daily", points: DAILY_BONUS_POINTS });
     }
   }
@@ -499,7 +499,7 @@ export class Lobby {
       held.add(seat);
       const before = this.pending.get(p.userId);
       if (before) this.video(p.userId, "no_answer", { ms: Date.now() - before.shownAt }); // the last video was never answered
-      this.pending.set(p.userId, { since: Date.now() - 30000, shownAt: Date.now() }); // 30 s of margin for the clocks of the server and the database
+      this.pending.set(p.userId, { since: Date.now() - 30000, shownAt: Date.now(), gameRef: room.gameRef }); // 30 s of margin for the clocks of the server and the database
       this.video(p.userId, "shown");
     }
     return held;
@@ -521,7 +521,7 @@ export class Lobby {
       return { ok: false };
     }
     this.video(userId, adFree ? "ad_free" : "watched", { ms });
-    const daily = await this.grantDaily(userId, { tz: socket.data.tz });
+    const daily = await this.grantDaily(userId, { tz: socket.data.tz, gameRef: waiting.gameRef });
     try { await this.afterRecord(socket); } catch (err) { console.error("stats not refreshed:", err.message); }
     return { ok: true, claimed: true, daily: Boolean(daily), points: daily ? DAILY_BONUS_POINTS : 0 };
   }

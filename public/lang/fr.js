@@ -318,6 +318,7 @@ export default {
     "You don't lose any level points.": "Vous ne perdez aucun point de niveau.",
     "Your opponent wins, and you lose {n} level points.": "Votre adversaire gagne, et vous perdez {n} points de niveau.",
     "Your opponent has stopped playing: you can leave without losing points.": "Votre adversaire a arrêté de jouer : vous pouvez partir sans perdre de points.",
+    "Your opponent had stopped playing: you left without losing points.": "Votre adversaire avait arrêté de jouer : vous êtes parti sans perdre de points.",
     "You have more points: you both play at your table.": "Vous avez plus de points : vous jouez tous les deux à votre table.",
     "{name} has more points: you play at their table.": "{name} a plus de points : vous jouez à sa table.",
     "Your opponent": "Votre adversaire",

@@ -7,7 +7,7 @@
 
 import { SUPABASE_URL } from "../public/shared/accounts.js";
 import { bonusPoints } from "./bonuses.js";
-import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY, ONLINE_RATES_FROM, MODE_RUTHLESS, LEGACY_ONLINE } from "../public/shared/level.js";
+import { ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, ABANDON_PENALTY, ONLINE_RATES_FROM, MODE_RUTHLESS, LEGACY_ONLINE, onlinePayout, onlineMarginExtra } from "../public/shared/level.js";
 
 const SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 
@@ -18,26 +18,58 @@ const SECRET_KEY = process.env.SUPABASE_SECRET_KEY || "";
 export function resultRows(room, held = new Set()) {
   const rows = [];
   const mode = room.kind === "private" ? "friend" : "random";
+  const ruthless = room.mode === MODE_RUTHLESS;
   for (const seat of [1, 2]) {
     const me = room.seats[seat];
     const other = room.seats[seat === 1 ? 2 : 1];
     if (me?.kind !== "human" || !me.userId || !room.state) continue;
+    const won = room.winner === seat;
+    const points = clampPoints(room.state.players[seat]?.points);
+    const opponentPoints = clampPoints(room.state.players[seat === 1 ? 2 : 1]?.points);
+    // Left or gone for good before the end: costs level points.
+    const abandoned = room.forfeitedBy === seat;
     rows.push({
       user_id: me.userId,
       mode,
-      won: room.winner === seat,
-      points: clampPoints(room.state.players[seat]?.points),
-      opponent_points: clampPoints(room.state.players[seat === 1 ? 2 : 1]?.points),
+      won,
+      points,
+      opponent_points: opponentPoints,
       opponent: String(other?.name || "").slice(0, 24) || null,
-      // Left or gone for good before the end: costs level points.
-      abandoned: room.forfeitedBy === seat,
+      abandoned,
       earns_xp: !held.has(seat),
-      ruthless: room.mode === MODE_RUTHLESS, // only the points the game was won or lost by count (supabase/online_margin.sql)
+      ruthless, // only the points the game was won or lost by count (supabase/online_margin.sql)
       source: "server",
+      ...ledgerFields(room, seat, { won, abandoned, points, opponentPoints, ruthless }),
     });
   }
   return rows;
 }
+
+//--------- THE LEDGER (what a game paid) ---------
+// Written once with the game's row (supabase/xp_ledger.sql), from the same rules the level is
+// counted by (shared/level.js), and never recomputed: if the rates change, old games keep what they paid.
+//   xp_delta   the points the game pays when it counts (earns_xp, or abandoned): +4 / +2 / -3, or the
+//              Ruthless margin. It is paid whole here: the held ones (earns_xp false) count it once the video is watched.
+//   xp_detail  how it was made: { reason: win | finished | abandoned, flat, margin } (margin: what Ruthless adds to the flat rate)
+//   exit       how this player's game ended: played (to the end), abandoned (they left, were gone or idle: costs points),
+//              excused (they left a game whose opponent was gone or idle already: costs nothing), opponent_gone (they
+//              stayed and the opponent left, was gone or idled out: a win by it, whoever was to blame)
+//   exit_reason  left | idle | disconnect, for any exit but played
+//   game_ref   the room's id for the database: the daily bonus it paid (xp_bonuses.game_ref) carries it too
+// The daily bonus is not here: it is written on its own, when it is given (bonuses.js).
+function ledgerFields(room, seat, { won, abandoned, points, opponentPoints, ruthless }) {
+  const leaver = room.leaver || null;
+  const exit = !leaver ? "played" : leaver.seat === seat ? (abandoned ? "abandoned" : "excused") : "opponent_gone";
+  const flat = abandoned ? -ABANDON_PENALTY : won ? ONLINE_WIN_POINTS : ONLINE_FINISHED_POINTS;
+  return {
+    xp_delta: onlinePayout({ won, abandoned, points, opponentPoints, ruthless }),
+    xp_detail: { reason: abandoned ? "abandoned" : won ? "win" : "finished", flat, margin: onlineMarginExtra({ won, abandoned, points, opponentPoints, ruthless }) },
+    exit,
+    exit_reason: leaver?.reason || null,
+    game_ref: room.gameRef || null,
+  };
+}
+const LEDGER_COLUMNS = ["xp_delta", "xp_detail", "exit", "exit_reason", "game_ref"];
 
 const clampPoints = (n) => Math.max(0, Math.min(999, Math.round(Number(n) || 0)));
 
@@ -52,11 +84,17 @@ export async function recordResults(rows, { key = SECRET_KEY, url = SUPABASE_URL
     return false;
   }
   try {
-    const res = await fetchImpl(`${url}/rest/v1/game_results`, {
+    const post = (body) => fetchImpl(`${url}/rest/v1/game_results`, {
       method: "POST",
       headers: { apikey: key, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify(rows),
+      body: JSON.stringify(body),
     });
+    let res = await post(rows);
+    // Before supabase/xp_ledger.sql is run the ledger's columns don't exist (400): the game must still be recorded, without them.
+    if (res.status === 400 && rows.some((r) => r.xp_delta !== undefined)) {
+      console.error("stats: the ledger columns are missing (xp_ledger.sql run?), recording the games without them:", await res.text().catch(() => ""));
+      res = await post(rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !LEDGER_COLUMNS.includes(k)))));
+    }
     if (!res.ok) console.error("stats: Supabase answered", res.status, await res.text().catch(() => ""));
     return res.ok;
   } catch (err) {
@@ -169,4 +207,33 @@ export async function accountStats(userId, { key = SECRET_KEY, url = SUPABASE_UR
 
 export async function experience(userId, options) {
   return (await accountStats(userId, options)).xp ?? 0;
+}
+
+// The ledger against the level: what the account's recorded points add up to (supabase/xp_ledger.sql,
+// xp_ledger_report) next to the experience accountStats counts from the same rows. They are two ways to the
+// same number, so the difference should be 0. `legacyGames` are games recorded before the ledger existed
+// (no xp_delta: run xp_ledger_backfill.sql); until then the difference is theirs. Never throws:
+// { error } when it can't be read, { xp: null } when the experience can't be.
+export async function ledgerReport(userId, options = {}) {
+  const { key = SECRET_KEY, url = SUPABASE_URL, fetch: fetchImpl = fetch } = options;
+  if (!userId || !key || !url) return { error: "no secret key" };
+  try {
+    const [stats, res] = await Promise.all([
+      accountStats(userId, options),
+      fetchImpl(`${url}/rest/v1/rpc/xp_ledger_report`, {
+        method: "POST",
+        headers: { apikey: key, "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: userId }),
+      }),
+    ]);
+    if (res.ok === false) throw new Error(`Supabase answered ${res.status} (xp_ledger.sql run?)`);
+    const body = await res.json();
+    const row = Array.isArray(body) ? body[0] : body;
+    const ledger = { games: Number(row?.game_xp) || 0, bonuses: Number(row?.bonus_xp) || 0, total: Number(row?.ledger_xp) || 0 };
+    const legacyGames = Number(row?.legacy_games) || 0;
+    const diff = stats.xp === null ? null : stats.xp - ledger.total;
+    return { userId, xp: stats.xp, ledger, legacyGames, diff, match: diff === 0 };
+  } catch (err) {
+    return { error: err.message };
+  }
 }
