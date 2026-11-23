@@ -12,6 +12,13 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.11] - 2026-11-23
+
+### Fixed
+- **Lighter on the CPU, the graphics memory and the battery (a check of everything that moves).** The pieces of the themes no longer run an endless animation: a timer starts a one-second movement now and then and nothing runs between (before, every themed piece on the board kept the graphics chip busy all the time). The game under the home or the options stands still (the glow of the player on turn was repainted at every frame behind them). The layers of the boards (drops, flowers, glints, insects, water) and of the skies no longer keep a graphics layer each while idle (about 150 of them). The clouds of the skies move at half the number of steps. The blur behind the combinations is off under a moving sky. The game's housekeeping timers (names, buttons, ROLL label) stop while the home is on or the app is in the background.
+- **A switch for it all: Options > Animated effects.** Off, the skies stand still and the boards and pieces don't move. They also turn off by themselves while the battery is low (20% or less, not charging) where the phone tells it, and with the phone's "reduce motion".
+- Moving backgrounds (the Storm sky above all): the home, the options and the sheets each carry a copy of the sky, and every copy was drawn and animated at once (about five of three big cloud layers), which on a phone took the graphics memory: the menu stuttered and texts and islands disappeared. Now only the copy on top is drawn.
+
 ## [2.35.10] - 2026-11-23
 
 ### Added

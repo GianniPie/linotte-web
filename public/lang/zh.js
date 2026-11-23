@@ -466,6 +466,7 @@ export default {
     "HOME": "主页",
     "Sound": "声音",
     "Vibration": "手感",
+    "Animated effects": "动画效果",
     "No sound": "静音",
     "Table style": "棋盘风格",
     "Perfect": "整齐",

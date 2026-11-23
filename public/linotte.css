@@ -716,7 +716,7 @@ body.table-flipped .tile::before {
 
 /* The pieces of the themes that move (syncPieceFx in linotte.js): layers of their own in the piece, the size of its drawing
    (80% of the tile, centred). The ones that draw the whole piece take its place (.pfx-on); the ladybird's lids go over its
-   drawing. Still nearly all the time: each cycle is a long rest and a short movement. */
+   drawing. Still nearly all the time: the game moves them with a short animation now and then (see PIECE_FX), nothing runs between two. */
 .piece.pfx-on {
   background-image: none !important;
 }
@@ -727,60 +727,18 @@ body.table-flipped .tile::before {
   pointer-events: none;
   background-size: 100% 100%;
   background-repeat: no-repeat;
-  will-change: transform, opacity;
-  animation-iteration-count: infinite;
-  animation-timing-function: ease-in-out;
 }
 
 .pfx-lids {
   opacity: 0;
-  animation-name: pfxBlink;
-  animation-timing-function: linear; /* a blink is quick and even */
 }
 
 .pfx-flip-l {
   transform-origin: 26% 51%; /* the shoulder, in the layer */
-  animation-name: pfxFlapL;
 }
 
 .pfx-flip-r {
   transform-origin: 74% 51%;
-  animation-name: pfxFlapR;
-}
-
-.pfx-spin {
-  animation-name: pfxTwirl;
-  animation-timing-function: cubic-bezier(.45, 0, .25, 1);
-}
-
-/* Each cycle is long (see PIECE_FX in linotte.js): the pieces rest nearly all of it and move in its last tenth. */
-@keyframes pfxBlink {
-  0%, 86.5% { opacity: 0; }
-  87%, 87.8% { opacity: 1; } /* closed for about a seventh of a second */
-  88.3%, 91% { opacity: 0; }
-  91.5%, 92.3% { opacity: 1; } /* a second blink right after the first */
-  92.8%, 100% { opacity: 0; }
-}
-
-@keyframes pfxFlapL {
-  0%, 88% { transform: rotate(0deg); }
-  91% { transform: rotate(22deg); }
-  94% { transform: rotate(0deg); }
-  97% { transform: rotate(18deg); }
-  100% { transform: rotate(0deg); }
-}
-
-@keyframes pfxFlapR {
-  0%, 88% { transform: rotate(0deg); }
-  91% { transform: rotate(-22deg); }
-  94% { transform: rotate(0deg); }
-  97% { transform: rotate(-18deg); }
-  100% { transform: rotate(0deg); }
-}
-
-@keyframes pfxTwirl {
-  0%, 94% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 .img-bounce {
@@ -977,6 +935,14 @@ body.table-flipped .tile::before {
      read as part of the combination's symbol. */
   -webkit-backdrop-filter: blur(.375em);
   backdrop-filter: blur(.375em);
+}
+
+/* Under a moving sky the blur would be worked out again at every frame, for nothing (a sky is soft already). */
+body.ink-storm .result,
+body.ink-spring .result,
+body.ink-ice .result {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 #rr0 {
@@ -2586,7 +2552,6 @@ body.table-flipped .board-fly {
   top: 0;
   aspect-ratio: 1;
   opacity: 0;
-  will-change: transform, opacity;
 }
 
 .board-fly .fly i {
@@ -2754,7 +2719,6 @@ body.table-flipped .board-flowers {
   position: absolute;
   aspect-ratio: 1;
   background: url("resources/images/board-storm-drop.svg") center / 100% 100% no-repeat;
-  will-change: transform, opacity;
 }
 
 .board-drops .dtrail {
@@ -2764,7 +2728,6 @@ body.table-flipped .board-flowers {
   background: linear-gradient(#eaf5fb, rgba(234, 245, 251, .6));
   transform-origin: 50% 0;
   opacity: 0;
-  will-change: transform, opacity;
 }
 
 .board-rain .rdrop {
@@ -2773,7 +2736,6 @@ body.table-flipped .board-flowers {
   aspect-ratio: 1;
   background: url("resources/images/board-storm-drop.svg") center / 100% 100% no-repeat;
   opacity: 0;
-  will-change: transform, opacity;
 }
 
 .board-rain .rtrail {
@@ -2783,7 +2745,6 @@ body.table-flipped .board-flowers {
   background: linear-gradient(#eaf5fb, rgba(234, 245, 251, .6));
   transform-origin: 50% 0;
   opacity: 0;
-  will-change: transform, opacity;
 }
 
 /* ============================================
@@ -2804,6 +2765,22 @@ body.table-flipped .board-flowers {
 body > .bg-fx {
   position: fixed;
   z-index: -1;
+}
+
+/* Only the copy on top is drawn (syncFxLive in linotte.js). */
+.bg-fx:not(.live) {
+  display: none;
+}
+
+/* The game is out of sight under the home or the options: nothing in it needs to move meanwhile. */
+body.game-covered .flex-block,
+body.game-covered .flex-block * {
+  animation-play-state: paused !important;
+}
+
+/* Effects off (the options, a low battery, less motion): the skies stand still. */
+body.fx-off .bg-fx > i {
+  animation: none !important;
 }
 
 /* Turned for the player on the other side (FLIP, same table, portrait): the whole background turns with the game, so
@@ -2844,13 +2821,13 @@ body > .bg-fx {
   will-change: transform;
 }
 
-.fx-far { background-image: url("resources/images/backgrounds/storm-fx-far.svg"); animation: fxDrift 110s steps(1100) infinite; }
-.fx-mid { background-image: url("resources/images/backgrounds/storm-fx-mid.svg"); animation: fxDrift 70s steps(1050) infinite; }
-.fx-near { background-image: url("resources/images/backgrounds/storm-fx-near.svg"); animation: fxDrift 42s steps(840) infinite; }
+.fx-far { background-image: url("resources/images/backgrounds/storm-fx-far.svg"); animation: fxDrift 110s steps(550) infinite; }
+.fx-mid { background-image: url("resources/images/backgrounds/storm-fx-mid.svg"); animation: fxDrift 70s steps(525) infinite; }
+.fx-near { background-image: url("resources/images/backgrounds/storm-fx-near.svg"); animation: fxDrift 42s steps(420) infinite; }
 
 /* the spring meadow: soft clouds, grass and flowers that sway in the breeze, petals that drift (petalOnce) */
-.fx-sp-a { background-image: url("resources/images/backgrounds/spring-fx-clouds-a.svg"); animation: fxDrift 160s steps(1600) infinite; }
-.fx-sp-b { background-image: url("resources/images/backgrounds/spring-fx-clouds-b.svg"); animation: fxDrift 100s steps(1000) infinite; }
+.fx-sp-a { background-image: url("resources/images/backgrounds/spring-fx-clouds-a.svg"); animation: fxDrift 160s steps(800) infinite; }
+.fx-sp-b { background-image: url("resources/images/backgrounds/spring-fx-clouds-b.svg"); animation: fxDrift 100s steps(500) infinite; }
 
 /* The grass and flowers at the foot of the spring sky: a strip drawn once, as tall as the layer and as wide as its drawing
    says (never stretched: on a narrow screen its two ends are cropped), still. A gust of wind leans it, from its base, now
@@ -2863,7 +2840,6 @@ body > .bg-fx {
   background-position: center bottom;
   background-repeat: repeat-x;
   transform-origin: 50% 100%;
-  will-change: transform;
 }
 
 .fx-grass-back { height: 21%; background-image: url("resources/images/backgrounds/spring-fx-grass-back.svg"); }
@@ -2877,7 +2853,6 @@ body > .bg-fx {
   background-size: contain;
   background-repeat: no-repeat;
   opacity: 0;
-  will-change: transform, opacity;
 }
 
 /* the ice: the aurora breathes and drifts (at a low rate: a layer is redrawn at every step, and on a weak or software-rendered
@@ -2890,7 +2865,7 @@ body > .bg-fx {
   background: url("resources/images/backgrounds/ice-fx-aurora.svg") 0 0 / 100% 100% no-repeat;
   opacity: .7;
   will-change: transform, opacity;
-  animation: fxAurora 38s steps(190) infinite alternate;
+  animation: fxAurora 38s steps(95) infinite alternate;
 }
 
 @keyframes fxAurora {
@@ -2903,7 +2878,6 @@ body > .bg-fx {
   left: 0;
   background: url("resources/images/backgrounds/ice-fx-flake.svg") center / contain no-repeat;
   opacity: 0;
-  will-change: transform, opacity;
 }
 
 .fx-glint {
@@ -2911,7 +2885,6 @@ body > .bg-fx {
   height: 26px;
   background: url("resources/images/backgrounds/ice-fx-glint.svg") center / contain no-repeat;
   opacity: 0;
-  will-change: transform, opacity;
 }
 
 @keyframes fxDrift {
@@ -2924,7 +2897,6 @@ body > .bg-fx {
   background-size: cover;
   background-position: center;
   opacity: 0;
-  will-change: opacity;
 }
 
 .fx-glow-a { background-image: url("resources/images/backgrounds/storm-fx-glow-a.svg"); }
@@ -2946,7 +2918,6 @@ body > .bg-fx {
   inset: 0;
   background: #cfe4ff;
   opacity: 0;
-  will-change: opacity;
 }
 
 /* a drop that falls now and then (dropOnce in linotte.js) */
@@ -2956,7 +2927,6 @@ body > .bg-fx {
   height: 60px;
   background: url("resources/images/backgrounds/storm-fx-streak.svg") center / 100% 100% no-repeat;
   opacity: 0;
-  will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3004,7 +2974,6 @@ body.board-spring .grid::after {
   height: auto;
   aspect-ratio: 1;
   overflow: visible;
-  will-change: transform;
 }
 
 body.board-spring .tile {
@@ -3103,7 +3072,6 @@ body.table-flipped .board-glint { rotate: 180deg; }
   aspect-ratio: 1;
   background: url("resources/images/backgrounds/ice-fx-glint.svg") center / contain no-repeat;
   opacity: 0;
-  will-change: transform, opacity;
 }
 
 .board-options,

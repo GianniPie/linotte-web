@@ -448,6 +448,7 @@ export default {
     "HOME": "ACCUEIL",
     "Sound": "Son",
     "Vibration": "Vibration",
+    "Animated effects": "Effets animés",
     "No sound": "Sans son",
     "Table style": "Style de table",
     "Perfect": "Parfait",

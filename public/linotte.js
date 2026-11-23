@@ -502,7 +502,7 @@ function fitPlayerNames() {
         el.dataset.fit = key;
     }
 }
-setInterval(fitPlayerNames, 500);
+setInterval(() => { if (!document.hidden && !isHomeShown()) fitPlayerNames(); }, 500); // (nothing to fit while the home or another app is on)
 window.addEventListener("resize", () => requestAnimationFrame(fitPlayerNames));
 
 // The same face for the player card and the account sheet: the level as the
@@ -1007,7 +1007,9 @@ preload(selectedDie);
 
 // The background drawn on the screen: this player's own, or, in an online
 // game, the table the server chose (showTableLook).
+let shownBgFile = "";
 function showBackground(bgId) {
+    shownBgFile = backgrounds[bgId];
     body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
     optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]));
     modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
@@ -1026,7 +1028,11 @@ function syncInk(file) {
 // linotte.css), mounted in whatever shows the background; the lightning and a falling drop are played now and then by a
 // timer, on the GPU too (nothing runs between two of them). An animated picture would be redrawn by the CPU at every
 // frame, which heats the phone and drains the battery.
-const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+// Moving things (the skies, the drops, the flowers, the pieces of the themes) are off when the player switched them off in the
+// options, when the phone asks for less motion, and when the battery is low and not charging (applyFxPreference).
+let fxPref = true; // the switch in the options
+let fxBatteryLow = false;
+const reducedMotion = () => !fxPref || fxBatteryLow || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 let bgFxTimer = 0;
 let bgDropTimer = 0;
 let bgPetalTimer = 0;
@@ -1039,6 +1045,36 @@ const BG_FX_LAYERS = {
     "spring-meadow.svg": ["fx-cloud fx-sp-a", "fx-cloud fx-sp-b", "fx-grass fx-grass-back", "fx-grass fx-grass-front"],
     "ice-glacier.svg": ["fx-aurora"],
 };
+// The moving background is drawn once: in whatever is on top (the game, or the home, the options or a sheet, each of which
+// has its own copy of the picture to cover what is under it). The copies under another cost for nothing, and on a phone
+// the clouds (three layers three times as wide as the screen, in every copy) took the graphics memory: the menu stuttered
+// and texts and islands disappeared. So only the top one is drawn (.bg-fx.live, see linotte.css), and it changes when an
+// overlay opens or closes.
+const FX_OVERLAYS = ["home-overlay", "options-overlay", "online-overlay", "consent-overlay"];
+function syncFxLive() {
+    const all = [...document.querySelectorAll(".bg-fx")];
+    let top = document.body, z = -Infinity;
+    for (const id of FX_OVERLAYS) {
+        const el = document.getElementById(id);
+        if (!el || el.classList.contains("hidden") || getComputedStyle(el).display === "none") continue;
+        const zi = Number(getComputedStyle(el).zIndex) || 0;
+        if (zi >= z) { z = zi; top = el; }
+    }
+    // The game under the home or the options is out of sight: what moves in it (the glow of the player on turn, the nudges)
+    // stands still meanwhile (.game-covered in linotte.css).
+    document.body.classList.toggle("game-covered", top.id === "home-overlay" || top.id === "options-overlay");
+    all.forEach((fx) => fx.classList.toggle("live", top === document.body ? fx.parentElement === document.body : top.contains(fx)));
+}
+let fxLiveQueued = false;
+const queueFxLive = () => { if (fxLiveQueued) return; fxLiveQueued = true; setTimeout(() => { fxLiveQueued = false; syncFxLive(); }, 60); };
+{
+    const watcher = new MutationObserver(queueFxLive);
+    for (const id of FX_OVERLAYS) {
+        const el = document.getElementById(id);
+        if (el) watcher.observe(el, { attributes: true, attributeFilter: ["class", "style"] });
+    }
+    queueFxLive();
+}
 function syncBgFx(file) {
     document.querySelectorAll(".bg-fx").forEach((el) => el.remove());
     clearTimeout(bgFxTimer);
@@ -1059,6 +1095,7 @@ function syncBgFx(file) {
         }
         host.append(fx);
     }
+    syncFxLive();
     if (reducedMotion()) return;
     if (file === "storm-clouds.svg") {
         bgFxTimer = setTimeout(flashOnce, 4000 + Math.random() * 4000);
@@ -1369,19 +1406,34 @@ function rainOnce() {
 //----- the pieces of the themes come alive -----
 // The ladybird blinks now and then, the penguin flaps its flippers a little, the umbrella twirls. Each piece starts the moment it
 // is put on the board (its drawing is set): a few seconds later it moves for the first time, then rarely (a movement every
-// 15 to 30 seconds), a little slower or faster than the next, so they never move
-// together. They are layers of their own over (or instead of) the piece's drawing, moved by the GPU (transform, opacity): the
-// still drawing stays as the piece's background-image, for everything else that reads it. See .pfx in linotte.css.
+// 15 to 30 seconds), at a pace a little different from the next, so they never move together. They are layers of their own
+// over (or instead of) the piece's drawing. Nothing runs between two movements: a timer starts a short animation of the layers
+// (transform, opacity: the GPU's), and that is all. The still drawing stays as the piece's background-image, for everything else
+// that reads it. See .pfx in linotte.css.
 const PIECE_FX_DIR = "resources/images/pieces/fx/";
+const flapKeys = (deg) => [{ transform: "rotate(0deg)" }, { transform: `rotate(${deg}deg)`, offset: 0.25 }, { transform: "rotate(0deg)", offset: 0.5 }, { transform: `rotate(${deg * 0.8}deg)`, offset: 0.78 }, { transform: "rotate(0deg)" }];
 const PIECE_FX = {
-    "p047_e63946ff.svg": { cycle: 16, layers: [["pfx-lids", "ladybug-lids.svg"]], over: true }, // the ladybird: the lids over the drawing
-    "p048_1b1d26ff.svg": { cycle: 22, layers: [["pfx-flip-l", "penguin-flipper-l.svg"], ["pfx-flip-r", "penguin-flipper-r.svg"], ["pfx-still", "penguin-body.svg"]] },
-    "p046_3d6df0ff.svg": { cycle: 26, layers: [["pfx-spin", "umbrella-canopy.svg"], ["pfx-still", "umbrella-shine.svg"]] },
+    // the ladybird: the lids over the drawing, two quick blinks
+    "p047_e63946ff.svg": {
+        every: 16, over: true, layers: [["pfx-lids", "ladybug-lids.svg"]],
+        play: ([lids]) => lids.animate([{ opacity: 0 }, { opacity: 1, offset: 0.07 }, { opacity: 1, offset: 0.24 }, { opacity: 0, offset: 0.31 }, { opacity: 0, offset: 0.55 }, { opacity: 1, offset: 0.62 }, { opacity: 1, offset: 0.79 }, { opacity: 0 }], { duration: 750 }),
+    },
+    // the penguin: the flippers flap twice
+    "p048_1b1d26ff.svg": {
+        every: 22, layers: [["pfx-flip-l", "penguin-flipper-l.svg"], ["pfx-flip-r", "penguin-flipper-r.svg"], ["pfx-still", "penguin-body.svg"]],
+        play: ([left, right]) => { left.animate(flapKeys(22), { duration: 1100, easing: "ease-in-out" }); right.animate(flapKeys(-22), { duration: 1100, easing: "ease-in-out" }); },
+    },
+    // the umbrella: the canopy twirls once (the shine stays)
+    "p046_3d6df0ff.svg": {
+        every: 26, layers: [["pfx-spin", "umbrella-canopy.svg"], ["pfx-still", "umbrella-shine.svg"]],
+        play: ([canopy]) => canopy.animate([{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }], { duration: 1500, easing: "cubic-bezier(.45, 0, .25, 1)" }),
+    },
 };
 function syncPieceFx(piece) {
     const url = piece.style.backgroundImage || "";
     const file = Object.keys(PIECE_FX).find((f) => url.includes(f));
     if (piece.dataset.fx === (file || "")) return; // already as it should be (the observer fires for every change of the style)
+    clearTimeout(piece.fxTimer);
     piece.querySelectorAll(":scope > .pfx").forEach((el) => el.remove());
     piece.classList.remove("pfx-on");
     delete piece.dataset.fx;
@@ -1389,16 +1441,18 @@ function syncPieceFx(piece) {
     const fx = PIECE_FX[file];
     piece.dataset.fx = file;
     if (!fx.over) piece.classList.add("pfx-on"); // the layers draw the whole piece: its own drawing steps aside
-    const cycle = fx.cycle * (0.85 + Math.random() * 0.3); // each its own pace
-    const firstAt = 5 + Math.random() * 9; // seconds after landing
     for (const [cls, img] of fx.layers) {
         const layer = document.createElement("i");
         layer.className = "pfx " + cls;
         layer.style.backgroundImage = `url("${PIECE_FX_DIR}${img}")`;
-        layer.style.animationDuration = cycle + "s";
-        layer.style.animationDelay = -(cycle * 0.87 - firstAt) + "s"; // the first movement comes a few seconds after the piece lands
         piece.append(layer);
     }
+    const tick = () => {
+        if (!piece.isConnected || piece.dataset.fx !== file) return;
+        if (!document.hidden && !reducedMotion()) fx.play([...piece.querySelectorAll(":scope > .pfx")]);
+        piece.fxTimer = setTimeout(tick, fx.every * (0.85 + Math.random() * 0.3) * 1000);
+    };
+    piece.fxTimer = setTimeout(tick, (5 + Math.random() * 9) * 1000); // the first movement comes a few seconds after the piece lands
 }
 const pieceFxObserver = new MutationObserver((list) => { for (const m of list) syncPieceFx(m.target); });
 document.querySelectorAll(".piece").forEach((piece) => pieceFxObserver.observe(piece, { attributes: true, attributeFilter: ["style"] }));
@@ -2033,6 +2087,37 @@ function moveIndicator(page) {
 
 // Vibration is its own switch (it used to follow the sound, which left a phone
 // with the sound off silent AND still). Not offered where the browser can't vibrate.
+// The moving effects: on, off (the player's switch), and off by itself while the battery is low (Chrome and the apps tell it).
+function applyFxPreference() {
+    document.body.classList.toggle("fx-off", reducedMotion());
+    syncBgFx(shownBgFile);
+    paintBoardSkin(shownBoardIndex); // (the board's own water, flowers and glints)
+    document.querySelectorAll(".piece").forEach((piece) => { delete piece.dataset.fx; clearTimeout(piece.fxTimer); syncPieceFx(piece); });
+}
+fxPref = toBoolean(getCookie("fxOn", "true"));
+document.getElementById(fxPref ? "fx-on" : "fx-off").classList.add("selected");
+for (const id of ["fx-on", "fx-off"]) {
+    document.getElementById(id).addEventListener("click", () => {
+        fxPref = id === "fx-on";
+        document.getElementById("fx-on").classList.toggle("selected", fxPref);
+        document.getElementById("fx-off").classList.toggle("selected", !fxPref);
+        setCookie("fxOn", fxPref);
+        applyFxPreference();
+    });
+}
+navigator.getBattery?.().then((battery) => {
+    const check = () => {
+        const low = !battery.charging && battery.level <= 0.2;
+        if (low === fxBatteryLow) return;
+        fxBatteryLow = low;
+        applyFxPreference();
+    };
+    check();
+    battery.addEventListener("levelchange", check);
+    battery.addEventListener("chargingchange", check);
+}).catch(() => { /* no battery information */ });
+if (!fxPref) applyFxPreference();
+
 let isVibrationOn = toBoolean(getCookie("vibrationOn", "true"));
 document.getElementById(isVibrationOn ? "vibration-on" : "vibration-off").classList.add("selected");
 if (!("vibrate" in navigator)) document.getElementById("vibration-section").hidden = true;
@@ -2350,7 +2435,9 @@ function showBoardSkin(index) {
     document.getElementById("boardskin-current").textContent = t(boardSkinNames[index]);
     if (!tableHeld()) paintBoardSkin(index); // in an online game the table's board stays until the next game
 }
+var shownBoardIndex = 0; // (var: the effects switch reads it while the page loads)
 function paintBoardSkin(index) {
+    shownBoardIndex = index;
     boardSkins.forEach((id, i) => document.body.classList.toggle("board-" + id, i === index));
     syncBoardRain(boardSkins[index] === "storm");
     syncBoardDrops(boardSkins[index] === "storm");
@@ -4309,7 +4396,7 @@ function refreshTurnRoll() {
     const text = Number.isInteger(left) ? t("ROLL {n}", { n: left }) : "";
     if (turnLabelRollEl.textContent !== text) turnLabelRollEl.textContent = text;
 }
-setInterval(refreshTurnRoll, 200);
+setInterval(() => { if (!document.hidden && !isHomeShown()) refreshTurnRoll(); }, 200);
 
 
 function renderBoardFromState(table) {
@@ -4402,7 +4489,7 @@ function syncChat() {
     placeChatFab();
 }
 chatSync = syncChat;
-setInterval(syncChat, 400);
+setInterval(() => { if (!document.hidden) syncChat(); }, 400);
 window.addEventListener("resize", syncChat);
 window.addEventListener("orientationchange", () => setTimeout(syncChat, 200));
 
@@ -4430,7 +4517,7 @@ function centerButtons() {
         row.style.setProperty("--btn-shift", `${shift}px`);
     }
 }
-setInterval(centerButtons, 300);
+setInterval(() => { if (!document.hidden && !isHomeShown()) centerButtons(); }, 300); // (it measures the layout: not for a game nobody sees)
 window.addEventListener("resize", centerButtons);
 window.addEventListener("orientationchange", () => setTimeout(centerButtons, 200));
 
