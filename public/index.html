@@ -1092,38 +1092,29 @@
                     </div>
                 </section>
 
-                <section>
-                    <div class="title" data-i18n>Sound</div>
-                    <div class="car-list-wrapper">
-                        <div class="car-list list-centered">
-                            <div class="car-btn">
-                                <div class="sound-btn" id="sound-on"></div>
+                <!-- sound, vibration and the moving effects (the skies, drops, flowers and pieces of the themes: off saves the
+                     battery): one island, one button for each, lit in yellow while it is on. Vibration is left out where the
+                     browser can't vibrate. -->
+                <section id="switches-section">
+                    <div class="title" data-i18n>Sound and effects</div>
+                    <div class="switches">
+                        <div class="switch-item">
+                            <div class="opt-btn switch-btn" id="sound-toggle" role="switch" aria-labelledby="sound-label" tabindex="0">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path class="line" d="M15.5 9a4 4 0 0 1 0 6"/><path class="line" d="M18 6.5a8 8 0 0 1 0 11"/></svg>
                             </div>
-                            <div class="car-btn">
-                                <div class="sound-btn" id="sound-off"></div>
+                            <span class="switch-label" id="sound-label" data-i18n>Sound</span>
+                        </div>
+                        <div class="switch-item" id="vibration-item">
+                            <div class="opt-btn switch-btn" id="vibration-toggle" role="switch" aria-labelledby="vibration-label" tabindex="0">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3.5" width="8" height="17" rx="2"/><path class="line" d="M4.5 8v8"/><path class="line" d="M19.5 8v8"/><path class="line" d="M2 10.5v3"/><path class="line" d="M22 10.5v3"/></svg>
                             </div>
+                            <span class="switch-label" id="vibration-label" data-i18n>Vibration</span>
                         </div>
-                    </div>
-                </section>
-
-                <!-- vibration: its own switch, apart from the sound (hidden where the browser can't vibrate) -->
-                <section id="vibration-section">
-                    <div class="title" data-i18n>Vibration</div>
-                    <div class="car-list-wrapper">
-                        <div class="car-list list-centered">
-                            <div class="car-btn"><div class="opt-btn" id="vibration-on" data-i18n>ON</div></div>
-                            <div class="car-btn"><div class="opt-btn" id="vibration-off" data-i18n>OFF</div></div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- the moving skies, drops, flowers and pieces of the themes: off saves the battery -->
-                <section>
-                    <div class="title" data-i18n>Animated effects</div>
-                    <div class="car-list-wrapper">
-                        <div class="car-list list-centered">
-                            <div class="car-btn"><div class="opt-btn" id="fx-on" data-i18n>ON</div></div>
-                            <div class="car-btn"><div class="opt-btn" id="fx-off" data-i18n>OFF</div></div>
+                        <div class="switch-item">
+                            <div class="opt-btn switch-btn" id="fx-toggle" role="switch" aria-labelledby="fx-label" tabindex="0">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4l1.9 5.6L18 11.5l-5.6 1.9L10.5 19l-1.9-5.6L3 11.5l5.6-1.9z"/><path d="M18.5 3.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg>
+                            </div>
+                            <span class="switch-label" id="fx-label" data-i18n>Animations</span>
                         </div>
                     </div>
                 </section>

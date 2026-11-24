@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Storm background, the still part: the sky (grey-blues) and a soft shade at the top and bottom. Everything that moves is drawn apart and moved by the GPU (storm-fx-*.svg, .bg-fx in linotte.css): an animation inside a background picture is redrawn by the CPU at every frame. -->
+<!-- Storm background, the still part: the sky (grey-blues) with a pale glow at the top, a few still clouds (so a sky without its moving clouds is not one flat blue) and a soft shade at the bottom. Everything that moves is drawn apart and moved by the GPU (storm-fx-*.svg, .bg-fx in linotte.css): an animation inside a background picture is redrawn by the CPU at every frame. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
@@ -13,7 +13,63 @@
       <stop offset=".8" stop-color="#0b1424" stop-opacity="0"/>
       <stop offset="1" stop-color="#0b1424" stop-opacity=".3"/>
     </linearGradient>
+    <linearGradient id="topGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7390c0" stop-opacity=".9"/>
+      <stop offset=".14" stop-color="#5f80b2" stop-opacity=".5"/>
+      <stop offset=".3" stop-color="#4a6a9c" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="cloudLit">
+      <stop offset="0" stop-color="#9bb3d4" stop-opacity=".9"/>
+      <stop offset=".55" stop-color="#7b96bf" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#5a76a0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cloudShade">
+      <stop offset="0" stop-color="#0e1a2f" stop-opacity=".55"/>
+      <stop offset=".6" stop-color="#14233c" stop-opacity=".3"/>
+      <stop offset="1" stop-color="#14233c" stop-opacity="0"/>
+    </radialGradient>
   </defs>
   <rect width="1000" height="1000" fill="url(#sky)"/>
+  <rect width="1000" height="260" fill="url(#topGlow)"/>
+<ellipse cx="520" cy="163.6" rx="260" ry="40.8" fill="url(#cloudShade)" opacity="0.81"/>
+<ellipse cx="298.1" cy="124.6" rx="109.6" ry="45.2" fill="url(#cloudLit)" opacity="0.55"/>
+<ellipse cx="393.5" cy="111" rx="104.5" ry="45.7" fill="url(#cloudLit)" opacity="0.56"/>
+<ellipse cx="430" cy="89.4" rx="107.6" ry="37.3" fill="url(#cloudLit)" opacity="0.71"/>
+<ellipse cx="508.9" cy="72.2" rx="85" ry="55.2" fill="url(#cloudLit)" opacity="0.69"/>
+<ellipse cx="604.9" cy="93" rx="84.6" ry="42.3" fill="url(#cloudLit)" opacity="0.63"/>
+<ellipse cx="642.7" cy="113.1" rx="98.5" ry="39" fill="url(#cloudLit)" opacity="0.72"/>
+<ellipse cx="712.4" cy="128.1" rx="102.1" ry="46.6" fill="url(#cloudLit)" opacity="0.59"/>
+<ellipse cx="300" cy="358" rx="210" ry="34" fill="url(#cloudShade)" opacity="0.54"/>
+<ellipse cx="131.5" cy="319.5" rx="68.4" ry="43.9" fill="url(#cloudLit)" opacity="0.37"/>
+<ellipse cx="197.4" cy="307" rx="99.8" ry="44.3" fill="url(#cloudLit)" opacity="0.47"/>
+<ellipse cx="252.8" cy="298.7" rx="91.7" ry="32" fill="url(#cloudLit)" opacity="0.42"/>
+<ellipse cx="311" cy="281.4" rx="98.2" ry="44.2" fill="url(#cloudLit)" opacity="0.40"/>
+<ellipse cx="351.5" cy="297.2" rx="80.2" ry="45.9" fill="url(#cloudLit)" opacity="0.40"/>
+<ellipse cx="396.1" cy="305.6" rx="91.3" ry="45.9" fill="url(#cloudLit)" opacity="0.42"/>
+<ellipse cx="467.7" cy="323.9" rx="92.3" ry="33.6" fill="url(#cloudLit)" opacity="0.44"/>
+<ellipse cx="700" cy="682" rx="300" ry="51" fill="url(#cloudShade)" opacity="0.72"/>
+<ellipse cx="462.7" cy="632.1" rx="104.7" ry="49.1" fill="url(#cloudLit)" opacity="0.52"/>
+<ellipse cx="560.5" cy="608" rx="124.7" ry="52.4" fill="url(#cloudLit)" opacity="0.46"/>
+<ellipse cx="599.2" cy="597.3" rx="133.3" ry="54" fill="url(#cloudLit)" opacity="0.60"/>
+<ellipse cx="708.4" cy="579.7" rx="142" ry="54.8" fill="url(#cloudLit)" opacity="0.68"/>
+<ellipse cx="802.1" cy="593.3" rx="138.4" ry="56.8" fill="url(#cloudLit)" opacity="0.53"/>
+<ellipse cx="847.9" cy="617.5" rx="103.8" ry="46.7" fill="url(#cloudLit)" opacity="0.63"/>
+<ellipse cx="953.1" cy="629.6" rx="136.2" ry="46.3" fill="url(#cloudLit)" opacity="0.50"/>
+<ellipse cx="380" cy="866.4" rx="280" ry="44.2" fill="url(#cloudShade)" opacity="0.63"/>
+<ellipse cx="146.6" cy="820" rx="97.2" ry="40.4" fill="url(#cloudLit)" opacity="0.46"/>
+<ellipse cx="248.5" cy="812.2" rx="123" ry="49" fill="url(#cloudLit)" opacity="0.44"/>
+<ellipse cx="325.9" cy="788.5" rx="122.2" ry="39.6" fill="url(#cloudLit)" opacity="0.43"/>
+<ellipse cx="395.2" cy="776.1" rx="129.1" ry="51.5" fill="url(#cloudLit)" opacity="0.47"/>
+<ellipse cx="458.3" cy="793.5" rx="103.4" ry="50.1" fill="url(#cloudLit)" opacity="0.44"/>
+<ellipse cx="541.4" cy="797" rx="120.3" ry="58.8" fill="url(#cloudLit)" opacity="0.39"/>
+<ellipse cx="608.2" cy="823.5" rx="127.8" ry="51.2" fill="url(#cloudLit)" opacity="0.44"/>
+<ellipse cx="780" cy="990.8" rx="250" ry="37.4" fill="url(#cloudShade)" opacity="0.50"/>
+<ellipse cx="576.2" cy="958.6" rx="116.2" ry="35.4" fill="url(#cloudLit)" opacity="0.32"/>
+<ellipse cx="630.4" cy="932.3" rx="97.9" ry="35.5" fill="url(#cloudLit)" opacity="0.45"/>
+<ellipse cx="719.5" cy="919.6" rx="101.5" ry="38.7" fill="url(#cloudLit)" opacity="0.38"/>
+<ellipse cx="768.8" cy="906.1" rx="87.4" ry="39.6" fill="url(#cloudLit)" opacity="0.42"/>
+<ellipse cx="848.7" cy="918.5" rx="108.4" ry="48.4" fill="url(#cloudLit)" opacity="0.43"/>
+<ellipse cx="925" cy="932.1" rx="98.6" ry="34.1" fill="url(#cloudLit)" opacity="0.43"/>
+<ellipse cx="967" cy="955.4" rx="90.1" ry="45.3" fill="url(#cloudLit)" opacity="0.35"/>
   <rect width="1000" height="1000" fill="url(#vignette)"/>
 </svg>

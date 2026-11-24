@@ -1868,9 +1868,7 @@ html.is-resizing *::after {
 
 /* The translucent white of the buttons would vanish on the card. */
 .opt-sheet .opt-btn,
-.opt-sheet .sound-btn,
-.opt-flow .opt-btn,
-.opt-flow .sound-btn {
+.opt-flow .opt-btn {
   background-color: rgba(0, 0, 0, .08);
 }
 
@@ -2079,7 +2077,7 @@ html.is-resizing *::after {
   justify-content: center;
   align-items: center;
   /* Same box the sound icons draw into their SVGs (white at 50% opacity,
-     80x32, .4em radius) so text buttons here match .sound-btn exactly;
+     80x32, .4em radius) so text buttons here match the sound icons they replaced exactly;
      selection is the shared .selected glow ring. */
   background-color: rgba(255, 255, 255, .5);
   height: 32px;
@@ -2113,6 +2111,10 @@ html.is-resizing *::after {
   grid-auto-columns: 1fr;
   gap: 14px;
   justify-content: center;
+  /* room at the two ends for the yellow ring of a pressed button (PAUSE is on while paused): the list scrolls sideways,
+     so it clips whatever sticks out of it, and these buttons have no spacers at the ends */
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 .game-actions .car-list::before,
@@ -2126,7 +2128,7 @@ html.is-resizing *::after {
 }
 
 .giveup-row {
-  margin: .5em 0 .3em;
+  margin: .5em 8px .3em; /* the same 8px as the list above, so it lines up with the buttons' edges */
 }
 
 .giveup-row .opt-btn {
@@ -2142,23 +2144,51 @@ html.is-resizing *::after {
   border-radius: 1em;
 }
 
-.sound-btn {
+/* The switches island (sound, vibration, animations): a button with an icon for each, a word under it; yellow while on
+   (.selected, the shared ring). */
+.switches {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+  padding: 8px 8px 2px; /* room for the ring of a pressed button */
+}
+
+.switch-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.switch-btn {
+  cursor: pointer;
+  margin: 0;
+}
+
+.switch-btn svg {
   display: block;
-  height: 32px;
-  width: 80px;
-  border-radius: .4em;
-  line-height: 0;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
-#sound-on {
-  background-image: url("resources/images/sound-on.svg");
+.switch-btn svg .line {
+  fill: none;
 }
 
-#sound-off {
-  background-image: url("resources/images/sound-off.svg");
+/* the speaker and the little stars are solid, the phone's outline is not */
+.switch-btn svg rect {
+  fill: none;
+}
+
+.switch-label {
+  font-size: .95em;
+  line-height: 1;
 }
 
 section {
@@ -2826,8 +2856,8 @@ body.fx-off .bg-fx > i {
 .fx-near { background-image: url("resources/images/backgrounds/storm-fx-near.svg"); animation: fxDrift 42s steps(420) infinite; }
 
 /* the spring meadow: soft clouds, grass and flowers that sway in the breeze, petals that drift (petalOnce) */
-.fx-sp-a { background-image: url("resources/images/backgrounds/spring-fx-clouds-a.svg"); animation: fxDrift 160s steps(800) infinite; }
-.fx-sp-b { background-image: url("resources/images/backgrounds/spring-fx-clouds-b.svg"); animation: fxDrift 100s steps(500) infinite; }
+.fx-sp-a { background-image: url("resources/images/backgrounds/spring-fx-clouds-a.svg"); animation: fxDrift 160s steps(1600) infinite; }
+.fx-sp-b { background-image: url("resources/images/backgrounds/spring-fx-clouds-b.svg"); animation: fxDrift 100s steps(1000) infinite; }
 
 /* The grass and flowers at the foot of the spring sky: a strip drawn once, as tall as the layer and as wide as its drawing
    says (never stretched: on a narrow screen its two ends are cropped), still. A gust of wind leans it, from its base, now
@@ -2858,19 +2888,37 @@ body.fx-off .bg-fx > i {
 /* the ice: the aurora breathes and drifts (at a low rate: a layer is redrawn at every step, and on a weak or software-rendered
    screen that is what costs), now and then a glint twinkles (glintOnce) and a single flake falls (flakeOnce) */
 .fx-aurora {
-  top: 53%;
+  top: 0;
   left: -10%;
   width: 120%;
-  height: 24%;
+  height: 100%;
+  transform-origin: 50% 85%;
   background: url("resources/images/backgrounds/ice-fx-aurora.svg") 0 0 / 100% 100% no-repeat;
-  opacity: .7;
+  opacity: .9;
   will-change: transform, opacity;
   animation: fxAurora 38s steps(95) infinite alternate;
 }
 
 @keyframes fxAurora {
-  from { transform: translateX(-4%); opacity: .55; }
-  to { transform: translateX(4%); opacity: .95; }
+  from { transform: translateX(-4%); opacity: .7; }
+  to { transform: translateX(4%); opacity: 1; }
+}
+
+/* the mountains, laid over the aurora so it rises from behind the peaks (the same drawing as in the background picture) */
+.fx-range {
+  inset: 0;
+  background: url("resources/images/backgrounds/ice-fx-range.svg") center / cover no-repeat;
+}
+
+/* a shooting star, now and then (starOnce): a thin streak of light, drawn by the browser */
+.fx-star {
+  top: 0;
+  left: 0;
+  width: 110px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, .95));
+  opacity: 0;
 }
 
 .fx-flake {
@@ -3846,20 +3894,26 @@ label {
   100% { translate: 0 0; rotate: 0deg; }
 }
 
-/* A Pro player's badge during a game: a star and their online wins, hung
-   on the top edge of their box so it never takes room from the name (the
-   server tells both players). */
+/* A player's level during a game: a pastille right under their name, inside the box (the server tells both players).
+   The box stacks the name at the top, the badge under it and the game info (pieces left, points) at the bottom; the
+   badge is a pseudo-element of .div-block-15 (data-badge is copied onto it by the JS), so it takes its row there. */
 .player {
   position: relative;
 }
 
-.player[data-badge]:not([data-badge=""])::after {
+.div-block-15 {
+  grid-template-rows: auto auto 1fr;
+}
+
+.div-block-15 > .textPlayer.t1 { grid-row: 1; }
+.div-block-15 > .div-block-17 { grid-row: 3; align-self: end; margin-bottom: -.5px; }
+
+.div-block-15[data-badge]:not([data-badge=""])::after {
   content: attr(data-badge);
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translate(-50%, -55%);
-  z-index: 2;
+  grid-row: 2;
+  justify-self: center;
+  align-self: start;
+  margin-top: -3.1px;
   padding: .05em .55em;
   border-radius: .8em;
   font-family: "Changa One", sans-serif;
@@ -3870,6 +3924,18 @@ label {
   color: var(--badge-ink, #3d240c);
   border: .1em solid rgba(0, 0, 0, .35);
   font-variant-numeric: tabular-nums;
+}
+
+/* The "Guest" pastille is the quiet one: no fill, a thin line and a softer ink, so it doesn't weigh like a level. */
+.div-block-15[data-guest][data-badge]:not([data-badge=""])::after {
+  background: transparent;
+  color: rgba(0, 0, 0, .55);
+  border-color: rgba(0, 0, 0, .25);
+}
+
+.player.dark-box .div-block-15[data-guest][data-badge]:not([data-badge=""])::after {
+  color: rgba(255, 255, 255, .72);
+  border-color: rgba(255, 255, 255, .32);
 }
 
 /* Everyone's level shows; Pro adds the star (in the text). */

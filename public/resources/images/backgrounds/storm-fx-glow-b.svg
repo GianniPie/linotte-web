@@ -1,11 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The glow of one lightning flash of the storm background, still: the sky lit from within. CSS fades it (see flashOnce in linotte.js). -->
+<!-- The glow of one lightning flash of the storm background, still: the sky lit from within, feathered (a bell-shaped fall-off, so no rim shows where it ends). CSS fades it (see flashOnce in linotte.js). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
   <defs>
     <radialGradient id="flash">
-      <stop offset="0" stop-color="#f2f8ff" stop-opacity="1"/>
-      <stop offset=".3" stop-color="#9ec8ff" stop-opacity=".6"/>
-      <stop offset="1" stop-color="#5f9bf0" stop-opacity="0"/>
+      <stop offset="0" stop-color="#f2f8ff" stop-opacity="1.000"/>
+      <stop offset="0.05" stop-color="#e4f0ff" stop-opacity="0.988"/>
+      <stop offset="0.1" stop-color="#d6e8ff" stop-opacity="0.951"/>
+      <stop offset="0.15" stop-color="#c8e0ff" stop-opacity="0.893"/>
+      <stop offset="0.2" stop-color="#bad8ff" stop-opacity="0.818"/>
+      <stop offset="0.25" stop-color="#acd0ff" stop-opacity="0.729"/>
+      <stop offset="0.3" stop-color="#9ec8ff" stop-opacity="0.633"/>
+      <stop offset="0.35" stop-color="#9ac5fe" stop-opacity="0.534"/>
+      <stop offset="0.4" stop-color="#95c2fd" stop-opacity="0.438"/>
+      <stop offset="0.45" stop-color="#90befc" stop-opacity="0.349"/>
+      <stop offset="0.5" stop-color="#8cbbfb" stop-opacity="0.269"/>
+      <stop offset="0.55" stop-color="#88b8fa" stop-opacity="0.201"/>
+      <stop offset="0.6" stop-color="#83b5f9" stop-opacity="0.144"/>
+      <stop offset="0.65" stop-color="#7eb2f8" stop-opacity="0.100"/>
+      <stop offset="0.7" stop-color="#7aaef6" stop-opacity="0.066"/>
+      <stop offset="0.75" stop-color="#76abf5" stop-opacity="0.041"/>
+      <stop offset="0.8" stop-color="#71a8f4" stop-opacity="0.024"/>
+      <stop offset="0.85" stop-color="#6ca5f3" stop-opacity="0.013"/>
+      <stop offset="0.9" stop-color="#68a1f2" stop-opacity="0.006"/>
+      <stop offset="0.95" stop-color="#649ef1" stop-opacity="0.002"/>
+      <stop offset="1" stop-color="#5f9bf0" stop-opacity="0.000"/>
     </radialGradient>
   </defs>
   <ellipse cx="360" cy="800" rx="680" ry="360" fill="url(#flash)"/>

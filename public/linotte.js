@@ -481,7 +481,11 @@ function renderPlayerBox(player) {
         const level = controller?.mode === "bot" && seat === 1 ? levelOf(myXp()) : p.level ?? null;
         const pro = controller?.mode === "bot" && seat === 1 ? isMyStar() : Boolean(p.pro);
         box.classList.toggle("is-pro", pro);
-        box.dataset.badge = level === null ? "" : levelLabel(level, pro);
+        // Online, a player the server gave no level (a guest keeps no account) wears a "Guest" pastille, so every box has one;
+        // against the bot or at the same table there is nothing to say for the other seat.
+        box.dataset.badge = level !== null ? levelLabel(level, pro) : controller?.mode === "online" ? t("Guest") : "";
+        box.querySelector(".div-block-15").dataset.badge = box.dataset.badge;
+        box.querySelector(".div-block-15").toggleAttribute("data-guest", level === null && controller?.mode === "online"); // a quieter pastille (CSS)
         box.dataset.tier = level === null ? "" : badgeTier(level);
     }
     fitPlayerNames();
@@ -1039,11 +1043,13 @@ let bgPetalTimer = 0;
 let bgGustTimer = 0;
 let bgGlintTimer = 0;
 let bgFlakeTimer = 0;
+let bgStarTimer = 0;
+let bgSurgeTimer = 0;
 // What each moving background is made of (bottom to top), and what plays now and then on it.
 const BG_FX_LAYERS = {
     "storm-clouds.svg": ["fx-cloud fx-far", "fx-glow fx-glow-a", "fx-glow fx-glow-b", "fx-cloud fx-mid", "fx-bolt fx-bolt-a", "fx-bolt fx-bolt-b", "fx-cloud fx-near", "fx-top", "fx-light"],
     "spring-meadow.svg": ["fx-cloud fx-sp-a", "fx-cloud fx-sp-b", "fx-grass fx-grass-back", "fx-grass fx-grass-front"],
-    "ice-glacier.svg": ["fx-aurora"],
+    "ice-glacier.svg": ["fx-aurora", "fx-range"],
 };
 // The moving background is drawn once: in whatever is on top (the game, or the home, the options or a sheet, each of which
 // has its own copy of the picture to cover what is under it). The copies under another cost for nothing, and on a phone
@@ -1083,6 +1089,8 @@ function syncBgFx(file) {
     clearTimeout(bgGustTimer);
     clearTimeout(bgGlintTimer);
     clearTimeout(bgFlakeTimer);
+    clearTimeout(bgStarTimer);
+    clearTimeout(bgSurgeTimer);
     const layers = BG_FX_LAYERS[file];
     if (!layers) return;
     for (const host of [document.body, ...optBgs]) {
@@ -1103,6 +1111,8 @@ function syncBgFx(file) {
     } else if (file === "ice-glacier.svg") {
         bgGlintTimer = setTimeout(glintOnce, 1200 + Math.random() * 1500);
         bgFlakeTimer = setTimeout(flakeOnce, 2500 + Math.random() * 3000);
+        bgStarTimer = setTimeout(starOnce, 9000 + Math.random() * 9000);
+        bgSurgeTimer = setTimeout(auroraSurgeOnce, 6000 + Math.random() * 6000);
     } else {
         bgPetalTimer = setTimeout(petalOnce, 2500 + Math.random() * 3000);
         bgGustTimer = setTimeout(grassGustOnce, 5000 + Math.random() * 4000);
@@ -1129,21 +1139,35 @@ function grassGustOnce() {
     bgGustTimer = setTimeout(grassGustOnce, 22000 + Math.random() * 28000);
 }
 
-// A flash: the glow fades, the bolt flickers twice, and the light goes over the whole sky. Two of them, as it was.
-const FLASHES = {
-    a: { glow: [1800, [[0, 0], [0.1, 1], [0.3, 0.2], [0.45, 0.85], [1, 0]]], bolt: [1080, [[0, 0], [0.1667, 1], [0.4167, 0], [0.667, 1], [1, 0]]], light: [1260, [[0, 0], [0.143, 0.5], [0.43, 0], [0.643, 0.38], [1, 0]]] },
-    b: { glow: [2860, [[0, 0], [0.091, 1], [0.273, 0.15], [0.409, 0.8], [1, 0]]], bolt: [1560, [[0, 0], [0.1667, 1], [0.4167, 0], [0.667, 1], [1, 0]]], light: [1820, [[0, 0], [0.143, 0.48], [0.429, 0], [0.643, 0.36], [1, 0]]] },
-};
+// A flash: the glow of the sky, the bolt and the light over the whole sky, each with its own flicker (opacity steps: offset,
+// opacity). Not the same every time: a single stroke, a quick double, a stutter of three, the slow double there always was,
+// and a distant sheet of light with no bolt. One is picked at random, never the one just played; now and then a second
+// one follows within a second or two. (Played by a timer: nothing runs between two flashes.)
+const FLASH_KINDS = [
+    { weight: 3, glow: [1500, [[0, 0], [0.09, 1], [0.4, 0.45], [1, 0]]], bolt: [650, [[0, 0], [0.2, 1], [0.55, 0.2], [1, 0]]], light: [800, [[0, 0], [0.15, 0.5], [1, 0]]] }, // single
+    { weight: 3, glow: [1100, [[0, 0], [0.1, 1], [0.25, 0.2], [0.4, 0.9], [1, 0]]], bolt: [600, [[0, 0], [0.16, 1], [0.34, 0], [0.52, 1], [0.8, 0], [1, 0]]], light: [700, [[0, 0], [0.14, 0.5], [0.36, 0.05], [0.55, 0.4], [1, 0]]] }, // quick double
+    { weight: 2, glow: [1500, [[0, 0], [0.07, 1], [0.18, 0.15], [0.27, 0.9], [0.38, 0.1], [0.5, 1], [1, 0]]], bolt: [1100, [[0, 0], [0.09, 1], [0.2, 0], [0.3, 0.8], [0.4, 0], [0.5, 1], [0.72, 0], [1, 0]]], light: [1100, [[0, 0], [0.08, 0.5], [0.2, 0], [0.3, 0.4], [0.4, 0], [0.5, 0.5], [1, 0]]] }, // stutter
+    { weight: 2, glow: [2860, [[0, 0], [0.091, 1], [0.273, 0.15], [0.409, 0.8], [1, 0]]], bolt: [1560, [[0, 0], [0.1667, 1], [0.4167, 0], [0.667, 1], [1, 0]]], light: [1820, [[0, 0], [0.143, 0.48], [0.429, 0], [0.643, 0.36], [1, 0]]] }, // slow double
+    { weight: 2, glow: [2600, [[0, 0], [0.2, 0.9], [0.45, 0.45], [0.65, 0.8], [1, 0]]], bolt: null, light: [2000, [[0, 0], [0.25, 0.3], [0.5, 0.1], [0.7, 0.25], [1, 0]]] }, // distant sheet
+];
+let lastFlashKind = -1;
 const play = (els, [duration, steps]) => els.forEach((el) => el.animate(steps.map(([offset, opacity]) => ({ offset, opacity })), { duration }));
 function flashOnce() {
+    let next = 7000 + Math.random() * 9000;
     if (!document.hidden) {
-        const which = Math.random() < 0.5 ? "a" : "b";
-        const f = FLASHES[which];
+        let kind;
+        do {
+            let r = Math.random() * FLASH_KINDS.reduce((sum, k) => sum + k.weight, 0);
+            kind = FLASH_KINDS.findIndex((k) => (r -= k.weight) < 0);
+        } while (kind === lastFlashKind);
+        lastFlashKind = kind;
+        const f = FLASH_KINDS[kind], which = Math.random() < 0.5 ? "a" : "b";
         play(document.querySelectorAll(".fx-glow-" + which), f.glow);
-        play(document.querySelectorAll(".fx-bolt-" + which), f.bolt);
+        if (f.bolt) play(document.querySelectorAll(".fx-bolt-" + which), f.bolt);
         play(document.querySelectorAll(".bg-fx .fx-light"), f.light);
+        if (Math.random() < 0.18) next = 900 + Math.random() * 1400; // a second one right after
     }
-    bgFxTimer = setTimeout(flashOnce, 7000 + Math.random() * 9000);
+    bgFxTimer = setTimeout(flashOnce, next);
 }
 // A drop that falls across the screen now and then (sometimes two or three, one after the other).
 function fallOne(x) {
@@ -1192,6 +1216,44 @@ function flakeOnce() {
     bgFlakeTimer = setTimeout(flakeOnce, 4000 + Math.random() * 7000);
 }
 
+// A shooting star crosses the upper sky of the ice now and then (a streak of light, on the GPU, gone in about a second).
+function starOnce() {
+    if (!document.hidden) {
+        const W = window.innerWidth, H = window.innerHeight;
+        const x0 = W * (0.08 + Math.random() * 0.6), y0 = H * (0.04 + Math.random() * 0.2);
+        const dx = W * (0.22 + Math.random() * 0.14) * (Math.random() < 0.8 ? 1 : -1), dy = Math.abs(dx) * 0.32;
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        document.querySelectorAll(".bg-fx").forEach((fx) => {
+            if (!fx.getClientRects().length) return;
+            const el = document.createElement("i");
+            el.className = "fx-star";
+            fx.append(el);
+            el.animate([
+                { opacity: 0, transform: `translate(${x0}px, ${y0}px) rotate(${angle}deg)`, offset: 0 },
+                { opacity: 1, offset: 0.2 },
+                { opacity: 0, transform: `translate(${x0 + dx}px, ${y0 + dy}px) rotate(${angle}deg)`, offset: 1 },
+            ], { duration: 900 + Math.random() * 400, easing: "ease-in" }).onfinish = () => el.remove();
+        });
+    }
+    bgStarTimer = setTimeout(starOnce, 22000 + Math.random() * 26000);
+}
+// The aurora swells now and then: its curtains rise behind the peaks and sink back (the scale, not the opacity or the
+// drift, which the CSS animation already moves).
+function auroraSurgeOnce() {
+    if (!document.hidden) {
+        const rise = 1.06 + Math.random() * 0.1;
+        document.querySelectorAll(".fx-aurora").forEach((el) => {
+            if (!el.getClientRects().length) return;
+            el.animate([
+                { scale: "1 1", offset: 0 },
+                { scale: `1.04 ${rise}`, offset: 0.45 },
+                { scale: "1 1", offset: 1 },
+            ], { duration: 8000 + Math.random() * 4000, easing: "ease-in-out" });
+        });
+    }
+    bgSurgeTimer = setTimeout(auroraSurgeOnce, 11000 + Math.random() * 14000);
+}
+
 // A glint twinkles on the ice now and then (one or two at a time, anywhere on the lower part of the screen).
 function twinkle(el, ms) {
     el.animate([
@@ -1204,7 +1266,7 @@ function glintOnce() {
     if (!document.hidden) {
         const count = Math.random() < 0.4 ? 2 : 1;
         for (let n = 0; n < count; n++) {
-            const x = 4 + Math.random() * 92, y = 38 + Math.random() * 56, size = 16 + Math.random() * 22, ms = 900 + Math.random() * 900;
+            const x = 4 + Math.random() * 92, y = 68 + Math.random() * 29, size = 16 + Math.random() * 22, ms = 900 + Math.random() * 900;
             document.querySelectorAll(".bg-fx").forEach((fx) => {
                 if (!fx.getClientRects().length) return;
                 const el = document.createElement("i");
@@ -1671,10 +1733,14 @@ rememberOwnBg(selectedBg);
 
 let isVolumeOn = true;
 isVolumeOn = toBoolean(getCookie("volumeOn", "true"));
-if (isVolumeOn == true) {
-    document.getElementById("sound-on").classList.add("selected");
-} else {
-    document.getElementById("sound-off").classList.add("selected");
+// A switch of the "Sound and effects" island: a button lit in yellow while it is on.
+function bindSwitch(id, isOn, set) {
+    const btn = document.getElementById(id);
+    const paint = () => { btn.classList.toggle("selected", isOn()); btn.setAttribute("aria-checked", String(isOn())); };
+    const flip = () => { set(!isOn()); paint(); };
+    btn.addEventListener("click", flip);
+    btn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } });
+    paint();
 }
 
 
@@ -2095,16 +2161,7 @@ function applyFxPreference() {
     document.querySelectorAll(".piece").forEach((piece) => { delete piece.dataset.fx; clearTimeout(piece.fxTimer); syncPieceFx(piece); });
 }
 fxPref = toBoolean(getCookie("fxOn", "true"));
-document.getElementById(fxPref ? "fx-on" : "fx-off").classList.add("selected");
-for (const id of ["fx-on", "fx-off"]) {
-    document.getElementById(id).addEventListener("click", () => {
-        fxPref = id === "fx-on";
-        document.getElementById("fx-on").classList.toggle("selected", fxPref);
-        document.getElementById("fx-off").classList.toggle("selected", !fxPref);
-        setCookie("fxOn", fxPref);
-        applyFxPreference();
-    });
-}
+bindSwitch("fx-toggle", () => fxPref, (on) => { fxPref = on; setCookie("fxOn", on); applyFxPreference(); });
 navigator.getBattery?.().then((battery) => {
     const check = () => {
         const low = !battery.charging && battery.level <= 0.2;
@@ -2119,17 +2176,12 @@ navigator.getBattery?.().then((battery) => {
 if (!fxPref) applyFxPreference();
 
 let isVibrationOn = toBoolean(getCookie("vibrationOn", "true"));
-document.getElementById(isVibrationOn ? "vibration-on" : "vibration-off").classList.add("selected");
-if (!("vibrate" in navigator)) document.getElementById("vibration-section").hidden = true;
-for (const id of ["vibration-on", "vibration-off"]) {
-    document.getElementById(id).addEventListener("click", () => {
-        isVibrationOn = id === "vibration-on";
-        document.getElementById("vibration-on").classList.toggle("selected", isVibrationOn);
-        document.getElementById("vibration-off").classList.toggle("selected", !isVibrationOn);
-        setCookie("vibrationOn", isVibrationOn);
-        if (isVibrationOn) navigator.vibrate?.(40); // so it can be felt at once
-    });
-}
+if (!("vibrate" in navigator)) document.getElementById("vibration-item").hidden = true;
+bindSwitch("vibration-toggle", () => isVibrationOn, (on) => {
+    isVibrationOn = on;
+    setCookie("vibrationOn", on);
+    if (on) navigator.vibrate?.(40); // so it can be felt at once
+});
 
 // Notifications (the store apps, signed in): a friend who comes to a waiting room while the phone is locked is
 // told to the owner by a notification. Opt-in, per account: the first answer is asked on the waiting sheet, this
@@ -2168,20 +2220,7 @@ listenForPushTaps(async (data) => {
     else await onlineClient.connect(); // the hello that follows asks for the room by itself
 });
 
-const volumeOptions = document.querySelectorAll(".sound-btn");
-volumeOptions.forEach(volumeOption => {
-    volumeOption.addEventListener("click", () => {
-        volumeOptions.forEach(t => t.classList.remove("selected"));
-        volumeOption.classList.add("selected");
-
-        if (volumeOption.id == "sound-off") {
-            isVolumeOn = false;
-        } else {
-            isVolumeOn = true;
-        }
-        setCookie("volumeOn", isVolumeOn);
-    });
-});
+bindSwitch("sound-toggle", () => isVolumeOn, (on) => { isVolumeOn = on; setCookie("volumeOn", on); });
 
 
 const boardOptions = document.querySelectorAll(".board-options");

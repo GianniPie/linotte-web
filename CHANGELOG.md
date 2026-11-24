@@ -12,6 +12,23 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.12] - 2026-11-24
+
+### Changed
+- **The previews of the Ice board and of the Storm sky are redone.** The Ice board's ice (lip, icicles, corner mounds) and frame are cut to the same rounded square as the other board previews, so the outline follows the corner; the Storm sky shows its clouds, a lightning with its glow and rain.
+- **The Ice preview in the lists (`ice-glacier-prev.png`) shows the new sky** (aurora behind the mountains, bigger peaks), with its corners cut as an exact, smoothed rounded square (14.4% of the side, like the others), so the selection ring follows them.
+- **The glow of the Storm's lightning is feathered:** the glow in the sky falls off as a bell instead of a straight line, and the halo of the bolt, which was one wide solid stroke with a hard edge, is now a stack of ever wider and fainter strokes, so no rim shows where the light ends.
+- **The Storm's flashes are no longer all the same double flicker:** a single stroke, a quick double, a stutter of three, the slow double there always was, and a distant sheet of light with no bolt; one is picked at random (never the same twice in a row), and now and then a second one follows within a second or two.
+- **The Storm sky is no longer one flat blue when its clouds don't move** (effects off, low battery, "reduce motion"): the still picture now has a pale glow at the top and five soft clouds, which also sit under the moving ones when they are on.
+- **Sound, Vibration and Animations are one island, "Sound and effects",** with one button for each (an icon and a word under it) instead of an ON and an OFF each; the button is lit in yellow while the function is on, and a tap turns it on or off. Vibration still isn't there where the browser can't vibrate. The island's title and "Animations" are translated in the five languages ("Animated effects" is gone).
+- **An online guest wears a "Guest" pastille** in the player's box, where there is no level to show (a guest keeps no account), so every box under the name has one; it is the quiet kind (no fill, a thin line, a softer ink) so it doesn't weigh like a level. Against the bot and at the same table nothing changes.
+- **The level badge sits inside the player's box, right under the name** (it hung on the top edge): the name goes up a little, the game info (pieces left, points) down, and the badge takes the row between them. A player without a level (a guest, a bot opponent) keeps the name at the top and the info at the bottom.
+- **The Ice sky is redrawn, richer and livelier, with little white at the bottom.** Faceted mountains (a lit and a shadow side to every peak, snow caps, mist between two ranges, the middle one taller and sharper, the one in front broad and low, at a soft contrast), lower so they show under the board, ice shards and crevasses in front, a deeper sky with stars, and an aurora of tall thin rays (some hang from the top of the sky, some rise from behind the peaks: the mountains are drawn again as a layer over it, `ice-fx-range.svg`). Now and then the aurora swells and a shooting star crosses the sky (GPU movements started by a timer; nothing runs between them). The glints land on the mountains and the snow. The pictures come from a script, so they can be changed as a whole.
+
+### Fixed
+- The yellow ring of the PAUSE button (lit while the game is paused) was cut off on its left by the list that holds the three Game buttons; there is room for it now.
+- Spring clouds are smooth again: halving their steps made them jerky (they move slowly, so a step every fifth of a second shows); they are back at ten a second. The storm and the ice sky keep the lower rate.
+
 ## [2.35.11] - 2026-11-23
 
 ### Fixed

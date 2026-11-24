@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The bolt of one lightning flash of the storm background, still, with its halo. It flickers by CSS (see flashOnce in linotte.js). -->
+<!-- The bolt of one lightning flash of the storm background, still, with its halo (a stack of ever wider, fainter strokes: the light fades out without a rim). It flickers by CSS (see flashOnce in linotte.js). -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
   <g fill="none" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M330 640 L360 700 L318 725 L352 800 L305 830 L330 900 L292 1000" stroke="#9ec8ff" stroke-width="24" opacity=".7"/>
-    <path d="M330 640 L360 700 L318 725 L352 800 L305 830 L330 900 L292 1000" stroke="#fff" stroke-width="7"/>
+    <path d="M330 640 L360 700 L318 725 L352 800 L305 830 L330 900 L292 1000" stroke="#9ec8ff" stroke-width="78" opacity="0.05"/>
+    <path d="M330 640 L360 700 L318 725 L352 800 L305 830 L330 900 L292 1000" stroke="#9ec8ff" stroke-width="60" opacity="0.08"/>
+    <path d="M330 640 L360 700 L318 725 L352 800 L305 830 L330 900 L292 1000" stroke="#9ec8ff" stroke-width="44" opacity="0.12"/>
+    <path d="M330 640 L360 700 L318 725 L352 800 L305 830 L330 900 L292 1000" stroke="#9ec8ff" stroke-width="30" opacity="0.18"/>
+    <path d="M330 640 L360 700 L318 725 L352 800 L305 830 L330 900 L292 1000" stroke="#9ec8ff" stroke-width="19" opacity="0.3"/>
+    <path d="M330 640 L360 700 L318 725 L352 800 L305 830 L330 900 L292 1000" stroke="#dff0ff" stroke-width="12" opacity=".85"/>
+    <path d="M330 640 L360 700 L318 725 L352 800 L305 830 L330 900 L292 1000" stroke="#fff" stroke-width="6"/>
   </g>
 </svg>
