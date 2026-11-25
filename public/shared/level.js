@@ -16,6 +16,7 @@
 // Finishing a game is worth something even when it's lost: every game
 // played to the end moves the player on, and staying beats leaving.
 import { themePieces } from "./assets.js";
+import { optionsOf } from "../themes/manifests.js";
 
 export const ONLINE_WIN_POINTS = 4;
 export const ONLINE_FINISHED_POINTS = 2;
@@ -104,14 +105,16 @@ export function badgeTier(level) {
 // PERSIAN dice (3, 4, 5) and Linotte's own green background (Sun Tornado, 4) are free; every other one is
 // earned, about one a level at first. CANDY (6) comes first, SPACE (7) after it. The options list
 // them in this order (see sortLooksByLevel in linotte.js).
-export const FREE_LOOKS = { dice: 3, background: 4 };
-export const LEVEL_UNLOCKS = {
-    dice: { 1: 2, 2: 4, 0: 6, 6: 10, 7: 15 },
-    background: { 0: 1, 1: 3, 2: 5, 3: 7, 5: 9, 6: 12, 7: 16, 8: 20 },
-};
-// Looks that come with a theme (themes.js), not with a level: kind -> option index -> theme id. They are
+// What a player has before anything is unlocked, and what unlocks the rest: read from the manifests (themes/classic/manifest.js:
+// `default` and `unlock`, the level that opens an option).
+const optionsFor = (kind) => optionsOf(kind);
+export const FREE_LOOKS = { dice: optionsFor("dice").find((o) => o.default).index, background: optionsFor("background").find((o) => o.default).index };
+const unlocks = (kind) => Object.fromEntries(optionsFor(kind).filter((o) => o.unlock != null).map((o) => [o.index, o.unlock]));
+export const LEVEL_UNLOCKS = { dice: unlocks("dice"), background: unlocks("background") };
+// Looks that come with a theme sold apart, not with a level: kind -> option index -> theme id. They are
 // never unlocked by level, and the server does not accept them until themes are sold.
-export const THEME_LOOKS = { dice: { 8: "storm", 9: "spring", 10: "ice" }, background: { 9: "storm", 10: "spring", 11: "ice" }, board: { 1: "storm", 2: "spring", 3: "ice" }, piece: themePieces };
+const lookOf = (kind) => Object.fromEntries(optionsFor(kind).filter((o) => !o.free).map((o) => [o.index, o.theme]));
+export const THEME_LOOKS = { dice: lookOf("dice"), background: lookOf("background"), board: lookOf("board"), piece: themePieces };
 export const themeOfLook = (kind, index) => THEME_LOOKS[kind]?.[index] ?? null;
 export const unlockLevel = (kind, index) => LEVEL_UNLOCKS[kind][index] ?? 0;
 

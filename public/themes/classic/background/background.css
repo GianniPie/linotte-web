@@ -1,0 +1,130 @@
+/* The ink of each of the main theme's backgrounds: how the game's own colours read over it (themes/README.md, "The ink").
+   Every background declares the whole set, even what it keeps as the default, and each has its own block: a pale one and a dark
+   one do not want the same colours (--result-icon above all, the symbols of the combinations, white on a bright background
+   is lost). The values below are the game's defaults, to tune background by background. */
+
+/* Confetti Doodles */
+body.ink-classic-confetti-doodles {
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #ffea00;
+}
+
+/* Diamond Sunset */
+body.ink-classic-diamond-sunset {
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #ffea00;
+}
+
+/* Liquid Cheese */
+body.ink-classic-liquid-cheese {
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #ffea00;
+}
+
+/* Tortoise Shell */
+body.ink-classic-tortoise-shell {
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #ffea00;
+}
+
+/* Sun Tornado */
+body.ink-classic-sun-tornado {
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #ffea00;
+}
+
+/* Pattern Randomized */
+body.ink-classic-pattern-randomized {
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #ffea00;
+}
+
+/* Subtle Prism */
+body.ink-classic-subtle-prism {
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #ffea00;
+}
+
+/* Parabolic Ellipse */
+body.ink-classic-parabolic-ellipse {
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #ffea00;
+}
+
+/* Repeating Triangles */
+body.ink-classic-repeating-triangles {
+  --ink: #3d240c;
+  --ink-bg: rgba(0, 0, 0, .7);
+  --ink-bg-soft: rgba(0, 0, 0, .5);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .4);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #ffea00;
+}

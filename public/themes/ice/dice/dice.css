@@ -1,0 +1,4 @@
+/* The Ice dice are cubes of ice: their shadow on the table is a soft cold blue (body.dice-ice, set when they are the dice on the table). */
+body.dice-ice .die.black-shadow:not(.selected) {
+  box-shadow: rgba(60, 130, 200, .38) .1875em .3125em .5em .125em;
+}

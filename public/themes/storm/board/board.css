@@ -1,0 +1,112 @@
+/* ============================================
+   BOARD SKINS (body.board-<id>, see the Board options; "classic" is the plain one)
+   ============================================ */
+/* Storm: a light, wet stone. Cool pale tiles in a slate frame, symbols in dark slate, a sheen across the board
+   and drops of water in the margins of the tiles (the symbols stay clear). */
+body.board-storm .div-table {
+  background: linear-gradient(145deg, #62737e, #3d4a54);
+  border-color: #3d4a54;
+  box-shadow: 0 .25em .9em rgba(10, 20, 30, .4), inset 0 0 0 .08em rgba(255, 255, 255, .22);
+}
+
+body.board-storm .grid {
+  position: relative;
+  background: linear-gradient(145deg, #62737e, #3d4a54);
+}
+
+body.board-storm .grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1; /* over the tiles, under the pieces (z-index 2) */
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, transparent 28%, rgba(255, 255, 255, .3) 43%, rgba(255, 255, 255, .06) 52%, transparent 62%),
+    url("streaks.svg") center / 100% 100% no-repeat;
+}
+
+/* Turned for the player on the other side (FLIP, same table): the board stays where it is, and the symbols turn. The
+   water turns with them, so it runs down for whoever it is turned to (and the sheen comes from their side too). */
+body.board-storm .grid::after {
+  transition: rotate .6s ease;
+}
+
+body.board-storm.table-flipped .grid::after {
+  rotate: 180deg;
+}
+
+body.board-storm .tile {
+  border-color: #485862;
+  background-color: #d6e2e7;
+  background-image: linear-gradient(160deg, #eef4f6 0%, #d6e2e7 55%, #c3d3da 100%);
+  box-shadow: inset 0 .1em .14em rgba(255, 255, 255, .75), inset 0 -.12em .22em rgba(55, 85, 100, .28);
+}
+
+/* the symbols, in the frame's slate (the drawing is only the shape: the colour is this one) */
+body.board-storm .tile::before {
+  background-image: none;
+  background-color: #2b3944;
+  -webkit-mask: var(--tile-img) center / contain no-repeat;
+  mask: var(--tile-img) center / contain no-repeat;
+}
+
+/* The water that slides down the storm board now and then: drawn by startBoardRain (linotte.js) on a layer of its own over the
+   tiles and under the pieces; it turns with the symbols when the table is turned (FLIP). */
+.board-rain {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* over the tiles (a lit one too), under the pieces (2) and the lit ring (3) */
+  pointer-events: none;
+  contain: paint;
+  border-radius: inherit;
+  transition: rotate .6s ease;
+}
+
+body.table-flipped .board-rain {
+  rotate: 180deg;
+}
+
+/* (the storm drops stay as they are when the table turns: water on glass reads the same either way up) */
+
+/* The drops on the storm board (syncBoardDrops in linotte.js): still, until a piece lands on their tile. */
+.board-drops {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* over the tiles (a lit one too), under the pieces (2) and the lit ring (3) */
+  pointer-events: none;
+  contain: paint;
+  border-radius: inherit;
+}
+
+.board-drops .sdrop {
+  position: absolute;
+  aspect-ratio: 1;
+  background: url("drop.svg") center / 100% 100% no-repeat;
+}
+
+.board-drops .dtrail {
+  position: absolute;
+  width: .75%;
+  border-radius: 99px;
+  background: linear-gradient(#eaf5fb, rgba(234, 245, 251, .6));
+  transform-origin: 50% 0;
+  opacity: 0;
+}
+
+.board-rain .rdrop {
+  position: absolute;
+  width: 4.2%;
+  aspect-ratio: 1;
+  background: url("drop.svg") center / 100% 100% no-repeat;
+  opacity: 0;
+}
+
+.board-rain .rtrail {
+  position: absolute;
+  width: .75%;
+  border-radius: 99px;
+  background: linear-gradient(#eaf5fb, rgba(234, 245, 251, .6));
+  transform-origin: 50% 0;
+  opacity: 0;
+}

@@ -178,7 +178,7 @@ window.addEventListener('orientationchange', onViewportChange);
 
 //----------- GAME STATE ---------------
 import { createInitialGameState, urlOf, rndNum, idToCoo, matrixCheck, matrixFill, toBoolean, preload, idToIndex } from "./shared/utils.js";
-import { dicePath, diceFaces, dicePos, diceNames, diceRadius, bgPath, backgrounds, boardSkins, boardSkinNames, piecesPath, pieces, avatarIds, avatarUrl, avatarOrDefault } from "./shared/assets.js";
+import { diceSrc, pieceSrc, dicePos, diceNames, diceRadius, bgSrc, bgTitle, boardSkins, boardSkinNames, pieces, avatarIds, avatarUrl, avatarOrDefault, backgroundCount } from "./shared/assets.js";
 import { updateGame, canRoll, callBlockedBy } from "./shared/gameEngine.js";
 import { cannotWin } from "./shared/giveUp.js";
 import { chooseDiceToLock, shouldStopRolling, chooseBestMove, chooseCallToMake, explainPlacement, explainTarget, labCandidates, setSpeedWeights, setSpeedModels, labAim, labCall, labStop, labLock } from "./shared/botAI.js";
@@ -197,6 +197,11 @@ import { renderBanner, interstitial, rewarded } from "./ads.js";
 import { recentErrors } from "./diagnostics.js"; // the last errors of the page, for a problem report
 import "./a11y.js"; // roles, names, keyboard and states for the buttons that are not <button>s
 import { THEMES, themeById } from "./shared/themes.js";
+import { startFlip } from "./themes/core/theme-core.js";
+import { initThemeHost, showBackground as showThemeBackground, showBoard, remount, boardPlace, boardRedraw } from "./themes/core/theme-host.js";
+import { initMotion, setMotionPreference, motionPreference } from "./themes/core/motion.js";
+import { PIECE_FX } from "./themes/registry.js";
+import { watchPieces, resyncPieces } from "./themes/core/piece-fx.js";
 import { pushOffered, pushEnabled, pushUndecided, enablePush, disablePush, syncPush, forgetPushSync, listenForPushTaps } from "./push.js";
 import { OnlineClient, shareOrigin, hasConsent, saveConsent, inviteLink, pendingJoinCode, pendingFriendCode, setOnlineSession, wasInOnlineSession, fetchPro, lastKnownPro, lastKnownStar, lastKnownRole, lastKnownXp, lastKnownRecord, lastKnownToday, claimAdReward, fetchLeaderboard, fetchFriends, fetchPlayer, sendFeedback, getPlayerId } from "./online.js";
 import { levelOf, levelStart, badgeTier, rewardsAt, nextReward, LEVEL_UNLOCKS, FREE_LOOKS, unlockLevel, themeOfLook, THEME_LOOKS, AD_REWARDS_PER_DAY, ONLINE_WIN_POINTS, ONLINE_FINISHED_POINTS, BOT_WIN_POINTS, botWinPayout, DAILY_BONUS_POINTS, ABANDON_PENALTY, ABANDON_BASE, onlinePayout, validMode, MODE_NORMAL, MODE_RUTHLESS } from "./shared/level.js";
@@ -382,7 +387,7 @@ function startBot(strategy = "speed") {
 function assignRandomPieces(state) {
     const [p1, p2] = pickPieceIndexes(favoritePiece(), -1);
     for (const [seat, i] of [[1, p1], [2, p2]]) {
-        state.players[seat].pieceImage = piecesPath + pieces[i];
+        state.players[seat].pieceImage = pieceSrc(i);
         state.players[seat].color = "#" + pieces[i].split("_")[1].slice(0, 6);
     }
 }
@@ -484,9 +489,8 @@ function renderPlayerBox(player) {
         // Online, a player the server gave no level (a guest keeps no account) wears a "Guest" pastille, so every box has one;
         // against the bot or at the same table there is nothing to say for the other seat.
         box.dataset.badge = level !== null ? levelLabel(level, pro) : controller?.mode === "online" ? t("Guest") : "";
-        box.querySelector(".div-block-15").dataset.badge = box.dataset.badge;
-        box.querySelector(".div-block-15").toggleAttribute("data-guest", level === null && controller?.mode === "online"); // a quieter pastille (CSS)
         box.dataset.tier = level === null ? "" : badgeTier(level);
+        box.toggleAttribute("data-guest", level === null && controller?.mode === "online"); // a quieter pastille (CSS)
     }
     fitPlayerNames();
 }
@@ -970,19 +974,6 @@ function showPlusPopup(anchorEl, amount) {
 }
 
 
-// Background filenames are hyphenated slugs ("sun-tornado.svg"), not
-// display names -- bg-title used to just slice off the ".svg" and show the
-// raw slug verbatim ("sun-tornado"), which read like an internal filename
-// leaking into the UI. This turns it into a normal human label ("Sun
-// Tornado") instead.
-function humanizeBgName(filename) {
-    return filename
-        .slice(0, -4)
-        .split("-")
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
-}
-
 //----------- COOKIES ---------------
 let tidyness = getCookie("tidyness", 2);
 document.getElementById("bo" + tidyness).classList.add("selected"); //option section
@@ -1004,651 +995,31 @@ const lookOrFree = (kind, saved) => (ownsLook(kind, saved) && startLevel >= unlo
 let dieCookie = lookOrFree("dice", Number(getCookie("diceFaces", FREE_LOOKS.dice)));
 document.getElementById("do" + dieCookie).classList.add("selected"); //option section
 document.getElementById("dice-current").textContent = t(diceNames[dieCookie]);
-let faces = diceFaces[dieCookie];  //faces of the selected die
 
-let selectedDie = dicePath + faces;
+let selectedDie = diceSrc(dieCookie);
 preload(selectedDie);
 
 // The background drawn on the screen: this player's own, or, in an online
 // game, the table the server chose (showTableLook).
-let shownBgFile = "";
+let shownBgId = FREE_LOOKS.background;
 function showBackground(bgId) {
-    shownBgFile = backgrounds[bgId];
-    body.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
-    optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]));
-    modal.style.backgroundImage = urlOf(bgPath + backgrounds[bgId]);
-    syncBgFx(backgrounds[bgId]);
-    syncInk(backgrounds[bgId]);
+    shownBgId = bgId;
+    body.style.backgroundImage = urlOf(bgSrc(bgId));
+    optBgs.forEach(el => el.style.backgroundImage = urlOf(bgSrc(bgId)));
+    modal.style.backgroundImage = urlOf(bgSrc(bgId));
+    showThemeBackground(bgId);
 }
 
-// The texts follow the background: a dark sky wants light texts on it and a slate ink on the panels (CSS: body.ink-*).
-const BG_INK = { "storm-clouds.svg": "storm", "spring-meadow.svg": "spring", "ice-glacier.svg": "ice" };
-function syncInk(file) {
-    for (const ink of new Set(Object.values(BG_INK))) document.body.classList.toggle("ink-" + ink, BG_INK[file] === ink);
-}
-
-//----- the storm background's moving parts -----
-// The background picture is still (the sky). The clouds are layers drawn once and slid by the GPU (CSS, see .bg-fx in
-// linotte.css), mounted in whatever shows the background; the lightning and a falling drop are played now and then by a
-// timer, on the GPU too (nothing runs between two of them). An animated picture would be redrawn by the CPU at every
-// frame, which heats the phone and drains the battery.
-// Moving things (the skies, the drops, the flowers, the pieces of the themes) are off when the player switched them off in the
-// options, when the phone asks for less motion, and when the battery is low and not charging (applyFxPreference).
-let fxPref = true; // the switch in the options
-let fxBatteryLow = false;
-const reducedMotion = () => !fxPref || fxBatteryLow || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-let bgFxTimer = 0;
-let bgDropTimer = 0;
-let bgPetalTimer = 0;
-let bgGustTimer = 0;
-let bgGlintTimer = 0;
-let bgFlakeTimer = 0;
-let bgStarTimer = 0;
-let bgSurgeTimer = 0;
-// What each moving background is made of (bottom to top), and what plays now and then on it.
-const BG_FX_LAYERS = {
-    "storm-clouds.svg": ["fx-cloud fx-far", "fx-glow fx-glow-a", "fx-glow fx-glow-b", "fx-cloud fx-mid", "fx-bolt fx-bolt-a", "fx-bolt fx-bolt-b", "fx-cloud fx-near", "fx-top", "fx-light"],
-    "spring-meadow.svg": ["fx-cloud fx-sp-a", "fx-cloud fx-sp-b", "fx-grass fx-grass-back", "fx-grass fx-grass-front"],
-    "ice-glacier.svg": ["fx-aurora", "fx-range"],
-};
-// The moving background is drawn once: in whatever is on top (the game, or the home, the options or a sheet, each of which
-// has its own copy of the picture to cover what is under it). The copies under another cost for nothing, and on a phone
-// the clouds (three layers three times as wide as the screen, in every copy) took the graphics memory: the menu stuttered
-// and texts and islands disappeared. So only the top one is drawn (.bg-fx.live, see linotte.css), and it changes when an
-// overlay opens or closes.
-const FX_OVERLAYS = ["home-overlay", "options-overlay", "online-overlay", "consent-overlay"];
-function syncFxLive() {
-    const all = [...document.querySelectorAll(".bg-fx")];
-    let top = document.body, z = -Infinity;
-    for (const id of FX_OVERLAYS) {
-        const el = document.getElementById(id);
-        if (!el || el.classList.contains("hidden") || getComputedStyle(el).display === "none") continue;
-        const zi = Number(getComputedStyle(el).zIndex) || 0;
-        if (zi >= z) { z = zi; top = el; }
-    }
-    // The game under the home or the options is out of sight: what moves in it (the glow of the player on turn, the nudges)
-    // stands still meanwhile (.game-covered in linotte.css).
-    document.body.classList.toggle("game-covered", top.id === "home-overlay" || top.id === "options-overlay");
-    all.forEach((fx) => fx.classList.toggle("live", top === document.body ? fx.parentElement === document.body : top.contains(fx)));
-}
-let fxLiveQueued = false;
-const queueFxLive = () => { if (fxLiveQueued) return; fxLiveQueued = true; setTimeout(() => { fxLiveQueued = false; syncFxLive(); }, 60); };
-{
-    const watcher = new MutationObserver(queueFxLive);
-    for (const id of FX_OVERLAYS) {
-        const el = document.getElementById(id);
-        if (el) watcher.observe(el, { attributes: true, attributeFilter: ["class", "style"] });
-    }
-    queueFxLive();
-}
-function syncBgFx(file) {
-    document.querySelectorAll(".bg-fx").forEach((el) => el.remove());
-    clearTimeout(bgFxTimer);
-    clearTimeout(bgDropTimer);
-    clearTimeout(bgPetalTimer);
-    clearTimeout(bgGustTimer);
-    clearTimeout(bgGlintTimer);
-    clearTimeout(bgFlakeTimer);
-    clearTimeout(bgStarTimer);
-    clearTimeout(bgSurgeTimer);
-    const layers = BG_FX_LAYERS[file];
-    if (!layers) return;
-    for (const host of [document.body, ...optBgs]) {
-        const fx = document.createElement("div");
-        fx.className = "bg-fx";
-        for (const cls of layers) {
-            const layer = document.createElement("i");
-            layer.className = cls;
-            fx.append(layer);
-        }
-        host.append(fx);
-    }
-    syncFxLive();
-    if (reducedMotion()) return;
-    if (file === "storm-clouds.svg") {
-        bgFxTimer = setTimeout(flashOnce, 4000 + Math.random() * 4000);
-        bgDropTimer = setTimeout(dropOnce, 2500 + Math.random() * 3000);
-    } else if (file === "ice-glacier.svg") {
-        bgGlintTimer = setTimeout(glintOnce, 1200 + Math.random() * 1500);
-        bgFlakeTimer = setTimeout(flakeOnce, 2500 + Math.random() * 3000);
-        bgStarTimer = setTimeout(starOnce, 9000 + Math.random() * 9000);
-        bgSurgeTimer = setTimeout(auroraSurgeOnce, 6000 + Math.random() * 6000);
-    } else {
-        bgPetalTimer = setTimeout(petalOnce, 2500 + Math.random() * 3000);
-        bgGustTimer = setTimeout(grassGustOnce, 5000 + Math.random() * 4000);
-    }
-}
-// A gust of wind over the spring meadow, now and then: the grass and the flowers at the foot lean from their base, the
-// ones in front a little more, and settle back (the layers are still the rest of the time).
-function grassGustOnce() {
-    if (!document.hidden) {
-        const way = Math.random() < 0.5 ? 1 : -1;
-        document.querySelectorAll(".fx-grass").forEach((el) => {
-            if (!el.getClientRects().length) return;
-            const front = el.classList.contains("fx-grass-front");
-            const a = way * (front ? 3.6 : 2.4);
-            el.animate([
-                { transform: "skewX(0deg)", offset: 0 },
-                { transform: `skewX(${a}deg)`, offset: 0.3 },
-                { transform: `skewX(${-a * 0.6}deg)`, offset: 0.6 },
-                { transform: `skewX(${a * 0.25}deg)`, offset: 0.82 },
-                { transform: "skewX(0deg)", offset: 1 },
-            ], { duration: 3000 + Math.random() * 800, delay: front ? 0 : 250, easing: "ease-in-out" });
-        });
-    }
-    bgGustTimer = setTimeout(grassGustOnce, 22000 + Math.random() * 28000);
-}
-
-// A flash: the glow of the sky, the bolt and the light over the whole sky, each with its own flicker (opacity steps: offset,
-// opacity). Not the same every time: a single stroke, a quick double, a stutter of three, the slow double there always was,
-// and a distant sheet of light with no bolt. One is picked at random, never the one just played; now and then a second
-// one follows within a second or two. (Played by a timer: nothing runs between two flashes.)
-const FLASH_KINDS = [
-    { weight: 3, glow: [1500, [[0, 0], [0.09, 1], [0.4, 0.45], [1, 0]]], bolt: [650, [[0, 0], [0.2, 1], [0.55, 0.2], [1, 0]]], light: [800, [[0, 0], [0.15, 0.5], [1, 0]]] }, // single
-    { weight: 3, glow: [1100, [[0, 0], [0.1, 1], [0.25, 0.2], [0.4, 0.9], [1, 0]]], bolt: [600, [[0, 0], [0.16, 1], [0.34, 0], [0.52, 1], [0.8, 0], [1, 0]]], light: [700, [[0, 0], [0.14, 0.5], [0.36, 0.05], [0.55, 0.4], [1, 0]]] }, // quick double
-    { weight: 2, glow: [1500, [[0, 0], [0.07, 1], [0.18, 0.15], [0.27, 0.9], [0.38, 0.1], [0.5, 1], [1, 0]]], bolt: [1100, [[0, 0], [0.09, 1], [0.2, 0], [0.3, 0.8], [0.4, 0], [0.5, 1], [0.72, 0], [1, 0]]], light: [1100, [[0, 0], [0.08, 0.5], [0.2, 0], [0.3, 0.4], [0.4, 0], [0.5, 0.5], [1, 0]]] }, // stutter
-    { weight: 2, glow: [2860, [[0, 0], [0.091, 1], [0.273, 0.15], [0.409, 0.8], [1, 0]]], bolt: [1560, [[0, 0], [0.1667, 1], [0.4167, 0], [0.667, 1], [1, 0]]], light: [1820, [[0, 0], [0.143, 0.48], [0.429, 0], [0.643, 0.36], [1, 0]]] }, // slow double
-    { weight: 2, glow: [2600, [[0, 0], [0.2, 0.9], [0.45, 0.45], [0.65, 0.8], [1, 0]]], bolt: null, light: [2000, [[0, 0], [0.25, 0.3], [0.5, 0.1], [0.7, 0.25], [1, 0]]] }, // distant sheet
-];
-let lastFlashKind = -1;
-const play = (els, [duration, steps]) => els.forEach((el) => el.animate(steps.map(([offset, opacity]) => ({ offset, opacity })), { duration }));
-function flashOnce() {
-    let next = 7000 + Math.random() * 9000;
-    if (!document.hidden) {
-        let kind;
-        do {
-            let r = Math.random() * FLASH_KINDS.reduce((sum, k) => sum + k.weight, 0);
-            kind = FLASH_KINDS.findIndex((k) => (r -= k.weight) < 0);
-        } while (kind === lastFlashKind);
-        lastFlashKind = kind;
-        const f = FLASH_KINDS[kind], which = Math.random() < 0.5 ? "a" : "b";
-        play(document.querySelectorAll(".fx-glow-" + which), f.glow);
-        if (f.bolt) play(document.querySelectorAll(".fx-bolt-" + which), f.bolt);
-        play(document.querySelectorAll(".bg-fx .fx-light"), f.light);
-        if (Math.random() < 0.18) next = 900 + Math.random() * 1400; // a second one right after
-    }
-    bgFxTimer = setTimeout(flashOnce, next);
-}
-// A drop that falls across the screen now and then (sometimes two or three, one after the other).
-function fallOne(x) {
-    const fall = window.innerHeight + 140;
-    document.querySelectorAll(".bg-fx").forEach((fx) => {
-        if (!fx.getClientRects().length) return; // (not on screen: nothing to draw)
-        const drop = document.createElement("i");
-        drop.className = "fx-drop";
-        drop.style.left = x + "%";
-        fx.append(drop);
-        drop.animate([
-            { opacity: 0, transform: "translate(0, -70px)", offset: 0 },
-            { opacity: 0.8, transform: `translate(${fall * 0.06}px, ${fall * 0.12 - 70}px)`, offset: 0.12 },
-            { opacity: 0.8, transform: `translate(${fall * 0.13}px, ${fall * 0.9 - 70}px)`, offset: 0.9 },
-            { opacity: 0, transform: `translate(${fall * 0.14}px, ${fall - 70}px)`, offset: 1 },
-        ], { duration: fall / 0.9, easing: "cubic-bezier(.4,0,.9,.7)" }).onfinish = () => drop.remove();
-    });
-}
-function dropOnce() {
-    if (!document.hidden) {
-        const count = Math.random() < 0.3 ? 2 + Math.floor(Math.random() * 2) : 1;
-        for (let i = 0; i < count; i++) setTimeout(() => fallOne(4 + Math.random() * 92), i * (250 + Math.random() * 400));
-    }
-    bgDropTimer = setTimeout(dropOnce, 5000 + Math.random() * 7000);
-}
-
-// A single snowflake falls, swaying, now and then (a falling snow all the time was too heavy to draw).
-function flakeOnce() {
-    if (!document.hidden) {
-        const W = window.innerWidth, H = window.innerHeight;
-        const size = 14 + Math.random() * 14, x0 = Math.random() * W, sway = 18 + Math.random() * 30, phase = Math.random() * 6.28;
-        const turns = (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 240), ms = 7500 + Math.random() * 5000;
-        const steps = Array.from({ length: 13 }, (_, k) => {
-            const t = k / 12;
-            return { offset: t, opacity: k === 0 || k === 12 ? 0 : 0.9, transform: `translate(${x0 + sway * Math.sin(phase + t * 7)}px, ${-30 + (H * 0.9 + 30) * t}px) rotate(${turns * t}deg)` };
-        });
-        document.querySelectorAll(".bg-fx").forEach((fx) => {
-            if (!fx.getClientRects().length) return;
-            const el = document.createElement("i");
-            el.className = "fx-flake";
-            el.style.width = el.style.height = size + "px";
-            fx.append(el);
-            el.animate(steps, { duration: ms, easing: "linear" }).onfinish = () => el.remove();
-        });
-    }
-    bgFlakeTimer = setTimeout(flakeOnce, 4000 + Math.random() * 7000);
-}
-
-// A shooting star crosses the upper sky of the ice now and then (a streak of light, on the GPU, gone in about a second).
-function starOnce() {
-    if (!document.hidden) {
-        const W = window.innerWidth, H = window.innerHeight;
-        const x0 = W * (0.08 + Math.random() * 0.6), y0 = H * (0.04 + Math.random() * 0.2);
-        const dx = W * (0.22 + Math.random() * 0.14) * (Math.random() < 0.8 ? 1 : -1), dy = Math.abs(dx) * 0.32;
-        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-        document.querySelectorAll(".bg-fx").forEach((fx) => {
-            if (!fx.getClientRects().length) return;
-            const el = document.createElement("i");
-            el.className = "fx-star";
-            fx.append(el);
-            el.animate([
-                { opacity: 0, transform: `translate(${x0}px, ${y0}px) rotate(${angle}deg)`, offset: 0 },
-                { opacity: 1, offset: 0.2 },
-                { opacity: 0, transform: `translate(${x0 + dx}px, ${y0 + dy}px) rotate(${angle}deg)`, offset: 1 },
-            ], { duration: 900 + Math.random() * 400, easing: "ease-in" }).onfinish = () => el.remove();
-        });
-    }
-    bgStarTimer = setTimeout(starOnce, 22000 + Math.random() * 26000);
-}
-// The aurora swells now and then: its curtains rise behind the peaks and sink back (the scale, not the opacity or the
-// drift, which the CSS animation already moves).
-function auroraSurgeOnce() {
-    if (!document.hidden) {
-        const rise = 1.06 + Math.random() * 0.1;
-        document.querySelectorAll(".fx-aurora").forEach((el) => {
-            if (!el.getClientRects().length) return;
-            el.animate([
-                { scale: "1 1", offset: 0 },
-                { scale: `1.04 ${rise}`, offset: 0.45 },
-                { scale: "1 1", offset: 1 },
-            ], { duration: 8000 + Math.random() * 4000, easing: "ease-in-out" });
-        });
-    }
-    bgSurgeTimer = setTimeout(auroraSurgeOnce, 11000 + Math.random() * 14000);
-}
-
-// A glint twinkles on the ice now and then (one or two at a time, anywhere on the lower part of the screen).
-function twinkle(el, ms) {
-    el.animate([
-        { opacity: 0, transform: "scale(.2) rotate(0deg)", offset: 0 },
-        { opacity: 1, transform: "scale(1) rotate(45deg)", offset: 0.4 },
-        { opacity: 0, transform: "scale(.3) rotate(90deg)", offset: 1 },
-    ], { duration: ms, easing: "ease-in-out" }).onfinish = () => el.remove();
-}
-function glintOnce() {
-    if (!document.hidden) {
-        const count = Math.random() < 0.4 ? 2 : 1;
-        for (let n = 0; n < count; n++) {
-            const x = 4 + Math.random() * 92, y = 68 + Math.random() * 29, size = 16 + Math.random() * 22, ms = 900 + Math.random() * 900;
-            document.querySelectorAll(".bg-fx").forEach((fx) => {
-                if (!fx.getClientRects().length) return;
-                const el = document.createElement("i");
-                el.className = "fx-glint";
-                el.style.cssText = `left:${x}%;top:${y}%;width:${size}px;height:${size}px`;
-                fx.append(el);
-                twinkle(el, ms);
-            });
-        }
-    }
-    bgGlintTimer = setTimeout(glintOnce, 1300 + Math.random() * 2400);
-}
-
-// A petal or a small leaf drifts across the spring meadow on the breeze now and then.
-function petalOnce() {
-    if (!document.hidden) {
-        const W = window.innerWidth, H = window.innerHeight;
-        const kind = Math.random() < 0.65 ? "petal" : "leaf";
-        const y0 = H * (0.08 + Math.random() * 0.5), amp = H * (0.05 + Math.random() * 0.08), turns = (Math.random() < 0.5 ? -1 : 1) * (240 + Math.random() * 360);
-        const phase = Math.random() * 6;
-        const steps = Array.from({ length: 9 }, (_, k) => {
-            const t = k / 8;
-            return {
-                offset: t,
-                opacity: k === 0 || k === 8 ? 0 : 0.92,
-                transform: `translate(${-30 + (W + 60) * t}px, ${y0 + amp * Math.sin(phase + t * 6) + H * 0.14 * t}px) rotate(${turns * t}deg)`,
-            };
-        });
-        document.querySelectorAll(".bg-fx").forEach((fx) => {
-            if (!fx.getClientRects().length) return;
-            const el = document.createElement("i");
-            el.className = "fx-petal";
-            el.style.backgroundImage = `url("resources/images/backgrounds/spring-fx-${kind}.svg")`;
-            fx.append(el);
-            el.animate(steps, { duration: 12000 + Math.random() * 5000, easing: "linear" }).onfinish = () => el.remove();
-        });
-    }
-    bgPetalTimer = setTimeout(petalOnce, 7000 + Math.random() * 8000);
-}
-
-//----- the ice board's glints -----
-// Little glints twinkle on the frost now and then; between two of them nothing runs.
-let boardGlintTimer = 0;
-function syncBoardGlint(on) {
-    clearTimeout(boardGlintTimer);
-    document.querySelectorAll(".board-glint").forEach((el) => el.remove());
-    if (!on || reducedMotion()) return;
-    const layer = document.createElement("div");
-    layer.className = "board-glint";
-    document.querySelector(".grid")?.append(layer);
-    boardGlintTimer = setTimeout(glintBoardOnce, 1500 + Math.random() * 2000);
-}
-function glintBoardOnce() {
-    const layer = document.querySelector(".board-glint");
-    if (layer && !document.hidden) {
-        const count = Math.random() < 0.35 ? 2 : 1;
-        for (let n = 0; n < count; n++) {
-            const el = document.createElement("i");
-            // in the margins of the tiles: near a tile's edge, away from its symbol
-            const tx = Math.floor(Math.random() * 5), ty = Math.floor(Math.random() * 5);
-            const x = tx * 20 + (Math.random() < 0.5 ? 2 + Math.random() * 3 : 14 + Math.random() * 3), y = ty * 20 + 2 + Math.random() * 14;
-            el.style.cssText = `left:${x}%;top:${y}%`;
-            layer.append(el);
-            twinkle(el, 900 + Math.random() * 700);
-        }
-    }
-    boardGlintTimer = setTimeout(glintBoardOnce, 900 + Math.random() * 2200);
-}
-
-//----- the spring board's insects -----
-// A butterfly or a bee flies over the lawn now and then (sometimes two): a wandering path from one side of the board to
-// another, turned the way it flies, drawn by the GPU on a layer of its own. Between two of them nothing runs.
-let boardFlyTimer = 0;
-function syncBoardFly(on) {
-    clearTimeout(boardFlyTimer);
-    document.querySelectorAll(".board-fly").forEach((el) => el.remove());
-    if (!on || reducedMotion()) return;
-    const layer = document.createElement("div");
-    layer.className = "board-fly";
-    document.querySelector(".grid")?.append(layer);
-    boardFlyTimer = setTimeout(flyOnce, 3500 + Math.random() * 3000);
-}
-function flyOnce() {
-    const layer = document.querySelector(".board-fly");
-    if (layer && !document.hidden) {
-        const count = Math.random() < 0.25 ? 2 : 1;
-        for (let n = 0; n < count; n++) setTimeout(() => flyInsect(layer), n * 1800);
-    }
-    boardFlyTimer = setTimeout(flyOnce, 7000 + Math.random() * 10000);
-}
-// A point on the smooth curve (Catmull-Rom) through the points, for t from 0 to 1.
-function curveAt(points, t) {
-    const n = points.length - 1, x = Math.min(n - 1e-9, Math.max(0, t * n)), i = Math.floor(x), f = x - i;
-    const p0 = points[Math.max(0, i - 1)], p1 = points[i], p2 = points[i + 1], p3 = points[Math.min(n, i + 2)];
-    const cr = (k) => 0.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * f + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * f * f + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * f * f * f);
-    return [cr(0), cr(1)];
-}
-function flyInsect(layer) {
-    const size = layer.getBoundingClientRect().width;
-    if (!size) return;
-    const bee = Math.random() < 0.35;
-    const kind = bee ? "bee" : Math.random() < 0.5 ? "butterfly-a" : "butterfly-b";
-    const px = size * (bee ? 0.058 : 0.075);
-    const duration = bee ? 2300 + Math.random() * 1100 : 9000 + Math.random() * 4000;
-    const rnd = () => Math.random();
-    // from a random edge to the opposite one: a bee darts almost straight, a butterfly wanders in wide, slow curves
-    const side = Math.floor(rnd() * 4);
-    const edge = (s, v) => [[-px, v * size], [size + px, v * size], [v * size, -px], [v * size, size + px]][s];
-    const a = edge(side, rnd() * 0.8 + 0.1), b = edge(side ^ 1, rnd() * 0.8 + 0.1);
-    const controls = [a], count = bee ? 3 : 5, wander = bee ? 0.22 : 0.5;
-    for (let k = 1; k <= count; k++) {
-        const f = k / (count + 1);
-        controls.push([a[0] + (b[0] - a[0]) * f + (rnd() - 0.5) * size * wander, a[1] + (b[1] - a[1]) * f + (rnd() - 0.5) * size * wander]);
-    }
-    controls.push(b);
-    const phase = rnd() * 6.28, phase2 = rnd() * 6.28;
-    const frames = Math.round(duration / 70);
-    const pos = [], head = [];
-    for (let k = 0; k <= frames; k++) {
-        const t = k / frames;
-        // a butterfly beats and glides: its progress speeds up and slows down; a bee buzzes (a quick small tremble)
-        const progress = bee ? t : Math.min(1, Math.max(0, t + 0.011 * Math.sin(phase + t * (duration / 1000) * 5.6)));
-        const [x, y] = curveAt(controls, progress);
-        const ahead = curveAt(controls, Math.min(1, progress + 0.01)), behind = curveAt(controls, Math.max(0, progress - 0.01));
-        const dx = ahead[0] - behind[0], dy = ahead[1] - behind[1], len = Math.hypot(dx, dy) || 1;
-        const nx = -dy / len, ny = dx / len; // across the path
-        const wave = phase + t * (duration / 1000) * 5.6 + 1.2;
-        const bob = bee ? size * 0.006 * Math.sin(phase + t * duration / 1000 * 38) + size * 0.004 * Math.sin(phase2 + t * duration / 1000 * 23)
-            : size * 0.03 * Math.sin(wave);
-        pos.push([x + nx * bob, y + ny * bob]);
-        // it faces where the path goes (not the bobbing), and a butterfly banks a little with each beat
-        head.push((Math.atan2(dy, dx) * 180) / Math.PI + 90 + (bee ? 0 : 11 * Math.cos(wave)));
-    }
-    let angle = head[0];
-    const steps = pos.map((p, k) => {
-        angle += ((((head[k] - angle) % 360) + 540) % 360 - 180) * (bee ? 0.5 : 0.35);
-        const edgeFade = k < 4 ? k / 4 : k > frames - 4 ? (frames - k) / 4 : 1;
-        return { offset: k / frames, opacity: edgeFade, transform: `translate(${p[0] - px / 2}px, ${p[1] - px / 2}px) rotate(${angle}deg)` };
-    });
-    const fly = document.createElement("div");
-    fly.className = "fly" + (bee ? " bee" : "");
-    fly.style.width = fly.style.height = px + "px";
-    fly.style.setProperty("--flap", (bee ? 0.05 + rnd() * 0.02 : 0.26 + rnd() * 0.16) + "s");
-    fly.style.setProperty("--flap-to", bee ? 0.5 : 0.25 + rnd() * 0.15);
-    const wings = document.createElement("i");
-    wings.style.backgroundImage = `url("resources/images/board-fly-${kind}.svg")`;
-    fly.append(wings);
-    layer.append(fly);
-    fly.animate(steps, { duration, easing: "linear" }).onfinish = () => fly.remove();
-}
-
-//----- the storm board's water that slides -----
-// Now and then (a minute or so) a drop swells, slides down a margin of the tiles leaving a thin trail, slows down as it
-// shrinks, stops and fades. Drawn by the GPU on a layer of its own; between two of them nothing runs.
-let boardRainTimer = 0;
-const RAIN_LANES = [[2.9, 8, 34], [77.3, 46, 30], [42.9, 22, 38], [17.2, 50, 30], [62.8, 12, 32]]; // x, y, how far (% of the board)
-function syncBoardRain(on) {
-    clearTimeout(boardRainTimer);
-    document.querySelectorAll(".board-rain").forEach((el) => el.remove());
-    if (!on || reducedMotion()) return;
-    const layer = document.createElement("div");
-    layer.className = "board-rain";
-    document.querySelector(".grid")?.append(layer);
-    boardRainTimer = setTimeout(rainOnce, 6000 + Math.random() * 4000);
-}
-function rainOnce() {
-    const layer = document.querySelector(".board-rain");
-    if (layer && !document.hidden) {
-        const [x, y, dist] = RAIN_LANES[Math.floor(Math.random() * RAIN_LANES.length)];
-        const drop = document.createElement("i");
-        drop.className = "rdrop";
-        drop.style.cssText = `left:${x - 2.1}%;top:${y - 2.1}%`;
-        const trail = document.createElement("i");
-        trail.className = "rtrail";
-        trail.style.cssText = `left:${x - 0.375}%;top:${y + 0.8}%;height:${dist}%`;
-        layer.append(trail, drop);
-        const total = 11300; // fade in .6, wait 1.2, slide 5.5, hold 1.2, fade out 2.8 (seconds)
-        const at = (s) => s / (total / 1000);
-        const far = dist / 4.2 * 100; // the drop's own heights
-        const slide = drop.animate([
-            { opacity: 0, transform: "translateY(0) scale(1)", offset: 0 },
-            { opacity: 1, transform: "translateY(0) scale(1)", offset: at(0.6) },
-            { opacity: 1, transform: "translateY(0) scale(1.08)", offset: at(1.8), easing: "ease-in-out" },
-            { opacity: 1, transform: `translateY(${far}%) scale(.62)`, offset: at(7.3) },
-            { opacity: 1, transform: `translateY(${far}%) scale(.6)`, offset: at(8.5) },
-            { opacity: 0, transform: `translateY(${far}%) scale(.55)`, offset: 1 },
-        ], { duration: total });
-        trail.animate([
-            { opacity: 0, transform: "scaleY(0)", offset: 0 },
-            { opacity: 0.55, transform: "scaleY(0)", offset: at(1.8), easing: "ease-in-out" },
-            { opacity: 0.5, transform: "scaleY(1)", offset: at(7.3) },
-            { opacity: 0.45, transform: "scaleY(1)", offset: at(8.5) },
-            { opacity: 0, transform: "scaleY(1)", offset: 1 },
-        ], { duration: total });
-        slide.onfinish = () => { drop.remove(); trail.remove(); };
-    }
-    boardRainTimer = setTimeout(rainOnce, 25000 + Math.random() * 30000);
-}
-//----- the pieces of the themes come alive -----
-// The ladybird blinks now and then, the penguin flaps its flippers a little, the umbrella twirls. Each piece starts the moment it
-// is put on the board (its drawing is set): a few seconds later it moves for the first time, then rarely (a movement every
-// 15 to 30 seconds), at a pace a little different from the next, so they never move together. They are layers of their own
-// over (or instead of) the piece's drawing. Nothing runs between two movements: a timer starts a short animation of the layers
-// (transform, opacity: the GPU's), and that is all. The still drawing stays as the piece's background-image, for everything else
-// that reads it. See .pfx in linotte.css.
-const PIECE_FX_DIR = "resources/images/pieces/fx/";
-const flapKeys = (deg) => [{ transform: "rotate(0deg)" }, { transform: `rotate(${deg}deg)`, offset: 0.25 }, { transform: "rotate(0deg)", offset: 0.5 }, { transform: `rotate(${deg * 0.8}deg)`, offset: 0.78 }, { transform: "rotate(0deg)" }];
-const PIECE_FX = {
-    // the ladybird: the lids over the drawing, two quick blinks
-    "p047_e63946ff.svg": {
-        every: 16, over: true, layers: [["pfx-lids", "ladybug-lids.svg"]],
-        play: ([lids]) => lids.animate([{ opacity: 0 }, { opacity: 1, offset: 0.07 }, { opacity: 1, offset: 0.24 }, { opacity: 0, offset: 0.31 }, { opacity: 0, offset: 0.55 }, { opacity: 1, offset: 0.62 }, { opacity: 1, offset: 0.79 }, { opacity: 0 }], { duration: 750 }),
-    },
-    // the penguin: the flippers flap twice
-    "p048_1b1d26ff.svg": {
-        every: 22, layers: [["pfx-flip-l", "penguin-flipper-l.svg"], ["pfx-flip-r", "penguin-flipper-r.svg"], ["pfx-still", "penguin-body.svg"]],
-        play: ([left, right]) => { left.animate(flapKeys(22), { duration: 1100, easing: "ease-in-out" }); right.animate(flapKeys(-22), { duration: 1100, easing: "ease-in-out" }); },
-    },
-    // the umbrella: the canopy twirls once (the shine stays)
-    "p046_3d6df0ff.svg": {
-        every: 26, layers: [["pfx-spin", "umbrella-canopy.svg"], ["pfx-still", "umbrella-shine.svg"]],
-        play: ([canopy]) => canopy.animate([{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }], { duration: 1500, easing: "cubic-bezier(.45, 0, .25, 1)" }),
-    },
-};
-function syncPieceFx(piece) {
-    const url = piece.style.backgroundImage || "";
-    const file = Object.keys(PIECE_FX).find((f) => url.includes(f));
-    if (piece.dataset.fx === (file || "")) return; // already as it should be (the observer fires for every change of the style)
-    clearTimeout(piece.fxTimer);
-    piece.querySelectorAll(":scope > .pfx").forEach((el) => el.remove());
-    piece.classList.remove("pfx-on");
-    delete piece.dataset.fx;
-    if (!file || reducedMotion()) return;
-    const fx = PIECE_FX[file];
-    piece.dataset.fx = file;
-    if (!fx.over) piece.classList.add("pfx-on"); // the layers draw the whole piece: its own drawing steps aside
-    for (const [cls, img] of fx.layers) {
-        const layer = document.createElement("i");
-        layer.className = "pfx " + cls;
-        layer.style.backgroundImage = `url("${PIECE_FX_DIR}${img}")`;
-        piece.append(layer);
-    }
-    const tick = () => {
-        if (!piece.isConnected || piece.dataset.fx !== file) return;
-        if (!document.hidden && !reducedMotion()) fx.play([...piece.querySelectorAll(":scope > .pfx")]);
-        piece.fxTimer = setTimeout(tick, fx.every * (0.85 + Math.random() * 0.3) * 1000);
-    };
-    piece.fxTimer = setTimeout(tick, (5 + Math.random() * 9) * 1000); // the first movement comes a few seconds after the piece lands
-}
-const pieceFxObserver = new MutationObserver((list) => { for (const m of list) syncPieceFx(m.target); });
-document.querySelectorAll(".piece").forEach((piece) => pieceFxObserver.observe(piece, { attributes: true, attributeFilter: ["style"] }));
-
-//----- the spring board's flowers, moved now and then by a gust of wind -----
-// The flowers are small drawings of their own (board-spring-blooms.svg, x and y of the centre and size in % of the board, and
-// the kind: daisy, buttercup, pink flower, clover, leaf), on a layer over the tiles and under the pieces: never stretched,
-// whatever the board's proportions. Every minute or so a gust runs over the board from one side: each one, as the wind
-// reaches it, leans, shivers and settles back, the leaves and clover more than the flowers. Between two gusts nothing
-// runs; the GPU does it (transform).
-const SPRING_BLOOMS = [[17.77,4.08,4.16,"d"],[50.91,40.93,4.54,"d"],[62.15,13.61,4.21,"b"],[97.69,50.98,3.91,"p"],[82.11,4.78,5.13,"c"],[2.19,55.57,3.97,"l"],[22.11,64.5,4.8,"d"],[75.4,1.17,3.94,"d"],[46.41,57.27,3.43,"b"],[57.77,34.24,3.57,"p"],[28.46,82.07,4.87,"c"],[58.2,91.59,3.38,"l"],[27.04,57.06,4.01,"d"],[15.95,61.26,4.6,"d"],[45.79,96.8,4.07,"b"],[34.78,36.76,3.82,"p"],[82.25,96.13,4.9,"c"],[67.36,17.41,3.54,"l"],[17.74,32.68,4.01,"d"],[37.92,4.54,4.31,"d"],[57.9,53.8,4.19,"b"],[15.57,20.91,3.35,"p"],[42.41,87.05,3.92,"c"],[78.05,36.4,3.42,"l"],[63.27,81.52,4.19,"d"],[17.94,95.81,4.18,"d"],[2.14,1.05,4.29,"b"],[61.63,22.48,3.36,"p"],[77.95,84.62,4.82,"c"],[42.07,37.49,3.38,"l"],[72.35,20.9,4.88,"d"],[21.74,50.2,3.98,"d"],[37.94,64.48,4.14,"b"],[56.75,77.24,3.55,"p"],[57.8,28.98,5.08,"c"],[69.93,97.75,3.59,"l"],[93.88,36.68,4.24,"d"],[77.49,47.31,3.84,"d"]];
-let bloomGustTimer = 0;
-let blooms = [];
-function syncBoardFlowers(on) {
-    clearTimeout(bloomGustTimer);
-    document.querySelectorAll(".board-flowers").forEach((el) => el.remove());
-    blooms = [];
-    const grid = document.querySelector(".grid");
-    if (!on || !grid) return;
-    const layer = document.createElement("div");
-    layer.className = "board-flowers";
-    SPRING_BLOOMS.forEach(([x, y, size, kind], i) => {
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.setAttribute("class", "bloom");
-        svg.setAttribute("viewBox", `${x - size / 2} ${y - size / 2} ${size} ${size}`);
-        svg.style.cssText = `left:${x - size / 2}%;top:${y - size / 2}%;width:${size}%`;
-        const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
-        use.setAttribute("href", `resources/images/board-spring-blooms.svg#f${i}`);
-        svg.append(use);
-        layer.append(svg);
-        blooms.push({ el: svg, x, kind });
-    });
-    grid.append(layer);
-    if (!reducedMotion()) bloomGustTimer = setTimeout(gustOnce, 7000 + Math.random() * 5000);
-}
-function gustOnce() {
-    if (!document.hidden && blooms.length) {
-        const fromLeft = Math.random() < 0.5;
-        const flipped = document.body.classList.contains("table-flipped"); // the layer turns with the table: its left is the screen's right
-        const way = (fromLeft ? 1 : -1) * (flipped ? -1 : 1);
-        const reach = 1500 + Math.random() * 600; // how long the wind takes across the board
-        for (const b of blooms) {
-            const near = ((fromLeft !== flipped) ? b.x : 100 - b.x) / 100; // 0 where the wind comes in
-            const delay = near * reach + Math.random() * 160;
-            const lift = b.kind === "c" || b.kind === "l" ? 1 : 0.55; // leaves and clover move more
-            const dur = 1300 + Math.random() * 500;
-            b.el.animate([
-                { transform: "translate(0, 0) rotate(0deg) scale(1)", offset: 0 },
-                { transform: `translate(${way * 22 * lift}%, ${-5 * lift}%) rotate(${way * 17 * lift}deg) scale(${1 + 0.07 * lift})`, offset: 0.32, easing: "ease-in-out" },
-                { transform: `translate(${-way * 8 * lift}%, ${2 * lift}%) rotate(${-way * 9 * lift}deg) scale(1)`, offset: 0.62, easing: "ease-in-out" },
-                { transform: `translate(${way * 3 * lift}%, 0) rotate(${way * 3 * lift}deg) scale(1)`, offset: 0.82, easing: "ease-in-out" },
-                { transform: "translate(0, 0) rotate(0deg) scale(1)", offset: 1 },
-            ], { duration: dur, delay, easing: "ease-in-out" });
-        }
-    }
-    bloomGustTimer = setTimeout(gustOnce, 40000 + Math.random() * 40000);
-}
-
-//----- the storm board's drops, which slide away when a piece lands on their tile -----
-// The drops on the board are small elements (x, y of the centre and width, in % of the board) on a layer of their own,
-// over the tiles and under the pieces. When a piece lands, the drops of its tile slide down, leaving a trail; one that
-// meets another on its way merges into it, which swells a little. A game starting (or any redraw of the board) puts
-// back the drops of the empty tiles. Only the GPU moves them (transform, opacity), and only at that moment.
-const STORM_DROPS = [[24.7, 2.3, 3.4], [49.1, 38.0, 3.2], [86.1, 17.5, 2.8], [82.4, 7.0, 3.2], [29.8, 42.2, 3.0], [77.9, 2.8, 3.6], [87.9, 37.5, 2.9], [3.7, 57.8, 2.8], [74.1, 38.0, 3.2], [16.0, 81.8, 3.2], [76.1, 57.6, 3.0], [37.9, 85.1, 3.5], [95.7, 18.1, 3.5], [62.1, 28.2, 3.2], [15.1, 2.3, 2.8], [82.2, 96.0, 3.2], [2.4, 34.7, 3.0], [35.2, 22.4, 2.7], [63.0, 62.4, 2.8], [18.1, 72.0, 2.8], [10.9, 57.9, 3.2], [82.0, 25.5, 3.6], [17.8, 53.0, 3.6], [52.0, 77.9, 3.4], [61.7, 9.3, 2.7], [97.0, 77.5, 2.9], [29.4, 37.8, 3.2], [41.9, 64.8, 3.2], [30.8, 78.2, 2.9], [93.4, 62.3, 3.5], [77.7, 44.6, 3.0], [6.4, 18.2, 3.2], [97.6, 69.3, 3.0], [82.2, 90.8, 2.9], [42.1, 88.9, 3.4], [82.1, 74.2, 3.4], [6.7, 62.4, 2.9], [68.5, 62.1, 3.6], [49.4, 61.7, 2.7], [26.6, 62.4, 3.2], [38.3, 73.8, 3.0], [21.7, 9.6, 2.8], [38.0, 14.7, 3.5], [50.0, 22.2, 2.9]];
-let stormDrops = []; // { el, x, y, w, gone, grow }
-const tileOfDrop = (d, flipped) => { // the tile (row, column) a drop is on, as seen on the screen
-    const row = Math.min(4, Math.floor(d.y / 20)), col = Math.min(4, Math.floor(d.x / 20));
-    return flipped ? [4 - row, 4 - col] : [row, col];
-};
-function syncBoardDrops(on) {
-    document.querySelectorAll(".board-drops").forEach((el) => el.remove());
-    stormDrops = [];
-    const grid = document.querySelector(".grid");
-    if (!on || !grid) return;
-    const flipped = document.body.classList.contains("table-flipped");
-    let table = null;
-    try { table = gameState?.table; } catch { /* the game is not set up yet (the page is loading) */ }
-    const layer = document.createElement("div");
-    layer.className = "board-drops";
-    for (const [x, y, w] of STORM_DROPS) {
-        const d = { x, y, w, gone: false, grow: 1 };
-        const [r, c] = tileOfDrop(d, flipped);
-        if (table?.[r]?.[c]) continue; // a piece is already there: its drops have slid away
-        d.el = document.createElement("i");
-        d.el.className = "sdrop";
-        d.el.style.cssText = `left:${x - w / 2}%;top:${y - w / 2}%;width:${w}%`;
-        layer.append(d.el);
-        stormDrops.push(d);
-    }
-    grid.append(layer);
-}
-function dropsSlideAway(r, c) {
-    const layer = document.querySelector(".board-drops");
-    if (!layer) return;
-    const flipped = document.body.classList.contains("table-flipped");
-    const here = stormDrops.filter((d) => !d.gone && tileOfDrop(d, flipped).join() === `${r},${c}`);
-    for (const d of here) {
-        d.gone = true;
-        const el = d.el;
-        // Another drop below it, in its way: it runs into it and merges. Else it slides a bit and fades.
-        const reach = 8 + Math.random() * 14;
-        const meet = stormDrops.filter((o) => !o.gone && Math.abs(o.x - d.x) < 3.2 && o.y > d.y + d.w && o.y < d.y + reach + 4)
-            .sort((a, b) => a.y - b.y)[0];
-        const dist = Math.min(meet ? meet.y - d.y : reach, 99 - d.y);
-        if (reducedMotion() || dist <= 0) { el.remove(); continue; }
-        const run = dist / d.w * 100; // translateY is in % of the drop's own height
-        const ms = 1500 + dist * 95; // 2.3 to 3.6 seconds: slower than a touch, like the water that slides by itself
-        const trail = document.createElement("i");
-        trail.className = "dtrail";
-        trail.style.cssText = `left:${d.x - 0.2}%;top:${d.y}%;height:${dist}%`;
-        layer.append(trail);
-        const wait = Math.random() * 120;
-        el.animate([
-            { transform: "translateY(0) scale(1)", offset: 0 },
-            { transform: "translateY(0) scale(1.12)", offset: 0.18, easing: "ease-in" },
-            { transform: `translateY(${run}%) scale(${meet ? 1 : 0.7})`, offset: 1 },
-        ], { duration: ms, delay: wait, easing: "ease-in-out", fill: "both" });
-        trail.animate([
-            { opacity: 0, transform: "scaleY(0)", offset: 0 },
-            { opacity: 0.55, transform: "scaleY(0)", offset: 0.18, easing: "ease-in" },
-            { opacity: 0.5, transform: "scaleY(1)", offset: 1 },
-        ], { duration: ms, delay: wait, easing: "ease-in-out", fill: "both" });
-        setTimeout(() => {
-            if (meet && !meet.gone) { // swells, as if it had taken the other's water
-                meet.grow = Math.min(1.4, meet.grow + 0.2);
-                meet.el.animate([{ transform: `scale(${meet.grow - 0.2})` }, { transform: `scale(${meet.grow + 0.12})`, offset: 0.4 }, { transform: `scale(${meet.grow})` }], { duration: 420, fill: "forwards" });
-                el.remove();
-            } else {
-                el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 500, fill: "forwards" }).onfinish = () => el.remove();
-            }
-            trail.animate([{ opacity: 0.5 }, { opacity: 0 }], { duration: 900, fill: "forwards" }).onfinish = () => trail.remove();
-        }, ms + wait);
-    }
-}
+//----- the moving parts of the themes (public/themes, see the README there) -----
+// What moves on a theme (its sky, its board, its pieces) lives in the theme's own folder; the rules about when anything may
+// move are global (themes/core). The app only says where the background is shown, which table is on screen, and the player's
+// switch; motion also goes off by itself while the battery is low and when the phone asks for less motion.
+initThemeHost({
+    backgroundHosts: () => [document.body, ...optBgs],
+    gameTable: () => { try { return gameState?.table; } catch { return null; } }, // (the game is not set up yet while the page loads)
+});
+initMotion({ preference: !/(^|; )fxOn=false/.test(document.cookie), change: () => { remount(); resyncPieces(); } });
+watchPieces(PIECE_FX, () => document.querySelectorAll(".piece")); // (what each piece does: themes/<id>/piece)
 
 // This player's own: the one selected in the options (a saved one still
 // locked at this level isn't, see lookOrFree).
@@ -1667,8 +1038,7 @@ const ownDice = () => {
 };
 // What the screen shows of the looks, whoever's they are: the dice the same way for every die.
 function showDiceLook(id) {
-    faces = diceFaces[id];
-    selectedDie = dicePath + faces;
+    selectedDie = diceSrc(id);
     preload(selectedDie);
     renderDiceFace(id);
 }
@@ -1718,17 +1088,16 @@ function showTableLook(look, fresh) {
 
 let selectedBg = lookOrFree("background", Number(getCookie("background", FREE_LOOKS.background)));
 document.getElementById("bg" + selectedBg).classList.add("selected"); //option section
-document.getElementById("bg-current").textContent = humanizeBgName(backgrounds[selectedBg]);
-for (let i = 0; i < backgrounds.length; i++) {
-    preload(bgPath + backgrounds[i]);
+document.getElementById("bg-current").textContent = bgTitle(selectedBg);
+for (let i = 0; i < backgroundCount; i++) {
+    preload(bgSrc(i));
 }
-body.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
-optBgs.forEach(el => el.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]));
-modal.style.backgroundImage = urlOf(bgPath + backgrounds[selectedBg]);
-syncBgFx(backgrounds[selectedBg]);
-syncInk(backgrounds[selectedBg]);
+body.style.backgroundImage = urlOf(bgSrc(selectedBg));
+optBgs.forEach(el => el.style.backgroundImage = urlOf(bgSrc(selectedBg)));
+modal.style.backgroundImage = urlOf(bgSrc(selectedBg));
+showThemeBackground(selectedBg);
 // Kept for the next visit's first paint (see the head of index.html).
-const rememberOwnBg = (id) => { try { localStorage.setItem("linotte-own-bg", bgPath + backgrounds[id]); } catch { /* storage off */ } };
+const rememberOwnBg = (id) => { try { localStorage.setItem("linotte-own-bg", bgSrc(id)); } catch { /* storage off */ } };
 rememberOwnBg(selectedBg);
 
 let isVolumeOn = true;
@@ -1953,7 +1322,7 @@ document.querySelectorAll(".die").forEach(el => {
 });
 
 function renderDiceFace(id) {
-    document.body.classList.toggle("dice-ice", diceFaces[id] === "ice3_sprite.webp");
+    for (const theme of THEMES) document.body.classList.toggle("dice-" + theme.id, themeOfLook("dice", id) === theme.id); // (a theme's dice: dice.css in its folder)
     document.querySelectorAll(".die").forEach(el => {
         el.style.backgroundImage = `url(${selectedDie})`;
     });
@@ -2153,27 +1522,8 @@ function moveIndicator(page) {
 
 // Vibration is its own switch (it used to follow the sound, which left a phone
 // with the sound off silent AND still). Not offered where the browser can't vibrate.
-// The moving effects: on, off (the player's switch), and off by itself while the battery is low (Chrome and the apps tell it).
-function applyFxPreference() {
-    document.body.classList.toggle("fx-off", reducedMotion());
-    syncBgFx(shownBgFile);
-    paintBoardSkin(shownBoardIndex); // (the board's own water, flowers and glints)
-    document.querySelectorAll(".piece").forEach((piece) => { delete piece.dataset.fx; clearTimeout(piece.fxTimer); syncPieceFx(piece); });
-}
-fxPref = toBoolean(getCookie("fxOn", "true"));
-bindSwitch("fx-toggle", () => fxPref, (on) => { fxPref = on; setCookie("fxOn", on); applyFxPreference(); });
-navigator.getBattery?.().then((battery) => {
-    const check = () => {
-        const low = !battery.charging && battery.level <= 0.2;
-        if (low === fxBatteryLow) return;
-        fxBatteryLow = low;
-        applyFxPreference();
-    };
-    check();
-    battery.addEventListener("levelchange", check);
-    battery.addEventListener("chargingchange", check);
-}).catch(() => { /* no battery information */ });
-if (!fxPref) applyFxPreference();
+// The moving effects: on or off (the player's switch; see themes/core/motion.js for the rest).
+bindSwitch("fx-toggle", motionPreference, (on) => { setCookie("fxOn", on); setMotionPreference(on); });
 
 let isVibrationOn = toBoolean(getCookie("vibrationOn", "true"));
 if (!("vibrate" in navigator)) document.getElementById("vibration-item").hidden = true;
@@ -2300,6 +1650,8 @@ function applyFlip(player = viewPlayer) {
         return;
     }
     const flipped = flipOptionOn && controller.mode === "offline" && player === 2;
+    // The table is about to turn: the moving parts step aside meanwhile (themes/core).
+    if (flipped !== document.body.classList.contains("table-flipped")) startFlip();
     document.body.classList.toggle("table-flipped", flipped);
 }
 document.getElementById("flip-table-btn").addEventListener("click", () => {
@@ -2412,7 +1764,7 @@ function newGameOffline(startingPlayer = 1) {
 
 function clearBoardVisuals() {
     forcedWinner = null; // every new game (any mode) starts with no forfeit on record
-    if (document.body.classList.contains("board-storm")) syncBoardDrops(true); // the drops of the tiles with no piece
+    boardRedraw(); // (the Storm board puts back the drops of the tiles with no piece)
     for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 5; c++) {
             const piece = document.getElementById("p" + r + c);
@@ -2453,7 +1805,7 @@ bgOptions.forEach(bgOption => {
         bgOption.classList.add("selected");
 
         var bgId = Number(bgOption.id.slice(2));
-        document.getElementById("bg-current").textContent = humanizeBgName(backgrounds[bgId]);
+        document.getElementById("bg-current").textContent = bgTitle(bgId);
 
         if (!tableHeld()) showBackground(bgId); // in an online game the table's background stays until the next game
         rememberOwnBg(bgId);
@@ -2478,11 +1830,7 @@ var shownBoardIndex = 0; // (var: the effects switch reads it while the page loa
 function paintBoardSkin(index) {
     shownBoardIndex = index;
     boardSkins.forEach((id, i) => document.body.classList.toggle("board-" + id, i === index));
-    syncBoardRain(boardSkins[index] === "storm");
-    syncBoardDrops(boardSkins[index] === "storm");
-    syncBoardFlowers(boardSkins[index] === "spring");
-    syncBoardFly(boardSkins[index] === "spring");
-    syncBoardGlint(boardSkins[index] === "ice");
+    showBoard(boardSkins[index]); // (the board's own water, flowers, glints: themes/<id>/board)
 }
 showBoardSkin(ownsLook("board", Number(getCookie("boardSkin", 0))) ? Number(getCookie("boardSkin", 0)) || 0 : 0);
 skinOptions.forEach((skinOption) => {
@@ -2523,7 +1871,7 @@ skinOptions.forEach((skinOption) => {
         });
     };
     add(-1, "resources/images/random-die.svg", t("Random piece"));
-    for (let i = FIRST_PLAY_PIECE; i < pieces.length; i++) add(i, piecesPath + pieces[i], "Piece " + (i + 1));
+    for (let i = FIRST_PLAY_PIECE; i < pieces.length; i++) add(i, pieceSrc(i), "Piece " + (i + 1));
     showPieceChoice(favoritePiece());
 })();
 
@@ -3493,7 +2841,7 @@ function placePiece(pieceId) {
     applyTidyness(piece);
     selectedTileId = pieceId;
     buzz(45); // the piece lands
-    if (document.body.classList.contains("board-storm")) dropsSlideAway(Number(pieceId[1]), Number(pieceId[2])); // the water of its tile runs off
+    boardPlace(Number(pieceId[1]), Number(pieceId[2])); // (the Storm board: the water of its tile runs off)
 
     if (prewPiece !== null) {
         if (prewPiece !== piece) {
@@ -5980,7 +5328,7 @@ function rewardText(r) {
         return t({ bronze: "Bronze badge", silver: "Silver badge", gold: "Gold badge", ruby: "Ruby badge", diamond: "Diamond badge" }[r.tier]);
     }
     if (r.kind === "dice") return t("New dice: {name}", { name: t(diceNames[r.index]) });
-    return t("New background: {name}", { name: humanizeBgName(backgrounds[r.index]) });
+    return t("New background: {name}", { name: bgTitle(r.index) });
 }
 
 // Reaching a level is celebrated full screen (showLevelUp), with what it
@@ -6348,7 +5696,7 @@ function rewardThumb(r) {
 
 function rewardName(r) {
     if (r.kind === "badge") return rewardText(r);
-    return r.kind === "dice" ? t(diceNames[r.index]) : humanizeBgName(backgrounds[r.index]);
+    return r.kind === "dice" ? t(diceNames[r.index]) : bgTitle(r.index);
 }
 
 const rewardKindLabel = (r) => (r.kind === "badge" ? t("Badge colour") : r.kind === "dice" ? t("Dice style") : t("Background"));
@@ -6778,7 +6126,7 @@ async function backgroundTint(url) {
 }
 
 function tintRoad(list) {
-    backgroundTint(bgPath + backgrounds[ownBackground()]).then((tint) => {
+    backgroundTint(bgSrc(ownBackground())).then((tint) => {
         if (!tint) return;
         const s = Math.max(25, Math.min(70, tint.s));
         // a dark background gets a light road (the line, the dashes and the rings), a light one a dark road

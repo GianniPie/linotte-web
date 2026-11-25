@@ -1,0 +1,8 @@
+/* The penguin's flippers turn from the shoulder (in the layer). */
+.pfx-flip-l {
+  transform-origin: 26% 51%;
+}
+
+.pfx-flip-r {
+  transform-origin: 74% 51%;
+}

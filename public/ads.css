@@ -86,6 +86,9 @@
     bottom: env(safe-area-inset-bottom, 0px);
     z-index: 3;
     transform: translateX(-50%);
+    /* a layer of its own (small: 468 x 50), outside everything that turns: a table turning next to it neither repaints
+       it nor lets the browser drop it with the layers it frees */
+    will-change: transform;
     width: min(calc(100vw - 16px), 468px);
     height: 50px;
     display: grid;

@@ -1,0 +1,4 @@
+/* The ladybird's lids go over its drawing, hidden until it blinks. */
+.pfx-lids {
+  opacity: 0;
+}

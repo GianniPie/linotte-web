@@ -1,0 +1,69 @@
+body.ink-ice .result {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* The ice sky is pale: a deep blue ink, the symbols of the combinations in the border's icy blue. Every theme declares the whole set of its ink (themes/README.md, "The ink"), even what it keeps as the default. */
+body.ink-ice {
+  --ink: #1d3a56;
+  --ink-bg: rgba(14, 44, 78, .9);
+  --ink-bg-soft: rgba(14, 44, 78, .66);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .7);
+  --zone-bg: rgba(255, 255, 255, .58);
+  --zone-border: rgba(110, 172, 216, .95);
+  --result-on: #3f9fd4;
+  --result-icon: #6fb0dc;
+  --result-icon-on: #fffeff;
+  --call-on-border: #3b82b9;
+}
+
+
+/* the ice: the aurora breathes and drifts (at a low rate: a layer is redrawn at every step, and on a weak or software-rendered
+   screen that is what costs), now and then a glint twinkles (glintOnce) and a single flake falls (flakeOnce) */
+.fx-aurora {
+  top: 0;
+  left: -10%;
+  width: 120%;
+  height: 100%;
+  transform-origin: 50% 85%;
+  background: url("aurora.svg") 0 0 / 100% 100% no-repeat;
+  opacity: .9;
+  will-change: transform, opacity;
+  animation: fxAurora 38s steps(95) infinite alternate;
+}
+
+@keyframes fxAurora {
+  from { transform: translateX(-4%); opacity: .7; }
+  to { transform: translateX(4%); opacity: 1; }
+}
+
+/* the mountains, laid over the aurora so it rises from behind the peaks (the same drawing as in the background picture) */
+.fx-range {
+  inset: 0;
+  background: url("range.svg") center / cover no-repeat;
+}
+
+/* a shooting star, now and then (starOnce): a thin streak of light, drawn by the browser */
+.fx-star {
+  top: 0;
+  left: 0;
+  width: 110px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, .95));
+  opacity: 0;
+}
+
+.fx-flake {
+  top: 0;
+  left: 0;
+  background: url("flake.svg") center / contain no-repeat;
+  opacity: 0;
+}
+
+.fx-glint {
+  width: 26px;
+  height: 26px;
+  background: url("glint.svg") center / contain no-repeat;
+  opacity: 0;
+}

@@ -18,6 +18,13 @@
     }
 }
 
+/* the breath of the glow of the player on turn (.player.current::before in linotte.css): a block behind the box that swells from
+   .25em to .5em outside it (the box is about 110 x 80 px: .25em more on each side is a scale of about 1.065 by 1.085) */
+@keyframes glowBreath {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.065, 1.085); }
+}
+
 @keyframes spinOut {
   0% {
     transform: rotate(0deg);

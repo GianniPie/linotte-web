@@ -1,0 +1,53 @@
+body.ink-spring .result {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* The spring sky is bright: a deep green ink, the symbols of the combinations in the border's soft green. Every theme declares the whole set of its ink (themes/README.md, "The ink"), even what it keeps as the default. */
+body.ink-spring {
+  --ink: #2b3a1f;
+  --ink-bg: rgba(22, 48, 30, .85);
+  --ink-bg-soft: rgba(22, 48, 30, .62);
+  --ink-bg-shadow: 0 .05em 0 rgba(255, 255, 255, .6);
+  --zone-bg: rgba(255, 255, 255, .58);
+  --zone-border: rgba(126, 190, 106, .9);
+  --result-on: #4fae4b;
+  --result-icon: #7ebe6a;
+  --result-icon-on: #fffeff;
+  --call-on-border: #2b6a2f;
+}
+
+
+/* the spring meadow: soft clouds, grass and flowers that sway in the breeze, petals that drift (petalOnce) */
+.fx-sp-a { background-image: url("clouds-a.svg"); animation: fxDrift 160s steps(1600) infinite; }
+.fx-sp-b { background-image: url("clouds-b.svg"); animation: fxDrift 100s steps(1000) infinite; }
+
+/* The grass and flowers at the foot of the spring sky: a strip drawn once, as tall as the layer and as wide as its drawing
+   says (never stretched: on a narrow screen its two ends are cropped), still. A gust of wind leans it, from its base, now
+   and then (grassGustOnce in linotte.js). */
+.fx-grass {
+  left: -3%;
+  width: 106%;
+  bottom: 0;
+  background-size: auto 100%;
+  background-position: center bottom;
+  background-repeat: repeat-x;
+  transform-origin: 50% 100%;
+}
+
+.fx-grass-back { height: 21%; background-image: url("grass-back.svg"); }
+.fx-grass-front { height: 16%; background-image: url("grass-front.svg"); }
+
+.fx-petal {
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-cloud, .fx-grass, .fx-aurora { animation: none; }
+}

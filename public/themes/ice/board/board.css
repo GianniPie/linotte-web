@@ -1,0 +1,72 @@
+/* Ice: clean frosted tiles in a glacier-blue frame, symbols in deep blue; the ice is on the frame (icicles hanging from a lip
+   of ice, a pool of ice at the bottom, a mound of ice with crystals in each corner: board-ice-frame.svg), and little glints
+   twinkle on the tiles now and then (glintBoardOnce). */
+body.board-ice .div-table {
+  position: relative;
+  background: linear-gradient(145deg, #7cc2ea, #3b82b9);
+  border-color: #3f88bf;
+  box-shadow: 0 .25em .9em rgba(15, 50, 85, .35), inset 0 0 0 .08em rgba(255, 255, 255, .4);
+}
+
+/* over the frame and the board, under the pieces (z-index 2) */
+body.board-ice .div-table::after {
+  content: "";
+  position: absolute;
+  inset: -.3125em; /* the frame's own width: the layer starts at the outer edge */
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 1.3em;
+  background: url("frame.svg") center / 100% 100% no-repeat;
+  /* (the frame is the board's own and stays as it is when the table turns: it does not turn) */
+}
+
+body.board-ice .grid {
+  position: relative;
+  background: linear-gradient(145deg, #7cc2ea, #3b82b9);
+}
+
+/* a cold sheen across the tiles */
+body.board-ice .grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;
+  pointer-events: none;
+  transition: rotate .6s ease;
+  background: linear-gradient(118deg, transparent 28%, rgba(255, 255, 255, .45) 43%, rgba(255, 255, 255, .08) 52%, transparent 62%);
+}
+
+body.board-ice .tile {
+  border-color: #79b3d8;
+  background-color: #e6f5fd;
+  background-image: linear-gradient(160deg, #fbfeff 0%, #e6f5fd 55%, #cfe8f6 100%);
+  box-shadow: inset 0 .1em .14em rgba(255, 255, 255, .9), inset 0 -.12em .22em rgba(60, 130, 185, .22);
+}
+
+body.board-ice .tile::before {
+  background-image: none;
+  background-color: #1f4f7d;
+  -webkit-mask: var(--tile-img) center / contain no-repeat;
+  mask: var(--tile-img) center / contain no-repeat;
+}
+
+body.board-ice.table-flipped .grid::after { rotate: 180deg; }
+
+.board-glint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  contain: paint;
+}
+
+body.table-flipped .board-glint { rotate: 180deg; }
+
+.board-glint i {
+  position: absolute;
+  width: 5.5%;
+  aspect-ratio: 1;
+  background: url("glint.svg") center / contain no-repeat;
+  opacity: 0;
+}

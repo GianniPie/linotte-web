@@ -1,0 +1,124 @@
+/* The rules every theme obeys (see themes/README.md): written once, here, in terms of what an element is and not of which
+   theme it belongs to. The theme's own drawings and moving layers are in its folder (background.css, board.css). */
+
+/* ----- while the table turns (body.flipping, a little longer than the .6s turn: startFlip in theme-core.js) -----
+   Everything that moves on its own steps aside, so the phone's graphics chip only has the turn itself to do. A turning layer
+   full of clouds, drops or flowers is drawn into a surface of its own at every frame, and the glow under the player's box is
+   repainted by the CPU at every frame: that, on top of the turn, is what made themed games stutter. Every moving layer of a
+   theme is marked data-fx (scope.layer): it is hidden, keeps turning unseen, and fades back in after the turn. The glow and
+   the DONE/ROLL nudge wait. The still sky (body::before) and the board turn as they always did. */
+body.flipping [data-fx] {
+  visibility: hidden;
+}
+
+body:not(.flipping) [data-fx] {
+  animation: flipFadeIn .45s ease-out;
+}
+
+@keyframes flipFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+body.flipping .player.current::before,
+body.flipping .button.done.nudge,
+body.flipping .button.roll.nudge {
+  animation-play-state: paused;
+}
+
+/* ----- the pieces' moving layers (themes/core/piece-fx.js): each theme's piece gives its own layers and movements ----- */
+.piece.pfx-on {
+  background-image: none !important; /* the layers draw the whole piece: its own drawing steps aside */
+}
+
+.pfx {
+  position: absolute;
+  inset: 10%; /* the size of the piece's drawing (80% of the tile, centred) */
+  pointer-events: none;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+/* ----- what turns at the table, and how (FLIP, same table) -----
+   The sky steps over in one go half way through the turn (the body::before and .bg-fx rules below), the board and its frame
+   never turn (the board counter-turns the page), and the 25 symbols of the tiles turn smoothly with the page. (They turned in
+   six steps for a while to spare the phone's graphics chip: measured on a phone it made no difference, and it looked bad.) */
+.tile::before {
+  transition: rotate .6s ease;
+}
+
+/* ----- the moving background: the host of the layers, one copy drawn, the effects off, the table turned ----- */
+/* ============================================
+   STORM BACKGROUND, THE PART THAT MOVES
+   ============================================
+   The still sky is the background picture; the rest is drawn once and moved by the GPU (transform and opacity only), in
+   a layer of its own inside whatever shows the background (see syncBgFx in linotte.js). An animation inside the
+   background picture would be redrawn by the CPU at every frame. The clouds step at a lower rate: they look the same
+   and wake the screen less. */
+.bg-fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: paint;
+}
+
+body > .bg-fx {
+  position: fixed;
+  z-index: -1;
+}
+
+/* Only the copy on top is drawn (syncFxLive in linotte.js). */
+.bg-fx:not(.live) {
+  display: none;
+}
+
+/* Effects off (the options, a low battery, less motion): the skies stand still. */
+body.fx-off .bg-fx > i {
+  animation: none !important;
+}
+
+/* Turned for the player on the other side (FLIP, same table, portrait): the whole background turns with the game, so
+   for them the sky is above and the rain falls down. The picture is drawn again on a layer of its own (the body's own
+   background can't turn), under the moving parts, which turn with it. */
+@media (orientation: portrait) {
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: inherit;
+    /* Not turned smoothly: a full-screen layer turning with the table (and the sky's cloud layers under it, three times as
+       wide as the screen) was the biggest part of what the phone's graphics chip could not keep up with. The sky steps
+       over in one go, half way through the turn (measured on a phone: fewer stalls than turning it). */
+    transition: rotate 0s linear .3s;
+  }
+
+  body > .bg-fx {
+    transition: rotate 0s linear .3s;
+  }
+
+  body.table-flipped::before,
+  body.table-flipped > .bg-fx {
+    rotate: 180deg;
+  }
+}
+
+.bg-fx > i {
+  position: absolute;
+  display: block;
+}
+
+.fx-cloud {
+  top: 0;
+  left: 0;
+  height: 100%;
+  aspect-ratio: 3 / 1; /* three periods, slid by one */
+  background-size: 100% 100%;
+  will-change: transform;
+}
+
+@keyframes fxDrift {
+  to { transform: translate3d(-33.3333%, 0, 0); }
+}

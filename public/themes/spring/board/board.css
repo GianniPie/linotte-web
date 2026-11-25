@@ -1,0 +1,113 @@
+/* The insects that fly over the spring board now and then (flyOnce in linotte.js): over the tiles and the pieces, under the
+   highlights. The game moves the insect; its wings flap by themselves (a scale of the width, on the GPU). */
+.board-fly {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  contain: paint;
+  border-radius: inherit;
+  transition: rotate .6s ease;
+}
+
+body.table-flipped .board-fly {
+  rotate: 180deg;
+}
+
+.board-fly .fly {
+  position: absolute;
+  left: 0;
+  top: 0;
+  aspect-ratio: 1;
+  opacity: 0;
+}
+
+.board-fly .fly i {
+  position: absolute;
+  inset: 0;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 .06em .06em rgba(20, 50, 20, .35));
+  animation: flyFlap var(--flap, .32s) ease-in-out infinite alternate;
+}
+
+@keyframes flyFlap {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(var(--flap-to, .3)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-fly .fly i { animation: none; }
+}
+body.board-spring.table-flipped .grid::after {
+  rotate: 180deg;
+}
+body.table-flipped .board-flowers {
+  rotate: 180deg;
+}
+
+/* Spring: a lawn. A hedge-green frame, tiles of mown grass (two greens, in a chequer, with faint blades), symbols in deep
+   green, and in the margins of the tiles daisies, buttercups, little pink flowers, clover and leaves. */
+body.board-spring .div-table {
+  background: linear-gradient(145deg, #3f8f36, #28692b);
+  border-color: #2b6e2d;
+  box-shadow: 0 .25em .9em rgba(15, 45, 18, .35), inset 0 0 0 .08em rgba(255, 255, 255, .25);
+}
+
+body.board-spring .grid {
+  position: relative;
+  background: linear-gradient(145deg, #3f8f36, #28692b);
+}
+
+body.board-spring .grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1; /* over the tiles, under the pieces (z-index 2) */
+  pointer-events: none;
+  transition: rotate .6s ease;
+  background: linear-gradient(118deg, transparent 28%, rgba(255, 250, 200, .3) 43%, rgba(255, 250, 200, .05) 52%, transparent 62%);
+}
+
+/* The flowers of the spring board (syncBoardFlowers in linotte.js): each its own drawing, a gust moves them now and then. */
+.board-flowers {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  contain: paint;
+  border-radius: inherit;
+  transition: rotate .6s ease;
+}
+
+.board-flowers .bloom {
+  position: absolute;
+  display: block;
+  height: auto;
+  aspect-ratio: 1;
+  overflow: visible;
+}
+
+body.board-spring .tile {
+  border-color: #3a8032;
+  background-color: #b0e18a;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .1) 0 .12em, transparent .12em .42em),
+    linear-gradient(170deg, #b8e68f 0%, #a2d97a 60%, #8ccb66 100%);
+  box-shadow: inset 0 .1em .14em rgba(255, 255, 255, .55), inset 0 -.12em .22em rgba(30, 90, 30, .25);
+}
+
+body.board-spring .tile:nth-child(even) {
+  background-color: #9bd673;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .08) 0 .12em, transparent .12em .42em),
+    linear-gradient(170deg, #a6dc7d 0%, #90cf68 60%, #7bbf59 100%);
+}
+
+body.board-spring .tile::before {
+  background-image: none;
+  background-color: #1f4d27;
+  -webkit-mask: var(--tile-img) center / contain no-repeat;
+  mask: var(--tile-img) center / contain no-repeat;
+}

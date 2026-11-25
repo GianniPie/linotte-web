@@ -1,0 +1,61 @@
+/* Under a moving sky the blur would be worked out again at every frame, for nothing (a sky is soft already). */
+body.ink-storm .result {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* The storm sky is dark: light texts on it, a slate ink on the panels. Every theme declares the whole set of its ink (themes/README.md, "The ink"), even what it keeps as the default. */
+body.ink-storm {
+  --ink: #22303d;
+  --ink-bg: #eaf2fb;
+  --ink-bg-soft: rgba(234, 242, 251, .72);
+  --ink-bg-shadow: 0 .04em .1em rgba(8, 16, 28, .6);
+  --zone-bg: #ffffff5e;
+  --zone-border: #fff;
+  --result-on: #409ff8;
+  --result-icon: #fffeff;
+  --result-icon-on: #fffeff;
+  --call-on-border: #243241;
+}
+
+.fx-far { background-image: url("far.svg"); animation: fxDrift 110s steps(550) infinite; }
+.fx-mid { background-image: url("mid.svg"); animation: fxDrift 70s steps(525) infinite; }
+.fx-near { background-image: url("near.svg"); animation: fxDrift 42s steps(420) infinite; }
+
+.fx-glow,
+.fx-bolt {
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+}
+
+.fx-glow-a { background-image: url("glow-a.svg"); }
+.fx-glow-b { background-image: url("glow-b.svg"); }
+.fx-bolt-a { background-image: url("bolt-a.svg"); }
+.fx-bolt-b { background-image: url("bolt-b.svg"); }
+
+/* a lighter band at the very top, behind the menu icons and the players' boxes (they are dark and would get lost) */
+.fx-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: max(15%, 130px);
+  background: linear-gradient(rgba(176, 198, 230, .62), rgba(176, 198, 230, .3) 55%, rgba(176, 198, 230, 0));
+}
+
+/* the light of a flash over the whole sky, clouds included */
+.fx-light {
+  inset: 0;
+  background: #cfe4ff;
+  opacity: 0;
+}
+
+/* a drop that falls now and then (dropOnce in linotte.js) */
+.fx-drop {
+  top: 0;
+  width: 12px;
+  height: 60px;
+  background: url("streak.svg") center / 100% 100% no-repeat;
+  opacity: 0;
+}

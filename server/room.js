@@ -12,7 +12,7 @@
 import { randomUUID } from "node:crypto";
 import { updateGame, canRoll, callAllowed } from "../public/shared/gameEngine.js";
 import { createInitialGameState, rndNum } from "../public/shared/utils.js";
-import { piecesPath, pieces } from "../public/shared/assets.js";
+import { pieceSrc, pieces } from "../public/shared/assets.js";
 import { assignPieces, isPlayPiece, isThemePiece } from "../public/shared/pieces.js";
 import { tableSeat, ownsBackground, themeOfLook, FREE_LOOKS, validMode } from "../public/shared/level.js";
 import { CHAT, chatAllowed, NUDGE, NUDGE_COOLDOWN_MS, NUDGE_MAX_PER_GAME, emoteWaitMs, EMOTE_WINDOW_MS } from "../public/shared/chat.js";
@@ -25,7 +25,7 @@ import { HumanBot } from "./humanBot.js";
 const COORD = /^[0-4][0-4]$/;
 const EMPTY_CALLED = () => [null, null, null, false, false, false, false, false];
 
-const pieceOf = (i) => ({ pieceImage: piecesPath + pieces[i], color: "#" + pieces[i].split("_")[1].slice(0, 6) });
+const pieceOf = (i) => ({ pieceImage: pieceSrc(i), color: "#" + pieces[i].split("_")[1].slice(0, 6) });
 
 let roomCounter = 0;
 

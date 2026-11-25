@@ -37,6 +37,8 @@
     <script>
         try {
             var ownBg = localStorage.getItem("linotte-own-bg");
+            // (a path saved before the main theme's files moved into themes/classic)
+            if (ownBg) ownBg = ownBg.replace("/resources/images/backgrounds/", "/themes/classic/background/");
             if (ownBg) document.documentElement.style.setProperty("--own-bg", "url('" + ownBg + "')");
         } catch (e) { /* storage off: the default */ }
     </script>
@@ -45,6 +47,17 @@
 
     <link href="animations.css" rel="stylesheet" type="text/css" />
     <link href="linotte.css" rel="stylesheet" type="text/css" />
+    <link href="themes/core/core.css" rel="stylesheet" type="text/css" />
+    <link href="themes/classic/background/background.css" rel="stylesheet" type="text/css" />
+    <link href="themes/storm/background/background.css" rel="stylesheet" type="text/css" />
+    <link href="themes/storm/board/board.css" rel="stylesheet" type="text/css" />
+    <link href="themes/spring/background/background.css" rel="stylesheet" type="text/css" />
+    <link href="themes/spring/board/board.css" rel="stylesheet" type="text/css" />
+    <link href="themes/ice/background/background.css" rel="stylesheet" type="text/css" />
+    <link href="themes/ice/board/board.css" rel="stylesheet" type="text/css" />
+    <link href="themes/spring/piece/piece.css" rel="stylesheet" type="text/css" />
+    <link href="themes/ice/piece/piece.css" rel="stylesheet" type="text/css" />
+    <link href="themes/ice/dice/dice.css" rel="stylesheet" type="text/css" />
     <link href="online.css" rel="stylesheet" type="text/css" />
     <link href="home.css" rel="stylesheet" type="text/css" />
     <link href="demo.css" rel="stylesheet" type="text/css" />
@@ -809,14 +822,14 @@
             </div>
             <div class="div-resultsAndCalls" id="div-resultsAndCalls">
                 <div class="results">
-                    <div id="rr0" class="result" data-tip="Brelan"></div>
-                    <div id="rr1" class="result" data-tip="Sec"></div>
-                    <div id="rr2" class="result" data-tip="Appel"></div>
-                    <div id="rr3" class="result selectable" data-tip="Full"></div>
-                    <div id="rr4" class="result selectable" data-tip="Carré"></div>
-                    <div id="rr5" class="result selectable" data-tip="Petite"></div>
-                    <div id="rr6" class="result selectable" data-tip="Suite"></div>
-                    <div id="rr7" class="result selectable" data-tip="Yam"></div>
+                    <div id="rr0" class="result" data-tip="Brelan"><i class="rico"></i></div>
+                    <div id="rr1" class="result" data-tip="Sec"><i class="rico"></i></div>
+                    <div id="rr2" class="result" data-tip="Appel"><i class="rico"></i></div>
+                    <div id="rr3" class="result selectable" data-tip="Full"><i class="rico"></i></div>
+                    <div id="rr4" class="result selectable" data-tip="Carré"><i class="rico"></i></div>
+                    <div id="rr5" class="result selectable" data-tip="Petite"><i class="rico"></i></div>
+                    <div id="rr6" class="result selectable" data-tip="Suite"><i class="rico"></i></div>
+                    <div id="rr7" class="result selectable" data-tip="Yam"><i class="rico"></i></div>
                 </div>
                 <div class="calls">
                     <div id="cc0" class="call"></div>
@@ -952,47 +965,47 @@
                         <ul class="car-list">
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do0"><img
-                                        src="resources/images/dice/tr101.png"></div>
+                                        src="themes/classic/dice/traditional-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do1"><img
-                                        src="resources/images/dice/c101.svg"></div>
+                                        src="themes/classic/dice/classic-preview.svg"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do2"><img
-                                        src="resources/images/dice/red1.png"></div>
+                                        src="themes/classic/dice/red-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do3"><img
-                                        src="resources/images/dice/g107.svg"></div>
+                                        src="themes/classic/dice/flat-preview.svg"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do4"><img
-                                        src="resources/images/dice/ch001.png"></div>
+                                        src="themes/classic/dice/chinese-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do5"><img
-                                        src="resources/images/dice/pe001.png"></div>
+                                        src="themes/classic/dice/persian-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do6"><img
-                                        src="resources/images/dice/candy02.webp"></div>
+                                        src="themes/classic/dice/candy-preview.webp"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content die-options" id="do7"><img
-                                        src="resources/images/dice/space01.webp"></div>
+                                        src="themes/classic/dice/space-preview.webp"></div>
                             </li>
                             <li class="car-item" hidden><!-- a theme's look: shown to whoever has the theme (applyThemeAccess) -->
                                 <div class="car-item-content die-options" id="do8"><img
-                                        src="resources/images/dice/storm01.png"></div>
+                                        src="themes/storm/dice/preview.png"></div>
                             </li>
                             <li class="car-item" hidden>
                                 <div class="car-item-content die-options" id="do9"><img
-                                        src="resources/images/dice/spring01.png"></div>
+                                        src="themes/spring/dice/preview.png"></div>
                             </li>
                             <li class="car-item" hidden>
                                 <div class="car-item-content die-options" id="do10"><img
-                                        src="resources/images/dice/ice03.webp"></div>
+                                        src="themes/ice/dice/preview.webp"></div>
                             </li>
                         </ul>
                         <button class="car-button previous" data-carousel="die" data-direction="previous"
@@ -1010,51 +1023,51 @@
                         <ul class="car-list">
                             <li class="car-item">
                                 <div class="car-item-content bg-options" id="bg0"><img
-                                        src="resources/images/backgrounds/confetti-doodles-prev.png"></div>
+                                        src="themes/classic/background/confetti-doodles-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content bg-options" id="bg1"><img
-                                        src="resources/images/backgrounds/diamond-sunset-prev.png"></div>
+                                        src="themes/classic/background/diamond-sunset-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content bg-options" id="bg2"><img
-                                        src="resources/images/backgrounds/liquid-cheese-prev.png"></div>
+                                        src="themes/classic/background/liquid-cheese-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content bg-options" id="bg3"><img
-                                        src="resources/images/backgrounds/tortoise-shell-prev.png"></div>
+                                        src="themes/classic/background/tortoise-shell-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content bg-options" id="bg4"><img
-                                        src="resources/images/backgrounds/sun-tornado-prev.png"></div>
+                                        src="themes/classic/background/sun-tornado-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content bg-options" id="bg5"><img
-                                        src="resources/images/backgrounds/pattern-randomized-prev.png"></div>
+                                        src="themes/classic/background/pattern-randomized-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content bg-options" id="bg6"><img
-                                        src="resources/images/backgrounds/subtle-prism-prev.png"></div>
+                                        src="themes/classic/background/subtle-prism-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content bg-options" id="bg7"><img
-                                        src="resources/images/backgrounds/parabolic-ellipse-prev.png"></div>
+                                        src="themes/classic/background/parabolic-ellipse-preview.png"></div>
                             </li>
                             <li class="car-item">
                                 <div class="car-item-content bg-options" id="bg8"><img
-                                        src="resources/images/backgrounds/repeating-triangles-prev.png"></div>
+                                        src="themes/classic/background/repeating-triangles-preview.png"></div>
                             </li>
                             <li class="car-item" hidden><!-- a theme's look: shown to whoever has the theme (applyThemeAccess) -->
                                 <div class="car-item-content bg-options" id="bg9"><img
-                                        src="resources/images/backgrounds/storm-clouds-prev.png"></div>
+                                        src="themes/storm/background/preview.png"></div>
                             </li>
                             <li class="car-item" hidden>
                                 <div class="car-item-content bg-options" id="bg10"><img
-                                        src="resources/images/backgrounds/spring-meadow-prev.png"></div>
+                                        src="themes/spring/background/preview.png"></div>
                             </li>
                             <li class="car-item" hidden>
                                 <div class="car-item-content bg-options" id="bg11"><img
-                                        src="resources/images/backgrounds/ice-glacier-prev.png"></div>
+                                        src="themes/ice/background/preview.png"></div>
                             </li>
                         </ul>
                         <button class="car-button previous" data-carousel="bg" data-direction="previous"
@@ -1069,10 +1082,10 @@
                     <div class="opt-current" id="boardskin-current"></div>
                     <div class="car-list-wrapper">
                         <div class="car-list list-centered">
-                            <div class="car-item skin-options" id="bs0"><img src="resources/images/board-classic-prev.png"></div>
-                            <div class="car-item skin-options" id="bs1" hidden><img src="resources/images/board-storm-prev.png"></div>
-                            <div class="car-item skin-options" id="bs2" hidden><img src="resources/images/board-spring-prev.png"></div>
-                            <div class="car-item skin-options" id="bs3" hidden><img src="resources/images/board-ice-prev.png"></div>
+                            <div class="car-item skin-options" id="bs0"><img src="themes/classic/board/preview.png"></div>
+                            <div class="car-item skin-options" id="bs1" hidden><img src="themes/storm/board/preview.png"></div>
+                            <div class="car-item skin-options" id="bs2" hidden><img src="themes/spring/board/preview.png"></div>
+                            <div class="car-item skin-options" id="bs3" hidden><img src="themes/ice/board/preview.png"></div>
                         </div>
                         <button class="car-button previous" data-carousel="boardskin" data-direction="previous"
                             type="button"></button>
