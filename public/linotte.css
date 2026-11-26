@@ -254,7 +254,7 @@ html {
   inset: -.5em; /* .25em outside the box's border */
   z-index: -1;
   border-radius: .875em;
-  background: var(--glow);
+  background-color: inherit; /* the colour of the box itself (its piece's): never a leftover of another game's */
   pointer-events: none;
   animation: glowBreath 2s infinite ease-in-out;
 }
@@ -1040,6 +1040,7 @@ body.table-flipped .tile::before {
 
 .wrapDie {
   aspect-ratio: 1/1;
+  isolation: isolate; /* the die's shadow sits behind its picture, inside this box */
   width: 85%;
   /* Whole even pixels (so also whole device pixels at 2x/3x): the dice are a
      sprite scaled to the box, and at a fractional size like 60.56px the
@@ -1074,6 +1075,9 @@ body.table-flipped .tile::before {
      16px for the phone's 60px die. */
   font-size: round(down, calc(min(17cqi, 100cqh) * .2667), 1px);
   border-radius: 0.75em;
+  position: relative;
+  /* how far inside the picture the shadow's square sits (see ::before) */
+  --die-gap: .1875em;
   width: 100%;
   aspect-ratio: 1 / 1;
   background-repeat: no-repeat;
@@ -1085,21 +1089,46 @@ body.table-flipped .tile::before {
      animation swaps the transform out. */
 }
 
-.die.black-shadow {
-  box-shadow: rgb(0, 0, 0, .4) .1875em .3125em .4375em .1875em;
+.die::before {
+  /* The shadow and the selection ring are not drawn by the die itself but by a square a few px smaller, concentric
+     and behind its picture: the picture's corners never match the box's exactly, and this way whatever is left
+     uncovered at a corner is filled by the shadow (or the yellow of the ring) instead of showing the table. Their
+     spread grows by the same gap, so the outside is exactly where it was. */
+  content: "";
+  position: absolute;
+  inset: var(--die-gap);
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
 }
 
-/* the ice dice are transparent: their shadow is a soft cold blue, as seen through ice on a blue ground */
-.die.red-shadow {
-  box-shadow: rgba(255, 59, 59, 0.6) .3125em .3125em .625em .125em;
+.die.black-shadow::before {
+  box-shadow: rgb(0, 0, 0, .4) .1875em .3125em .4375em calc(.1875em + var(--die-gap));
+}
+
+/* the red die has its own, hotter shadow */
+.die.red-shadow::before {
+  box-shadow: rgba(255, 59, 59, 0.6) .3125em .3125em .625em calc(.125em + var(--die-gap));
 }
 
 /* Same idea as .call.checked: the ring is a plain style (declared after
    .die.black-shadow/.red-shadow, so it replaces their shadow), and the
    press animation doesn't stay filled on the die afterwards. */
+.die.selected::before {
+  box-shadow: rgb(255, 234, 0) 0 0 0 calc(var(--select-ring, .3125em) + var(--die-gap));
+}
+
+/* The press is played by the wrapper, on its own `scale` (it composes with the wrapper's tilt): a transform on the die
+   itself would make it a layer of its own, and the square behind its picture (::before) would jump in front of it
+   for the length of the animation. */
+.wrapDie:has(> .die.selected) {
+  animation: bounceDieWrap .3s ease-out; /* 2.7.0 timing */
+}
+
+/* (the generic .selected below gives a ring and a press to everything else; a die takes neither: see above and ::before) */
 .die.selected {
-  box-shadow: rgb(255, 234, 0) 0 0 0 var(--select-ring, .3125em);
-  animation: bounceDie .3s ease-out; /* 2.7.0 timing */
+  box-shadow: none;
+  animation: none;
 }
 
 /* The selection ring is .3em of the element's own font size, so the larger
@@ -1554,7 +1583,7 @@ html.is-resizing *::after {
     transform: none;
   }
 
-  .die.selected,
+  .wrapDie:has(> .die.selected),
   .selected {
     animation-duration: 0.01ms;
   }

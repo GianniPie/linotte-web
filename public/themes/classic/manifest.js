@@ -21,7 +21,7 @@ export default {
     { index: 0, skin: "classic", name: "Classic", preview: "themes/classic/board/preview.png" },
   ],
   dice: [
-    { index: 0, name: "TRADITIONAL", sprite: "themes/classic/dice/traditional.png", preview: "themes/classic/dice/traditional-preview.png", radius: 15.5, unlock: 6 },
+    { index: 0, name: "TRADITIONAL", sprite: "themes/classic/dice/traditional.webp", preview: "themes/classic/dice/traditional-preview.webp", radius: 14, unlock: 6 },
     { index: 1, name: "CLASSIC", sprite: "themes/classic/dice/classic.svg", preview: "themes/classic/dice/classic-preview.svg", radius: 19.5, unlock: 2 },
     { index: 2, name: "RED", sprite: "themes/classic/dice/red.png", preview: "themes/classic/dice/red-preview.png", radius: 14, unlock: 4 },
     { index: 3, name: "FLAT", sprite: "themes/classic/dice/flat.svg", preview: "themes/classic/dice/flat-preview.svg", radius: 19.5, default: true },

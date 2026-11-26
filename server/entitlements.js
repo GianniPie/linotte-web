@@ -111,6 +111,12 @@ export async function accessFor({ userId = null, devToken = "" } = {}, {
   }
 }
 
+// For testing outside production, the "dev-admin" token also gives the points of the top level (50), so every look
+// (dice, backgrounds) is open on the app and on the server alike, whatever the signed-in account really has: before,
+// the app was at the account's own level and the looks stayed locked. Only what is read is changed, nothing is written.
+export const DEV_ADMIN_XP = 2275; // level 50, see levelOf in public/shared/level.js
+export const devXp = (devToken) => (ALLOW_DEV_PRO && devToken === "dev-admin" ? DEV_ADMIN_XP : null);
+
 // Does the account have Pro's things? (From pro up, the star or not.)
 export async function isPro(who, options) {
   return (await accessFor(who, options)).pro;

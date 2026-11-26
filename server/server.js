@@ -11,7 +11,7 @@ import { Server } from "socket.io";
 import { PORT, CONSENT_VERSION, EMOTES, ROOMS_NEED_PRO, isOriginAllowed } from "./config.js";
 import { Lobby, normalizeCode } from "./lobby.js";
 import { nameFromId } from "./names.js";
-import { isPro, forgetPro, accessFor } from "./entitlements.js";
+import { isPro, forgetPro, accessFor, devXp } from "./entitlements.js";
 import { accountStats } from "./results.js";
 import { todayStatus, grantAdReward, weeklyLeaderboard, clampTz } from "./bonuses.js";
 import { markOnline, markOffline, socketsOf, isOnline, friendsOf, areFriends, setActivity, presenceOf } from "./friends.js";
@@ -85,8 +85,9 @@ app.get("/api/me", async (req, res) => {
   const devToken = req.get("X-Linotte-Dev") || ""; // ?devpro=1, see online.js
   const [access, stats, today] = await Promise.all([accessFor({ userId, devToken }), accountStats(userId), todayStatus(userId, { tz: req.query.tz })]);
   const pro = access.pro;
+  const xp = devXp(devToken) ?? stats.xp; // (the dev-admin token shows the top level, see devXp)
   // xp null: Supabase couldn't be read just now, the app keeps what it had.
-  res.json({ signedIn: Boolean(userId), pro, star: access.star, role: access.role, xp: stats.xp, level: stats.xp === null ? null : levelOf(stats.xp), record: stats.record, ...today });
+  res.json({ signedIn: Boolean(userId), pro, star: access.star, role: access.role, xp, level: xp === null ? null : levelOf(xp), record: stats.record, ...today });
 });
 
 // A rewarded ad watched to the end (see ads.js): +1 level point, a few times
@@ -289,7 +290,7 @@ async function setStats(socket) {
   const stats = await accountStats(d.userId); // a guest has none the server can trust
   if (stats.xp === null && d.statsFor === d.userId) return;
   d.statsFor = d.userId;
-  d.xp = stats.xp ?? 0;
+  d.xp = (d.userId ? devXp(d.devToken) : null) ?? stats.xp ?? 0; // (dev-admin: the top level, see devXp)
   d.level = levelOf(d.xp); // the number on the badge
   d.record = stats.record ?? { played: 0, won: 0 }; // games played and won online, for the player card
 }
@@ -340,9 +341,9 @@ io.on("connection", (socket) => {
     socket.data.claims = p.claims === true; // an app that plays the points video and asks for the points (Lobby#heldSeats)
     // Signed in: the account (not the device) gives the name, so it's the
     // same on every phone. Guests: the device's own id.
+    socket.data.devToken = typeof p.entitlement?.devToken === "string" ? p.entitlement.devToken : ""; // (before setAccount: it reads the points with it)
     await setAccount(socket, p.accessToken);
     socket.data.consentVersion = Number(p.consentVersion) || 0;
-    socket.data.devToken = typeof p.entitlement?.devToken === "string" ? p.entitlement.devToken : "";
     socket.data.piece = Number.isInteger(p.piece) ? p.piece : -1; // favorite piece, see shared/pieces.js
     socket.data.background = Number.isInteger(p.background) ? p.background : FREE_LOOKS.background; // see tableSeat
     socket.data.board = Number.isInteger(p.board) ? p.board : null; // a theme's board and dice come with its background

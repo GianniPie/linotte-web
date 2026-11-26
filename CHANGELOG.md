@@ -12,6 +12,19 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.14] - 2026-11-26
+
+### Changed
+- **The TRADITIONAL dice are new:** warmer wooden dice (a new sprite and preview, as webp; each face is cut to the die and fills its frame like the other dice, and the corners are measured again, so the shadow and the selection ring fit). The shadow and the yellow ring of every die are drawn by a square a few px smaller, concentric and behind the picture, so whatever the picture leaves uncovered at a corner is filled instead of showing the table; the selection bounce is played by the die's wrapper (`scale`), so the ring never jumps in front of the picture while it plays.
+- **Six pieces that were well-known characters are replaced by new drawings of the same colour**, so the app can be sold without using anyone else's characters: the blue ghost is a smooth little ghost with blushing cheeks, the dark red crewmate an astronaut, the green one-eyed monster a frog, the orange-tan cub a lion cub with a mane, the yellow chomper a rubber duck, the blue robot cat an octopus. Same files and same colours, so nobody's choice changes.
+- **A support page** (`legal/support.html`, in English like the Terms and the Privacy Policy): how to reach us, how to report a problem from the app, restore a purchase, delete an account, report a player. It is the address the stores ask for as the support URL; it is at `/legal/support.html` on the site for now and moves with the domain.
+- **The gust of wind over the Spring meadow is a wave, and a stronger one:** the grass and the flowers lean up to 5.5 and 8 degrees (it was 2.4 and 3.6), every 16 to 36 seconds. While a gust lasts, each layer is cut into six slices that lean one after another, from the side the wind comes from, and swing with less and less force; the force, the speed, the rhythm and the side change every time, and the back layer follows the front one a little later and slower. The slices have hard edges that overlap by a hair: a soft cross-fade drew the flowers in it twice, half see-through, so the back ones went pale and ghosted for the length of the gust.
+- **For testing, the app and the server agree on the points of a developer device.** With the developer token (`dev-admin`, only outside production) the server answers with the points of the top level (50) when it is asked for the account's points and on the game connection, so every dice and background is open in the options and accepted by the server, whatever the signed-in account really has. Before, the app showed the account's own level (the points put in the page by hand were overwritten at once) and the looks stayed locked. Nothing is written to the account: only what is read changes. In production the token does nothing.
+
+### Fixed
+- **The symbols of the combinations were missing in the how-to videos** (How to play > the play buttons): since the symbols became one drawing painted by a mask, the videos still built the boxes the old way, as a picture copied from the game's own boxes. They now build the same box, with the symbol inside, so they follow the background's colours like the game.
+- **The glow of the player on turn could show another colour** (a red glow around a black box): it took its colour from a separate variable that a game left behind on the box. It is the box's own colour now, the one of its piece, always.
+
 ## [2.35.13] - 2026-11-25
 
 ### Changed

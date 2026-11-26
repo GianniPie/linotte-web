@@ -101,7 +101,9 @@ function build() {
     const results = el("div", "results", strip);
     const calls = el("div", "calls", strip);
     for (let i = 0; i < 8; i++) {
-        els.results.push(el("div", "result" + (i >= 3 ? " selectable" : ""), results));
+        const result = el("div", "result" + (i >= 3 ? " selectable" : ""), results);
+        el("i", "rico", result); // the symbol, painted by a mask (see .rico in linotte.css)
+        els.results.push(result);
         els.calls.push(el("div", "call" + (i >= 3 ? " selectable" : ""), calls));
     }
 
@@ -169,7 +171,7 @@ function dressLikeTheGame() {
         els.tiles[rc].style.setProperty("--tile-img", getComputedStyle(real).getPropertyValue("--tile-img"));
     }
     els.results.forEach((r, i) => {
-        r.style.backgroundImage = getComputedStyle(document.getElementById("rr" + i)).backgroundImage;
+        r.style.setProperty("--result-img", getComputedStyle(document.getElementById("rr" + i)).getPropertyValue("--result-img"));
     });
     const realDie = document.getElementById("dd1");
     els.dice.forEach((d) => {
