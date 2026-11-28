@@ -12,6 +12,14 @@ then turns it into a numbered, dated version and bumps the number everywhere.
 
 ## [Unreleased]
 
+## [2.35.15] - 2026-11-28
+
+### Changed
+- **When something outside the game holds off the vibration or the animated effects, the switch says so.** With a low battery (20% or less, not charging) the effects pause by themselves and the phone's battery saver usually turns vibration off, and the player could not tell why. Now the two switches in the options are not lit (no yellow ring) while the cause lasts, a tap on one explains it in a message (in the six languages) instead of changing it, and the light comes back by itself when the cause is gone, if the player had it on: their own choice is never changed. The phone's "reduce motion" setting is handled the same way for the effects, and it now takes effect the moment it is turned on or off.
+- **The board is a layer of its own all the time** (`will-change: transform` on `.div-table`), to stop the one-frame dropouts seen on a phone: a lit tile's ring or a piece vanishing for a moment, mostly around a lightning of the Storm sky, when the effects' layers come and go. The lines of the board stay sharp. To be checked with a recording while playing.
+- **The moving layers of the pieces stay layers of their own** (`.pfx`, `will-change: transform`), where they were made and dropped at every movement: late in a game, with twenty pieces, that was about one change of the browser's layers every second, four times the traffic of the first turns, and the moment the blinks of a piece, of a lit tile's ring or of the dice were seen to grow. Measured on a phone: the layers of the pieces no longer come and go. Two small layers per piece.
+- **The gust of wind over the Spring meadow costs about as little as the rest of the sky.** Its slices are plain boxes, each drawing the same picture in the same place, instead of copies cut through a mask: measured in a Chromium on Android during three gusts in 19 seconds, the mask made the browser redraw the slices at every frame (about 2100 redraws, against 119 with no gust, and the layers born and dropped more than 1500 times); now there are 153 redraws and almost no layer is born or dropped. The wave looks the same. A gust that starts while another is still going on is skipped, and the first one of a session sways the layer whole until the size of its picture is known.
+
 ## [2.35.14] - 2026-11-26
 
 ### Changed

@@ -199,7 +199,7 @@ import "./a11y.js"; // roles, names, keyboard and states for the buttons that ar
 import { THEMES, themeById } from "./shared/themes.js";
 import { startFlip } from "./themes/core/theme-core.js";
 import { initThemeHost, showBackground as showThemeBackground, showBoard, remount, boardPlace, boardRedraw } from "./themes/core/theme-host.js";
-import { initMotion, setMotionPreference, motionPreference } from "./themes/core/motion.js";
+import { initMotion, setMotionPreference, motionPreference, outsideBlock, batteryIsLow, onOutsideBlockChange } from "./themes/core/motion.js";
 import { PIECE_FX } from "./themes/registry.js";
 import { watchPieces, resyncPieces } from "./themes/core/piece-fx.js";
 import { pushOffered, pushEnabled, pushUndecided, enablePush, disablePush, syncPush, forgetPushSync, listenForPushTaps } from "./push.js";
@@ -1103,14 +1103,29 @@ rememberOwnBg(selectedBg);
 let isVolumeOn = true;
 isVolumeOn = toBoolean(getCookie("volumeOn", "true"));
 // A switch of the "Sound and effects" island: a button lit in yellow while it is on.
-function bindSwitch(id, isOn, set) {
+// A switch of the options. `blocked()` (optional) says, when something outside the player's hands holds the thing off (a
+// low battery, the phone's reduce-motion setting), why: a text. Then the switch is not lit (the player's own choice is
+// kept, and the light comes back by itself when the cause is gone) and a tap explains instead of changing it.
+const switchPainters = [];
+function bindSwitch(id, isOn, set, blocked = () => null) {
     const btn = document.getElementById(id);
-    const paint = () => { btn.classList.toggle("selected", isOn()); btn.setAttribute("aria-checked", String(isOn())); };
-    const flip = () => { set(!isOn()); paint(); };
+    const paint = () => {
+        const held = Boolean(blocked());
+        btn.classList.toggle("selected", isOn() && !held);
+        btn.classList.toggle("is-blocked", held);
+        btn.setAttribute("aria-checked", String(isOn() && !held));
+    };
+    const flip = () => {
+        const why = blocked();
+        if (why) { showToast(why, 5000); return; }
+        set(!isOn()); paint();
+    };
     btn.addEventListener("click", flip);
     btn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } });
+    switchPainters.push(paint);
     paint();
 }
+onOutsideBlockChange(() => switchPainters.forEach((paint) => paint()));
 
 
 function setCookie(name, value, days = 365) {
@@ -1523,7 +1538,10 @@ function moveIndicator(page) {
 // Vibration is its own switch (it used to follow the sound, which left a phone
 // with the sound off silent AND still). Not offered where the browser can't vibrate.
 // The moving effects: on or off (the player's switch; see themes/core/motion.js for the rest).
-bindSwitch("fx-toggle", motionPreference, (on) => { setCookie("fxOn", on); setMotionPreference(on); });
+bindSwitch("fx-toggle", motionPreference, (on) => { setCookie("fxOn", on); setMotionPreference(on); }, () => ({
+    battery: t("The animated effects are paused while the battery is low (20% or less). They start again by themselves when it is charging."),
+    reduce: t("The animated effects are off because the phone is set to reduce motion (in its accessibility settings)."),
+}[outsideBlock()] || null));
 
 let isVibrationOn = toBoolean(getCookie("vibrationOn", "true"));
 if (!("vibrate" in navigator)) document.getElementById("vibration-item").hidden = true;
@@ -1531,7 +1549,7 @@ bindSwitch("vibration-toggle", () => isVibrationOn, (on) => {
     isVibrationOn = on;
     setCookie("vibrationOn", on);
     if (on) navigator.vibrate?.(40); // so it can be felt at once
-});
+}, () => (batteryIsLow() ? t("The phone usually turns vibration off when the battery is low (battery saver). It will work again once it is charging.") : null));
 
 // Notifications (the store apps, signed in): a friend who comes to a waiting room while the phone is locked is
 // told to the owner by a notification. Opt-in, per account: the first answer is asked on the waiting sheet, this

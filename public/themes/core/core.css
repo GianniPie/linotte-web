@@ -37,6 +37,10 @@ body.flipping .button.roll.nudge {
   pointer-events: none;
   background-size: 100% 100%;
   background-repeat: no-repeat;
+  /* Always a layer of its own, not only while it moves: a layer that is made and dropped at every movement (about one every
+     second late in a game, with twenty pieces) makes the browser rebuild its layers each time, and a piece, a lit tile's
+     ring or a die was seen to blink for a frame then. Two small layers per piece, a few MB in all. */
+  will-change: transform;
 }
 
 /* ----- what turns at the table, and how (FLIP, same table) -----

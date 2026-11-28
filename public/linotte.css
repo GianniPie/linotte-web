@@ -543,6 +543,11 @@ html {
    up no matter whose turn it is. */
 .div-table {
   transition: transform .6s ease;
+  /* The board is a layer of its own all the time, not only while it turns. The effects of a sky (a bolt, a petal, a glint)
+     come and go as layers of their own, and each time the page's layers change the browser may paint again what lies
+     over them: the lit tiles' rings and the pieces were seen to drop out for one frame, mostly around a lightning. With
+     its own layer the board is painted once and left alone. */
+  will-change: transform;
 }
 
 @media (orientation: portrait) {
